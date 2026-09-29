@@ -74,7 +74,9 @@ insert into products (id, partner_id, establishment_id, type, name, price_cop, s
 insert into product_availability (product_id, date, capacity, booked) values
   ('88960000-0000-4000-8000-000000000031', '2029-06-01', 10, 0),  -- create_order (anon)
   ('88960000-0000-4000-8000-000000000031', '2029-06-05', 10, 0),  -- create_manual_order_line (operator)
-  ('88960000-0000-4000-8000-000000000031', '2029-06-10', 10, 0),  -- modify_order_line, date source
+  -- booked 1 : la ligne 'reserved' (qty 1) posée en direct plus bas occupe 1 place ce jour-là, que
+  -- modify_order_line rend en la remplaçant (booked >= 0 est une contrainte depuis 20260929112240).
+  ('88960000-0000-4000-8000-000000000031', '2029-06-10', 10, 1),  -- modify_order_line, date source
   ('88960000-0000-4000-8000-000000000031', '2029-06-11', 10, 0);  -- modify_order_line, date cible
 
 -- Fixture dédiée à modify_order_line (ligne 'reserved' construite directement, pas via create_order,
