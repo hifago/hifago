@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
+import { safeNextPath } from "@hifago/domain";
 import { SignupForm } from "./SignupForm";
 
 export async function generateMetadata(
@@ -28,7 +29,7 @@ export default async function SignupPage({
 
   const resolvedSearchParams = await searchParams;
   const nextParam = resolvedSearchParams?.next;
-  const next = typeof nextParam === "string" && nextParam.startsWith("/") ? nextParam : "/";
+  const next = safeNextPath(nextParam);
 
   // Spec 33 — `?email=` est posé par l'écran de résultat d'une commande (`/reserva/<jeton>`), qui
   // propose de créer un compte. Le pré-remplir n'est pas un confort : le rattachement des commandes

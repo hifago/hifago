@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
+import { safeNextPath } from "@hifago/domain";
 import { LoginForm } from "./LoginForm";
 
 export async function generateMetadata(
@@ -25,7 +26,7 @@ export default async function LoginPage({
 
   const resolvedSearchParams = await searchParams;
   const nextParam = resolvedSearchParams?.next;
-  const next = typeof nextParam === "string" && nextParam.startsWith("/") ? nextParam : "/";
+  const next = safeNextPath(nextParam);
 
   // `?error=auth_callback_failed` est posé par `app/auth/callback/route.ts`. Le paramètre existait
   // depuis la feature 32 et PERSONNE ne le lisait : un échec de confirmation d'email ramenait sur un

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@hifago/supabase/server";
-import { resolveOrigin } from "@hifago/domain";
+import { resolveOrigin, safeNextPath } from "@hifago/domain";
 
 const EMAIL_OTP_TYPES = ["signup", "recovery", "email_change", "invite", "email"] as const;
 type EmailOtpType = (typeof EMAIL_OTP_TYPES)[number];
@@ -25,8 +25,8 @@ export async function GET(request: Request) {
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type");
   const nextParam = url.searchParams.get("next");
-  // Jamais une redirection ouverte : uniquement un chemin relatif propre au site.
-  const next = nextParam && nextParam.startsWith("/") ? nextParam : "/";
+  // Jamais une redirection ouverte : uniquement un chemin interne au site.
+  const next = safeNextPath(nextParam);
   // Même piège que api/payments/create/route.ts (feature 32) : request.url seul retombe sur
   // l'adresse locale du serveur derrière un reverse proxy/tunnel — X-Forwarded-Host prime.
   const origin = resolveOrigin({

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { safeNextPath } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/server";
 import { checkMfaGuard } from "@/lib/mfaGuard";
 import { MfaEnrollForm } from "./MfaEnrollForm";
@@ -13,14 +14,14 @@ export const metadata: Metadata = {
 export default async function MfaEnrollPage({ searchParams }: PageProps<"/mfa/enroll">) {
   const resolvedSearchParams = await searchParams;
   const nextParam = resolvedSearchParams?.next;
-  const next = typeof nextParam === "string" && nextParam.startsWith("/") ? nextParam : "/";
+  const next = safeNextPath(nextParam);
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    redirect(`/login?next=/mfa/enroll?next=${encodeURIComponent(next)}`);
+    redirect(`/login?next=${encodeURIComponent(`/mfa/enroll?next=${encodeURIComponent(next)}`)}`);
   }
 
   // Navigation directe vers cet écran alors que l'enrôlement n'est plus nécessaire (déjà fait, ou

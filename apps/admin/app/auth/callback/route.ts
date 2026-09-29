@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeNextPath } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/server";
 import { createServiceRoleClient } from "@hifago/supabase/service";
 import { checkMfaGuard } from "@/lib/mfaGuard";
@@ -36,6 +37,22 @@ function wasJustCreated(user: { created_at: string; last_sign_in_at?: string | n
   return delta < 5000;
 }
 
+// Contexte d'invitation établi sur l'ÉTAT RÉEL, pas sur la seule destination : `next` vient de
+// l'URL, donc de quiconque a construit le lien. Le compte fraîchement créé n'est gardé que si `next`
+// (déjà filtré par safeNextPath) mène exactement à /partner/join avec un jeton que
+// check_partner_invitation déclare encore valide — une erreur de vérification vaut refus.
+async function arrivesWithValidInvitation(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  next: string,
+  origin: string
+) {
+  const target = new URL(next, origin);
+  const token = target.pathname === "/partner/join" ? target.searchParams.get("token") : null;
+  if (!token) return false;
+  const { data, error } = await supabase.rpc("check_partner_invitation", { p_token: token });
+  return !error && (data as { ok?: boolean } | null)?.ok === true;
+}
+
 // Feature 31 (docs/specs/07-connexion-inscription-complete.md §5) — point d'atterrissage unique
 // pour deux flux distincts : l'échange de code OAuth Google (exchangeCodeForSession) et la
 // vérification des liens email construits avec {{ .TokenHash }} (verifyOtp), jamais le
@@ -48,9 +65,9 @@ export async function GET(request: Request) {
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type");
   const nextParam = url.searchParams.get("next");
-  // Jamais une redirection ouverte : uniquement un chemin relatif propre au site, même garde que
+  // Jamais une redirection ouverte : uniquement un chemin interne au site, même garde que
   // login/page.tsx.
-  const next = nextParam && nextParam.startsWith("/") ? nextParam : "/";
+  const next = safeNextPath(nextParam);
 
   const supabase = await createClient();
 
@@ -71,8 +88,7 @@ export async function GET(request: Request) {
   // Nettoyage a posteriori (voir commentaire de fonction ci-dessus) — avant toute autre logique
   // (2FA compris), un compte fantôme ne doit jamais atteindre /mfa/* ni la destination finale.
   if (user && isFreshAccountCreation(type, Boolean(code)) && wasJustCreated(user)) {
-    const isInvitationFlow = next.startsWith("/partner/join");
-    if (!isInvitationFlow) {
+    if (!(await arrivesWithValidInvitation(supabase, next, url.origin))) {
       const service = createServiceRoleClient();
       await service.auth.admin.deleteUser(user.id);
       await supabase.auth.signOut();
