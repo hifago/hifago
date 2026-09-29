@@ -4,6 +4,7 @@
  *
  *   node scripts/docs_index.js --build   → (re)génère docs/ai-index.json ET docs/INDEX.md
  *   node scripts/docs_index.js --check   → vérifie la cohérence, sort en erreur si dérive
+ *   node scripts/docs_index.js --build --staged → idem --build, depuis l'index git (hook pre-commit)
  *
  * Même mécanisme que le manifeste du dépôt racine (`scripts/docs_index.js` à la racine du repo
  * Casa Kayam) — dupliqué ici plutôt que partagé car `hifago/` est un dépôt git séparé, cloné
@@ -90,6 +91,26 @@ function walk(dir, acc = []) {
   return acc;
 }
 
+/**
+ * `--staged` (utilisé par le hook pre-commit) : lire les documents dans l'INDEX git, pas dans
+ * l'arbre de travail. POURQUOI : le hook régénérait depuis l'arbre de travail, donc une ligne
+ * modifiée mais non mise en scène dans une spec finissait dans le manifeste commité alors que la
+ * spec commitée ne l'avait pas — et la CI, qui relit le contenu commité, passait au rouge. `ko`
+ * arrondi au Ko amortissait le défaut ; les plages de lignes de `docs/INDEX.md` ne l'amortissent pas.
+ */
+const STAGED = process.argv.includes('--staged');
+
+function listerDocuments() {
+  if (!STAGED) return walk(DOCS).map((f) => path.relative(ROOT, f).replace(/\\/g, '/')).sort();
+  const out = execFileSync('git', ['ls-files', '-z', '--', 'docs'], { cwd: ROOT, encoding: 'utf8' });
+  return out.split('\0').filter((rel) => rel.endsWith('.md') && rel !== 'docs/INDEX.md').sort();
+}
+
+function lireDocument(rel) {
+  if (!STAGED) return fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  return execFileSync('git', ['show', `:${rel}`], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+}
+
 /** Parseur d'en-tête minimal : suffisant pour le sous-ensemble YAML qu'on s'autorise. */
 function parseFrontMatter(text) {
   if (!text.startsWith('---\n')) return null;
@@ -174,7 +195,9 @@ function refuseSiSuperficiel() {
 
 function gitMaj(file) {
   try {
-    const statut = execFileSync('git', ['status', '--porcelain', '--', file], { cwd: ROOT, encoding: 'utf8' });
+    // Avec --staged, seul ce qui entre dans le commit compte comme « modifié aujourd'hui ».
+    const args = STAGED ? ['diff', '--cached', '--name-only', '--', file] : ['status', '--porcelain', '--', file];
+    const statut = execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' });
     if (statut.trim()) return aujourdHuiBogota();
   } catch {
     // Pas un repo git (ou commande indisponible) : on retombe sur `log`, qui échouera pareil.
@@ -193,9 +216,8 @@ function gitMaj(file) {
 function collect() {
   const docs = [];
   const problemes = [];
-  for (const file of walk(DOCS).sort()) {
-    const rel = path.relative(ROOT, file).replace(/\\/g, '/');
-    const text = fs.readFileSync(file, 'utf8');
+  for (const rel of listerDocuments()) {
+    const text = lireDocument(rel);
     const fm = parseFrontMatter(text);
     if (!fm) { problemes.push(`${rel} — en-tête \`---\` absent ou illisible`); continue; }
     for (const champ of ['id', 'titre', 'theme', 'statut', 'resume']) {

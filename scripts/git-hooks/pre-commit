@@ -2,21 +2,19 @@
 # Hook git pre-commit — régénère le manifeste documentaire quand un document change.
 #
 # POURQUOI (revue de CI du 2026-09-19). `docs/ai-index.json` et `docs/INDEX.md` sont GÉNÉRÉS puis
-# COMMITTÉS, et chaque entrée porte deux champs volatils : `maj`, dérivé de `git log -1` (donc de
-# l'historique, pas du contenu), et `ko`, la taille du fichier. Tout commit touchant un docs/*.md
-# périme donc le manifeste — même pour une virgule.
-#
-# Or les deux fichiers les plus souvent touchés du dépôt sont `docs/journal/<mois>.md` et
-# `docs/backlog.md`, parce que CLAUDE.md §12 et AGENTS.md §3 IMPOSENT de les mettre à jour en fin de
-# session. La règle du projet garantissait donc un `docs:check` rouge à quasi chaque session :
-# 3 des 15 derniers échecs du job `lint`, et l'index était encore périmé sur main le 2026-09-19.
+# COMMITTÉS : tout commit qui touche un docs/*.md peut les périmer (taille, statut, plage de la §0
+# d'une spec…). Or les deux fichiers les plus souvent touchés du dépôt sont `docs/journal/<mois>.md`
+# et `docs/backlog.md`, parce que CLAUDE.md §12 IMPOSE de les mettre à jour en fin de session. La
+# règle du projet garantissait donc un `docs:check` rouge à quasi chaque session : 3 des 15 derniers
+# échecs du job `lint`, et l'index était encore périmé sur main le 2026-09-19.
 #
 # Plutôt que de VÉRIFIER après coup un fichier que le processus périme structurellement, on le
 # REGÉNÈRE au moment où il le périme. `docs:check` reste en CI comme filet.
 #
-# Pourquoi au pre-commit et pas au pre-push : `maj` vaut « aujourd'hui » tant que le document n'est
-# pas commité (docs_index.js:178), puis la date du commit ensuite. Régénérer à l'instant du commit
-# est le seul moment où les deux coïncident.
+# `--staged` : la génération lit l'INDEX git, pas l'arbre de travail — une modification non mise en
+# scène ne doit pas entrer dans le manifeste commité (la CI relit le contenu commité).
+# Déclenché aussi par une suppression (`D`) et par une modification du générateur lui-même.
+# `pre-merge-commit` délègue ici : un commit de fusion sans conflit ne passe pas par pre-commit.
 #
 # Contournable par `git commit --no-verify`, comme le pre-push.
 
@@ -25,16 +23,19 @@ set -uo pipefail
 racine="$(git rev-parse --show-toplevel)"
 cd "$racine" || exit 0
 
-# Rien à faire si aucun document n'est mis en scène — la quasi-totalité des commits de code.
-if ! git diff --cached --name-only --diff-filter=ACMR | grep -qE '^docs/.*\.md$'; then
+# Rien à faire si aucun document ni le générateur n'est mis en scène — la quasi-totalité des
+# commits de code.
+if ! git diff --cached --name-only --diff-filter=ACMRD | grep -qE '^(docs/.*\.md|scripts/docs_index\.js)$'; then
   exit 0
 fi
 
-[ -d node_modules ] || exit 0
+# Le générateur est du JS nu sans dépendance : seul `node` est requis (un worktree frais n'a pas
+# de node_modules, et ce n'est pas une raison pour sauter la régénération en silence).
+command -v node >/dev/null 2>&1 || exit 0
 
-echo "pre-commit : un document a changé, régénération du manifeste (npm run docs:index)…"
+echo "pre-commit : un document a changé, régénération du manifeste (docs_index.js --build --staged)…"
 
-if ! npm run --silent docs:index; then
+if ! node scripts/docs_index.js --build --staged; then
   echo
   echo "✗ La régénération a échoué — il y a un vrai problème dans les en-têtes \`---\` des documents." >&2
   echo "  Corriger ce que le message ci-dessus indique, puis recommitter." >&2

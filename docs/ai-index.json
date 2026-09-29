@@ -1,7 +1,7 @@
 {
   "_lisez_moi": "Manifeste de la base documentaire hifago/. Généré par `npm run docs:index`. Ne pas éditer à la main : éditer l'en-tête `---` des documents, puis régénérer.",
   "version": 1,
-  "maj": "2026-09-26",
+  "maj": "2026-09-28",
   "protocole_ia": [
     "Lire `routage` (sujet → chemin) : il est en tête de ce fichier et couvre les cas courants. Si le sujet y figure, s'arrêter là.",
     "Sinon seulement, lire `documents` et croiser `cles` et `questions`.",

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Hook git pre-merge-commit — un commit de fusion SANS conflit ne passe pas par pre-commit : sans
+# ce relais, le manifeste documentaire restait périmé sur main après une fusion (commit c772927).
+exec "$(dirname "$0")/pre-commit"

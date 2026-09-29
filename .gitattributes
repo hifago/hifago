@@ -1,0 +1,2 @@
+# Le parseur d'en-tête de scripts/docs_index.js exige des fins de ligne LF.
+docs/**/*.md text eol=lf
