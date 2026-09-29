@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { safeNextPath } from "@hifago/domain";
 import { LoginForm } from "./LoginForm";
 
 // Segment non localisé par next-intl (cf. docs/journal/2026-08.md) — texte en dur en espagnol,
@@ -21,8 +22,7 @@ export default async function LoginPage({
   // par défaut est "/" — le dispatcher de app/page.tsx, qui aiguille selon le type d'utilisateur
   // une fois connecté. Jamais "/admin/establishments" en dur : un socio qui se connecterait sans
   // contexte de départ atterrirait alors sur une page qui le renvoie aussitôt au login (pas admin).
-  const next =
-    typeof nextParam === "string" && nextParam.startsWith("/") ? nextParam : "/";
+  const next = safeNextPath(nextParam);
 
   // Feature 31 (docs/specs/07-connexion-inscription-complete.md §5) : /auth/callback redirige ici
   // avec ?error= en cas d'échec (code OAuth/token_hash invalide ou expiré, ou compte fraîchement

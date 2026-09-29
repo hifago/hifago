@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeNextPath } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/server";
 import { createServiceRoleClient } from "@hifago/supabase/service";
 import { checkMfaGuard } from "@/lib/mfaGuard";
@@ -48,9 +49,9 @@ export async function GET(request: Request) {
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type");
   const nextParam = url.searchParams.get("next");
-  // Jamais une redirection ouverte : uniquement un chemin relatif propre au site, même garde que
+  // Jamais une redirection ouverte : uniquement un chemin interne au site, même garde que
   // login/page.tsx.
-  const next = nextParam && nextParam.startsWith("/") ? nextParam : "/";
+  const next = safeNextPath(nextParam);
 
   const supabase = await createClient();
 
