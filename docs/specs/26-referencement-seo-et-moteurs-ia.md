@@ -113,8 +113,8 @@ mais non déclarée).
 et `apps/web/e2e/seo.spec.ts`.
 
 **Modifiés** — `apps/web/app/[locale]/layout.tsx` (`metadataBase`) ;
-`apps/web/app/[locale]/page.tsx` (`generateMetadata` + `WebSite`) ;
-`apps/web/app/[locale]/products/[slug]/page.tsx` et `.../establishments/[slug]/page.tsx`
+`apps/web/app/[locale]/(vitrine)/page.tsx` (`generateMetadata` + `WebSite`) ;
+`apps/web/app/[locale]/(vitrine)/productos/[slug]/page.tsx` et `apps/web/app/[locale]/(vitrine)/establecimientos/[slug]/page.tsx`
 (métadonnées partagées, JSON-LD, `lat`/`lon`) ; les quatre pages transactionnelles (`noindex`) ;
 `apps/web/i18n/routing.ts` (`alternateLinks: false`) ; `apps/web/package.json` ;
 `apps/web/messages/{es,en}.json` (`Common.breadcrumbHome`) ;

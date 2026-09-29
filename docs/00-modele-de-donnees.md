@@ -97,6 +97,9 @@ ces lignes en tiennent lieu. §2 fait exception : il a bien été réécrit le 2
   rayon n'est plus « déjà décidée (client §2) » — elle a été **différée hors du premier lot** le
   2026-09-07 (`01-cahier-des-charges-client.md` §2f), précisément *parce que* les coordonnées
   existent déjà et qu'aucune migration ne bloque son ajout ultérieur.
+- **Passe de maintenance des §0 — 2026-09-28, sans écart nouveau.** Les §0 des specs qui révisent
+  ce cahier ont été remises en phase avec le code (chemins déplacés ou supprimés) : aucune décision
+  modifiée, aucune section de ce cahier à réécrire. Specs touchées : 36.
 
 ## 🌙 Découverte majeure — du schéma dormant, jamais exposé
 

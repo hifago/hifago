@@ -111,9 +111,9 @@ repond_a:
 
 ### Fichiers touchés
 
-- **Nouveau** : `packages/domain/src/pms/` (interface générique + implémentation LobbyPMS — disponibilité, création booking, miroir activité), `apps/admin/app/api/pms/reserve-nights/route.ts`, `apps/admin/app/api/pms/test-connection/route.ts`, écran établissement (bloc connecteur PMS), Edge Functions `pms_poll_bookings`/`pms_nightly_contract_check`.
+- **Nouveau** : `packages/domain/src/pms/` (interface générique + implémentation LobbyPMS — disponibilité, création booking, miroir activité), `apps/admin/app/api/pms/reserve-nights/route.ts` (jamais créé — la réservation PMS passe par `create_order`, branche `isPmsBacked`), `apps/admin/app/api/pms/test-connection/route.ts`, écran établissement (bloc connecteur PMS), Edge Functions `pms_poll_bookings`/`pms_nightly_contract_check`.
 - **Étendu** : `create_order` (branche `isPmsBacked`), formulaire établissement admin, formulaire produit `lodging`/`hotel` (exposition des champs `lobby_category_id`/`lobby_product_id` déjà en base).
-- **Traçabilité legacy** (source de portage, jamais copiée telle quelle — port vers Postgres/TS) : `src/services/portalService.js` (`reserve`, `nightAvailability`, `getAvailability`), `src/services/catalogService.js` (`isPmsBacked`), `src/controllers/lobbyController.js` (`importFromLobby`, logique de traslado/héritage promo — **non portée**, remplacée par le poll automatique + réconciliation générique, cf. §10.3), `docs/3-integrations/lobby_pms_api.md` (référence API).
+- **Traçabilité legacy** (source de portage, jamais copiée telle quelle — port vers Postgres/TS) : `src/services/portalService.js` (`reserve`, `nightAvailability`, `getAvailability`), `src/services/catalogService.js` (`isPmsBacked`), `src/controllers/lobbyController.js` (`importFromLobby`, logique de traslado/héritage promo — **non portée**, remplacée par le poll automatique + réconciliation générique, cf. §10.3), `docs/3-integrations/lobby_pms_api.md` (legacy, dépôt parent) (référence API).
 
 ---
 

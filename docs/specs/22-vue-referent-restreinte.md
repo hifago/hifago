@@ -81,7 +81,7 @@ lot.
 
 - `apps/admin/lib/agenda/activeOperatorEstablishments.ts` — nouveau `hasOperatorCapability()`.
 - `apps/admin/app/partner/(app)/nav-items.ts` — `NAV_ITEMS` (const) → `getNavItems(hasOperatorCapability)`.
-- `apps/admin/app/partner/(app)/PartnerNav.tsx`, `PartnerMobileNav.tsx` — prop `hasOperatorCapability`.
+- `apps/admin/app/partner/(app)/PartnerNav.tsx` (supprimé le 2026-08-20 avec `PartnerMobileNav.tsx`, fusionnés dans `apps/admin/app/partner/(app)/PartnerAppNav.tsx`) — prop `hasOperatorCapability`.
 - `apps/admin/app/partner/(app)/layout.tsx` — calcule la capacité, la transmet aux 2 navs.
 - `apps/admin/app/partner/(app)/establishment/layout.tsx`, `products/layout.tsx`,
   `reservations/layout.tsx` — garde serveur ajoutée après `requirePartnerOrAdmin`.

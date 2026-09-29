@@ -282,9 +282,9 @@ Recurso compartido).
 (`product_date_rates`/`room_type_date_rates`/`room_type_availability`, `order_lines.room_type_id`/
 `end_date`, `resolve_date_price`, `resolve_tier_price`, `create_order` réécrit avec deux branches
 plage, `set_room_type_availability`, `set_date_rate`, garde plage sur `modify_order_line`) ;
-`supabase/tests/database/room_type_and_date_range_booking.test.sql` (34 assertions) ;
-`tests/concurrency/create_order_room_range.concurrency.mjs` (3 scénarios) ; écran neuf
-`apps/admin/components/room-availability-grid.tsx` + `apps/admin/app/admin/products/[id]/
+`supabase/tests/database/room_type_and_date_range_booking.test.sql` (supprimé par la spec 24 T3 ; 34 assertions) ;
+`tests/concurrency/create_order_room_range.concurrency.mjs` (supprimé par la spec 24 T3 ; 3 scénarios) ; écran neuf
+`apps/admin/components/room-availability-grid.tsx` (supprimé par la spec 24 T3) + `apps/admin/app/admin/products/[id]/
 room-availability/page.tsx` + `apps/admin/app/partner/(app)/products/[id]/room-availability/
 page.tsx` (dérogation `SimpleTable` validée §3bis) ; liens conditionnels ajoutés dans
 `apps/admin/app/admin/products/[id]/edit/page.tsx` et `apps/admin/app/partner/(app)/products/
@@ -292,8 +292,8 @@ ProductsGrid.tsx` (+ `page.tsx`, colonne `type`) ; écran client neuf
 `apps/web/.../HotelReservationForm.tsx` (sélecteur de chambre + `react-day-picker` `mode="range"`,
 décision §10 point 6) branché dans `apps/web/.../products/[slug]/page.tsx` ; `CartContext.tsx`
 (`roomTypeId`/`roomTypeName`/`endDate`) et `CheckoutForm.tsx` (lignes par plage, nouvelles raisons
-de refus traduites) ; e2e `apps/web/e2e/reserve-hotel-room.spec.ts` +
-`apps/admin/e2e/admin-room-availability-grid.spec.ts`. Complété le 2026-08-17 (§10 points 9/11) :
+de refus traduites) ; e2e `apps/web/e2e/reserve-hotel-room.spec.ts` (supprimé par la spec 24 T3) +
+`apps/admin/e2e/admin-room-availability-grid.spec.ts` (supprimé par la spec 24 T3). Complété le 2026-08-17 (§10 points 9/11) :
 `supabase/migrations/20260817220400_modify_order_line_range_support.sql` (réécriture polymorphe) +
 `ModifyOrderLineDialog.tsx`/`OrdersTable.tsx` étendus + e2e
 `admin-modify-room-range-order-line.spec.ts` ; `apps/web/.../LodgingReservationForm.tsx` (nouveau,

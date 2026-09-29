@@ -124,10 +124,10 @@ repond_a:
 - `apps/admin/lib/products/productCreationPayload.ts` (nouveau — `buildProductCreationPayload`).
 - `apps/admin/lib/products/{slotRules,hotelRooms}.ts` (étendus — `slotRulesFromColumn`/
   `roomTypesFromColumn`, sens inverse pour hydrater la modération).
-- `apps/admin/components/product-type-fields.tsx` (nouveau — extrait de `product-form.tsx`).
+- `apps/admin/components/product-type-fields/` (nouveau — extrait de `product-form.tsx` ; découpé en sous-composants par type le 2026-09-17).
 - `apps/admin/components/product-form.tsx` (étendu — prop `variant: "admin" | "socio-proposal"`).
 - `apps/admin/components/tags-multiselect.tsx` (étendu — prop `allowCreate`).
-- `apps/admin/components/hotel-rooms-editor.tsx` (étendu — prop `hidePhotos`).
+- `apps/admin/components/hotel-rooms-editor.tsx` (supprimé par la spec 24 T3 — était étendu d'une prop `hidePhotos`).
 - `apps/admin/app/partner/(app)/products/{layout.tsx,page.tsx}` (étendus), `new/page.tsx` +
   `PendingProductCreationsList.tsx` (nouveaux).
 - `apps/admin/app/admin/proposals/page.tsx` (fallback `displayName`), `[id]/page.tsx` (branche

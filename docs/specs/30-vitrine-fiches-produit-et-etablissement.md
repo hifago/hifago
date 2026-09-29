@@ -196,7 +196,7 @@ requête, jamais leur nombre — le dire évite de croire que le vert prouve aut
 | contrainte `products_price_cop_required_unless_evento` | **à remplacer** | devient `…_unless_vitrine` : `check (type = 'evento' or external_booking_url is not null or price_cop is not null)`. **Strictement plus permissive** — aucune ligne existante ne peut la violer |
 | `establishments.contact_phone text` | **à créer** | nullable, E.164 (`check (contact_phone ~ '^\+[1-9][0-9]{7,14}$')`), + **`grant select (contact_phone)`** |
 | fonction `search_catalog(…)` | **à republier** | `drop` + `create` + **regrant** : le `returns` gagne `n_alojamientos bigint`. Le corps le calcule déjà |
-| `product_media` / `establishment_media` | **seed à créer** | `scripts/seed-media.mjs`, sur le modèle de `seed_auth_users.mjs` |
+| `product_media` / `establishment_media` | **seed à créer** | `supabase/scripts/seed-media.mjs`, sur le modèle de `seed_auth_users.mjs` |
 | `Carousel` de `packages/ui` | **à étendre** | prop `labels?` optionnelle, défauts espagnols actuels — additif, aucun appelant ne change |
 
 Aucune table créée, aucune écriture capacitaire, **aucune RPC `security definer` nouvelle** :
@@ -264,7 +264,7 @@ le seul filet reste son test pgTAP. Le faire tourner après la migration n'est p
 `apps/web/app/[locale]/(vitrine)/productos/[slug]/BotonContacto.tsx` ·
 `apps/web/app/[locale]/(vitrine)/establecimientos/[slug]/FichaEstablecimiento.tsx`
 (chacun + test + story) · `apps/web/messages/{es,en}/FichaPage.json` ·
-`apps/web/e2e/fichas.spec.ts` · `scripts/seed-media.mjs` + ses images ·
+`apps/web/e2e/fichas.spec.ts` (jamais créé sous ce nom — `apps/web/e2e/establishment-page.spec.ts`) · `supabase/scripts/seed-media.mjs` + ses images ·
 `supabase/migrations/<ts>_products_vitrine_sin_precio.sql` ·
 `supabase/migrations/<ts>_establishments_contacto_publico.sql` ·
 `supabase/migrations/<ts>_search_catalog_n_alojamientos.sql` ·

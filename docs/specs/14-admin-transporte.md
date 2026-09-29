@@ -158,9 +158,9 @@ existent déjà et sont déjà génériques.
   deux produits distincts — simplification permise par un outillage que la V1 n'avait pas au moment
   où le transport y a été construit (spec 08/11 avaient déjà généralisé `price_tiers`).
 - **Aucun changement côté `apps/web`** : la fiche produit générique
-  (`apps/web/app/[locale]/products/[slug]/page.tsx`) ne branche que sur `isEvento` — tout le reste,
+  (`apps/web/app/[locale]/(vitrine)/productos/[slug]/page.tsx`) ne branche que sur `isEvento` — tout le reste,
   transport y compris, tombe déjà dans le rendu générique (`ReservationForm` + `price_cop`/
-  `product_availability`). L'accueil (`apps/web/app/[locale]/page.tsx`) liste déjà tous les
+  `product_availability`). L'accueil (`apps/web/app/[locale]/(vitrine)/page.tsx`) liste déjà tous les
   produits `sellable=true` en vrac, sans distinction de type.
 
 ### Cas limites

@@ -92,7 +92,7 @@ Ajouté par la réécriture du §2 du cahier client le 2026-09-07 :
 - **Passe de maintenance des §0 — 2026-09-28, sans écart nouveau.** Les §0 des specs qui révisent
   ce cahier ont été remises en phase avec le code (chemins déplacés, signatures changées par une
   spec ultérieure) : aucune décision modifiée, aucune section de ce cahier à réécrire. Specs
-  touchées : 18.
+  touchées : 18, 19.
 
 > Méthode : une section = une unité de validation avec Jérôme. Statut par section :
 > `brouillon` → `en relecture` → `✅ validé par Jérôme le AAAA-MM-JJ`.

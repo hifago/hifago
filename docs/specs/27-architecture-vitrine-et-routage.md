@@ -56,28 +56,27 @@ repond_a:
 Toutes sous `app/[locale]/`, préfixe de locale **toujours** posé (`localePrefix: "always"`).
 Segments **en espagnol**, non traduits entre locales : `/es/actividades` **et** `/en/actividades`.
 
-| URL | Fichier | Zone | Rendu | État |
+| URL | Fichier | Zone | Rendu | État (2026-09-28) |
 |---|---|---|---|---|
-| `/[locale]` | `(vitrine)/page.tsx` | vitrine | dynamique | à refaire |
-| `/[locale]/actividades` | `(vitrine)/actividades/page.tsx` | vitrine | dynamique | à créer |
-| `/[locale]/actividades/[tag]` | `(vitrine)/actividades/[tag]/page.tsx` | vitrine | dynamique | à créer |
-| `/[locale]/alojamientos` | `(vitrine)/alojamientos/page.tsx` | vitrine | dynamique | à créer |
-| `/[locale]/transportes` | `(vitrine)/transportes/page.tsx` | vitrine | dynamique | à créer |
-| `/[locale]/camps` | `(vitrine)/camps/page.tsx` | vitrine | dynamique | à créer |
-| `/[locale]/eventos` | `(vitrine)/eventos/page.tsx` | vitrine | dynamique | à créer |
-| `/[locale]/productos/[slug]` | `(vitrine)/productos/[slug]/page.tsx` | vitrine | **cacheable** | à refaire |
-| `/[locale]/establecimientos/[slug]` | `(vitrine)/establecimientos/[slug]/page.tsx` | vitrine | **cacheable** | à refaire |
-| `/[locale]/carrito` | `(tunnel)/carrito/page.tsx` | tunnel | dynamique | à créer |
-| `/[locale]/pago` | `(tunnel)/pago/page.tsx` | tunnel | dynamique | à refaire |
-| `/[locale]/pago/[token]` | `(tunnel)/pago/[token]/page.tsx` | tunnel | dynamique | à créer |
-| `/[locale]/cuenta` | `(cuenta)/cuenta/page.tsx` | compte | dynamique | à créer |
-| `/[locale]/cuenta/reservas` | `(cuenta)/cuenta/reservas/page.tsx` | compte | dynamique | à refaire |
-| `/[locale]/cuenta/perfil` | `(cuenta)/cuenta/perfil/page.tsx` | compte | dynamique | à créer |
-| `/[locale]/entrar` | `(auth)/entrar/page.tsx` | auth | dynamique | à refaire |
-| `/[locale]/registro` | `(auth)/registro/page.tsx` | auth | dynamique | à refaire |
-| `/[locale]/verificar-email` | `(auth)/verificar-email/page.tsx` | auth | dynamique | à refaire |
-| `/[locale]/recuperar` | `(auth)/recuperar/page.tsx` | auth | dynamique | à créer |
-| `/[locale]/restablecer` | `(auth)/restablecer/page.tsx` | auth | dynamique | à créer |
+| `/[locale]` | `(vitrine)/page.tsx` | vitrine | dynamique | livré (spec 28) |
+| `/[locale]/actividades` | `(vitrine)/actividades/page.tsx` | vitrine | dynamique | livré (spec 29) |
+| `/[locale]/actividades/[categoria]` | `(vitrine)/actividades/[categoria]/page.tsx` | vitrine | dynamique | livré (spec 29 ; `[tag]` renommé `[categoria]`) |
+| `/[locale]/alojamientos` | `(vitrine)/alojamientos/page.tsx` | vitrine | dynamique | livré (spec 29) |
+| `/[locale]/transportes` | `(vitrine)/transportes/page.tsx` | vitrine | dynamique | livré (spec 29) |
+| `/[locale]/camps` | `(vitrine)/camps/page.tsx` | vitrine | dynamique | livré (spec 29) |
+| `/[locale]/eventos` | `(vitrine)/eventos/page.tsx` | vitrine | dynamique | livré (spec 29) |
+| `/[locale]/productos/[slug]` | `(vitrine)/productos/[slug]/page.tsx` | vitrine | **cacheable** | livré (spec 30) |
+| `/[locale]/establecimientos/[slug]` | `(vitrine)/establecimientos/[slug]/page.tsx` | vitrine | **cacheable** | livré (spec 30) |
+| `/[locale]/reserva/[token]` | `(vitrine)/reserva/[token]/page.tsx` | vitrine | dynamique | livré (spec 33 ; remplace `/pago/[token]` prévu ici) |
+| `/[locale]/mi-viaje` | `(tunnel)/mi-viaje/page.tsx` | tunnel | dynamique | livré (spec 32 sous `/carrito`, renommé le 2026-09-16) |
+| `/[locale]/pago` | `(tunnel)/pago/page.tsx` | tunnel | dynamique | livré (specs 32-33) |
+| `/[locale]/cuenta/reservas` | `(cuenta)/cuenta/reservas/page.tsx` | compte | dynamique | livré (spec 34) |
+| `/[locale]/cuenta/perfil` | `(cuenta)/cuenta/perfil/page.tsx` | compte | dynamique | livré (spec 35 ; accueil de la zone, pas de `/cuenta` seul) |
+| `/[locale]/entrar` | `(auth)/entrar/page.tsx` | auth | dynamique | livré |
+| `/[locale]/registro` | `(auth)/registro/page.tsx` | auth | dynamique | livré |
+| `/[locale]/verificar-email` | `(auth)/verificar-email/page.tsx` | auth | dynamique | livré |
+| `/[locale]/olvide-password` | `(auth)/olvide-password/page.tsx` | auth | dynamique | livré (prévu ici sous `/recuperar`) |
+| `/[locale]/restablecer-password` | `(auth)/restablecer-password/page.tsx` | auth | dynamique | livré (prévu ici sous `/restablecer`) |
 | `/[locale]/r/[code]` | inchangé | — | — | **intact** |
 
 **Intacts, hors `[locale]`** : `app/api/payments/*`, `app/api/pms/*`, `app/auth/callback/route.ts`,

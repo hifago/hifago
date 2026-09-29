@@ -109,7 +109,7 @@ Migration : `hifago/supabase/migrations/20260815170000_gestion_etablissement.sql
 - `hifago/packages/supabase/src/database.types.ts` (types régénérés)
 - `hifago/apps/admin/app/admin/establishments/[id]/EstablishmentEditBlock.tsx` (nouveau) + `.../page.tsx` (modifié)
 - `hifago/apps/admin/app/partner/(app)/establishment/{layout.tsx,page.tsx,PendingCreationBanner.tsx,new/{page.tsx,NewEstablishmentProposalForm.tsx},[id]/edit/{page.tsx,EditEstablishmentProposalForm.tsx}}` (nouveau sous-arbre)
-- `hifago/apps/admin/app/partner/(app)/PartnerNav.tsx`, `.../page.tsx` (modifiés)
+- `hifago/apps/admin/app/partner/(app)/PartnerNav.tsx` (supprimé le 2026-08-20 — la nav socio vit dans `apps/admin/app/partner/(app)/PartnerAppNav.tsx`), `.../page.tsx` (modifiés)
 - `hifago/apps/admin/app/admin/proposals/{page.tsx,ProposalsTable.tsx,[id]/page.tsx}` (modifiés), `[id]/ModerateEstablishmentProposalForm.tsx` (nouveau)
 - `hifago/apps/admin/e2e/admin-establishment-edit.spec.ts`, `partner-establishment-proposals.spec.ts` (tests)
 

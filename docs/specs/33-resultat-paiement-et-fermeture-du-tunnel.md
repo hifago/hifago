@@ -249,7 +249,7 @@ automatique là où il l'est déjà.
 
 ### Fichiers touchés
 
-**Créés** — `app/[locale]/(vitrine)/reserva/[token]/page.tsx` · `components/organisms/OrderResult.tsx`
+**Créés** — `app/[locale]/(vitrine)/reserva/[token]/page.tsx` · `app/[locale]/(vitrine)/reserva/[token]/OrderResult.tsx`
 (+ test + story) · `lib/orders/getOrderByToken.ts` · `messages/{es,en}/OrderResultPage.json` ·
 `e2e/payment-return.spec.ts` · `supabase/migrations/<ts>_orders_reference_et_access_token.sql` ·
 `supabase/migrations/<ts>_get_order_by_token.sql` ·
@@ -262,7 +262,7 @@ automatique là où il l'est déjà.
 `lib/mercadopago/client.ts` (`excluded_payment_types`) ·
 `app/[locale]/(tunnel)/pago/CheckoutForm.tsx` (perd `pendingOrderId`/`paymentError`/`isPaying`,
 redirige) · `app/[locale]/(tunnel)/pago/page.tsx` (`isAuthenticated` tient compte de
-`is_anonymous`) · `components/organisms/CoquillaVitrine.tsx` (idem) ·
+`is_anonymous`) · `app/[locale]/(vitrine)/CoquillaVitrine.tsx` (idem) ·
 `app/auth/callback/route.ts` (appel du rattachement) ·
 `packages/e2e-support/src/payments.ts` (le mock redirige vers le **vrai** retour) ·
 `supabase/tests/database/security_definer_exposure.test.sql` (exception nommée) ·

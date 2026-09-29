@@ -216,6 +216,50 @@ function verifierContrat(rel, contrat) {
   return problemes;
 }
 
+/**
+ * Chemins de code cités entre backticks dans la §0 d'une spec livrée ou partielle, qui n'existent
+ * plus. POURQUOI (audit du 2026-09-28) : 36 chemins morts dans les §0 de 15 specs — fichiers
+ * déplacés (`checkout/` → `(tunnel)/pago/`), renommés (`carrito` → `mi-viaje`) ou supprimés — et
+ * c'est exactement ce que la carte envoie lire. Conséquence assumée : renommer un fichier cité
+ * dans une §0 fait échouer `npm run verify` jusqu'à ce que la spec suive.
+ *
+ * Tolérés : un chemin suivi sur sa ligne de « (supprimé… », « (à créer… » ou « (legacy… » ; les
+ * gabarits (`...`, `…`, `<`, `*`, `{`, `$`), les paquets npm (`@…`), les routes (`/…`). Un chemin
+ * relatif n'est vérifié que s'il part d'une racine d'app reconnaissable (`app/`, `lib/`,
+ * `components/`, `e2e/`, un groupe de routes) — essayé alors sous apps/web et apps/admin. Les autres
+ * (`[id]/page.tsx`, `organisms/`…) se lisent relativement à un dossier cité plus haut dans la phrase :
+ * sans ce contexte, les vérifier ne produirait que des faux positifs.
+ */
+const RACINES_CONNUES = /^(apps|packages|supabase|scripts|tests|docs|\.github|\.claude)\//;
+const RACINES_RELATIVES = /^(app|lib|components|e2e|\((vitrine|tunnel|cuenta|auth)\))\//;
+const PREFIXES_RELATIFS = ['apps/web/', 'apps/admin/', 'apps/web/app/[locale]/'];
+
+function cheminsMorts(text, contrat) {
+  const lignes = text.split('\n').slice(contrat.offset - 1, contrat.offset - 1 + contrat.limit);
+  const morts = [];
+  let paragrapheSupprimes = false; // un paragraphe étiqueté **Supprimés** liste par définition des morts
+  lignes.forEach((ligne, i) => {
+    if (!ligne.trim()) paragrapheSupprimes = false;
+    for (const m of ligne.matchAll(/`([^`\s]+)`/g)) {
+      if (/\*\*Supprim[ée]+s?\*\*/i.test(ligne.slice(0, m.index))) paragrapheSupprimes = true;
+      if (paragrapheSupprimes) continue;
+      let p = m[1];
+      if (!p.includes('/') || /(\.\.\.|…|[<*{$])/.test(p) || /^(@|\/|https?:|~)/.test(p)) continue;
+      const suite = ligne.slice(m.index + m[0].length, m.index + m[0].length + 60);
+      if (/\((supprim|à créer|legacy|jamais créé)/i.test(suite)) continue;
+      if (/^\s*(\([^)]*\))?\s*→/.test(suite)) continue; // ancien côté d'un déplacement « A → B »
+      p = p.replace(/^hifago\//, '').replace(/:\d.*$/, '').replace(/\(\+test\)?$/, '').replace(/[),.;]+$/, '');
+      if (!/\.[a-z]{1,5}$|\/$/.test(p)) continue; // ni fichier ni dossier : un identifiant, pas un chemin
+      let candidats;
+      if (RACINES_CONNUES.test(p)) candidats = [p];
+      else if (RACINES_RELATIVES.test(p)) candidats = PREFIXES_RELATIFS.map((r) => r + p);
+      else continue;
+      if (!candidats.some((c) => fs.existsSync(path.join(ROOT, c)))) morts.push(`L${contrat.offset + i} \`${p}\``);
+    }
+  });
+  return morts;
+}
+
 /** Plage de la « §0 Contrat compact » d'une spec, au format du Read : { offset, limit } ou null. */
 function contratCompact(text) {
   const zero = sections(text).find((s) => /^0\.\s/.test(s.titre));
@@ -360,7 +404,13 @@ function collect() {
       _contrat: fm.theme === 'specs' && !estMetaSpec ? contratCompact(text) : null,
     });
     if (fm.theme === 'specs' && !estMetaSpec && fm.statut !== 'supprimee') {
-      problemes.push(...verifierContrat(rel, docs[docs.length - 1]._contrat));
+      const contrat = docs[docs.length - 1]._contrat;
+      problemes.push(...verifierContrat(rel, contrat));
+      if (contrat && (fm.statut === 'implemente' || fm.statut === 'partiel')) {
+        for (const mort of cheminsMorts(text, contrat)) {
+          problemes.push(`${rel} — §0 ${mort} introuvable : corriger le chemin, ou le suivre de « (supprimé par … »`);
+        }
+      }
     }
   }
   for (const [genre, numeros] of Object.entries(EXEMPTIONS_CONTRAT)) {

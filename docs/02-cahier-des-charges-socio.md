@@ -86,7 +86,7 @@ Ajoutés par la relecture intégrale du 2026-09-07 :
 - **Passe de maintenance des §0 — 2026-09-28, sans écart nouveau.** Les §0 des specs qui révisent
   ce cahier ont été remises en phase avec le code (chemins déplacés, signatures changées par une
   spec ultérieure, contenu hôtel marqué supprimé par la spec 24 T3) : aucune décision modifiée,
-  aucune section de ce cahier à réécrire. Specs touchées : 17, 18.
+  aucune section de ce cahier à réécrire. Specs touchées : 06, 15, 17, 18, 19.
 
 > Méthode : une section = une unité de validation avec Jérôme. Statut par section :
 > `brouillon` → `en relecture` → `✅ validé par Jérôme le AAAA-MM-JJ`.

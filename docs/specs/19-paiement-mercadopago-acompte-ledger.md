@@ -442,7 +442,7 @@ invariant que le webhook) — appelée par le Route Handler après la réponse d
   point 9, retiré du périmètre de cette spec).
 
 **Fichiers touchés (Tranche 2)** : `supabase/migrations/<ts>_payment_refunds.sql`,
-`apps/admin/app/api/payments/refund/route.ts`, bouton « Le prestataire annule » dans
+`apps/admin/app/api/payments/refund/route.ts` (à créer — Tranche 2 non commencée), bouton « Le prestataire annule » dans
 `apps/admin/app/admin/orders/OrdersTable.tsx` (même emplacement que le bouton de changement de
 statut posé en spec 17 Tranche 1).
 

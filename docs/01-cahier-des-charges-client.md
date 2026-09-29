@@ -153,7 +153,7 @@ Ajoutés par la réécriture du §2 le 2026-09-07 — **contradictions internes 
 - **Passe de maintenance des §0 — 2026-09-28, sans écart nouveau.** Les §0 des specs qui révisent
   ce cahier ont été remises en phase avec le code (chemins déplacés, signatures changées par une
   spec ultérieure — ex. `create_order` sans `p_lines` depuis la spec 32) : aucune décision
-  modifiée, aucune section de ce cahier à réécrire. Specs touchées : 18.
+  modifiée, aucune section de ce cahier à réécrire. Specs touchées : 18, 19, 32, 33.
 
 > Méthode : une section = une unité de validation avec Jérôme. Statut par section :
 > `brouillon` → `en relecture` → `✅ validé par Jérôme le AAAA-MM-JJ`.

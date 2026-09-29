@@ -132,7 +132,7 @@ pas, seule la provenance des données change.
 | `apps/web/lib/cart/CartContext.tsx` | remplace `useState`/`setLines` par des appels supabase-js directs sur `cart_items` (et upsert `carts` au premier ajout) |
 | `apps/web/app/[locale]/(tunnel)/pago/CheckoutForm.tsx` | ne passe plus `p_lines`/`p_attribution_code`/`p_attribution_source` à `create_order` ; son rendu de lignes inline (`lines.map`, `CheckoutForm.tsx:328`) est remplacé par `<CartSummary editable={false} />` |
 | `apps/web/proxy.ts` | cookie `hifago_ref` inchangé dans sa pose ; sa lecture se déplace du checkout vers le premier ajout au panier (capture dans `carts.attribution_code`) |
-| `apps/web/app/[locale]/(tunnel)/carrito/page.tsx` | nouveau — Server Component, route déjà prévue par spec 27 (`docs/specs/27-architecture-vitrine-et-routage.md:75`), jamais bâtie |
+| `apps/web/app/[locale]/(tunnel)/mi-viaje/page.tsx` | nouveau (créé sous (tunnel)/carrito, renommé `mi-viaje` le 2026-09-16) — Server Component, route déjà prévue par spec 27 (`docs/specs/27-architecture-vitrine-et-routage.md:75`), jamais bâtie |
 | `apps/web/components/organisms/CartSummary.tsx` | nouveau — déjà cité en exemple dans `apps/web/components/README.md` sans jamais avoir été écrit ; rendu client (retrait de ligne), utilisé en mode éditable sur `/carrito` et en mode lecture seule sur `/pago` |
 | `apps/web/components/organisms/SiteHeader.tsx` | une ligne : `ROUTE_PANIER` bascule de `"/pago"` à `"/carrito"` (constante déjà prévue à cet effet, `SiteHeader.tsx:54` et son commentaire) |
 

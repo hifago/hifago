@@ -126,7 +126,7 @@ camp, absent jusqu'ici au-delà de `default_capacity`), `moderate_product_propos
 - `tests/concurrency/create_order_camp.concurrency.mjs` (scénario 3)
 - `apps/admin/lib/products/groupDiscount.ts` (+ `.test.ts`), `productTypeGating.ts`,
   `useProductTypeFieldsState.ts`, `productCreationPayload.ts`
-- `apps/admin/components/product-type-fields.tsx`, `product-form.tsx`, `availability-calendar.tsx`
+- `apps/admin/components/product-type-fields/`, `product-form.tsx`, `availability-calendar.tsx`
   (+ `.css`)
 - `apps/admin/app/admin/products/[id]/availability/page.tsx`
 - `apps/web/lib/catalog/tipos.ts`, `producto.ts`

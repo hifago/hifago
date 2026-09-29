@@ -244,14 +244,14 @@ spec 27, rien ici ne relève de la frontière RPC-only. `catalog_tags` reste en 
 ### Fichiers touchés
 
 **Créés** — `app/[locale]/(vitrine)/{actividades,alojamientos,transportes,camps,eventos}/page.tsx` ·
-`app/[locale]/(vitrine)/actividades/[tag]/page.tsx` · `app/[locale]/(vitrine)/ListadoTipo.tsx` ·
-`app/api/catalogo/listado/route.ts` · `components/molecules/TarjetaCategoria.tsx` ·
-`components/molecules/Migas.tsx` · `components/organisms/IndiceCategorias.tsx` ·
+`app/[locale]/(vitrine)/actividades/[tag]/page.tsx` (supprimé le 2026-09-14, devenu `actividades/[categoria]/` — §10quinquies) · `app/[locale]/(vitrine)/ListadoTipo.tsx` ·
+`app/api/catalogo/listado/route.ts` · `components/molecules/TarjetaCategoria.tsx` (supprimé le 2026-09-14, §10quinquies) ·
+`components/molecules/Migas.tsx` · `components/organisms/IndiceCategorias.tsx` (supprimé le 2026-09-14 — `IndiceCategoriasConOfertas.tsx`, §10quinquies) ·
 `components/organisms/ListadoInfinito.tsx` (chacun + test + story) ·
 `lib/seo/jsonld/breadcrumb.ts` (+ test) · `messages/{es,en}/ListadoPage.json` ·
 `e2e/listados.spec.ts` · `supabase/migrations/<ts>_catalog_tags_editorial.sql` ·
 `supabase/migrations/<ts>_search_catalog_sin_tag.sql` (Tranche 1) · `supabase/migrations/<ts>_search_catalog_tags.sql` (Tranche 2) ·
-`supabase/tests/database/search_catalog_tags.test.sql`.
+`supabase/tests/database/search_catalog_tags.test.sql` (supprimé le 2026-09-14, §10quinquies).
 
 **Modifiés** — `lib/catalog/{buscar,criterios,tipos}.ts` · `app/sitemap.ts` (les pages de
 catégorie) · `app/[locale]/(vitrine)/BuscadorInicio.tsx` (destination explicite) ·
