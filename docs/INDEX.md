@@ -40,11 +40,11 @@
 - [Surface LobbyPMS exploitée, parcours front d'un produit lié, et cible du modèle hébergement](specs/24-modele-hebergement-et-surface-lobbypms.md) — **Partiel** (reste : Lot A implémenté le 2026-08-26 ; Lot B gelé (observation préprod requise) ; T1/T2/T3 de…)
 - [Propagation d'une annulation hifago vers LobbyPMS (C2)](specs/25-propagation-annulation-lobbypms.md) — **Implémenté** (reste : Vérifiée en conditions réelles le 2026-08-27 (booking créé puis annulé chez Casa Kayam)…)
 - [Référencement de la vitrine : Google et moteurs de réponse IA](specs/26-referencement-seo-et-moteurs-ia.md) — **Implémenté** (reste : Vérifiée en local le 2026-09-01 (build, serveur réel, 3 e2e). Validation par un outil…)
-- [Architecture de la vitrine : routes, zones, coquilles et couche d'accès aux données](specs/27-architecture-vitrine-et-routage.md) — **Partiel** (reste : Livrés les 2026-09-07/08 : la couche lib/catalog et search_catalog, les quatre coquilles…)
+- [Architecture de la vitrine : routes, zones, coquilles et couche d'accès aux données](specs/27-architecture-vitrine-et-routage.md) — **Implémenté**
 - [Vitrine : l'accueil, qui est aussi l'écran de résultats de recherche](specs/28-vitrine-accueil-et-resultats.md) — **Implémenté** (reste : Les 3 tranches sont livrées (Tranche 3 le 2026-09-13). Un seul point reste ouvert : le…)
 - [Vitrine : les pages de listing et l'index de catégories](specs/29-vitrine-listings-et-index-de-categories.md) — **Implémenté**
 - [Vitrine : les fiches produit et établissement](specs/30-vitrine-fiches-produit-et-etablissement.md) — **Implémenté**
-- [Identité anonyme de l'invité](specs/31-identite-anonyme.md) — **Brouillon**
+- [Identité anonyme de l'invité](specs/31-identite-anonyme.md) — **Partiel** (reste : Les 4 tranches sont livrées (2026-09-10). Reste le point de vérification de la Tranche 4…)
 - [Panier en base](specs/32-panier-en-base.md) — **Implémenté**
 - [L'écran de résultat de paiement et la fermeture du tunnel](specs/33-resultat-paiement-et-fermeture-du-tunnel.md) — **Implémenté**
 - [Compte client : « Mis reservas », la liste et le détail](specs/34-compte-mes-reservations.md) — **Implémenté**

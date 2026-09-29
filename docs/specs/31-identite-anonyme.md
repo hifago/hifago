@@ -4,7 +4,11 @@ titre: "Identité anonyme de l'invité"
 theme: specs
 public: [ia, dev, jerome]
 langue: fr
-statut: brouillon
+statut: partiel
+reste: >
+  Les 4 tranches sont livrées (2026-09-10). Reste le point de vérification de la Tranche 4 : la
+  purge `DELETE FROM auth.users` en SQL pur (pg_cron) jamais testée sur Supabase Cloud. La promotion
+  en `implemente` attend l'arbitrage de Jérôme (spec 32 §10, `docs/backlog.md`).
 maj: 2026-09-10
 resume: >
   Donne une identité Supabase à tout visiteur qui ajoute au panier, pour que sa commande, son

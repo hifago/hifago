@@ -35,7 +35,7 @@ repond_a:
 >
 > **✅ Validée par Jérôme le 2026-09-08**, en bloc, après lecture des huit points que la rédaction
 > avait tranchés seule (§10 « Ce que la rédaction a décidé »). Le `statut: implemente` du frontmatter
-> décrit l'état d'**implémentation** — rien n'est encore construit —, pas l'état de validation :
+> décrit l'état d'**implémentation** (livrée le 2026-09-08, cf. ci-dessous), pas l'état de validation :
 > celle-ci vit dans la table ci-dessous, section par section (convention posée par la spec 27).
 >
 > **✅ Implémentée le 2026-09-08** — ses quatre tranches. Ce que le code a corrigé du texte est en

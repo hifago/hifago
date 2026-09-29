@@ -89,6 +89,10 @@ Ajouté par la réécriture du §2 du cahier client le 2026-09-07 :
   valide — définition des deux gestes, snapshots figés, reconstruction des lignes remplacées — et
   l'exigence « l'admin doit voir clairement lequel des deux gestes a eu lieu » vaut désormais en
   identifiant l'**auteur réel** du geste, qui n'est plus jamais le client.
+- **Passe de maintenance des §0 — 2026-09-28, sans écart nouveau.** Les §0 des specs qui révisent
+  ce cahier ont été remises en phase avec le code (chemins déplacés, signatures changées par une
+  spec ultérieure) : aucune décision modifiée, aucune section de ce cahier à réécrire. Specs
+  touchées : 18.
 
 > Méthode : une section = une unité de validation avec Jérôme. Statut par section :
 > `brouillon` → `en relecture` → `✅ validé par Jérôme le AAAA-MM-JJ`.

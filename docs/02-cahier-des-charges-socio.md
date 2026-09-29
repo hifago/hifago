@@ -83,6 +83,10 @@ Ajoutés par la relecture intégrale du 2026-09-07 :
   par `docs/specs/24-modele-hebergement-et-surface-lobbypms.md` (T3) : une chambre est un produit
   `lodging` avec son propre calendrier de cupos et son prix par date. Le module Prestador peut donc
   gérer un établissement à chambres sans PMS.
+- **Passe de maintenance des §0 — 2026-09-28, sans écart nouveau.** Les §0 des specs qui révisent
+  ce cahier ont été remises en phase avec le code (chemins déplacés, signatures changées par une
+  spec ultérieure, contenu hôtel marqué supprimé par la spec 24 T3) : aucune décision modifiée,
+  aucune section de ce cahier à réécrire. Specs touchées : 17, 18.
 
 > Méthode : une section = une unité de validation avec Jérôme. Statut par section :
 > `brouillon` → `en relecture` → `✅ validé par Jérôme le AAAA-MM-JJ`.

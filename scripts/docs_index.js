@@ -222,10 +222,12 @@ function gitMaj(file) {
 function collect() {
   const docs = [];
   const problemes = [];
-  for (const rel of listerDocuments()) {
+  const chemins = listerDocuments();
+  for (const rel of chemins) {
     const text = lireDocument(rel);
     const fm = parseFrontMatter(text);
     if (!fm) { problemes.push(`${rel} — en-tête \`---\` absent ou illisible`); continue; }
+    const remplacePar = [].concat(fm.remplace_par || []);
     for (const champ of ['id', 'titre', 'theme', 'statut', 'resume']) {
       if (!fm[champ]) problemes.push(`${rel} — champ « ${champ} » manquant`);
     }
@@ -238,6 +240,16 @@ function collect() {
       }
       if (fm.statut === 'partiel' && !fm.reste) {
         problemes.push(`${rel} — statut "partiel" sans champ « reste » : quoi manque-t-il ?`);
+      }
+      // `remplace_par: [NN]` — une spec supprimée dit par quoi elle est remplacée, et la cible existe :
+      // sans ce lien, un agent qui tombe sur l'archive ne sait pas où est la vérité d'aujourd'hui.
+      if (fm.statut === 'supprimee' && !remplacePar.length) {
+        problemes.push(`${rel} — statut "supprimee" sans champ « remplace_par » : par quelle spec ?`);
+      }
+      for (const n of remplacePar) {
+        if (!chemins.some((c) => c.startsWith(`docs/specs/${n}-`))) {
+          problemes.push(`${rel} — remplace_par « ${n} » : aucune spec docs/specs/${n}-*.md`);
+        }
       }
       if (fm.revise) {
         const cibles = Array.isArray(fm.revise) ? fm.revise : [fm.revise];
@@ -265,6 +277,7 @@ function collect() {
       theme: fm.theme,
       statut: fm.statut,
       reste: fm.reste || undefined,
+      remplace_par: remplacePar.length ? remplacePar : undefined,
       langue: fm.langue || 'fr',
       ko: Math.round(Buffer.byteLength(text, 'utf8') / 1024),
       resume,

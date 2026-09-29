@@ -4,14 +4,8 @@ titre: "Architecture de la vitrine : routes, zones, coquilles et couche d'accès
 theme: specs
 public: [ia, dev, jerome]
 langue: fr
-statut: partiel
-reste: >
-  Livrés les 2026-09-07/08 : la couche lib/catalog et search_catalog, les quatre coquilles de zone,
-  le passage des routes à l'espagnol, et les cinq contrôles CI. Reste l'extraction de la logique
-  métier des trois formulaires de réservation vers lib/reservas/ puis la suppression des écrans
-  hérités (lot B3, différé jusqu'à la spec 30 qui en définit le consommateur), et les routes encore
-  « à créer » du §0 (listings, index de tags, carrito, cuenta, recuperar/restablecer).
-maj: 2026-09-08
+statut: implemente
+maj: 2026-09-28
 resume: >
   Pose la carte des routes de apps/web en espagnol, ses quatre zones et leurs coquilles, la garde
   d'accès du compte, et la couche lib/catalog qui devient le seul endroit d'où part une requête
@@ -29,10 +23,11 @@ repond_a:
 > **aucun écran** : elle pose le terrain sur lequel les specs 28 et suivantes en construiront un
 > par lot.
 >
-> **✅ Validée par Jérôme le 2026-09-07.** Le `statut: brouillon` du frontmatter décrit l'état
-> d'**implémentation** (rien n'est encore construit), pas l'état de validation — l'énumération
-> vérifiée par `docs:check` est `brouillon | partiel | implemente | supprimee`. La validation vit
-> dans la table « Sommaire et statut » ci-dessous, section par section.
+> **✅ Validée par Jérôme le 2026-09-07.** **Implémentée** : le socle les 2026-09-07/08 (couche
+> `lib/catalog` et `search_catalog`, quatre coquilles de zone, routes en espagnol, cinq contrôles
+> CI) ; le lot B3 (`lib/reservas/`, écrans hérités supprimés) par la spec 30 ; les routes « à
+> créer » du §0 par les specs 29 (listings, index de tags), 32 (panier, devenu `/mi-viaje`), 34 et
+> 35 (`/cuenta`), et `olvide-password`/`restablecer-password` côté `(auth)` — constaté le 2026-09-28.
 
 ## Sommaire et statut
 

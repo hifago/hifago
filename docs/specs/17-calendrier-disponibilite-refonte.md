@@ -74,6 +74,11 @@ repond_a:
 
 ## 0. Contrat compact (pour coder — lire seul, sans le reste)
 
+> ⚠️ **Tout le volet hôtel de la Tranche 2 (`product_room_types`, `room_type_*`, chambre
+> d'hôtel) a été supprimé par la spec 24 T3 (2026-08-27)** : ce qui s'y rapporte ci-dessous décrit
+> un état passé, ne pas le coder. Une chambre est désormais un produit `type='lodging'` (spec 24) ;
+> les créneaux réservables sont dans la spec 18.
+>
 > Cette section ne couvre que les Tranches 0, 1 et 2 (prêtes à coder). Les Tranches 3 et 4 sont
 > décrites narrativement en §2/§10 — pas de signature figée pour elles, cf. §2.
 
