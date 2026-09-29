@@ -20,6 +20,19 @@ describe("safeNextPath", () => {
     expect(safeNextPath(raw)).toBe("/");
   });
 
+  it.each([
+    ["//"],
+    ["///"],
+    ["/\\"],
+    ["/\\\\"],
+    ["//evil.com:99999"],
+    ["//[::1"],
+    ["/.//"],
+  ])("rend le repli, sans lever, pour une valeur que l'analyse d'URL refuse (%j)", (raw) => {
+    expect(() => safeNextPath(raw)).not.toThrow();
+    expect(safeNextPath(raw)).toBe("/");
+  });
+
   it.each([[undefined], [null], [42], [["/es", "/en"]]])(
     "rejette une valeur qui n'est pas une chaîne (%j)",
     (raw) => {

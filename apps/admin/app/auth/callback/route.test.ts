@@ -81,6 +81,14 @@ describe("GET /auth/callback (admin) — destination de retour", () => {
     expect(location).toBe(`${ORIGIN}/`);
   });
 
+  it.each([["//"], ["/.//"]])(
+    "ramène une destination que l'analyse d'URL refuse (%j) à l'accueil, sans lever",
+    async (next) => {
+      const location = await atterrir(`code=ok&next=${encodeURIComponent(next)}`);
+      expect(location).toBe(`${ORIGIN}/`);
+    }
+  );
+
   it("conserve une destination interne, query comprise", async () => {
     const location = await atterrir(
       `code=ok&next=${encodeURIComponent("/partner/join?token=abc")}`

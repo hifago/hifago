@@ -8,12 +8,19 @@ const SENTINELLE = "http://hifago.invalid";
 export function safeNextPath(raw: unknown, fallback = "/"): string {
   if (typeof raw !== "string" || !raw.startsWith("/")) return fallback;
 
-  const parsed = new URL(raw, SENTINELLE);
-  if (parsed.origin !== SENTINELLE) return fallback;
+  // Une valeur que l'analyse d'URL refuse (hôte vide ou invalide, port hors bornes…) n'est pas une
+  // destination : elle rend le repli, JAMAIS une exception — les deux callbacks lisent `next` avant
+  // d'échanger le code d'authentification, qu'une exception ferait perdre.
+  try {
+    const parsed = new URL(raw, SENTINELLE);
+    if (parsed.origin !== SENTINELLE) return fallback;
 
-  // Deuxième passe, à ne pas retirer : le parseur normalise `\` et les segments `.`/`..` APRÈS avoir
-  // classé l'entrée comme relative — le chemin obtenu peut donc commencer par `//`, qu'un
-  // navigateur lit comme une autre origine. On revérifie la sortie elle-même.
-  const out = parsed.pathname + parsed.search + parsed.hash;
-  return new URL(out, SENTINELLE).origin === SENTINELLE ? out : fallback;
+    // Deuxième passe, à ne pas retirer : le parseur normalise `\` et les segments `.`/`..` APRÈS
+    // avoir classé l'entrée comme relative — le chemin obtenu peut donc commencer par `//`, qu'un
+    // navigateur lit comme une autre origine. On revérifie la sortie elle-même.
+    const out = parsed.pathname + parsed.search + parsed.hash;
+    return new URL(out, SENTINELLE).origin === SENTINELLE ? out : fallback;
+  } catch {
+    return fallback;
+  }
 }
