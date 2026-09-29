@@ -25,6 +25,10 @@ import { PhoneField } from "@/components/atoms/PhoneField";
 // l'écran réel (ReservationForm.tsx) guide déjà vers /alojamientos après l'ajout d'un camp, mais
 // cette raison reste atteignable si le client revient au checkout sans avoir ajouté d'hébergement,
 // ou via un appel direct à la RPC.
+// Migration 20260929112240 : qty_cap_exceeded vise une ligne (create_order renvoie `line`) et
+// rejoint cette liste ; date_range_required (logement sans date de départ, défense en profondeur :
+// LodgingReservationForm envoie toujours endDate) ; pms_unavailable (logement PMS dont le
+// connecteur de l'établissement est coupé, CLAUDE.md §4.4).
 const LINE_SCOPED_REASONS = [
   "product_not_found",
   "not_sellable",
@@ -38,6 +42,9 @@ const LINE_SCOPED_REASONS = [
   "slot_required",
   "unsupported_slot_combination",
   "qty_below_minimum",
+  "qty_cap_exceeded",
+  "date_range_required",
+  "pms_unavailable",
 ] as const;
 
 // Raisons de create_order qui ne visent PAS une ligne précise (visibles seulement au niveau de la
@@ -53,7 +60,6 @@ const ORDER_SCOPED_REASONS = [
   "empty_cart",
   "lodging_cap_exceeded",
   "prestation_cap_exceeded",
-  "qty_cap_exceeded",
   "email_required",
   "email_invalid",
 ] as const;
