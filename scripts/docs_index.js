@@ -72,6 +72,22 @@ const CAHIERS = [
 const GLYPHE = { implemente: '✓', partiel: '◐', brouillon: '○', supprimee: '✗' };
 
 /**
+ * La §0 « Contrat compact » est ce que la carte envoie lire seul : toute spec doit en avoir une, de
+ * 150 lignes au plus (le gabarit vise 80-150). Les specs non conformes au 2026-09-28 sont tolérées
+ * ici, NOMMÉES — et la liste ne peut que rétrécir, mécaniquement : une exemption devenue inutile
+ * fait échouer le contrôle, et aucune spec numérotée au-delà de DERNIERE_SPEC_EXEMPTABLE ne peut y
+ * entrer (une spec nouvelle naît conforme).
+ */
+const CONTRAT_MAX_LIGNES = 150;
+const DERNIERE_SPEC_EXEMPTABLE = 40;
+const EXEMPTIONS_CONTRAT = {
+  // Antérieures au gabarit à §0 (01-08) ou écrites hors gabarit (25, 38).
+  sans: ['01', '02', '03', '04', '05', '07', '08', '25', '38'],
+  // §0 au-delà de 150 lignes — à resserrer à la prochaine réouverture de la spec.
+  longue: ['17', '19', '23', '28', '29', '30', '33'],
+};
+
+/**
  * Mode d'emploi en tête de `docs/INDEX.md` — ce que portait `protocole_ia` dans l'ancien
  * manifeste, là où l'agent le lit forcément : dans le premier fichier qu'il ouvre.
  */
@@ -178,6 +194,26 @@ function sections(text) {
     s.a = a;
   });
   return out;
+}
+
+/** Présence et taille de la §0 d'une spec active, exemptions comprises (voir EXEMPTIONS_CONTRAT). */
+function verifierContrat(rel, contrat) {
+  const n = path.basename(rel).slice(0, 2);
+  const ou = 'scripts/docs_index.js, EXEMPTIONS_CONTRAT';
+  const problemes = [];
+  const sans = EXEMPTIONS_CONTRAT.sans.includes(n);
+  const longue = EXEMPTIONS_CONTRAT.longue.includes(n);
+  if (!contrat && !sans) {
+    problemes.push(`${rel} — pas de « ## 0. Contrat compact » : la carte n'a aucune plage à donner (gabarit : docs/specs/_modele.md)`);
+  }
+  if (contrat && sans) problemes.push(`${rel} — a désormais une §0 : retirer « ${n} » de ${ou}.sans`);
+  if (contrat && contrat.limit > CONTRAT_MAX_LIGNES && !longue) {
+    problemes.push(`${rel} — §0 de ${contrat.limit} lignes (> ${CONTRAT_MAX_LIGNES}) : la resserrer, le détail va dans les sections 1-12`);
+  }
+  if (longue && (!contrat || contrat.limit <= CONTRAT_MAX_LIGNES)) {
+    problemes.push(`${rel} — §0 revenue à ${contrat ? contrat.limit : 0} lignes : retirer « ${n} » de ${ou}.longue`);
+  }
+  return problemes;
 }
 
 /** Plage de la « §0 Contrat compact » d'une spec, au format du Read : { offset, limit } ou null. */
@@ -323,6 +359,20 @@ function collect() {
       _id: fm.id,
       _contrat: fm.theme === 'specs' && !estMetaSpec ? contratCompact(text) : null,
     });
+    if (fm.theme === 'specs' && !estMetaSpec && fm.statut !== 'supprimee') {
+      problemes.push(...verifierContrat(rel, docs[docs.length - 1]._contrat));
+    }
+  }
+  for (const [genre, numeros] of Object.entries(EXEMPTIONS_CONTRAT)) {
+    for (const n of numeros) {
+      if (Number(n) > DERNIERE_SPEC_EXEMPTABLE) {
+        problemes.push(`EXEMPTIONS_CONTRAT.${genre} contient ${n} : une spec postérieure à la ${DERNIERE_SPEC_EXEMPTABLE} naît avec une §0 conforme, sans exemption`);
+      }
+      const spec = docs.find((d) => d.chemin.startsWith(`docs/specs/${n}-`));
+      if (!spec || spec.statut === 'supprimee') {
+        problemes.push(`EXEMPTIONS_CONTRAT.${genre} contient ${n} : aucune spec active de ce numéro — retirer l'exemption`);
+      }
+    }
   }
   const ids = docs.map((d) => d._id);
   for (const id of new Set(ids)) {

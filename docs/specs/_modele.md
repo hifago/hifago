@@ -18,8 +18,12 @@ repond_a:
 ---
 
 > ⚠️ **Ce document ne décrit aucune feature réelle.** Le copier vers
-> `docs/specs/<NN>-<slug-kebab>.md`, remplacer les `<…>`, puis ajouter la ligne au tableau de
-> [`README.md`](README.md) et lancer `npm run docs:index`.
+> `docs/specs/<NN>-<slug-kebab>.md` et remplacer les `<…>` : le commit l'inscrit tout seul dans la
+> carte `docs/INDEX.md` (hook pre-commit). `npm run docs:check` exige une §0 de 150 lignes au plus.
+>
+> Champs d'en-tête selon le statut : `reste: >` (obligatoire si `partiel` : ce qui manque) ;
+> `remplace_par: [NN]` (obligatoire si `supprimee` : la spec qui la remplace, vérifiée) ;
+> `revise:` (les sections de cahier `00`-`03` que la spec révise).
 >
 > Ne pas confondre avec le skill générique `/spec` (gstack), qui crée une **issue GitHub** en
 > 5 phases — outil différent, pour un usage différent (suivi de ticket, pas contrat technique
@@ -67,8 +71,14 @@ repond_a:
 <!-- Rédiger CETTE section EN DERNIER, après avoir travaillé 1-5 et 10 plus bas — copier les
      faits ici, ne jamais reformuler ni dupliquer un raisonnement. Format table/liste
      uniquement, ZÉRO prose de justification (elle appartient aux sections narratives plus bas).
-     Cible : 80-150 lignes. Un agent qui code à partir de cette spec ne lit QUE cette section 0
-     par défaut ; il ouvre 1-12 seulement en cas de doute ou de contradiction apparente. -->
+     Cible : 80-150 lignes (plafond vérifié par `docs:check`). Un agent qui code à partir de cette
+     spec ne lit QUE cette section 0 par défaut — la carte `docs/INDEX.md` lui en donne
+     l'offset/limit ; il ouvre 1-12 seulement en cas de doute ou de contradiction apparente.
+     APRÈS LIVRAISON, cette section est RÉÉCRITE, jamais complétée : un changement ultérieur (spec
+     suivante, renommage, signature d'RPC) se corrige ici même ; le récit va au journal, et une
+     seule section « Écarts post-livraison » peut dire ce que le code a changé au texte — pas de
+     §10bis/§10ter. Seul garde-fou mécanique : les chemins de code cités ici doivent exister
+     (`docs:check`) ; le reste de la règle tient à la relecture. -->
 
 ### Endpoints / RPC
 
