@@ -51,8 +51,13 @@
 -- (beneficiary_type='referrer', status='estimated') pour toute ligne external_referrer — jamais
 -- pour self_referral/direct (referrer_pct=0). 3 assertions ajoutées juste après le cas 16b/16c
 -- ci-dessous, mêmes fixtures, aucune nouvelle commande.
+--
+-- Migration 20260929112240 (2026-09-29) : un logement exige une end_date (date_range_required) —
+-- les cas 5, 6 et 14c posent donc une nuit par ligne. Cas 24 ci-dessous pour les nouvelles gardes
+-- (plafond par ligne d'un logement, plage obligatoire, ressource partagée sommée sur le panier,
+-- e-mail camp échappé).
 begin;
-select plan(106);
+select plan(124);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -378,10 +383,13 @@ select is(
 
 -- Cas 5 : plafond lodging, dimension NOMBRE DE LIGNES (13 lignes > 12, unités=13 <= 36, dates
 -- fictives puisque la phase 1 ne touche jamais product_availability) — valeurs relevées le
--- 2026-09-07 (cahier §3e), corrigées dans create_order en préparant la spec 32 (§10) -------------
+-- 2026-09-07 (cahier §3e), corrigées dans create_order en préparant la spec 32 (§10). Une nuit
+-- par ligne (end_date = date + 1) : depuis 20260929112240, un logement sans end_date est refusé
+-- (date_range_required) avant d'atteindre les plafonds ------------------------------------------
 select test_set_cart((select jsonb_agg(jsonb_build_object(
   'product_id', '88880000-0000-4000-8000-000000000031',
   'date', (date '2028-01-01' + (gs || ' days')::interval)::date,
+  'end_date', (date '2028-01-01' + (gs + 1 || ' days')::interval)::date,
   'qty', 1
 )) from generate_series(0, 12) as gs));
 select is(
@@ -393,10 +401,13 @@ select is(
   '13 lignes lodging (>12) mais 13 unités (<=36) → lodging_cap_exceeded par le nombre de lignes'
 );
 
--- Cas 6 : plafond lodging, dimension SOMME DES UNITÉS (2 lignes <= 12, mais 19+19=38 unités > 36) --
+-- Cas 6 : plafond lodging, dimension SOMME DES UNITÉS (2 lignes <= 12, mais 19+19=38 unités > 36 ;
+-- 19 reste sous le plafond par ligne coalesce(max_qty, 20)) -------------------------------------
 select test_set_cart(jsonb_build_array(
-  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000031', 'date', '2028-02-01', 'qty', 19),
-  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000031', 'date', '2028-02-02', 'qty', 19)
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000031',
+    'date', '2028-02-01', 'end_date', '2028-02-02', 'qty', 19),
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000031',
+    'date', '2028-02-02', 'end_date', '2028-02-03', 'qty', 19)
 ));
 select is(
   (select create_order(
@@ -717,12 +728,14 @@ select is(
 );
 reset role;
 
--- Cas 14c : invité, plafond lodging → lodging_cap_exceeded (même garde-fou que le cas 5).
+-- Cas 14c : invité, plafond lodging → lodging_cap_exceeded (même garde-fou que le cas 5, même
+-- forme de ligne : une nuit par ligne).
 set local role authenticated;
 select test_login_anonymous('88880000-0000-4000-8000-000000000099');
 select test_set_cart((select jsonb_agg(jsonb_build_object(
   'product_id', '88880000-0000-4000-8000-000000000031',
   'date', (date '2028-09-10' + (gs || ' days')::interval)::date,
+  'end_date', (date '2028-09-10' + (gs + 1 || ' days')::interval)::date,
   'qty', 1
 )) from generate_series(0, 12) as gs));
 select is(
@@ -1884,6 +1897,280 @@ select is(
   (select create_order('Holder Day Camp', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
   'true',
   'cas 23f : camp duration_days=1 (0 nuit requise) sans aucune lodging → succès'
+);
+
+-- Cas 24 (migration 20260929112240) : bornes de quantité d'un logement, plage obligatoire,
+-- ressource partagée sommée sur le panier, nom de produit échappé dans l'e-mail camp. Fixtures
+-- dédiées (partenaire 301, établissement 311) : leurs dates et leur ressource partagée ne croisent
+-- aucun cas précédent. Les quantités ≤ 0 et les contraintes CHECK sont dans
+-- create_order_qty_guard.test.sql (il faut y retirer une contrainte le temps du fichier) ; le
+-- logement PMS à connecteur coupé est dans create_order_pms_backed.test.sql.
+reset role;
+insert into partners (id, display_name) values
+  ('88880000-0000-4000-8000-000000000301', 'Order Test Partner P3');
+insert into establishments (id, partner_id, name) values
+  ('88880000-0000-4000-8000-000000000311', '88880000-0000-4000-8000-000000000301',
+   jsonb_build_object('es', 'Establecimiento Order P3'));
+-- Compte du partenaire 301 : destinataire de l'e-mail « recurso bloqueado » (cas 24k). Le trigger
+-- on_auth_user_created lui pose sa ligne partner_accounts, rattachée ici au partenaire.
+insert into auth.users (id, email) values
+  ('88880000-0000-4000-8000-000000000321', 'order-p3-owner@test.local');
+update partner_accounts set partner_id = '88880000-0000-4000-8000-000000000301'
+ where id = '88880000-0000-4000-8000-000000000321';
+
+-- 331 : logement sans min/max produit → plafond par défaut 20 (24a/24b).
+-- 332 : logement min_qty = max_qty = 2 → plafond produit 2 (24c), min_qty ignoré (24d).
+-- 333 : logement à default_capacity → sans end_date, la branche « date unique » l'acceptait (24e).
+-- 334/335 : deux camps d'un jour du même établissement (24g, 24i, 24j).
+-- 336 : camp de 3 jours (24h), couvert par le logement 339 dans le même panier.
+-- 338 : camp d'un jour dont le nom porte du HTML (24k).
+insert into products (
+  id, partner_id, establishment_id, type, name, price_cop, sellable, slug,
+  min_qty, max_qty, default_capacity, duration_days
+)
+values
+  ('88880000-0000-4000-8000-000000000331', '88880000-0000-4000-8000-000000000301',
+   '88880000-0000-4000-8000-000000000311', 'lodging', jsonb_build_object('es', 'Alojamiento P3 Tope'),
+   80000, true, 'order-test-p3-lodging-cap', null, null, null, null),
+  ('88880000-0000-4000-8000-000000000332', '88880000-0000-4000-8000-000000000301',
+   '88880000-0000-4000-8000-000000000311', 'lodging', jsonb_build_object('es', 'Alojamiento P3 Bornes'),
+   80000, true, 'order-test-p3-lodging-bounds', 2, 2, null, null),
+  ('88880000-0000-4000-8000-000000000333', '88880000-0000-4000-8000-000000000301',
+   '88880000-0000-4000-8000-000000000311', 'lodging', jsonb_build_object('es', 'Alojamiento P3 Sin Salida'),
+   80000, true, 'order-test-p3-lodging-no-end', null, null, 5, null),
+  ('88880000-0000-4000-8000-000000000334', '88880000-0000-4000-8000-000000000301',
+   '88880000-0000-4000-8000-000000000311', 'camp', jsonb_build_object('es', 'Campamento P3 A'),
+   90000, true, 'order-test-p3-camp-a', null, null, 10, 1),
+  ('88880000-0000-4000-8000-000000000335', '88880000-0000-4000-8000-000000000301',
+   '88880000-0000-4000-8000-000000000311', 'camp', jsonb_build_object('es', 'Campamento P3 B'),
+   90000, true, 'order-test-p3-camp-b', null, null, 10, 1),
+  ('88880000-0000-4000-8000-000000000336', '88880000-0000-4000-8000-000000000301',
+   '88880000-0000-4000-8000-000000000311', 'camp', jsonb_build_object('es', 'Campamento P3 Tres Dias'),
+   90000, true, 'order-test-p3-camp-3d', null, null, 10, 3),
+  ('88880000-0000-4000-8000-000000000338', '88880000-0000-4000-8000-000000000301',
+   '88880000-0000-4000-8000-000000000311', 'camp',
+   jsonb_build_object('es', '<a href="https://x.test">clic</a> & co'),
+   90000, true, 'order-test-p3-camp-html', null, null, 10, 1),
+  ('88880000-0000-4000-8000-000000000339', '88880000-0000-4000-8000-000000000301',
+   '88880000-0000-4000-8000-000000000311', 'lodging', jsonb_build_object('es', 'Alojamiento P3 Campamento'),
+   50000, true, 'order-test-p3-lodging-camp', null, null, null, null);
+-- 337 : evento réservable en ligne, sans décompte propre ('unlimited'), qui OCCUPE la ressource
+-- partagée (evento_occupies_resource, défaut true) — occurrence unique le 2029-10-21 (24h). Premier
+-- evento réservable de ce fichier : ce chemin de create_order n'avait aucune couverture pgTAP.
+insert into products (
+  id, partner_id, establishment_id, type, name, price_cop, sellable, slug,
+  online_bookable, evento_capacity_mode, evento_payment_mode, occurrence_type, occurrence_date
+)
+values (
+  '88880000-0000-4000-8000-000000000337', '88880000-0000-4000-8000-000000000301',
+  '88880000-0000-4000-8000-000000000311', 'evento', jsonb_build_object('es', 'Evento P3 Ocupa Recurso'),
+  30000, true, 'order-test-p3-evento', true, 'unlimited', 'online', 'once', '2029-10-21'
+);
+
+insert into product_availability (product_id, date, capacity, booked) values
+  ('88880000-0000-4000-8000-000000000331', '2029-10-01', 30, 0),
+  ('88880000-0000-4000-8000-000000000332', '2029-10-03', 10, 0),
+  ('88880000-0000-4000-8000-000000000339', '2029-10-11', 5, 0),
+  ('88880000-0000-4000-8000-000000000339', '2029-10-20', 5, 0),
+  ('88880000-0000-4000-8000-000000000339', '2029-10-21', 5, 0);
+insert into provider_resource_calendar (establishment_id, slot_date, capacity, booked) values
+  ('88880000-0000-4000-8000-000000000311', '2029-10-05', 1, 0),
+  ('88880000-0000-4000-8000-000000000311', '2029-10-08', 3, 2),
+  ('88880000-0000-4000-8000-000000000311', '2029-10-11', 2, 0),
+  ('88880000-0000-4000-8000-000000000311', '2029-10-14', 5, 0),
+  ('88880000-0000-4000-8000-000000000311', '2029-10-20', 1, 0),
+  ('88880000-0000-4000-8000-000000000311', '2029-10-21', 1, 0),
+  ('88880000-0000-4000-8000-000000000311', '2029-10-22', 1, 0);
+
+set local role authenticated;
+select test_login('88880000-0000-4000-8000-000000000021');
+
+-- Cas 24a : logement qty 21 > coalesce(max_qty, 20), alors que la nuit a 30 places → refusé en
+-- Phase 1. Sans la garde, la commande passait (aucune borne par ligne pour un logement).
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000331',
+  'date', '2029-10-01', 'end_date', '2029-10-02', 'qty', 21
+)));
+select is(
+  (select create_order('Holder P3 Tope', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
+  'qty_cap_exceeded',
+  'cas 24a : logement qty 21 > plafond par défaut 20 → qty_cap_exceeded'
+);
+
+-- Cas 24b : qty 20 = le plafond → accepté (borne incluse).
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000331',
+  'date', '2029-10-01', 'end_date', '2029-10-02', 'qty', 20
+)));
+select is(
+  (select create_order('Holder P3 Tope Exacto', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
+  'true',
+  'cas 24b : logement qty 20 = plafond → accepté'
+);
+
+-- Cas 24c : max_qty produit (2) prime sur le défaut 20.
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000332',
+  'date', '2029-10-03', 'end_date', '2029-10-04', 'qty', 3
+)));
+select is(
+  (select create_order('Holder P3 Bornes Max', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
+  'qty_cap_exceeded',
+  'cas 24c : logement qty 3 > max_qty produit 2 → qty_cap_exceeded'
+);
+
+-- Cas 24d : min_qty produit (2) N'EST PAS appliqué à un logement — la vitrine le réserve avec un
+-- minimum fixé à 1 (apps/web/lib/reservas/cantidad.ts) ; l'appliquer refuserait des paniers
+-- qu'elle accepte.
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000332',
+  'date', '2029-10-03', 'end_date', '2029-10-04', 'qty', 1
+)));
+select is(
+  (select create_order('Holder P3 Bornes Min', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
+  'true',
+  'cas 24d : logement qty 1 < min_qty produit 2 → accepté (min_qty jamais appliqué à un logement)'
+);
+
+-- Cas 24e : logement sans end_date → date_range_required, avant tout verrou et avant la
+-- matérialisation des disponibilités (aucune ligne product_availability créée pour 333).
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000333', 'date', '2029-10-06', 'qty', 1
+)));
+select is(
+  (select create_order('Holder P3 Sin Salida', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
+  'date_range_required',
+  'cas 24e : logement sans end_date → date_range_required'
+);
+select is(
+  (select count(*)::int from cart_items where account_id = '88880000-0000-4000-8000-000000000021'),
+  1,
+  'cas 24e : panier intact après le refus'
+);
+reset role;
+select is(
+  (select count(*)::int from product_availability where product_id = '88880000-0000-4000-8000-000000000333'),
+  0,
+  'cas 24e : aucune ligne product_availability matérialisée pour le logement refusé'
+);
+set local role authenticated;
+
+-- Cas 24g : deux camps DIFFÉRENTS du même établissement, le même jour, ressource partagée de
+-- capacité 1 → la somme du panier (2) dépasse : resource_unavailable, aucune écriture.
+select test_set_cart(jsonb_build_array(
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000334', 'date', '2029-10-05', 'qty', 1),
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000335', 'date', '2029-10-05', 'qty', 1)
+));
+select is(
+  (select create_order('Holder P3 Dos Campamentos', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
+  'resource_unavailable',
+  'cas 24g : deux camps du même établissement le même jour, ressource 1 → resource_unavailable'
+);
+reset role;
+select is(
+  (select booked from provider_resource_calendar
+    where establishment_id = '88880000-0000-4000-8000-000000000311' and slot_date = '2029-10-05'),
+  0,
+  'cas 24g : ressource partagée intacte (booked 0)'
+);
+set local role authenticated;
+
+-- Cas 24h : camp de 3 jours (20→22) + evento qui occupe la ressource le 21, ressource de capacité
+-- 1 sur les trois jours → le 21 porte 2 : resource_unavailable, aucun des trois jours écrit.
+select test_set_cart(jsonb_build_array(
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000336', 'date', '2029-10-20', 'qty', 1),
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000339',
+    'date', '2029-10-20', 'end_date', '2029-10-22', 'qty', 1),
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000337', 'date', '2029-10-21', 'qty', 1)
+));
+select is(
+  (select create_order('Holder P3 Campamento Evento', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
+  'resource_unavailable',
+  'cas 24h : camp 3 jours + evento occupant le jour 2, ressource 1 → resource_unavailable'
+);
+reset role;
+select is(
+  (select sum(booked)::int from provider_resource_calendar
+    where establishment_id = '88880000-0000-4000-8000-000000000311'
+      and slot_date between '2029-10-20' and '2029-10-22'),
+  0,
+  'cas 24h : aucun des trois jours de la ressource écrit'
+);
+set local role authenticated;
+
+-- Cas 24i : le même camp deux fois dans le panier, ressource 3 dont 2 déjà prises → 2 + 2 > 3 :
+-- resource_unavailable (la capacité propre du camp, 10, suffit ; seule la ressource bloque).
+select test_set_cart(jsonb_build_array(
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000334', 'date', '2029-10-08', 'qty', 1),
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000334', 'date', '2029-10-08', 'qty', 1)
+));
+select is(
+  (select create_order('Holder P3 Mismo Campamento', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
+  'resource_unavailable',
+  'cas 24i : deux lignes du même camp, ressource 3 dont 2 prises → resource_unavailable'
+);
+reset role;
+select is(
+  (select booked from provider_resource_calendar
+    where establishment_id = '88880000-0000-4000-8000-000000000311' and slot_date = '2029-10-08'),
+  2,
+  'cas 24i : ressource partagée inchangée (booked 2)'
+);
+set local role authenticated;
+
+-- Cas 24j : témoin positif — deux camps d'un jour (1 + 1) sur une ressource de capacité 2, plus un
+-- logement du MÊME établissement (hors ressource partagée, jamais compté) → accepté, booked = 2
+-- exactement.
+select test_set_cart(jsonb_build_array(
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000334', 'date', '2029-10-11', 'qty', 1),
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000335', 'date', '2029-10-11', 'qty', 1),
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000339',
+    'date', '2029-10-11', 'end_date', '2029-10-12', 'qty', 1)
+));
+select is(
+  (select create_order('Holder P3 Capacidad Justa', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
+  'true',
+  'cas 24j : deux camps sur une ressource de capacité 2 + un logement du même établissement → accepté'
+);
+reset role;
+select is(
+  (select booked from provider_resource_calendar
+    where establishment_id = '88880000-0000-4000-8000-000000000311' and slot_date = '2029-10-11'),
+  2,
+  'cas 24j : ressource partagée à booked 2 = capacité (le logement n''est pas compté)'
+);
+set local role authenticated;
+
+-- Cas 24k : e-mail « recurso bloqueado » — le nom du produit est échappé avant d'entrer dans le
+-- HTML. L'envoi est isolé dans un bloc exception qui avale toute erreur : l'existence de la ligne
+-- est vérifiée AVANT son contenu, sans quoi un échec avalé passerait pour un échappement réussi.
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000338', 'date', '2029-10-14', 'qty', 1
+)));
+select is(
+  (select create_order('Holder P3 Nombre HTML', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
+  'true',
+  'cas 24k : camp au nom porteur de HTML → commande acceptée'
+);
+reset role;
+select is(
+  (select count(*)::int from notification_emails n
+     join order_lines ol on ol.id = n.related_id
+    where n.event_type = 'partner_camp_evento_blocked' and n.related_table = 'order_lines'
+      and n.recipient_account_id = '88880000-0000-4000-8000-000000000321'
+      and ol.product_id = '88880000-0000-4000-8000-000000000338'),
+  1,
+  'cas 24k : e-mail « recurso bloqueado » bien mis en file pour le compte du partenaire'
+);
+select ok(
+  (select bool_and(strpos(n.body_html,
+            '&lt;a href=&quot;https://x.test&quot;&gt;clic&lt;/a&gt; &amp; co') > 0
+          and strpos(n.body_html, '<a href') = 0)
+     from notification_emails n
+     join order_lines ol on ol.id = n.related_id
+    where n.event_type = 'partner_camp_evento_blocked'
+      and ol.product_id = '88880000-0000-4000-8000-000000000338'),
+  'cas 24k : nom du produit échappé dans le corps HTML (aucune balise brute)'
 );
 
 select * from finish();

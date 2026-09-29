@@ -5,14 +5,23 @@
 -- product_availability pour une ligne dont le produit porte lobby_category_id, comparé côte à côte
 -- à une ligne non-PMS-backed identique par ailleurs (qui doit, elle, échouer sans
 -- product_availability — non-régression explicite).
+--
+-- Migration 20260929112240 (CLAUDE.md §4.4) : un logement PMS-backed n'est accepté que si le
+-- connecteur Lobby de son établissement est actif ET porte un jeton — sinon pms_unavailable (cas 6).
+-- L'établissement 011 des cas 1-5 a donc son connecteur actif.
 begin;
-select plan(7);
+select plan(13);
 
 insert into partners (id, display_name) values
   ('88930000-0000-4000-8000-000000000001', 'PMS Order Test Partner');
-insert into establishments (id, partner_id, name) values
+insert into establishments (id, partner_id, name, lobby_connector_active, lobby_api_token) values
   ('88930000-0000-4000-8000-000000000011', '88930000-0000-4000-8000-000000000001',
-   jsonb_build_object('es', 'Establecimiento PMS Order'));
+   jsonb_build_object('es', 'Establecimiento PMS Order'), true, 'test-token-011'),
+  -- 012 : connecteur coupé (jeton présent) ; 013 : connecteur actif mais sans jeton (cas 6).
+  ('88930000-0000-4000-8000-000000000012', '88930000-0000-4000-8000-000000000001',
+   jsonb_build_object('es', 'Establecimiento PMS Apagado'), false, 'test-token-012'),
+  ('88930000-0000-4000-8000-000000000013', '88930000-0000-4000-8000-000000000001',
+   jsonb_build_object('es', 'Establecimiento PMS Sin Token'), true, null);
 
 insert into auth.users (id, email) values
   ('88930000-0000-4000-8000-000000000021', 'pms-order-buyer@test.local');
@@ -28,7 +37,18 @@ insert into products (id, partner_id, establishment_id, type, name, price_cop, s
    jsonb_build_object('es', 'Alojamiento PMS-backed'), 100000, true, 'pms-order-lodging-backed', 9631),
   ('88930000-0000-4000-8000-000000000032', '88930000-0000-4000-8000-000000000001',
    '88930000-0000-4000-8000-000000000011', 'lodging',
-   jsonb_build_object('es', 'Alojamiento no PMS'), 100000, true, 'pms-order-lodging-not-backed', null);
+   jsonb_build_object('es', 'Alojamiento no PMS'), 100000, true, 'pms-order-lodging-not-backed', null),
+  -- 033 (établissement 012, connecteur coupé) et 034 (013, sans jeton) : PMS-backed → refusés.
+  -- 035 (012) : NON PMS-backed dans l'établissement au connecteur coupé → témoin, jamais refusé.
+  ('88930000-0000-4000-8000-000000000033', '88930000-0000-4000-8000-000000000001',
+   '88930000-0000-4000-8000-000000000012', 'lodging',
+   jsonb_build_object('es', 'Alojamiento PMS Apagado'), 100000, true, 'pms-order-lodging-off', 9633),
+  ('88930000-0000-4000-8000-000000000034', '88930000-0000-4000-8000-000000000001',
+   '88930000-0000-4000-8000-000000000013', 'lodging',
+   jsonb_build_object('es', 'Alojamiento PMS Sin Token'), 100000, true, 'pms-order-lodging-no-token', 9634),
+  ('88930000-0000-4000-8000-000000000035', '88930000-0000-4000-8000-000000000001',
+   '88930000-0000-4000-8000-000000000012', 'lodging',
+   jsonb_build_object('es', 'Alojamiento Local Apagado'), 100000, true, 'pms-order-lodging-local-off', null);
 
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', '88930000-0000-4000-8000-000000000021', 'role', 'authenticated')::text, true);
@@ -120,6 +140,63 @@ select is(
     where product_id = '88930000-0000-4000-8000-000000000031' and date = '2028-10-02'),
   2,
   'cas 5 : booked résiduel jamais décrémenté (2e nuit)'
+);
+
+-- Cas 6 (migration 20260929112240, CLAUDE.md §4.4) : un logement PMS-backed dont le connecteur est
+-- coupé, ou sans jeton, n'a plus aucun contrôle de capacité (ni local ni Lobby : la route
+-- reserve-nights écarte cet établissement) → refusé avant tout verrou, aucune commande, panier
+-- intact. Le panier du cas 5 a été vidé par son succès.
+select is(
+  (select count(*)::int from cart_items where account_id = '88930000-0000-4000-8000-000000000021'),
+  0,
+  'cas 6 (préalable) : panier vide après le succès du cas 5'
+);
+insert into cart_items (account_id, product_id, date, end_date, qty) values
+  ('88930000-0000-4000-8000-000000000021', '88930000-0000-4000-8000-000000000033',
+   '2028-11-01', '2028-11-03', 1);
+select is(
+  (select create_order('Holder PMS Off', 'pms-off@test.local')->>'reason'),
+  'pms_unavailable',
+  'cas 6a : logement PMS-backed, connecteur coupé → pms_unavailable'
+);
+select is(
+  (select count(*)::int from cart_items where account_id = '88930000-0000-4000-8000-000000000021'),
+  1,
+  'cas 6a : panier intact après le refus'
+);
+
+delete from cart_items where account_id = '88930000-0000-4000-8000-000000000021';
+insert into cart_items (account_id, product_id, date, end_date, qty) values
+  ('88930000-0000-4000-8000-000000000021', '88930000-0000-4000-8000-000000000034',
+   '2028-11-01', '2028-11-03', 1);
+select is(
+  (select create_order('Holder PMS No Token', 'pms-no-token@test.local')->>'reason'),
+  'pms_unavailable',
+  'cas 6b : logement PMS-backed, connecteur actif mais sans jeton → pms_unavailable'
+);
+
+-- Cas 6c (témoin) : logement NON PMS-backed du même établissement au connecteur coupé → la garde
+-- ne le concerne pas, il passe par son contrôle local habituel (nuits posées ci-dessous).
+reset role;
+insert into product_availability (product_id, date, capacity, booked) values
+  ('88930000-0000-4000-8000-000000000035', '2028-11-01', 5, 0),
+  ('88930000-0000-4000-8000-000000000035', '2028-11-02', 5, 0);
+set local role authenticated;
+delete from cart_items where account_id = '88930000-0000-4000-8000-000000000021';
+insert into cart_items (account_id, product_id, date, end_date, qty) values
+  ('88930000-0000-4000-8000-000000000021', '88930000-0000-4000-8000-000000000035',
+   '2028-11-01', '2028-11-03', 1);
+select is(
+  (select create_order('Holder Local Off', 'local-off@test.local')->>'ok'),
+  'true',
+  'cas 6c (témoin) : logement non PMS-backed d''un établissement au connecteur coupé → accepté'
+);
+
+reset role;
+select is(
+  (select count(*)::int from orders where holder_name in ('Holder PMS Off', 'Holder PMS No Token')),
+  0,
+  'cas 6 : aucune commande écrite pour les deux refus'
 );
 
 select * from finish();
