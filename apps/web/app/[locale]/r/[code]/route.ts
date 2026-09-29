@@ -1,5 +1,7 @@
 import type { NextRequest } from "next/server";
+import { hasLocale } from "next-intl";
 import { createClient } from "@hifago/supabase/server";
+import { routing } from "@/i18n/routing";
 
 // Feature 18 — Socio : obtenir son lien/QR de vente attribué. Le QR/lien imprimé pointe TOUJOURS
 // ici, jamais vers l'URL finale (cahier des charges socio §3h, tranché par Jérôme le 2026-08-13) :
@@ -14,7 +16,12 @@ import { createClient } from "@hifago/supabase/server";
 // et create_order (feature 7/§attribution) résout ensuite ce code exactement comme ci-dessous
 // (`where code = ... and active = true`, cf. supabase/migrations/20260814093000_create_order_attribution.sql).
 export async function GET(request: NextRequest, context: RouteContext<"/[locale]/r/[code]">) {
-  const { locale, code } = await context.params;
+  const params = await context.params;
+  const { code } = params;
+  // Locale revalidée ICI : tous les chemins n'atteignent pas ce handler en passant par le proxy
+  // next-intl (son matcher exclut, entre autres, tout chemin contenant un point). Une locale
+  // inconnue retombe sur l'espagnol — jamais un 404 pour un QR déjà imprimé.
+  const locale = hasLocale(routing.locales, params.locale) ? params.locale : routing.defaultLocale;
 
   // partner_codes_select_public (Tranche 1, `using (true)`) : lecture publique déjà ouverte, un
   // code doit être vérifiable avant inscription — même policy réutilisée ici, aucune nouvelle
