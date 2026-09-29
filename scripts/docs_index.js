@@ -37,7 +37,6 @@ const ROOT = path.resolve(__dirname, '..');
 const DOCS = path.join(ROOT, 'docs');
 const OUT = path.join(DOCS, 'ai-index.json');
 const OUT_HUMAIN = path.join(DOCS, 'INDEX.md');
-const SPECS_README = path.join(DOCS, 'specs/README.md');
 
 /**
  * Raccourcis sujet → document(s), en tête de `docs/INDEX.md`. Édités à la main, chaque cible est
@@ -61,7 +60,6 @@ const THEMES = ['cadrage', 'specs', 'journal'];
 
 /** Les seules valeurs valides de `statut` pour un document de thème `specs`. */
 const STATUTS = ['brouillon', 'partiel', 'implemente', 'supprimee'];
-const LABEL_STATUT = { brouillon: 'Brouillon', partiel: 'Partiel', implemente: 'Implémenté', supprimee: 'Supprimée' };
 
 /** Cahiers des charges qu'une spec peut réviser via son champ `revise:`. */
 const CAHIERS = [
@@ -334,37 +332,7 @@ function collect() {
       if (!chemins.includes(cible)) problemes.push(`raccourci « ${sujet} » → ${cible} : document introuvable`);
     }
   }
-  problemes.push(...verifierSommaireSpecs(docs));
   return { docs, problemes };
-}
-
-/**
- * Cohérence frontmatter ↔ table « Sommaire » de docs/specs/README.md : chaque spec `theme: specs`
- * doit y avoir une ligne, et la colonne « État » doit commencer par le libellé du `statut` réel.
- */
-function verifierSommaireSpecs(docs) {
-  const problemes = [];
-  if (!fs.existsSync(SPECS_README)) return problemes;
-  const table = fs.readFileSync(SPECS_README, 'utf8');
-  const specs = docs.filter((d) => d.theme === 'specs' && d.chemin !== 'docs/specs/README.md'
-    && !d.chemin.endsWith('/_modele.md') && !d.chemin.endsWith('/avant-la-spec.md'));
-  for (const spec of specs) {
-    const nomFichier = path.basename(spec.chemin);
-    const ligneRe = new RegExp(`\\[[^\\]]*\\]\\(${nomFichier.replace('.', '\\.')}\\)[^\\n]*`);
-    const m = ligneRe.exec(table);
-    if (!m) {
-      problemes.push(`docs/specs/README.md — aucune ligne du sommaire ne pointe vers ${nomFichier}`);
-      continue;
-    }
-    const label = LABEL_STATUT[spec.statut];
-    if (label && !m[0].includes(label)) {
-      problemes.push(
-        `docs/specs/README.md — la ligne de ${nomFichier} ne contient pas « ${label} » ` +
-        `(statut réel du frontmatter : ${spec.statut})`
-      );
-    }
-  }
-  return problemes;
 }
 
 function build(docs) {

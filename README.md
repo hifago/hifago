@@ -7,8 +7,8 @@ parent — deux apps déployées séparément, `apps/web` (vitrine publique) et 
 du dépôt parent ne s'y applique (`CLAUDE.md` porte les règles).
 
 **État réel** (pas « à venir ») : le code est écrit, testé, et déployé en préprod Vercel avec
-paiement réel confirmé. Les 26 specs de `docs/specs/` couvrent l'essentiel du périmètre v1 —
-`docs/INDEX.md` liste ce qui est implémenté, partiel ou encore brouillon. Le cahier des charges
+paiement réel confirmé. Les specs de `docs/specs/` couvrent l'essentiel du périmètre v1 — la
+carte `docs/INDEX.md` dit lesquelles sont livrées, partielles ou encore en brouillon. Le cahier des charges
 initial (`docs/00-03-*.md`) reste la référence du périmètre fonctionnel mais n'a pas suivi tous
 les raffinements des specs au même rythme — voir leur en-tête « Écarts connus ». Ce qui reste
 ouvert ou bloqué : `docs/backlog.md`.
@@ -27,7 +27,7 @@ Deux hooks git le posent automatiquement. Ils s'installent tout seuls au premier
 
 | Hook | Ce qu'il fait | Contournement |
 |---|---|---|
-| `pre-commit` | Régénère `docs/ai-index.json` et `docs/INDEX.md` dès qu'un `docs/**/*.md` est commité | `git commit --no-verify` |
+| `pre-commit` (+ `pre-merge-commit`) | Régénère `docs/INDEX.md` et `docs/ai-index.json` depuis l'index git dès qu'un `docs/**/*.md` est commité | `git commit --no-verify` |
 | `pre-push` | Lance `npm run verify` | `git push --no-verify` |
 
 Les deux restent contournables : ce sont des filets, pas des barrières. Ils existent parce que la
@@ -41,7 +41,7 @@ CI passait 65 % de son temps en rouge (39 runs sur 60 au 2026-09-19) pour des d�
 | `apps/web`, `apps/admin` | Les deux apps Next.js |
 | `packages/` | `ui` (design system), `supabase` (client/types), `domain` (logique métier partagée), `e2e-support` |
 | `supabase/` | Migrations, seed, tests pgTAP, Edge Functions |
-| `docs/` | `docs/INDEX.md` = sommaire humain. Cahiers des charges (`00`-`03`), architecture (`04`), specs (`specs/`), historique (`journal/`), points ouverts (`backlog.md`) |
+| `docs/` | `docs/INDEX.md` = la carte (humains et IA), générée. Cahiers des charges (`00`-`03`), architecture (`04`), specs (`specs/`), historique (`journal/`), points ouverts (`backlog.md`) |
 | `tests/` | Concurrence (anti-survente), intégration PMS/notifications |
 | `.claude/` | `rules/` (chargées selon le fichier ouvert), `skills/` (procédures à la demande) |
 | `scripts/` | Dev, seed, garde-fous CI (`check-*.sh`), manifeste documentaire (`docs_index.js`) |
