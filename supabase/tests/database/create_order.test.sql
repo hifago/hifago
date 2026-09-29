@@ -57,7 +57,7 @@
 -- (plafond par ligne d'un logement, plage obligatoire, ressource partagée sommée sur le panier,
 -- e-mail camp échappé).
 begin;
-select plan(124);
+select plan(137);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -1906,11 +1906,27 @@ select is(
 -- create_order_qty_guard.test.sql (il faut y retirer une contrainte le temps du fichier) ; le
 -- logement PMS à connecteur coupé est dans create_order_pms_backed.test.sql.
 reset role;
+
+-- Raison du refus, ou « sqlstate <code> » si create_order lève une erreur. Un refus attendu qui
+-- devient une erreur (ex. 23514 d'une contrainte de capacité, quand une garde a sauté) rougit ainsi
+-- son assertion sans interrompre le fichier ; le sous-bloc exception annule les écritures de
+-- l'appel fautif.
+create function test_try_create_order(p_holder text) returns text language plpgsql as $$
+begin
+  return create_order(p_holder, p_holder_email => 'buyer-fixture@hifago.test')->>'reason';
+exception when others then
+  return 'sqlstate ' || sqlstate;
+end;
+$$;
+
 insert into partners (id, display_name) values
   ('88880000-0000-4000-8000-000000000301', 'Order Test Partner P3');
+-- 312 : second établissement du même partenaire, avec sa propre ressource partagée (cas 24m).
 insert into establishments (id, partner_id, name) values
   ('88880000-0000-4000-8000-000000000311', '88880000-0000-4000-8000-000000000301',
-   jsonb_build_object('es', 'Establecimiento Order P3'));
+   jsonb_build_object('es', 'Establecimiento Order P3')),
+  ('88880000-0000-4000-8000-000000000312', '88880000-0000-4000-8000-000000000301',
+   jsonb_build_object('es', 'Establecimiento Order P3 Bis'));
 -- Compte du partenaire 301 : destinataire de l'e-mail « recurso bloqueado » (cas 24k). Le trigger
 -- on_auth_user_created lui pose sa ligne partner_accounts, rattachée ici au partenaire.
 insert into auth.users (id, email) values
@@ -1966,6 +1982,35 @@ values (
   '88880000-0000-4000-8000-000000000311', 'evento', jsonb_build_object('es', 'Evento P3 Ocupa Recurso'),
   30000, true, 'order-test-p3-evento', true, 'unlimited', 'online', 'once', '2029-10-21'
 );
+-- 341 : même evento réservable, mais qui N'OCCUPE PAS la ressource partagée (cas 24n).
+insert into products (
+  id, partner_id, establishment_id, type, name, price_cop, sellable, slug,
+  online_bookable, evento_capacity_mode, evento_payment_mode, occurrence_type, occurrence_date,
+  evento_occupies_resource
+)
+values (
+  '88880000-0000-4000-8000-000000000341', '88880000-0000-4000-8000-000000000301',
+  '88880000-0000-4000-8000-000000000311', 'evento', jsonb_build_object('es', 'Evento P3 Sin Recurso'),
+  30000, true, 'order-test-p3-evento-libre', true, 'unlimited', 'online', 'once', '2029-10-26', false
+);
+-- 340 : camp d'un jour de l'établissement 312 (cas 24m). 342 : camp d'un jour réservé par créneau
+-- horaire (règle tous les jours, 10:00-12:00 par heure) — sa ligne passe par la branche créneau de
+-- create_order, pas par la branche « date unique » (cas 24o).
+insert into products (
+  id, partner_id, establishment_id, type, name, price_cop, sellable, slug,
+  default_capacity, duration_days
+)
+values
+  ('88880000-0000-4000-8000-000000000340', '88880000-0000-4000-8000-000000000301',
+   '88880000-0000-4000-8000-000000000312', 'camp', jsonb_build_object('es', 'Campamento P3 Bis'),
+   90000, true, 'order-test-p3-camp-bis', 10, 1),
+  ('88880000-0000-4000-8000-000000000342', '88880000-0000-4000-8000-000000000301',
+   '88880000-0000-4000-8000-000000000311', 'camp', jsonb_build_object('es', 'Campamento P3 Horario'),
+   90000, true, 'order-test-p3-camp-slot', null, 1);
+insert into product_slot_rules (product_id, weekdays, start_time, end_time, slot_duration_minutes, capacity)
+values (
+  '88880000-0000-4000-8000-000000000342', array[1, 2, 3, 4, 5, 6, 7]::smallint[], '10:00', '12:00', 60, 5
+);
 
 insert into product_availability (product_id, date, capacity, booked) values
   ('88880000-0000-4000-8000-000000000331', '2029-10-01', 30, 0),
@@ -1980,7 +2025,13 @@ insert into provider_resource_calendar (establishment_id, slot_date, capacity, b
   ('88880000-0000-4000-8000-000000000311', '2029-10-14', 5, 0),
   ('88880000-0000-4000-8000-000000000311', '2029-10-20', 1, 0),
   ('88880000-0000-4000-8000-000000000311', '2029-10-21', 1, 0),
-  ('88880000-0000-4000-8000-000000000311', '2029-10-22', 1, 0);
+  ('88880000-0000-4000-8000-000000000311', '2029-10-22', 1, 0),
+  ('88880000-0000-4000-8000-000000000311', '2029-10-24', 1, 0),
+  ('88880000-0000-4000-8000-000000000311', '2029-10-25', 1, 0),
+  ('88880000-0000-4000-8000-000000000311', '2029-10-26', 1, 0),
+  ('88880000-0000-4000-8000-000000000311', '2029-10-27', 1, 0),
+  ('88880000-0000-4000-8000-000000000312', '2029-10-27', 1, 0),
+  ('88880000-0000-4000-8000-000000000311', '2029-10-28', 1, 1);
 
 set local role authenticated;
 select test_login('88880000-0000-4000-8000-000000000021');
@@ -2062,7 +2113,7 @@ select test_set_cart(jsonb_build_array(
   jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000335', 'date', '2029-10-05', 'qty', 1)
 ));
 select is(
-  (select create_order('Holder P3 Dos Campamentos', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
+  (select test_try_create_order('Holder P3 Dos Campamentos')),
   'resource_unavailable',
   'cas 24g : deux camps du même établissement le même jour, ressource 1 → resource_unavailable'
 );
@@ -2084,7 +2135,7 @@ select test_set_cart(jsonb_build_array(
   jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000337', 'date', '2029-10-21', 'qty', 1)
 ));
 select is(
-  (select create_order('Holder P3 Campamento Evento', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
+  (select test_try_create_order('Holder P3 Campamento Evento')),
   'resource_unavailable',
   'cas 24h : camp 3 jours + evento occupant le jour 2, ressource 1 → resource_unavailable'
 );
@@ -2105,7 +2156,7 @@ select test_set_cart(jsonb_build_array(
   jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000334', 'date', '2029-10-08', 'qty', 1)
 ));
 select is(
-  (select create_order('Holder P3 Mismo Campamento', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
+  (select test_try_create_order('Holder P3 Mismo Campamento')),
   'resource_unavailable',
   'cas 24i : deux lignes du même camp, ressource 3 dont 2 prises → resource_unavailable'
 );
@@ -2140,6 +2191,163 @@ select is(
   'cas 24j : ressource partagée à booked 2 = capacité (le logement n''est pas compté)'
 );
 set local role authenticated;
+
+-- Cas 24l à 24n : témoins positifs des FILTRES de la somme — chacun serait refusé à tort si la
+-- somme oubliait le jour (24l), l'établissement (24m) ou l'occupation de la ressource par l'evento
+-- (24n). Ressource de capacité 1 partout.
+-- Cas 24l : deux camps d'un jour du même établissement, à deux jours différents → accepté.
+select test_set_cart(jsonb_build_array(
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000334', 'date', '2029-10-24', 'qty', 1),
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000335', 'date', '2029-10-25', 'qty', 1)
+));
+select is(
+  (select create_order('Holder P3 Dias Distintos', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
+  'true',
+  'cas 24l : deux camps du même établissement à deux jours différents, ressource 1 chaque jour → accepté'
+);
+reset role;
+select is(
+  (select jsonb_agg(booked order by slot_date) from provider_resource_calendar
+    where establishment_id = '88880000-0000-4000-8000-000000000311'
+      and slot_date between '2029-10-24' and '2029-10-25'),
+  jsonb_build_array(1, 1),
+  'cas 24l : une place prise chaque jour, pas deux'
+);
+set local role authenticated;
+
+-- Cas 24m : deux camps de deux établissements différents, le même jour → accepté.
+select test_set_cart(jsonb_build_array(
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000334', 'date', '2029-10-27', 'qty', 1),
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000340', 'date', '2029-10-27', 'qty', 1)
+));
+select is(
+  (select create_order('Holder P3 Dos Establecimientos', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
+  'true',
+  'cas 24m : deux camps de deux établissements le même jour, ressource 1 chacun → accepté'
+);
+
+-- Cas 24n : un camp et un evento qui N'OCCUPE PAS la ressource, le même jour → accepté.
+select test_set_cart(jsonb_build_array(
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000334', 'date', '2029-10-26', 'qty', 1),
+  jsonb_build_object('product_id', '88880000-0000-4000-8000-000000000341', 'date', '2029-10-26', 'qty', 1)
+));
+select is(
+  (select create_order('Holder P3 Evento Libre', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
+  'true',
+  'cas 24n : camp + evento qui n''occupe pas la ressource, ressource 1 → accepté'
+);
+
+-- Cas 24o : camp réservé par CRÉNEAU horaire sur une ressource déjà pleine (1/1) → refusé. Sa ligne
+-- passe par la branche créneau ; le contrôle de la ressource, qui ne vivait que dans la branche
+-- « date unique », s'applique désormais à toute ligne qui l'écrit en Phase 4.
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000342', 'date', '2029-10-28',
+  'slot_start_time', '10:00', 'qty', 1
+)));
+select is(
+  (select test_try_create_order('Holder P3 Campamento Horario')),
+  'resource_unavailable',
+  'cas 24o : camp réservé par créneau, ressource pleine → resource_unavailable'
+);
+reset role;
+select is(
+  (select booked from provider_resource_calendar
+    where establishment_id = '88880000-0000-4000-8000-000000000311' and slot_date = '2029-10-28'),
+  1,
+  'cas 24o : ressource partagée inchangée (booked 1)'
+);
+
+-- Cas 24p à 24r : evento réservable, selon son mode de capacité. 'unlimited'/'rsvp' ne sont jamais
+-- décomptés (Phase 3), et une ligne product_availability peut leur rester d'un ancien mode
+-- 'metered' : la Phase 4 ne doit pas l'incrémenter — sinon booked <= capacity ferait échouer une
+-- vente que ces modes ne bloquent jamais. 'metered' reste, lui, décompté et borné. Aucun des trois
+-- n'occupe la ressource partagée (hors sujet ici).
+insert into products (
+  id, partner_id, establishment_id, type, name, price_cop, sellable, slug,
+  online_bookable, evento_capacity_mode, evento_payment_mode, occurrence_type, occurrence_date,
+  evento_occupies_resource, default_capacity
+)
+values
+  ('88880000-0000-4000-8000-000000000343', '88880000-0000-4000-8000-000000000301',
+   '88880000-0000-4000-8000-000000000311', 'evento', jsonb_build_object('es', 'Evento P3 Rsvp'),
+   30000, true, 'order-test-p3-evento-rsvp', true, 'rsvp', 'online', 'once', '2029-11-05', false, 200),
+  ('88880000-0000-4000-8000-000000000344', '88880000-0000-4000-8000-000000000301',
+   '88880000-0000-4000-8000-000000000311', 'evento', jsonb_build_object('es', 'Evento P3 Ilimitado'),
+   30000, true, 'order-test-p3-evento-unlimited', true, 'unlimited', 'online', 'once', '2029-11-06', false, null),
+  ('88880000-0000-4000-8000-000000000345', '88880000-0000-4000-8000-000000000301',
+   '88880000-0000-4000-8000-000000000311', 'evento', jsonb_build_object('es', 'Evento P3 Cupo'),
+   30000, true, 'order-test-p3-evento-metered', true, 'metered', 'online', 'once', '2029-11-07', false, 3);
+-- 343 et 344 : lignes restées d'un ancien mode 'metered' (343 pleine) ; 345 : son vrai cupo.
+insert into product_availability (product_id, date, capacity, booked) values
+  ('88880000-0000-4000-8000-000000000343', '2029-11-05', 2, 2),
+  ('88880000-0000-4000-8000-000000000344', '2029-11-06', 5, 0),
+  ('88880000-0000-4000-8000-000000000345', '2029-11-07', 3, 0);
+set local role authenticated;
+
+-- Cas 24p : evento 'rsvp', ligne restée PLEINE (2/2) → la vente passe, la ligne n'est pas touchée.
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000343', 'date', '2029-11-05', 'qty', 1
+)));
+select is(
+  (select test_try_create_order('Holder P3 Evento Rsvp')),
+  null,
+  'cas 24p : evento rsvp avec une ligne product_availability restée pleine → accepté (aucun motif, aucune erreur)'
+);
+reset role;
+select is(
+  (select jsonb_build_object('booked', (select booked from product_availability
+      where product_id = '88880000-0000-4000-8000-000000000343' and date = '2029-11-05'),
+    'lignes', (select count(*) from order_lines where product_id = '88880000-0000-4000-8000-000000000343'))),
+  jsonb_build_object('booked', 2, 'lignes', 1),
+  'cas 24p : ligne de commande écrite, ligne restée intacte (booked 2)'
+);
+set local role authenticated;
+
+-- Cas 24q : evento 'unlimited', ligne restée (0/5) → la vente passe sans l'incrémenter.
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000344', 'date', '2029-11-06', 'qty', 2
+)));
+select is(
+  (select create_order('Holder P3 Evento Ilimitado', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
+  'true',
+  'cas 24q : evento unlimited avec une ligne restée → accepté'
+);
+reset role;
+select is(
+  (select booked from product_availability
+    where product_id = '88880000-0000-4000-8000-000000000344' and date = '2029-11-06'),
+  0,
+  'cas 24q : ligne restée non incrémentée (booked 0)'
+);
+set local role authenticated;
+
+-- Cas 24r : evento 'metered' (cupo 3) — toujours décompté : qty 2 passe (booked 2), puis un second
+-- panier de qty 2 est refusé 'full'. Premier test d'un evento metered vendu par create_order : une
+-- garde de Phase 4 écrite trop large (ex. « jamais pour un evento ») rouvrirait la survente ici.
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000345', 'date', '2029-11-07', 'qty', 2
+)));
+select is(
+  (select create_order('Holder P3 Evento Cupo', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
+  'true',
+  'cas 24r : evento metered, qty 2 sur un cupo de 3 → accepté'
+);
+reset role;
+select is(
+  (select booked from product_availability
+    where product_id = '88880000-0000-4000-8000-000000000345' and date = '2029-11-07'),
+  2,
+  'cas 24r : cupo décompté (booked 2)'
+);
+set local role authenticated;
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000345', 'date', '2029-11-07', 'qty', 2
+)));
+select is(
+  (select test_try_create_order('Holder P3 Evento Cupo Lleno')),
+  'full',
+  'cas 24r : second panier qty 2 (2 + 2 > 3) → full'
+);
 
 -- Cas 24k : e-mail « recurso bloqueado » — le nom du produit est échappé avant d'entrer dans le
 -- HTML. L'envoi est isolé dans un bloc exception qui avale toute erreur : l'existence de la ligne

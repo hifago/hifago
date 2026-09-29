@@ -5,15 +5,29 @@
 -- plus porter qty ≤ 0, donc la seule façon de prouver la garde elle-même est de retirer la
 -- contrainte le temps du fichier. C'est fait DANS la transaction du test (DDL transactionnel,
 -- annulé par le rollback final) — sans ce retrait, la mutation « garde supprimée » resterait verte.
+-- Les appels passent par test_try_create_order : sans la garde, create_order ne renvoie pas un
+-- motif mais heurte une AUTRE contrainte de la même migration (booked >= 0, montants >= 0) — le
+-- helper transforme cette erreur en valeur, l'assertion rougit sans interrompre le fichier.
 -- ⚠️ Conséquence : verrou ACCESS EXCLUSIVE sur cart_items de ce retrait jusqu'à la fin du fichier.
 -- Sans effet en CI (fichiers exécutés l'un après l'autre) ; sur une base locale partagée, une autre
--- session qui touche cart_items attend la fin de ce fichier (quelques secondes). Ces cas vivent
--- dans ce fichier dédié plutôt que dans create_order.test.sql pour garder ce verrou court.
+-- session qui touche cart_items attend la fin de ce fichier (quelques secondes). lock_timeout borne
+-- l'attente inverse : si une autre session tient déjà cart_items, le retrait échoue en 5 s (55P03)
+-- au lieu de faire patienter derrière lui toute session qui touche le panier. Ces cas vivent dans
+-- ce fichier dédié plutôt que dans create_order.test.sql pour garder ce verrou court.
 begin;
 select plan(23);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
+$$;
+
+-- Motif de refus de create_order, ou « sqlstate <code> » si elle lève une erreur (cf. en-tête).
+create function test_try_create_order(p_holder text) returns text language plpgsql as $$
+begin
+  return create_order(p_holder, 'qty-guard@test.local')->>'reason';
+exception when others then
+  return 'sqlstate ' || sqlstate;
+end;
 $$;
 
 insert into partners (id, display_name) values
@@ -149,7 +163,9 @@ select throws_ok(
 );
 
 -- 4. La garde de create_order elle-même, derrière la contrainte retirée (cf. en-tête).
+set local lock_timeout = '5s';
 alter table public.cart_items drop constraint cart_items_qty_positive;
+reset lock_timeout;
 set local role authenticated;
 
 -- 4a. Logement à plage, qty -10 : la branche lodging n'avait aucune borne.
@@ -158,7 +174,7 @@ insert into cart_items (account_id, product_id, date, end_date, qty) values
   ('89930000-0000-4000-8000-000000000021', '89930000-0000-4000-8000-000000000031',
    '2029-11-01', '2029-11-03', -10);
 select is(
-  (select create_order('Holder Guard Lodging Neg', 'qty-guard@test.local')->>'reason'),
+  (select test_try_create_order('Holder Guard Lodging Neg')),
   'qty_below_minimum',
   'garde : logement à plage qty -10 → qty_below_minimum'
 );
@@ -174,7 +190,7 @@ insert into cart_items (account_id, product_id, date, end_date, qty) values
   ('89930000-0000-4000-8000-000000000021', '89930000-0000-4000-8000-000000000031',
    '2029-11-01', '2029-11-03', 0);
 select is(
-  (select create_order('Holder Guard Lodging Zero', 'qty-guard@test.local')->>'reason'),
+  (select test_try_create_order('Holder Guard Lodging Zero')),
   'qty_below_minimum',
   'garde : logement à plage qty 0 → qty_below_minimum'
 );
@@ -186,7 +202,7 @@ insert into cart_items (account_id, product_id, date, end_date, qty) values
   ('89930000-0000-4000-8000-000000000021', '89930000-0000-4000-8000-000000000032',
    '2029-11-01', '2029-11-03', -10);
 select is(
-  (select create_order('Holder Guard Lodging PMS', 'qty-guard@test.local')->>'reason'),
+  (select test_try_create_order('Holder Guard Lodging PMS')),
   'qty_below_minimum',
   'garde : logement PMS-backed qty -10 → qty_below_minimum'
 );
@@ -196,7 +212,7 @@ delete from cart_items where account_id = '89930000-0000-4000-8000-000000000021'
 insert into cart_items (account_id, product_id, date, qty) values
   ('89930000-0000-4000-8000-000000000021', '89930000-0000-4000-8000-000000000033', '2029-11-07', 0);
 select is(
-  (select create_order('Holder Guard Min Zero', 'qty-guard@test.local')->>'reason'),
+  (select test_try_create_order('Holder Guard Min Zero')),
   'qty_below_minimum',
   'garde : activité à min_qty 0, qty 0 → qty_below_minimum (plancher 1 pour tout type)'
 );

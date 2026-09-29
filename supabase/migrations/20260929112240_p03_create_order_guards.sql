@@ -10,9 +10,10 @@
 --     provider_resource_calendar. Leurs écrivains vérifient déjà la capacité avant d'incrémenter
 --     (create_order, create_manual_order_line, modify_order_line), refusent de passer sous booked
 --     (set_product_availability, set_product_slot_capacity, set_provider_resource_capacity →
---     below_booked) ou bornent à 0 (release_order_line_capacity). La contrainte est le filet :
---     une écriture qui la violerait échoue (23514) au lieu de survendre ou de rendre un compteur
---     négatif.
+--     below_booked) ou bornent à 0 (release_order_line_capacity). Seul modify_order_line décrémente
+--     sans plancher (booked - qty de l'ancienne ligne) : un compteur déjà incohérent y lève
+--     désormais 23514 au lieu de devenir négatif. La contrainte est le filet : une écriture qui la
+--     violerait échoue (23514) au lieu de survendre ou de rendre un compteur négatif.
 --
 -- create_order — corps extrait par pg_get_functiondef depuis la définition vivante
 -- (20260916120000_fix_lodging_price_missing_qty.sql), signature INCHANGÉE
@@ -25,7 +26,10 @@
 --   Phase 3 — ressource partagée (provider_resource_calendar) : booked + somme des lignes du panier
 --             qui l'occupent ce jour-là, au lieu de la seule ligne courante ; contrôle appliqué à
 --             toute ligne qui l'écrit en Phase 4, quelle que soit sa branche.
---   Phase 4 — e-mail « recurso bloqueado » : nom du produit échappé par xmltext().
+--   Phase 4 — product_availability n'est plus incrémentée pour un evento 'unlimited'/'rsvp', que
+--             la Phase 3 ne vérifie jamais (même prédicat) : une ligne subsistant pour un tel evento
+--             ne peut plus faire échouer une vente sur booked <= capacity.
+--   Phase 4 — e-mail « recurso bloqueado » : nom du produit échappé par xmltext() (PostgreSQL 17).
 -- Aucun nouveau verrou, ordre des verrous inchangé (product_availability →
 -- provider_resource_calendar → product_slot_availability). Grants de create_order inchangés
 -- (create or replace les conserve).
@@ -92,7 +96,7 @@ declare
   v_products_calendar_default_open boolean[];
   v_products_stay_rates jsonb[];
   v_products_lobby_category_id int[];
-  -- Ajout de cette migration — remise par seuil de remplissage cumulé (camps).
+  -- Ajout de la migration 20260914130000 — remise par seuil de remplissage cumulé (camps).
   v_products_group_discount_threshold_qty int[];
   v_products_group_discount_pct numeric(5, 4)[];
   v_camp_fill_before_qty int[];
@@ -312,7 +316,7 @@ begin
   -- seule la totalité des nuits requises — "camp du 1 au 5" = les nuits 1,2,3,4, donc dernier jour
   -- du camp = date_depart + duration_days - 1 (même formule que provider_resource_calendar/
   -- availability_blocks plus bas). Vérifie UNIQUEMENT la couverture des dates, jamais une
-  -- comparaison de quantité (cf. en-tête de cette migration). Emplacement délibéré : juste après
+  -- comparaison de quantité (cf. en-tête de 20260915100000). Emplacement délibéré : juste après
   -- les plafonds de composition ci-dessus, avant tout verrou — aucun nouveau tableau, aucune
   -- requête ni verrou supplémentaire, v_lines/v_products_type[]/v_products_duration_days[] étant
   -- déjà entièrement peuplés par la boucle Phase 1 ci-dessus.
@@ -549,6 +553,9 @@ begin
         -- construction, aucune ressource rare à protéger (aucune ligne product_availability
         -- n'existe pour eux, cf. provisionnement plus haut) — aucune lecture ni verrou ici. Le
         -- mode 'metered' retombe dans le bloc existant, inchangé, qui couvre déjà activity/camp.
+        -- Migration 20260929112240 : une ligne peut pourtant exister pour ces modes (ancien mode
+        -- 'metered', modify_order_line, create_manual_order_line) — la Phase 4 ne l'écrit plus non
+        -- plus, par le même prédicat.
         if not (v_line_type = 'evento' and v_products_evento_capacity_mode[v_line_idx] in ('unlimited', 'rsvp')) then
           select capacity, booked into v_capacity, v_booked
             from public.product_availability
@@ -557,7 +564,7 @@ begin
             return jsonb_build_object('ok', false, 'reason', 'slot_not_found', 'line', v_line);
           end if;
 
-          -- Ajout de cette migration : remplissage AVANT cette commande, capturé sous le même verrou
+          -- Ajout de 20260914130000 : remplissage AVANT cette commande, capturé sous le même verrou
           -- que v_booked ci-dessus (aucune requête supplémentaire) — sert en Phase 4 à décider si la
           -- ligne franchit le seuil de remise (camps uniquement, group_discount_threshold_qty null
           -- pour tout autre type). Valeur déjà cohérente avec la vérification de capacité qui suit.
@@ -788,8 +795,15 @@ begin
           end if;
         end if;
 
-        update public.product_availability set booked = booked + v_line_qty
-         where product_id = (v_line->>'product_id')::uuid and date = (v_line->>'date')::date;
+        -- Ajout de la migration 20260929112240 : même prédicat que la Phase 3, qui ne vérifie jamais
+        -- la capacité d'un evento 'unlimited'/'rsvp' — n'écrire que ce qui a été vérifié. Une ligne
+        -- product_availability peut subsister pour un tel evento (ancien mode 'metered', lignes
+        -- posées par modify_order_line ou create_manual_order_line) : l'incrémenter sans contrôle
+        -- heurterait booked <= capacity sur une vente que ces modes ne bloquent jamais.
+        if not (v_line_type = 'evento' and v_products_evento_capacity_mode[v_line_idx] in ('unlimited', 'rsvp')) then
+          update public.product_availability set booked = booked + v_line_qty
+           where product_id = (v_line->>'product_id')::uuid and date = (v_line->>'date')::date;
+        end if;
       end if;
 
       if v_referrer_partner_id is null then
@@ -881,7 +895,7 @@ begin
         -- doit jamais faire échouer la réservation elle-même (spec 23 §8.1) — la RPC la plus
         -- centrale du système (tout panier, anon ou authentifié, y passe).
         -- Ajout de la migration 20260929112240 : le nom est échappé par xmltext() (natif
-        -- depuis PostgreSQL 16 : & < > ", NULL → NULL) avant d'être interpolé dans le HTML.
+        -- depuis PostgreSQL 17 : & < > ", NULL → NULL) avant d'être interpolé dans le HTML.
         select p.name ->> 'es' into v_camp_product_name
           from public.products p where p.id = (v_line->>'product_id')::uuid;
 
