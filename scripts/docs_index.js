@@ -39,30 +39,25 @@ const OUT = path.join(DOCS, 'ai-index.json');
 const OUT_HUMAIN = path.join(DOCS, 'INDEX.md');
 const SPECS_README = path.join(DOCS, 'specs/README.md');
 
-/** Table de routage sujet → document. Éditée à la main, préservée à chaque régénération. */
-const ROUTAGE = {
-  'référencement, seo, sitemap, robots.txt, hreflang, données structurées json-ld':
-    'docs/specs/26-referencement-seo-et-moteurs-ia.md',
-  'stack technique, architecture cible, décisions déjà tranchées à ne pas rouvrir': 'docs/04-architecture-cible.md',
-  'squelette RPC anti-survente, test de concurrence, recherche géo+JSONB à copier': 'docs/05-reference-technique.md',
-  'modèle de données cible : entités, champs, établissement/chambre/produit/compte': 'docs/00-modele-de-donnees.md',
-  'cahier des charges portail client (marketplace, réservation)': 'docs/01-cahier-des-charges-client.md',
-  'cahier des charges portail socio (référent, prestador)': 'docs/02-cahier-des-charges-socio.md',
-  'cahier des charges back-office admin': 'docs/03-cahier-des-charges-admin.md',
-  'emails transactionnels : les 8 envois possibles, leur déclencheur et leur destinataire': 'docs/06-emails-transactionnels.md',
-  'sommaire des specs de feature, gabarit réutilisable': 'docs/specs/README.md',
-  'gabarit à copier pour spécifier une nouvelle feature': 'docs/specs/_modele.md',
-  'comment poser les bonnes questions à Jérôme avant d\'écrire une spec, clarifier une ambiguïté': 'docs/specs/avant-la-spec.md',
-  "historique complet d'une feature déjà livrée (jamais chargé automatiquement)": 'docs/journal/',
-  'points ouverts, arbitrages en attente de Jérôme, dette connue non traitée, quoi faire maintenant': 'docs/backlog.md',
-};
+/**
+ * Raccourcis sujet → document(s), en tête de `docs/INDEX.md`. Édités à la main, chaque cible est
+ * vérifiée. Seulement les sujets que les titres de la carte ne disent pas d'eux-mêmes — et jamais
+ * un chiffre qui dérive (l'ancienne table de routage annonçait « les 8 envois » d'un document qui
+ * en listait 11).
+ */
+const RACCOURCIS = [
+  ['quoi faire maintenant, points ouverts, arbitrages en attente de Jérôme', ['docs/backlog.md']],
+  ['stack, architecture, décisions déjà tranchées à ne pas rouvrir', ['docs/04-architecture-cible.md']],
+  ['squelette RPC anti-survente, test de concurrence, recherche géo+JSONB à copier', ['docs/05-reference-technique.md']],
+  ['modèle de données : entités et champs (établissement, produit, compte)', ['docs/00-modele-de-donnees.md']],
+  ['emails transactionnels : envois, déclencheurs, destinataires', ['docs/06-emails-transactionnels.md']],
+  ['SEO : sitemap, robots.txt, hreflang, JSON-LD', ['docs/specs/26-referencement-seo-et-moteurs-ia.md']],
+  ['pièges empiriques numérotés (`CLAUDE.md §11.N`)', ['docs/pieges-empiriques.md']],
+  ['écrire une spec : les questions à poser, puis le gabarit', ['docs/specs/avant-la-spec.md', 'docs/specs/_modele.md']],
+];
 
-/** Fiabilité d'un thème : ce qu'une IA a le droit d'en déduire. */
-const THEMES = {
-  cadrage: { dossier: 'docs/', fiabilite: 'cible', note: "Cahiers des charges et architecture cible de la refonte. Décrit ce qui doit exister, pas forcément déjà codé — croiser avec le statut de la section." },
-  specs: { dossier: 'docs/specs/', fiabilite: 'cible', note: "⚠️ Spec d'une feature précise, prête à coder. Vérifier `statut` (voir STATUTS) avant de citer comme déjà livré." },
-  journal: { dossier: 'docs/journal/', fiabilite: 'vivant', note: "Historique chronologique, jamais élagué. Jamais chargé automatiquement en session — à ouvrir seulement pour comprendre une décision passée." },
-};
+/** Thèmes valides d'un en-tête `---` — et rubriques de la carte. */
+const THEMES = ['cadrage', 'specs', 'journal'];
 
 /** Les seules valeurs valides de `statut` pour un document de thème `specs`. */
 const STATUTS = ['brouillon', 'partiel', 'implemente', 'supprimee'];
@@ -76,15 +71,25 @@ const CAHIERS = [
   'docs/03-cahier-des-charges-admin.md',
 ];
 
-const PROTOCOLE = [
-  "Lire `routage` (sujet → chemin) : il est en tête de ce fichier et couvre les cas courants. Si le sujet y figure, s'arrêter là.",
-  "Sinon seulement, lire `documents` et croiser `cles` et `questions`.",
-  "N'ouvrir qu'UN document. Son en-tête `---` répète ces métadonnées : les 20 premières lignes confirment le bon choix.",
-  "Vérifier `themes[<theme>].fiabilite` avant de citer : `cible` ne décrit pas forcément un comportement déjà livré.",
-  "Pour une spec (`theme: specs`) : `statut: partiel` a un champ `reste` — le lire avant de dire une feature terminée.",
-  "En cas de contradiction entre une spec `implemente`/`partiel` et un cahier des charges (00-03), la spec la plus récente prime — elle raffine le cahier, elle ne l'invente pas.",
-  "Sinon, en cas de contradiction entre deux documents, le code fait foi, puis `hifago/docs/04-architecture-cible.md`.",
-  "Ne jamais parcourir docs/ en entier ni ouvrir plusieurs gros fichiers « pour voir ».",
+const GLYPHE = { implemente: '✓', partiel: '◐', brouillon: '○', supprimee: '✗' };
+
+/**
+ * Mode d'emploi en tête de `docs/INDEX.md` — ce que portait `protocole_ia` dans l'ancien
+ * manifeste, là où l'agent le lit forcément : dans le premier fichier qu'il ouvre.
+ */
+const MODE_EMPLOI = [
+  "Générée par `npm run docs:index` (hooks pre-commit et pre-merge-commit) — ne pas éditer à la main.",
+  "Point d'entrée unique, humains et IA. Liens relatifs à `docs/`.",
+  '',
+  "1. Repérer le document ci-dessous — ou dans les Raccourcis si le sujet n'est pas un titre.",
+  "2. Spec : Read avec l'`offset`/`limit` de sa §0 — le contrat pour coder, qui suffit seul.",
+  "3. Autre document de plus de 40 Ko : son plan d'abord (`grep -n '^## ' <fichier>`), puis la section.",
+  "4. Sujet introuvable ici : `grep -i <mot> docs/ai-index.json` (une ligne par document : résumé, mots-clés, questions).",
+  "5. État courant : `grep -n '^## 20' docs/journal/*.md | tail -5`, puis Read avec `offset` et `limit`.",
+  '',
+  "Specs : ✓ livrée · ◐ partielle (lire « reste ») · ○ brouillon · ✗ supprimée (→ remplaçante).",
+  "Le cadrage (00-06) décrit la cible, pas forcément ce qui est livré. En cas de contradiction, la spec",
+  "livrée ou partielle la plus récente prime sur le cahier ; sinon le code fait foi, puis `04-architecture-cible.md`.",
 ];
 
 function walk(dir, acc = []) {
@@ -148,6 +153,38 @@ function parseFrontMatter(text) {
     }
   }
   return out;
+}
+
+/**
+ * Titres `## ` d'un document avec leur plage de lignes (numérotées à partir de 1, comme l'`offset`
+ * du Read de Claude Code), hors blocs de code — même indentés dans une liste — et hors commentaires
+ * HTML. La fin d'une section ne compte pas les lignes vides ni le `---` qui la séparent de la suivante.
+ */
+function sections(text) {
+  const lignes = text.split('\n');
+  if (lignes[lignes.length - 1] === '') lignes.pop();
+  const out = [];
+  let code = false;
+  let commentaire = false;
+  lignes.forEach((l, i) => {
+    if (/^\s*(```|~~~)/.test(l)) { code = !code; return; }
+    if (code) return;
+    if (commentaire) { if (l.includes('-->')) commentaire = false; return; }
+    if (l.includes('<!--') && !l.includes('-->')) { commentaire = true; return; }
+    if (l.startsWith('## ')) out.push({ titre: l.slice(3).trim(), de: i + 1 });
+  });
+  out.forEach((s, k) => {
+    let a = k + 1 < out.length ? out[k + 1].de - 1 : lignes.length;
+    while (a > s.de && /^\s*(---)?\s*$/.test(lignes[a - 1])) a -= 1;
+    s.a = a;
+  });
+  return out;
+}
+
+/** Plage de la « §0 Contrat compact » d'une spec, au format du Read : { offset, limit } ou null. */
+function contratCompact(text) {
+  const zero = sections(text).find((s) => /^0\.\s/.test(s.titre));
+  return zero ? { offset: zero.de, limit: zero.a - zero.de + 1 } : null;
 }
 
 /**
@@ -231,7 +268,7 @@ function collect() {
     for (const champ of ['id', 'titre', 'theme', 'statut', 'resume']) {
       if (!fm[champ]) problemes.push(`${rel} — champ « ${champ} » manquant`);
     }
-    if (fm.theme && !THEMES[fm.theme]) problemes.push(`${rel} — thème inconnu « ${fm.theme} »`);
+    if (fm.theme && !THEMES.includes(fm.theme)) problemes.push(`${rel} — thème inconnu « ${fm.theme} »`);
 
     const estMetaSpec = rel === 'docs/specs/README.md' || rel.endsWith('/_modele.md') || rel.endsWith('/avant-la-spec.md');
     if (fm.theme === 'specs' && !estMetaSpec) {
@@ -285,15 +322,17 @@ function collect() {
       questions: (fm.repond_a || []).slice(0, 3).join(' | '),
       titre: fm.titre,
       _id: fm.id,
+      _contrat: fm.theme === 'specs' && !estMetaSpec ? contratCompact(text) : null,
     });
   }
   const ids = docs.map((d) => d._id);
   for (const id of new Set(ids)) {
     if (ids.filter((x) => x === id).length > 1) problemes.push(`id « ${id} » utilisé par plusieurs documents`);
   }
-  for (const cible of new Set(Object.values(ROUTAGE))) {
-    if (cible.endsWith('/')) continue; // pointeur vers un dossier (ex. docs/journal/), pas un fichier
-    if (!fs.existsSync(path.join(ROOT, cible))) problemes.push(`routage → ${cible} : fichier introuvable`);
+  for (const [sujet, cibles] of RACCOURCIS) {
+    for (const cible of cibles) {
+      if (!chemins.includes(cible)) problemes.push(`raccourci « ${sujet} » → ${cible} : document introuvable`);
+    }
   }
   problemes.push(...verifierSommaireSpecs(docs));
   return { docs, problemes };
@@ -330,13 +369,9 @@ function verifierSommaireSpecs(docs) {
 
 function build(docs) {
   return {
-    _lisez_moi: "Manifeste de la base documentaire hifago/. Généré par `npm run docs:index`. Ne pas éditer à la main : éditer l'en-tête `---` des documents, puis régénérer.",
-    version: 1,
-    protocole_ia: PROTOCOLE,
-    routage: ROUTAGE,
-    themes: THEMES,
-    statuts_specs: STATUTS,
-    documents: docs.map(({ _id, titre, ...reste }) => reste),
+    _lisez_moi: "Index de RECHERCHE de la base documentaire hifago/ : une ligne par document, à interroger par `grep -i <mot>`, jamais à lire en entier. Point d'entrée : docs/INDEX.md. Généré par `npm run docs:index` — éditer l'en-tête `---` des documents, puis régénérer.",
+    version: 2,
+    documents: docs.map(({ _id, titre, _contrat, ...reste }) => reste),
   };
 }
 
@@ -348,34 +383,55 @@ function serialiser(manifeste) {
   return `${head},\n  "documents": [\n${lignes}\n  ]\n}\n`;
 }
 
-/** `docs/INDEX.md` — sommaire humain, par thème, généré (jamais édité à la main). */
+/**
+ * `docs/INDEX.md` — la CARTE : point d'entrée unique, humains et IA (généré, jamais édité à la main).
+ *
+ * POURQUOI (audit du 2026-09-28) : l'agent entrait par `ai-index.json` (39 Ko, lu en entier, jamais
+ * sous le niveau du fichier) puis ouvrait une spec entière. La carte tient en ~9 Ko, une ligne par
+ * document, et donne pour chaque spec la plage de sa §0 au format du Read (offset/limit) : la
+ * question « quelle spec couvre le panier ? » passe de ~18 k à ~5 k tokens. Les numéros de ligne ne
+ * sont tolérables QUE parce qu'ils sont générés et vérifiés (`--check`, CLAUDE.md §11.20) — et c'est
+ * pour cela qu'aucune ligne du journal n'y figure : une entrée non commitée les périmerait.
+ */
 function construireIndexHumain(docs) {
-  const parThe = { cadrage: [], specs: [], journal: [] };
-  for (const d of docs) if (parThe[d.theme]) parThe[d.theme].push(d);
-
   const tronquer = (s, n) => (s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s);
+  const relatif = (chemin) => chemin.replace(/^docs\//, '');
+  const estSpecFeature = (d) => /^docs\/specs\/\d/.test(d.chemin);
+
   const ligne = (d) => {
-    const reste = d.reste ? ` (reste : ${tronquer(d.reste, 90)})` : '';
-    const statut = d.theme === 'specs' && d.statut
-      ? ` — **${LABEL_STATUT[d.statut] || d.statut}**${reste}`
-      : '';
-    return `- [${d.titre}](${d.chemin.replace(/^docs\//, '')})${statut}`;
+    const morceaux = [`- [${tronquer(d.titre, 70)}](${relatif(d.chemin)}) ${d.ko}K`];
+    if (estSpecFeature(d)) {
+      morceaux.push(GLYPHE[d.statut] || d.statut);
+      if (d.remplace_par) morceaux.push(`→ ${d.remplace_par.join(', ')}`);
+      else if (d._contrat) morceaux.push(`· §0 offset ${d._contrat.offset} limit ${d._contrat.limit}`);
+      else morceaux.push('· sans §0');
+      if (d.statut === 'partiel' && d.reste) morceaux.push(`· reste : ${tronquer(d.reste, 90)}`);
+    }
+    if (d.chemin.startsWith('docs/journal/')) morceaux.push('· jamais en entier (voir 5.)');
+    return morceaux.join(' ');
   };
+  const rubrique = (theme, filtre = () => true) =>
+    docs.filter((d) => d.theme === theme && filtre(d)).map(ligne).join('\n');
+  const raccourcis = RACCOURCIS
+    .map(([sujet, cibles]) => `- ${sujet} → ${cibles.map((c) => `[${relatif(c)}](${relatif(c)})`).join(', ')}`)
+    .join('\n');
 
-  return `# Index de la documentation hifago/
+  return `# Carte de la documentation hifago/
 
-> Généré par \`npm run docs:index\` — ne pas éditer à la main. Sommaire **humain** ; le
-> \`docs/ai-index.json\` voisin sert le même contenu à une IA (table de routage sujet → document).
-> Un seul fichier à ouvrir pour savoir ce qui existe : celui-ci.
+${MODE_EMPLOI.map((l) => (l ? `> ${l}` : '>')).join('\n')}
 
-## Cadrage — architecture, modèle de données, cahiers des charges
-${parThe.cadrage.map(ligne).join('\n')}
+## Raccourcis
+${raccourcis}
 
-## Specs — features prêtes à coder ou livrées
-${parThe.specs.map(ligne).join('\n')}
+## Cadrage — la cible de la refonte
+${rubrique('cadrage')}
 
-## Journal — historique chronologique (jamais chargé automatiquement)
-${parThe.journal.map(ligne).join('\n')}
+## Specs — une feature chacune
+${rubrique('specs', estSpecFeature)}
+${rubrique('specs', (d) => !estSpecFeature(d))}
+
+## Suivi — backlog, dette, pièges, journal
+${rubrique('journal')}
 `;
 }
 
@@ -458,8 +514,16 @@ if (mode === 'check') {
     for (const d of detail) ecarts.push(`docs/ai-index.json : ${d}`);
   }
   if (!fs.existsSync(OUT_HUMAIN)) ecarts.push('docs/INDEX.md est absent');
-  else if (fs.readFileSync(OUT_HUMAIN, 'utf8') !== construireIndexHumain(docs)) {
-    ecarts.push('docs/INDEX.md ne correspond plus aux documents');
+  else {
+    // Nommer la première ligne qui diffère (ex. « §0 offset 48 » devenu 49 parce qu'une ligne a été
+    // ajoutée au-dessus) plutôt qu'un « ne correspond plus » qui oblige à régénérer pour comprendre.
+    const actuel = fs.readFileSync(OUT_HUMAIN, 'utf8').split('\n');
+    const attendu = construireIndexHumain(docs).split('\n');
+    const i = attendu.findIndex((l, k) => l !== actuel[k]);
+    if (i !== -1 || actuel.length !== attendu.length) {
+      const k = i === -1 ? attendu.length : i;
+      ecarts.push(`docs/INDEX.md, ligne ${k + 1} : « ${actuel[k] ?? '(absente)'} » → attendu « ${attendu[k] ?? '(absente)'} »`);
+    }
   }
   const tout = [...problemes, ...ecarts];
   if (tout.length) {

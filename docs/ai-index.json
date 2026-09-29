@@ -1,54 +1,6 @@
 {
-  "_lisez_moi": "Manifeste de la base documentaire hifago/. Généré par `npm run docs:index`. Ne pas éditer à la main : éditer l'en-tête `---` des documents, puis régénérer.",
-  "version": 1,
-  "protocole_ia": [
-    "Lire `routage` (sujet → chemin) : il est en tête de ce fichier et couvre les cas courants. Si le sujet y figure, s'arrêter là.",
-    "Sinon seulement, lire `documents` et croiser `cles` et `questions`.",
-    "N'ouvrir qu'UN document. Son en-tête `---` répète ces métadonnées : les 20 premières lignes confirment le bon choix.",
-    "Vérifier `themes[<theme>].fiabilite` avant de citer : `cible` ne décrit pas forcément un comportement déjà livré.",
-    "Pour une spec (`theme: specs`) : `statut: partiel` a un champ `reste` — le lire avant de dire une feature terminée.",
-    "En cas de contradiction entre une spec `implemente`/`partiel` et un cahier des charges (00-03), la spec la plus récente prime — elle raffine le cahier, elle ne l'invente pas.",
-    "Sinon, en cas de contradiction entre deux documents, le code fait foi, puis `hifago/docs/04-architecture-cible.md`.",
-    "Ne jamais parcourir docs/ en entier ni ouvrir plusieurs gros fichiers « pour voir »."
-  ],
-  "routage": {
-    "référencement, seo, sitemap, robots.txt, hreflang, données structurées json-ld": "docs/specs/26-referencement-seo-et-moteurs-ia.md",
-    "stack technique, architecture cible, décisions déjà tranchées à ne pas rouvrir": "docs/04-architecture-cible.md",
-    "squelette RPC anti-survente, test de concurrence, recherche géo+JSONB à copier": "docs/05-reference-technique.md",
-    "modèle de données cible : entités, champs, établissement/chambre/produit/compte": "docs/00-modele-de-donnees.md",
-    "cahier des charges portail client (marketplace, réservation)": "docs/01-cahier-des-charges-client.md",
-    "cahier des charges portail socio (référent, prestador)": "docs/02-cahier-des-charges-socio.md",
-    "cahier des charges back-office admin": "docs/03-cahier-des-charges-admin.md",
-    "emails transactionnels : les 8 envois possibles, leur déclencheur et leur destinataire": "docs/06-emails-transactionnels.md",
-    "sommaire des specs de feature, gabarit réutilisable": "docs/specs/README.md",
-    "gabarit à copier pour spécifier une nouvelle feature": "docs/specs/_modele.md",
-    "comment poser les bonnes questions à Jérôme avant d'écrire une spec, clarifier une ambiguïté": "docs/specs/avant-la-spec.md",
-    "historique complet d'une feature déjà livrée (jamais chargé automatiquement)": "docs/journal/",
-    "points ouverts, arbitrages en attente de Jérôme, dette connue non traitée, quoi faire maintenant": "docs/backlog.md"
-  },
-  "themes": {
-    "cadrage": {
-      "dossier": "docs/",
-      "fiabilite": "cible",
-      "note": "Cahiers des charges et architecture cible de la refonte. Décrit ce qui doit exister, pas forcément déjà codé — croiser avec le statut de la section."
-    },
-    "specs": {
-      "dossier": "docs/specs/",
-      "fiabilite": "cible",
-      "note": "⚠️ Spec d'une feature précise, prête à coder. Vérifier `statut` (voir STATUTS) avant de citer comme déjà livré."
-    },
-    "journal": {
-      "dossier": "docs/journal/",
-      "fiabilite": "vivant",
-      "note": "Historique chronologique, jamais élagué. Jamais chargé automatiquement en session — à ouvrir seulement pour comprendre une décision passée."
-    }
-  },
-  "statuts_specs": [
-    "brouillon",
-    "partiel",
-    "implemente",
-    "supprimee"
-  ],
+  "_lisez_moi": "Index de RECHERCHE de la base documentaire hifago/ : une ligne par document, à interroger par `grep -i <mot>`, jamais à lire en entier. Point d'entrée : docs/INDEX.md. Généré par `npm run docs:index` — éditer l'en-tête `---` des documents, puis régénérer.",
+  "version": 2,
   "documents": [
     {"chemin":"docs/00-modele-de-donnees.md","theme":"cadrage","statut":"brouillon","langue":"fr","ko":56,"resume":"Audit champ par champ des entités centrales (établissement, chambre, produit, compte, code partenaire), croisé avec le…","cles":"modele de donnees, entites, etablissement, chambre, produit, compte, code partenaire","questions":"Quels champs porte chaque entité centrale du nouveau modèle de données ?"},
     {"chemin":"docs/01-cahier-des-charges-client.md","theme":"cadrage","statut":"brouillon","langue":"fr","ko":96,"resume":"Comportement métier cible du portail de réservation client, dérivé du comportement réel actuel et challengé section par…","cles":"cahier des charges, client, portail client, reservation, marketplace, guatape","questions":"Que doit faire le portail client (apps/web) dans la refonte ?"},

@@ -17,8 +17,9 @@ pendant tout ce chantier.
 
 ## 1. Sources de vérité — à lire avant toute tâche
 
-**Chercher un sujet précis** : lire `docs/ai-index.json` (table `routage` en tête) et n'ouvrir QUE
-le document désigné — jamais parcourir `docs/` en entier.
+**Chercher un sujet précis** : lire `docs/INDEX.md` (carte générée, mode d'emploi en tête), puis
+Read avec l'`offset`/`limit` qu'elle indique (§0 d'une spec) ; sujet absent → `grep -i <mot>
+docs/ai-index.json` — jamais parcourir `docs/` en entier ni lire un gros fichier en entier.
 
 1. `docs/04-architecture-cible.md` fait foi pour toute décision technique « confirmée »/« retenue »
    — ne jamais la rouvrir sans fait nouveau explicite présenté à Jérôme (Fly, Cypress, Jest, pgTAP
