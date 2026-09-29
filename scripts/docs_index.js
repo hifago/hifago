@@ -21,6 +21,12 @@
  * valeurs + `reste:` pour `partiel` ; `revise:` sur une spec qui touche un cahier des charges,
  * vérifié contre la date du dernier commit du cahier (pas une date tapée à la main — 74 % des
  * `maj` étaient déjà en retard) ; `docs/INDEX.md` humain, généré comme `ai-index.json`.
+ *
+ * 2026-09-28 — plus AUCUNE date dans les sorties (ni `maj` par document, ni date de génération) :
+ * dérivée de `git log`, elle faisait dépendre le manifeste de l'HISTORIQUE, pas du contenu — une
+ * fusion, un squash ou un `--amend` le périmait sans qu'aucun document n'ait changé (c772927).
+ * Les deux fichiers générés sont désormais une fonction pure du contenu de `docs/`. `gitMaj` ne
+ * sert plus qu'au contrôle `revise`.
  */
 
 const fs = require('fs');
@@ -260,7 +266,6 @@ function collect() {
       statut: fm.statut,
       reste: fm.reste || undefined,
       langue: fm.langue || 'fr',
-      maj: gitMaj(rel) || fm.maj || null,
       ko: Math.round(Buffer.byteLength(text, 'utf8') / 1024),
       resume,
       cles: (fm.mots_cles || []).join(', '),
@@ -314,7 +319,6 @@ function build(docs) {
   return {
     _lisez_moi: "Manifeste de la base documentaire hifago/. Généré par `npm run docs:index`. Ne pas éditer à la main : éditer l'en-tête `---` des documents, puis régénérer.",
     version: 1,
-    maj: aujourdHuiBogota(),
     protocole_ia: PROTOCOLE,
     routage: ROUTAGE,
     themes: THEMES,
@@ -342,8 +346,7 @@ function construireIndexHumain(docs) {
     const statut = d.theme === 'specs' && d.statut
       ? ` — **${LABEL_STATUT[d.statut] || d.statut}**${reste}`
       : '';
-    const maj = d.maj ? ` · maj ${d.maj}` : '';
-    return `- [${d.titre}](${d.chemin.replace(/^docs\//, '')})${statut}${maj}`;
+    return `- [${d.titre}](${d.chemin.replace(/^docs\//, '')})${statut}`;
   };
 
   return `# Index de la documentation hifago/
@@ -408,18 +411,15 @@ function ecartsDocuments(actuels, attendus) {
 /**
  * Écarts d'EN-TÊTE (`routage`, `themes`, `protocole_ia`, `statuts_specs`, `version`).
  *
- * ⚠️ `maj` est volontairement EXCLU : c'est la date de génération, réécrite à chaque `--build`.
- * La comparer rendrait le contrôle rouge tous les jours à minuit sans qu'aucun fichier n'ait bougé.
- *
  * POURQUOI ce contrôle existe : `--check` ne regardait QUE `documents`. Modifier ROUTAGE ou THEMES
  * dans ce script laissait donc le manifeste committé périmé avec un check au VERT — une dérive
  * silencieuse, exactement le contraire de ce que CLAUDE.md §11.20 demande.
  */
 function ecartsEntete(actuel, attendu) {
   const ecarts = [];
-  const sansMaj = ({ maj, documents, ...reste }) => reste;
-  const a = sansMaj(actuel);
-  const b = sansMaj(attendu);
+  const sansDocuments = ({ documents, ...reste }) => reste;
+  const a = sansDocuments(actuel);
+  const b = sansDocuments(attendu);
   for (const champ of new Set([...Object.keys(a), ...Object.keys(b)])) {
     if (JSON.stringify(a[champ]) !== JSON.stringify(b[champ])) {
       ecarts.push(`en-tête — « ${champ} » diffère de ce que génère scripts/docs_index.js`);
