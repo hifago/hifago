@@ -27,7 +27,7 @@ Deux hooks git le posent automatiquement. Ils s'installent tout seuls au premier
 
 | Hook | Ce qu'il fait | Contournement |
 |---|---|---|
-| `pre-commit` (+ `pre-merge-commit`) | Régénère `docs/INDEX.md` et `docs/ai-index.json` depuis l'index git dès qu'un `docs/**/*.md` est commité | `git commit --no-verify` |
+| `pre-commit` | Régénère `docs/INDEX.md` et `docs/ai-index.json` depuis l'index git dès qu'un `docs/**/*.md` est commité | `git commit --no-verify` |
 | `pre-push` | Lance `npm run verify` | `git push --no-verify` |
 
 Les deux restent contournables : ce sont des filets, pas des barrières. Ils existent parce que la

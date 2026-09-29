@@ -1,6 +1,6 @@
 # Carte de la documentation hifago/
 
-> Générée par `npm run docs:index` (hooks pre-commit et pre-merge-commit) — ne pas éditer à la main.
+> Générée par `npm run docs:index` (hook pre-commit) — ne pas éditer à la main.
 > Point d'entrée unique, humains et IA. Liens relatifs à `docs/`.
 >
 > 1. Repérer le document ci-dessous — ou dans les Raccourcis si le sujet n'est pas un titre.

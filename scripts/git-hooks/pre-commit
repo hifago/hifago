@@ -14,7 +14,16 @@
 # `--staged` : la génération lit l'INDEX git, pas l'arbre de travail — une modification non mise en
 # scène ne doit pas entrer dans le manifeste commité (la CI relit le contenu commité).
 # Déclenché aussi par une suppression (`D`) et par une modification du générateur lui-même.
-# `pre-merge-commit` délègue ici : un commit de fusion sans conflit ne passe pas par pre-commit.
+#
+# FUSIONS (vérifié le 2026-09-28 dans un worktree jetable). Les deux fichiers générés sont une
+# fonction pure du contenu de docs/ (aucune date) : une fusion SANS conflit les combine donc
+# exactement comme une régénération le ferait. Deux specs voisines modifiées de part et d'autre
+# produisent un conflit sur leurs lignes adjacentes : `git add docs/INDEX.md docs/ai-index.json`
+# puis `git commit` — ce hook régénère alors depuis le contenu fusionné. Pas de hook
+# pre-merge-commit : git n'inclut PAS dans le commit de fusion ce qu'il met en scène (essayé,
+# la carte restait périmée) ; pas de pilote de fusion « ours » : il masquerait le conflit et
+# committerait une carte périmée en silence. Après un rebase, `npm run docs:check` (le pre-push
+# le lance de toute façon).
 #
 # Contournable par `git commit --no-verify`, comme le pre-push.
 
