@@ -80,7 +80,7 @@
 
 ## Suivi — backlog, dette, pièges, journal
 - [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 12K
-- [Dette technique et QA/UI connue — hifago](dette-technique.md) 32K
+- [Dette technique et QA/UI connue — hifago](dette-technique.md) 33K
 - [Journal hifago — août 2026](journal/2026-08.md) 660K · jamais en entier (voir 5.)
-- [Journal hifago — septembre 2026](journal/2026-09.md) 661K · jamais en entier (voir 5.)
+- [Journal hifago — septembre 2026](journal/2026-09.md) 665K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K
