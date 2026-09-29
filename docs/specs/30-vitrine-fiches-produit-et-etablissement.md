@@ -264,7 +264,7 @@ le seul filet reste son test pgTAP. Le faire tourner après la migration n'est p
 `apps/web/app/[locale]/(vitrine)/productos/[slug]/BotonContacto.tsx` ·
 `apps/web/app/[locale]/(vitrine)/establecimientos/[slug]/FichaEstablecimiento.tsx`
 (chacun + test + story) · `apps/web/messages/{es,en}/FichaPage.json` ·
-`apps/web/e2e/fichas.spec.ts` (jamais créé sous ce nom — `apps/web/e2e/establishment-page.spec.ts`) · `supabase/scripts/seed-media.mjs` + ses images ·
+`apps/web/e2e/fichas.spec.ts` (jamais créé sous ce nom — absent de l'historique git) · `supabase/scripts/seed-media.mjs` + ses images ·
 `supabase/migrations/<ts>_products_vitrine_sin_precio.sql` ·
 `supabase/migrations/<ts>_establishments_contacto_publico.sql` ·
 `supabase/migrations/<ts>_search_catalog_n_alojamientos.sql` ·
