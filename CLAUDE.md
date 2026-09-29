@@ -173,7 +173,8 @@ reste donc ici :
     règle vérifiable mécaniquement l'est (`eslint.rules.mjs`, `scripts/check-*.sh`, CI).
 
 ## 12. État courant
-État courant → dernière entrée de `docs/journal/<mois-en-cours>.md` (nouveau mois = nouveau
-fichier). Points ouverts et arbitrages en attente → `docs/backlog.md`. Fin de session : *append*
+État courant → dernière entrée du journal (un fichier par mois, ~660 Ko : jamais en entier) :
+`grep -n '^## 20' docs/journal/*.md | tail -5`, puis Read avec `offset` ET `limit`. Points ouverts
+et arbitrages en attente → `docs/backlog.md`. Fin de session : *append*
 (jamais écraser) une entrée datée au journal, puis mettre `docs/backlog.md` à jour (ajouter ce qui
 s'ouvre, retirer ce qui se referme).

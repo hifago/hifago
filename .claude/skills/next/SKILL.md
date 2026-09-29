@@ -9,8 +9,9 @@ Objectif : supprimer la paralysie du choix. La sortie donne UNE action — jamai
 d'options, jamais de question ouverte.
 
 Sources, toutes trois obligatoires, dans cet ordre : `docs/backlog.md` (points ouverts — ses
-« Règles pour l'IA » en tête font foi), la dernière entrée de `docs/journal/<mois-en-cours>.md`
-(où on en est), `git log --oneline -10` + `git status` (ce qui est en cours). Jamais le backlog du
+« Règles pour l'IA » en tête font foi), la dernière entrée du journal
+(où on en est — `grep -n '^## 20' docs/journal/*.md | tail -5`, puis Read avec `offset` et `limit`,
+jamais le fichier entier), `git log --oneline -10` + `git status` (ce qui est en cours). Jamais le backlog du
 dépôt legacy parent : il ne décrit pas hifago.
 
 ## Procédure

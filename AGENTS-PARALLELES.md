@@ -14,8 +14,9 @@ Tu n'es pas seul sur ce dépôt. D'autres agents travaillent peut-être EN CE MO
 d'autres specs, dans le même répertoire de travail hifago/, avec la même instance Supabase locale.
 Avant de commencer, et à chaque fois que quelque chose semble incohérent avec ce que tu attendais :
 
-1. Lire `docs/backlog.md` (points ouverts) puis la dernière entrée du fichier du mois en cours de
-   `docs/journal/` — une autre session a peut-être livré quelque chose depuis ta dernière lecture
+1. Lire `docs/backlog.md` (points ouverts) puis la dernière entrée du journal
+   (`grep -n '^## 20' docs/journal/*.md | tail -5`, puis Read avec `offset` et `limit` — jamais le
+   fichier entier) — une autre session a peut-être livré quelque chose depuis ta dernière lecture
    du repo. (`CLAUDE.md` ne porte plus de curseur d'état depuis le 2026-09-07 — c'est justement
    pour éviter que plusieurs agents parallèles s'écrasent dessus, cf. `docs/journal/2026-09.md`.)
 2. Avant de créer une migration : `ls supabase/migrations/ | tail -5` pour repérer un timestamp
