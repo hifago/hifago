@@ -23,10 +23,13 @@ const ERROR_MESSAGES: Record<string, string> = {
   // que c'est refusé.
   anonymous_not_allowed:
     "Créez un compte ou connectez-vous avant d'utiliser ce lien d'invitation.",
-  // Feature 31 (docs/specs/07-connexion-inscription-complete.md §7) : raisons renvoyées par
-  // POST /api/auth/invitation-signup, jamais par consume_partner_invitation elle-même.
+  // Feature 31 (docs/specs/07-connexion-inscription-complete.md §7) : raisons propres à
+  // POST /api/auth/invitation-signup — qui relaie aussi, telles quelles, celles de
+  // consume_partner_invitation ci-dessus, puisqu'il consomme l'invitation lui-même.
   email_already_used: "Cet email est déjà utilisé par un autre compte.",
   session_failed: "La session n'a pas pu être établie. Réessayez.",
+  consume_failed: "Une erreur est survenue. Réessayez.",
+  invalid_request: "Renseignez votre nom, votre email et un mot de passe.",
 };
 
 type ConsumeResult = { ok: boolean; reason?: string; roles?: string[]; partner_id?: string };
@@ -64,19 +67,16 @@ export function JoinForm({
     if (!token) return;
     setIsSubmitting(true);
 
-    // Un visiteur déjà authentifié (retour de GoogleButton, ou toute session existante) saute la
-    // création de compte email/mot de passe : consume_partner_invitation ci-dessous ne s'appuie
-    // que sur auth.uid(), jamais sur le mode de connexion — inutile de repasser par le Route
-    // Handler service_role qui ne sait créer QUE des comptes email/mot de passe.
     if (!initialUser) {
       // Feature 31 (docs/specs/07-connexion-inscription-complete.md §7) : la vérification email
       // (enable_confirmations = true) empêcherait désormais un signUp() client-side de renvoyer une
-      // session immédiate — ce Route Handler crée le compte déjà confirmé côté serveur (service_role)
-      // et établit la session, pour que ce parcours reste instantané comme avant.
+      // session immédiate — ce Route Handler crée le compte déjà confirmé côté serveur (service_role),
+      // établit la session ET consomme l'invitation dans la même requête, pour que ce parcours reste
+      // instantané comme avant. Rien à consommer ici : une seconde consommation échouerait.
       const signupResponse = await fetch("/api/auth/invitation-signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, email, password }),
+        body: JSON.stringify({ token, email, password, name }),
       });
       const signupResult = (await signupResponse.json()) as SignupResult;
 
@@ -88,30 +88,34 @@ export function JoinForm({
         setIsSubmitting(false);
         return;
       }
-    }
+    } else {
+      // Un visiteur déjà authentifié (retour de GoogleButton, ou toute session existante) saute la
+      // création de compte email/mot de passe : consume_partner_invitation ne s'appuie que sur
+      // auth.uid(), jamais sur le mode de connexion — inutile de repasser par le Route Handler
+      // service_role qui ne sait créer QUE des comptes email/mot de passe.
+      const supabase = createClient();
 
-    const supabase = createClient();
+      // Un seul aller-retour pour la consommation elle-même — explicit_consent vaut true dès que ce
+      // formulaire est soumis (case cochée obligatoire pour activer le bouton, pas une vérification
+      // serveur en plus, cf. plan Feature 13).
+      const { data, error: rpcError } = await supabase.rpc("consume_partner_invitation", {
+        p_token: token,
+        p_signer_name: name,
+        p_document_version: "v1",
+      });
 
-    // Un seul aller-retour pour la consommation elle-même — explicit_consent vaut true dès que ce
-    // formulaire est soumis (case cochée obligatoire pour activer le bouton, pas une vérification
-    // serveur en plus, cf. plan Feature 13).
-    const { data, error: rpcError } = await supabase.rpc("consume_partner_invitation", {
-      p_token: token,
-      p_signer_name: name,
-      p_document_version: "v1",
-    });
+      setIsSubmitting(false);
 
-    setIsSubmitting(false);
+      if (rpcError) {
+        toast.danger("Une erreur est survenue. Réessayez.");
+        return;
+      }
 
-    if (rpcError) {
-      toast.danger("Une erreur est survenue. Réessayez.");
-      return;
-    }
-
-    const result = data as ConsumeResult;
-    if (!result.ok) {
-      toast.danger(ERROR_MESSAGES[result.reason ?? ""] ?? "Une erreur est survenue. Réessayez.");
-      return;
+      const result = data as ConsumeResult;
+      if (!result.ok) {
+        toast.danger(ERROR_MESSAGES[result.reason ?? ""] ?? "Une erreur est survenue. Réessayez.");
+        return;
+      }
     }
 
     // Redirection immédiate vers le dashboard (spec §5.2) plutôt qu'un message inline : l'état
