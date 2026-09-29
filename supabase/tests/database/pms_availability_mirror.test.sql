@@ -15,6 +15,20 @@
 -- ⚠️ Établissement de test à UN SEUL couchage : avec deux, la carte groupée
 -- (`n_alojamientos >= 2`) masquerait le filtre — elle est calculée HORS filtre de dates, donc
 -- l'établissement resterait visible grâce à son autre couchage et on ne mesurerait rien.
+--
+-- ⚠️ DATES ANCRÉES SUR LE 1ER DU MOIS SUIVANT, JAMAIS `today_in_bogota() + k`. L'« ancre » est
+-- `(date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date`, répétée telle
+-- quelle (même forme que les rangs 5/6 plus bas) ; « +k » dans les commentaires de ce fichier veut
+-- dire « ancre + k ». Pourquoi : `sync_pms_availability_month` n'écrit QUE les nuits du mois qu'on
+-- lui passe et ignore les autres sans rien dire (20260918170000). Ce fichier écrivait le mois
+-- COURANT avec des nuits `today_in_bogota() + k` : elles sortaient du mois dès que la date du jour
+-- approchait sa fin. #29 (+8) rougissait du ~23 à la fin de chaque mois — CI de `main` rouge du 26
+-- au 29/09/2026 sans que personne ne le voie —, #5 et #8 les deux derniers jours, et #9/#25/#30
+-- passaient alors PAR ACCIDENT (repli par plage). Depuis le 1er du mois suivant, ancre + k reste
+-- dans le même mois pour tout k ≤ 27, quel que soit le jour où le test tourne. Vérifié en rejouant
+-- ce fichier sous une `today_in_bogota()` gelée (30/09, 31/10, 31/12, 31/01, 28/02, 01/10) dans une
+-- transaction annulée — un geste de PREUVE, jamais un dispositif du test : le dépôt vieillit la
+-- donnée, pas l'horloge (`clients_stage_timezone.test.sql`).
 
 begin;
 select plan(30);
@@ -80,10 +94,14 @@ select ok(
 select is(
   (select public.sync_pms_availability_month(
      'bbbb2222-0000-0000-0000-00000000000a',
-     to_char(today_in_bogota(), 'YYYY-MM'),
+     to_char((date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date, 'YYYY-MM'),
      jsonb_build_array(
-       jsonb_build_object('category_id', 777001, 'date', to_char(today_in_bogota() + 1, 'YYYY-MM-DD'), 'available_units', 3),
-       jsonb_build_object('category_id', 777001, 'date', to_char(today_in_bogota() + 2, 'YYYY-MM-DD'), 'available_units', 0),
+       jsonb_build_object('category_id', 777001,
+         'date', to_char((date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 1, 'YYYY-MM-DD'),
+         'available_units', 3),
+       jsonb_build_object('category_id', 777001,
+         'date', to_char((date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 2, 'YYYY-MM-DD'),
+         'available_units', 0),
        -- Hors du mois demandé : doit être IGNORÉE, jamais écrite sous prétexte qu'elle est là.
        jsonb_build_object('category_id', 777001, 'date', '2099-01-05', 'available_units', 9)
      )) ->> 'written')::int,
@@ -111,9 +129,11 @@ select is(
 select is(
   (select public.sync_pms_availability_month(
      'bbbb2222-0000-0000-0000-00000000000a',
-     to_char(today_in_bogota(), 'YYYY-MM'),
+     to_char((date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date, 'YYYY-MM'),
      jsonb_build_array(
-       jsonb_build_object('category_id', 777001, 'date', to_char(today_in_bogota() + 1, 'YYYY-MM-DD'), 'available_units', 5)
+       jsonb_build_object('category_id', 777001,
+         'date', to_char((date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 1, 'YYYY-MM-DD'),
+         'available_units', 5)
      )) ->> 'written')::int,
   1,
   'un resync du même mois ne conserve que ce que Lobby cote ENCORE'
@@ -121,7 +141,7 @@ select is(
 select is(
   (select count(*)::int from pms_availability_mirror
     where establishment_id = 'bbbb2222-0000-0000-0000-00000000000a'
-      and date = today_in_bogota() + 2),
+      and date = (date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 2),
   0,
   'une nuit que Lobby ne cote plus DISPARAÎT du miroir (sinon elle resterait vendable à jamais)'
 );
@@ -150,14 +170,17 @@ insert into products (id, partner_id, establishment_id, type, name, slug, sellab
 -- Écrit SANS passer par claim_pms_sync_batch — exactement le chemin du repli (lot B, à venir).
 select public.sync_pms_availability_month(
   'bbbb2222-0000-0000-0000-00000000000c',
-  to_char(today_in_bogota(), 'YYYY-MM'),
+  to_char((date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date, 'YYYY-MM'),
   jsonb_build_array(jsonb_build_object(
-    'category_id', 777002, 'date', to_char(today_in_bogota() + 1, 'YYYY-MM-DD'), 'available_units', 4
+    'category_id', 777002,
+    'date', to_char((date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 1, 'YYYY-MM-DD'),
+    'available_units', 4
   )));
 
 select is(
   (select claimed_at from pms_sync_state
-    where establishment_id = 'bbbb2222-0000-0000-0000-00000000000c' and month = to_char(today_in_bogota(), 'YYYY-MM')),
+    where establishment_id = 'bbbb2222-0000-0000-0000-00000000000c'
+      and month = to_char((date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date, 'YYYY-MM')),
   null,
   'un mois écrit par sync_pms_availability_month SANS claim préalable a claimed_at NULL (le cas du repli)'
 );
@@ -165,18 +188,20 @@ select is(
 select is(
   (select count(*)::int from claim_pms_sync_batch(100)
     where establishment_id = 'bbbb2222-0000-0000-0000-00000000000c'
-      and month = to_char(today_in_bogota(), 'YYYY-MM')),
+      and month = to_char((date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date, 'YYYY-MM')),
   0,
   'ce mois vient d''être synchronisé : frais, donc pas dû — même sans claimed_at'
 );
 
 select public.mark_pms_sync_due(
-  'bbbb2222-0000-0000-0000-00000000000c', today_in_bogota(), today_in_bogota() + 1);
+  'bbbb2222-0000-0000-0000-00000000000c',
+  (date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date,
+  (date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 1);
 
 select is(
   (select count(*)::int from claim_pms_sync_batch(100)
     where establishment_id = 'bbbb2222-0000-0000-0000-00000000000c'
-      and month = to_char(today_in_bogota(), 'YYYY-MM')),
+      and month = to_char((date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date, 'YYYY-MM')),
   1,
   'LE POINT DU LOT — invalidé après coup malgré claimed_at NULL, le mois redevient dû immédiatement '
   '(sans coalesce(claimed_at, ''-infinity''), invalidated_at > claimed_at vaut NULL et cette '
@@ -364,10 +389,12 @@ select is(
 -- ── 3. Le filtre de recherche ───────────────────────────────────────────────────────────────────
 set local role anon;
 
--- Le miroir ne porte à cet instant que la nuit +1 (disponible), pour le mois courant.
+-- Le miroir ne porte à cet instant que la nuit +1 (disponible), pour le mois de l'ancre.
 select is(
   (select count(*)::int from search_catalog(
-     p_desde => today_in_bogota() + 1, p_hasta => today_in_bogota() + 1, p_limite => 100000)
+     p_desde => (date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 1,
+     p_hasta => (date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 1,
+     p_limite => 100000)
     where slug = 'bbbb-chambre-pms'),
   1,
   'une nuit disponible dans la plage : le logement PMS apparaît'
@@ -379,7 +406,9 @@ select is(
 -- défaut que le lot referme : « frais dans l'ensemble » ne veut pas dire « frais pour CE mois ».
 select is(
   (select count(*)::int from search_catalog(
-     p_desde => today_in_bogota() + 5, p_hasta => today_in_bogota() + 6, p_limite => 100000)
+     p_desde => (date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 5,
+     p_hasta => (date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 6,
+     p_limite => 100000)
     where slug = 'bbbb-chambre-pms'),
   1,
   'LE POINT DU LOT D — une plage JAMAIS synchronisée (aucune ligne, pas un zéro) réapparaît même si '
@@ -394,7 +423,9 @@ select is(
 
 select is(
   (select count(*)::int from search_catalog(
-     p_desde => today_in_bogota() + 5, p_hasta => today_in_bogota() + 6, p_limite => 100000)
+     p_desde => (date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 5,
+     p_hasta => (date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 6,
+     p_limite => 100000)
     where slug = 'bbbb-actividad-pms'),
   1,
   'une ACTIVITÉ du même établissement connecté reste non filtrée par dates, comme avant ce lot'
@@ -408,15 +439,21 @@ reset role;
 -- `available_units > 0`) est censée tenir — sans elle, un « complet » réel deviendrait invisible.
 select public.sync_pms_availability_month(
   'bbbb2222-0000-0000-0000-00000000000a',
-  to_char(today_in_bogota(), 'YYYY-MM'),
+  to_char((date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date, 'YYYY-MM'),
   jsonb_build_array(
-    jsonb_build_object('category_id', 777001, 'date', to_char(today_in_bogota() + 1, 'YYYY-MM-DD'), 'available_units', 5),
-    jsonb_build_object('category_id', 777001, 'date', to_char(today_in_bogota() + 8, 'YYYY-MM-DD'), 'available_units', 0)
+    jsonb_build_object('category_id', 777001,
+      'date', to_char((date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 1, 'YYYY-MM-DD'),
+      'available_units', 5),
+    jsonb_build_object('category_id', 777001,
+      'date', to_char((date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 8, 'YYYY-MM-DD'),
+      'available_units', 0)
   ));
 set local role anon;
 select is(
   (select count(*)::int from search_catalog(
-     p_desde => today_in_bogota() + 8, p_hasta => today_in_bogota() + 8, p_limite => 100000)
+     p_desde => (date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 8,
+     p_hasta => (date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 8,
+     p_limite => 100000)
     where slug = 'bbbb-chambre-pms'),
   0,
   'une nuit RÉELLEMENT complète (ligne ÉCRITE à 0) reste absente — le repli par plage ne joue que '
@@ -444,7 +481,9 @@ update pms_availability_mirror set synced_at = now() - interval '7 hours'
 set local role anon;
 select is(
   (select count(*)::int from search_catalog(
-     p_desde => today_in_bogota() + 8, p_hasta => today_in_bogota() + 8, p_limite => 100000)
+     p_desde => (date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 8,
+     p_hasta => (date_trunc('month', today_in_bogota()::timestamp) + interval '1 month')::date + 8,
+     p_limite => 100000)
     where slug = 'bbbb-chambre-pms'),
   1,
   'miroir périmé (plus de 6 h) : retour à la doctrine optimiste MÊME sur une nuit qui porte une '
