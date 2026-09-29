@@ -20,6 +20,16 @@
             "command": "node \"${CLAUDE_PROJECT_DIR}/scripts/hooks/inject-migration-checklist.mjs\""
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Read(**/docs/**)",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/scripts/hooks/guard-doc-read.mjs\""
+          }
+        ]
       }
     ],
     "PostToolUse": [

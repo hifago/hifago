@@ -5,7 +5,8 @@
 >
 > 1. Repérer le document ci-dessous — ou dans les Raccourcis si le sujet n'est pas un titre.
 > 2. Spec : Read avec l'`offset`/`limit` de sa §0 — le contrat pour coder, qui suffit seul.
-> 3. Autre document de plus de 40 Ko : son plan d'abord (`grep -n '^## ' <fichier>`), puis la section.
+> 3. Autre document de plus de 40 Ko : un Read sans `offset` est refusé et renvoie son plan avec l'offset/limit
+>    de chaque section (hook `scripts/hooks/guard-doc-read.mjs`) ; `offset=1` pour une lecture entière délibérée.
 > 4. Sujet introuvable ici : `grep -i <mot> docs/ai-index.json` (une ligne par document : résumé, mots-clés, questions).
 > 5. État courant : `grep -n '^## 20' docs/journal/*.md | tail -5`, puis Read avec `offset` et `limit`.
 >
