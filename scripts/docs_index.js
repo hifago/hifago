@@ -371,7 +371,14 @@ function build(docs) {
   return {
     _lisez_moi: "Index de RECHERCHE de la base documentaire hifago/ : une ligne par document, à interroger par `grep -i <mot>`, jamais à lire en entier. Point d'entrée : docs/INDEX.md. Généré par `npm run docs:index` — éditer l'en-tête `---` des documents, puis régénérer.",
     version: 2,
-    documents: docs.map(({ _id, titre, _contrat, ...reste }) => reste),
+    // Seulement ce qui sert à TROUVER un document par grep : `theme` se lit dans le chemin, `ko` et
+    // la plage de la §0 sont dans la carte, `langue` valait « fr » partout. Une spec supprimée ne
+    // garde ni résumé ni mots-clés ni questions — elle sortait encore sur « hôtel » — seulement le
+    // lien vers sa remplaçante.
+    documents: docs.map(({ chemin, statut, reste, remplace_par, resume, cles, questions }) =>
+      statut === 'supprimee'
+        ? { chemin, statut, remplace_par, reste }
+        : { chemin, statut, reste, remplace_par, resume, cles, questions }),
   };
 }
 
