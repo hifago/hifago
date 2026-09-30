@@ -3,7 +3,7 @@
 Monorepo Next.js (App Router, npm workspaces) sur Vercel + Supabase (Postgres/PostGIS, Auth,
 Storage, Realtime, Edge Functions/pg_cron) qui remplace l'app legacy Express/SQLite du dépôt
 parent — deux apps déployées séparément, `apps/web` (vitrine publique) et `apps/admin`
-(admin+socio). Dépôt git séparé (`casakayam/hifago-2.0`) : c'est ici la racine de travail, rien
+(admin+socio). Dépôt git séparé (`hifago/hifago`) : c'est ici la racine de travail, rien
 du dépôt parent ne s'y applique (`CLAUDE.md` porte les règles).
 
 **État réel** (pas « à venir ») : le code est écrit, testé, et déployé en préprod Vercel avec

@@ -1,6 +1,6 @@
 # hifago/ — instructions projet (refonte Casa Kayam / Hifago)
 
-> `hifago/` est un projet à part entière — dépôt git séparé (`casakayam/hifago-2.0`), ouvert comme
+> `hifago/` est un projet à part entière — dépôt git séparé (`hifago/hifago`), ouvert comme
 > racine de travail ; rien du dépôt legacy parent ne s'y applique. Répondre en français. Ce fichier
 > ne porte que des invariants : règles situationnelles dans `.claude/rules/` (chargées quand on
 > touche les fichiers concernés), procédures dans `.claude/skills/`, état dans `docs/journal/` et
