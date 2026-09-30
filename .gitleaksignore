@@ -11,6 +11,13 @@
 207698f4551fc57bb76d170c704c871d39615017:tests/pms-integration/pms_poll_bookings.integration.mjs:jwt:22
 3a55671ba850ee38fc6bb24662a192cd6f2678d0:tests/pms-integration/pms_sync_availability.integration.mjs:jwt:24
 d8159cdcd443dfbe61298a40b043147df068424c:tests/payments-integration/payments_reconcile.integration.mjs:jwt:31
+# Même clé locale, vérifiée le 2026-09-30 (payload décodé : `iss: supabase-demo`). Échappée aux
+# push jusqu'ici : un push ne scanne que ses commits, seul le lancement manuel scanne l'historique.
+5cf752d4850ac153865f24f68c4dfd8531542fc9:tests/notification-real/send_8_real_emails.mjs:jwt:32
+
+# Jeton de lien de commande factice (`orders.access_token`, "0123456789…") d'un test unitaire à
+# base simulée — pas un token Mercado Pago malgré son nom. Vérifié le 2026-09-30.
+17e7eb5a0cf7017e88bc2b68145a402ba7316a84:apps/web/app/api/payments/create/route.test.ts:generic-api-key:17
 
 # Secret TOTP du compte seedé admin@hifago.test, nécessairement identique à celui de seed.sql
 # pour que les tests e2e passent la 2FA. Base locale recréée à chaque `db setup`.
