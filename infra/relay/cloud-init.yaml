@@ -1,0 +1,135 @@
+#cloud-config
+# ⚠️ La ligne ci-dessus DOIT rester `#cloud-config` : avec `#cloud-init`, Vultr ignore TOUT le
+# fichier en silence (piège du 2026-08-23, docs/journal/2026-08.md).
+#
+# Relais IP stable devant l'API LobbyPMS (CLAUDE.md §9) — un relais par environnement, CE MÊME
+# fichier pour la préprod et la prod. Procédure complète : infra/relay/README.md.
+# Reconstitué le 2026-09-30 à partir de l'instance préprod du 2026-08-23, qui n'était versionnée
+# nulle part : Caddyfile (correctif du 2026-09-19 compris), durcissement SSH, drop-in systemd,
+# healthcheck ntfy.
+#
+# Aucun secret ici : RELAY_SECRET et le topic ntfy sont tirés SUR la machine au premier boot et
+# n'en sortent que par une lecture SSH faite par un humain (README, étape 6).
+
+package_update: true
+package_upgrade: true
+packages:
+  - unattended-upgrades
+  - ufw
+  - curl
+  - gpg
+
+write_files:
+  # « 00- » et pas « 99- » : sshd garde la PREMIÈRE valeur lue pour un mot-clé, et Vultr pose
+  # lui-même un 50-cloud-init.conf avec `PasswordAuthentication yes`.
+  - path: /etc/ssh/sshd_config.d/00-hardening.conf
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin prohibit-password
+      KbdInteractiveAuthentication no
+
+  # Écrit hors de /etc/caddy : le paquet caddy, installé plus tard (runcmd), poserait sinon son
+  # propre Caddyfile par-dessus, ou bloquerait sur le conflit de conffile. Recopié après l'install.
+  - path: /etc/relay/Caddyfile
+    content: |
+      {$RELAY_HOSTNAME}
+
+      encode zstd gzip
+
+      handle /healthz {
+      	respond "ok" 200
+      }
+
+      @authorized {
+      	header X-Relay-Secret {$RELAY_SECRET}
+      }
+
+      handle @authorized {
+      	reverse_proxy https://api.lobbypms.com {
+      		header_up Host api.lobbypms.com
+      		header_up -X-Relay-Secret
+      		# 2026-09-19 : Lobby, passé derrière Cloudflare, prend X-Forwarded-Host pour l'hôte
+      		# réel — avec celui du relais, 404 sur toutes les routes (docs/journal/2026-09.md).
+      		header_up -X-Forwarded-Host
+      	}
+      }
+
+      handle {
+      	respond "forbidden" 403
+      }
+
+      log {
+      	output file /var/log/caddy/relay-access.log {
+      		roll_size 10mb
+      		roll_keep 5
+      	}
+      }
+
+  # Le paquet caddy n'a AUCUN `Restart=` dans son unit : sans ce drop-in, un crash le laisse mort.
+  - path: /etc/systemd/system/caddy.service.d/override.conf
+    content: |
+      [Service]
+      EnvironmentFile=/etc/caddy/relay.env
+      Restart=on-failure
+      RestartSec=5s
+
+  # HTTPS + --resolve, jamais `curl http://127.0.0.1/healthz` : Caddy y répond toujours 308 (vers
+  # HTTPS), que `curl -f` ne compte pas comme un échec — le check serait vert même relais cassé.
+  - path: /usr/local/bin/relay-healthcheck.sh
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -u
+      . /etc/caddy/relay.env
+      . /etc/relay/healthcheck.env
+      if ! curl -fsS -m 5 --resolve "$RELAY_HOSTNAME:443:127.0.0.1" "https://$RELAY_HOSTNAME/healthz" >/dev/null; then
+        curl -fsS -d "hifago relay $RELAY_HOSTNAME: healthz KO $(date -u +%FT%TZ)" "ntfy.sh/$NTFY_TOPIC" >/dev/null
+      fi
+
+  - path: /etc/systemd/system/relay-healthcheck.service
+    content: |
+      [Unit]
+      Description=hifago relay healthz check
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/relay-healthcheck.sh
+
+  - path: /etc/systemd/system/relay-healthcheck.timer
+    content: |
+      [Unit]
+      Description=Run hifago relay healthz check every 5 minutes
+
+      [Timer]
+      OnBootSec=2min
+      OnUnitActiveSec=5min
+
+      [Install]
+      WantedBy=timers.target
+
+runcmd:
+  - systemctl restart ssh
+  - ufw default deny incoming
+  - ufw allow 22/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+  - dpkg-reconfigure -f noninteractive unattended-upgrades
+  # Caddy depuis son dépôt officiel, comme l'instance du 2026-08-23 — pas le paquet Ubuntu.
+  - curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  - curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt -o /etc/apt/sources.list.d/caddy-stable.list
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y caddy
+  - install -m 644 /etc/relay/Caddyfile /etc/caddy/Caddyfile
+  # Nom d'hôte = IP publique en nip.io (certificat Let's Encrypt sans DNS à nous). L'IP lue ici est
+  # celle du premier boot : la convertir en IP réservée ENSUITE la conserve (README, étape 3).
+  # Secret en hexadécimal : rien à échapper, ni dans l'EnvironmentFile ni dans le Caddyfile.
+  - [bash, -c, 'IP=$(curl -fsS http://169.254.169.254/latest/meta-data/public-ipv4) && umask 027 && printf "RELAY_SECRET=%s\nRELAY_HOSTNAME=%s.nip.io\n" "$(openssl rand -hex 32)" "${IP//./-}" > /etc/caddy/relay.env && chown root:caddy /etc/caddy/relay.env']
+  - [bash, -c, 'umask 077 && printf "NTFY_TOPIC=hifago-relay-%s\n" "$(openssl rand -hex 8)" > /etc/relay/healthcheck.env']
+  # Le service tourne sous l'utilisateur caddy : le fichier de log doit être créé PAR LUI. Un
+  # fichier pré-créé par root (ex. `caddy validate` lancé en root) le bloque en permission denied.
+  - install -d -o caddy -g caddy /var/log/caddy
+  - rm -f /var/log/caddy/relay-access.log
+  - systemctl daemon-reload
+  # restart, jamais reload : systemd ne relit l'EnvironmentFile qu'au démarrage (CLAUDE.md §7.4).
+  - systemctl restart caddy
+  - systemctl enable --now relay-healthcheck.timer
