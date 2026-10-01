@@ -58,8 +58,10 @@ s'affichent SANS STYLE en silence.
 
 ## Composants de la vitrine (`apps/web/components/`)
 
-`atoms/` (ne traduit rien) · `molecules/` · `organisms/` · `seo/` · `playground/`. Un composant lié
+`atoms/` (ne traduit rien) · `molecules/` · `organisms/` · `seo/` · `playground/` · `parcours/`. Un composant lié
 à une seule route reste colocalisé dans `app/[locale]/…` ; on ne remonte dans `components/` que ce
 qui sert au moins deux endroits. **Aucun barrel `index.ts`, aucun registre de stories** (plusieurs
 agents y travaillent en parallèle). Storybook (`npm run storybook`, port 6006) est le playground
-tranché le 2026-09-01 ; ses stories sont découvertes par glob.
+tranché le 2026-09-01 ; ses stories sont découvertes par glob. Depuis le 2026-10-01 il rend aussi
+chaque PAGE entière dans chacun de ses états (`Écrans/`, `Parcours/`) : un écran qui gagne un état
+gagne sa story (mode d'emploi : `apps/web/components/README.md`, « Stories d'écran »).
