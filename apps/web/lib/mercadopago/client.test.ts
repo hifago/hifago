@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createCheckoutPreference,
   getMercadoPagoPayment,
+  ORDER_EXPIRY_MINUTES,
   PREFERENCE_DEADLINE_MS,
+  PREFERENCE_EXPIRY_MARGIN_MINUTES,
   PREFERENCE_REQUEST_BOUNDS,
 } from "./client";
 
@@ -142,5 +144,14 @@ describe("createCheckoutPreference — bornes explicites (SDK réel)", () => {
     void getMercadoPagoPayment("1").catch(() => undefined);
     await vi.advanceTimersByTimeAsync(PREFERENCE_REQUEST_BOUNDS.timeout + PREFERENCE_REQUEST_BOUNDS.maxDelay + 1);
     expect(fetchMock).toHaveBeenCalledTimes(2); // la préférence, puis UN SEUL GET encore en attente
+  });
+});
+
+// Contrat partagé avec la base : `public.order_payment_deadline` (migration 20261001194704) refuse
+// `order_expiring` à 28 min, dans create_payment_intent et (moins le bail) dans le claim Lobby.
+// scripts/check-payment-deadline.sh compare aussi la copie Deno ; ce test garde le côté TypeScript.
+describe("limite de paiement — contrat avec la base", () => {
+  it("30 − 2 = 28 min (le côté SQL est comparé par scripts/check-payment-deadline.sh)", () => {
+    expect(ORDER_EXPIRY_MINUTES - PREFERENCE_EXPIRY_MARGIN_MINUTES).toBe(28);
   });
 });
