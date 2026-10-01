@@ -7,7 +7,7 @@
 # défaut réel : une fiche en 404 (signal de désindexation), un panier « vacío » chez un client qui
 # avait réservé, un profil pré-rempli à vide qu'un enregistrement écrasait, « rien à réconcilier »
 # sur l'écran des exceptions de paiement. La règle : dans apps/{web,admin}/lib/ et dans les pages et
-# routes de la vitrine (apps/web/app/, depuis le 2026-10-02), tout résultat Supabase attendu lit
+# routes de la vitrine (apps/web/app/, depuis le 2026-10-01), tout résultat Supabase attendu lit
 # aussi son `error` (et lève, ou rend un échec explicite).
 #
 # Trois motifs, ceux par lesquels les sites corrigés étaient passés :
@@ -44,7 +44,7 @@ fail=0
 # est volontairement best-effort, ou son échec est déjà signalé autrement) ; celles de DETTE VISIBLE
 # existent pour rendre le contrôle bloquant AUJOURD'HUI sur tout code neuf, et doivent RÉTRÉCIR. Une
 # exemption qui ne correspond plus à rien fait échouer le contrôle (plus bas) : la retirer d'ici.
-# ⚠️ Les exemptions d'apps/web/app sont nées AVEC l'extension du périmètre (2026-10-02), jamais après :
+# ⚠️ Les exemptions d'apps/web/app sont nées AVEC l'extension du périmètre (2026-10-01), jamais après :
 # une exemption ajoutée plus tard pour faire passer du code neuf serait une régression.
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 est_exempte() {
@@ -71,11 +71,12 @@ est_exempte() {
     # Permanente — `null` y EST l'échec : jeton illisible après une commande prise, signalé au client
     # (`order_placed_unreadable`) avec reprise possible, jamais pris pour une absence.
     "apps/web/app/[locale]/(tunnel)/pago/CheckoutForm.tsx") return 0 ;;
-    # Permanente — un lien/QR imprimé ne mène jamais à une page d'erreur : sur échec, accueil sans ?ref=.
-    "apps/web/app/[locale]/r/[code]/route.ts") return 0 ;;
     # Permanente — simulateur de paiement (jamais en production déclarée) : un 404 y suffit.
     "apps/web/app/api/payments/mock-checkout/route.ts") return 0 ;;
     "apps/web/app/api/payments/mock-confirm/route.ts") return 0 ;;
+    # Dette — lien/QR imprimé : sur une panne, le code est lu comme inconnu et la redirection perd
+    # ?ref= (attribution perdue). Correctif : garder ?ref= sur erreur, create_order revérifie le code.
+    "apps/web/app/[locale]/r/[code]/route.ts") return 0 ;;
     # Dette — webhook Mercado Pago : paiement connu relu sans son error (traité avec le webhook).
     "apps/web/app/api/payments/webhook/route.ts") return 0 ;;
     # Dette — disponibilité PMS : une panne y est lue comme « produit introuvable » ou « connecteur

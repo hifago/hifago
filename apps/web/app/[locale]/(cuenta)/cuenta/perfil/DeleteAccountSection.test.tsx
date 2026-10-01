@@ -66,6 +66,7 @@ describe("DeleteAccountSection", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("un compte professionnel ne voit JAMAIS le bouton de suppression", () => {
@@ -116,7 +117,7 @@ describe("DeleteAccountSection", () => {
     expect(appelsSignOut).toBe(0);
   });
 
-  it("une suppression réussie redirige vers l'accueil même si la déconnexion locale échoue", async () => {
+  it("une suppression réussie redirige vers l'accueil même si signOut() lève une exception inattendue", async () => {
     vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
     signOutRejette = true;
     vi.spyOn(console, "error").mockImplementation(() => {});

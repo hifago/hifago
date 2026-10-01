@@ -127,9 +127,12 @@ export const SupresionFallida: StoryObj = {
   },
 };
 
-// Panne réseau : `fetch` REJETTE au lieu de répondre (la route simulée lève). L'erreur s'affiche et
-// la main est rendue — avant le correctif, le bouton restait figé « en cours » et « No » désactivé.
-export const SupresionError: StoryObj = {
+// Panne réseau : `fetch` REJETTE au lieu de répondre. L'erreur s'affiche et la main est rendue —
+// avant le correctif, le bouton restait figé « en cours » et « No » désactivé. ⚠️ Le rejet repose
+// sur un fait de `.storybook/support/fetch.ts` : il n'attrape pas l'exception d'une route simulée,
+// qui devient donc le rejet du `fetch`. Si l'aide l'enveloppait un jour, cette story changerait de
+// sens sans échouer.
+export const SupresionSinRed: StoryObj = {
   ...pagina({
     simularFetch: {
       "/api/account/delete": () => {

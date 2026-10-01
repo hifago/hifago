@@ -5,9 +5,10 @@ import { createClient } from "@hifago/supabase/client";
 // appelants vivent dans ce même dossier (components/README.md — on ne remonte que ce qui sert au
 // moins deux ROUTES, pas deux fichiers d'un même écran).
 //
-// ⚠️ La redirection a lieu MÊME si `signOut()` lève (panne réseau) : une erreur qu'il RENVOIE y
-// menait déjà, et après une suppression de compte réussie côté serveur, la session locale n'a plus
-// rien à faire — laisser l'utilisateur sur l'écran d'un compte neutralisé serait pire.
+// ⚠️ Une panne réseau n'y LÈVE pas : auth-js la RENVOIE (`{ error }`) après avoir déjà retiré la
+// session locale, et la redirection suivait déjà. Le `catch` ne couvre qu'une exception inattendue
+// (stockage, verrou) : même alors on redirige — après une suppression de compte réussie côté
+// serveur, laisser l'utilisateur sur l'écran d'un compte neutralisé serait pire.
 export async function signOutAndGoHome(router: { push: (href: string) => void; refresh: () => void }) {
   const supabase = createClient();
   try {
