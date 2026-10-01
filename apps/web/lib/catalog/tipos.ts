@@ -323,6 +323,12 @@ export type FichaProducto = {
    * garde son propre plancher fixé à 1 (spec 30 §7a, `lib/reservas/cantidad.ts`).
    */
   minQty: number;
+  /**
+   * `products.max_qty`, replié à 20 — le plafond par ligne que `create_order` applique à TOUT type
+   * (`coalesce(max_qty, 20)`, migration 20260929112240). Même valeur que `eventoReservable.maxQty`
+   * et `alojamiento.maxQty`, calculée une seule fois par la couche catalogue.
+   */
+  maxQty: number;
   modoReserva: ModoReserva;
   /** Non nul ⟺ `modoReserva === "vitrina"` — sauf pour un evento, qui l'est par son type. */
   urlExterna: string | null;

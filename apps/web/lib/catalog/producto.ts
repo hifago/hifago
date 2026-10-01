@@ -279,6 +279,9 @@ export const getProductoPorSlug = cache(
       supabase.storage.from(BUCKET_MEDIA).getPublicUrl(ruta).data.publicUrl;
 
     const establecimiento = producto.establishment;
+    // Plafond par ligne, le même que `create_order` (`coalesce(max_qty, 20)`) : un produit sans
+    // plafond saisi reste réservable, borné à 20. Calculé une fois pour tous les formulaires.
+    const maxQty = producto.max_qty ?? 20;
 
     return {
       id: producto.id,
@@ -293,6 +296,7 @@ export const getProductoPorSlug = cache(
       precio: resolverPrecio(producto.price_label, producto.price_cop),
       unidad: producto.unit,
       minQty: producto.min_qty ?? 1,
+      maxQty,
       modoReserva,
       urlExterna: urlContacto,
       // Renseignée pour tout evento, INDÉPENDAMMENT du mode : la date d'un événement est une
@@ -319,7 +323,7 @@ export const getProductoPorSlug = cache(
               booked: fila.booked,
               registeredQty: rsvpPorFecha.get(fila.occurrence_date) ?? null,
             })),
-            maxQty: producto.max_qty ?? 20,
+            maxQty,
           }
         : null,
       alojamiento: esAlojamiento
@@ -330,7 +334,7 @@ export const getProductoPorSlug = cache(
             priceTiers: producto.price_tiers,
             // Le même défaut que l'écran d'origine : un hébergement sans plafond saisi reste
             // réservable, borné à 20.
-            maxQty: producto.max_qty ?? 20,
+            maxQty,
             esPmsBacked,
             amenidades,
           }

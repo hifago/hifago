@@ -50,6 +50,7 @@ const BASE: Omit<FichaProducto, "id" | "slug" | "tipo" | "nombre" | "modoReserva
   precio: null,
   unidad: null,
   minQty: 1,
+  maxQty: 20,
   urlExterna: null,
   ocurrencia: null,
   eventoReservable: null,
@@ -122,6 +123,8 @@ export const ACTIVIDAD_CAMINATA: FichaProducto = {
   precio: { tipo: "monto", cop: 45000 },
   unidad: "per_person",
   minQty: 2,
+  // Groupe de 2 à 6 : le champ de quantité est plafonné à 6 même s'il reste plus de places.
+  maxQty: 6,
   modoReserva: "date",
   disponibilidad: diasAbiertos(40, 12),
   establecimiento: ESTABLECIMIENTO_KAYAM,

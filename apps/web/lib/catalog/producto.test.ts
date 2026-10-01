@@ -185,6 +185,12 @@ describe("getProductoPorSlug — panne ≠ absence", () => {
     expect(await getProductoPorSlug("kayak", { locale: "es" })).not.toBeNull();
   });
 
+  it("porte le plafond par ligne de create_order : max_qty, replié à 20", async () => {
+    expect((await getProductoPorSlug("kayak", { locale: "es" }))?.maxQty).toBe(20);
+    fauxSupabase.state.principale = { ...ACTIVIDAD, max_qty: 4 };
+    expect((await getProductoPorSlug("kayak-4", { locale: "es" }))?.maxQty).toBe(4);
+  });
+
   it.each([
     ["products"],
     ["product_media"],
