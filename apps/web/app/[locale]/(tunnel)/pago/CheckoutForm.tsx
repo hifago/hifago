@@ -79,6 +79,31 @@ function resolveKnownReason(raw: string | undefined): (typeof KNOWN_REASONS)[num
     : "unknown";
 }
 
+// Message d'un échec de /api/pms/reserve-nights, d'après son `reason` et son `released` (contrat de
+// la route depuis la migration 20260930221837). « Libéré » n'est dit QUE si la route l'a confirmé :
+// un corps illisible (500/504 de la plateforme), une erreur de base ou un relâchement impossible
+// laissent la commande en attente — elle expire d'elle-même, rien n'est encaissé. `order_paid` n'a
+// pas de message propre : inatteignable ici, la commande vient d'être créée et aucun paiement n'est
+// possible avant cette étape (à traiter par tout autre appelant de la route).
+type ReserveNightsErrorKey =
+  | "pms_refused"
+  | "pms_refused_pending"
+  | "pms_unavailable"
+  | "pms_unreachable"
+  | "pms_unconfirmed_pending"
+  | "pms_claim_in_progress";
+
+export function reserveNightsErrorKey(result: { reason?: string; released?: boolean } | null): ReserveNightsErrorKey {
+  if (result === null) return "pms_unconfirmed_pending";
+  if (result.reason === "pms_claim_in_progress") return "pms_claim_in_progress";
+  if (result.released !== true) {
+    return result.reason === "pms_refused" ? "pms_refused_pending" : "pms_unconfirmed_pending";
+  }
+  if (result.reason === "pms_refused") return "pms_refused";
+  if (result.reason === "pms_unavailable") return "pms_unavailable";
+  return "pms_unreachable";
+}
+
 type CreateOrderResult = {
   ok: boolean;
   reason?: string;
@@ -218,7 +243,7 @@ export function CheckoutForm({
       // réussit (spec 32 §0, atomique avec la création de la commande), le panier est déjà VIDE à
       // cet instant — release_order_after_pms_refusal défait la commande mais ne recrée aucune
       // ligne cart_items, ce n'est pas son rôle. Le client devra ressaisir sa sélection.
-      setError(t(pmsResult?.released === false ? "errors.pms_refused_pending" : "errors.pms_refused"));
+      setError(t(`errors.${reserveNightsErrorKey(pmsResult)}`));
       return;
     }
 

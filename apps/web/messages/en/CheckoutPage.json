@@ -36,6 +36,8 @@
     "pms_refused": "The accommodation is no longer available for those dates. Nothing was charged and the dates were released — try other dates or another place.",
     "pms_refused_pending": "The accommodation is no longer available for those dates. Nothing was charged. We are releasing your booking; if anything still looks pending in a few minutes, get in touch.",
     "pms_unreachable": "We could not confirm availability with the accommodation. Nothing was charged — please try again in a few minutes.",
+    "pms_unconfirmed_pending": "We could not confirm your booking with the accommodation. Nothing was charged. If you see a pending booking, it will be released automatically within about 30 minutes.",
+    "pms_claim_in_progress": "Your booking is already being confirmed with the accommodation. Wait a few seconds before trying again.",
     "unknown": "The order could not be completed. Please try again."
   }
 }
