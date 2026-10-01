@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
+import { buildAuthCallbackRedirect } from "@hifago/domain";
 import { Button, toast } from "@hifago/ui";
 
 const COOLDOWN_SECONDS = 30;
@@ -13,6 +14,7 @@ const COOLDOWN_SECONDS = 30;
 // config.toml), localisé via useTranslations.
 export function ResendConfirmationForm({ email }: { email: string | null }) {
   const t = useTranslations("VerifyEmail");
+  const locale = useLocale();
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
@@ -31,7 +33,19 @@ export function ResendConfirmationForm({ email }: { email: string | null }) {
 
   async function handleResend() {
     const supabase = createClient();
-    const { error } = await supabase.auth.resend({ type: "signup", email: email as string });
+    // ⚠️ `emailRedirectTo` obligatoire, comme à l'inscription (SignupForm.tsx) : le lien de l'email
+    // est `{{ .RedirectTo }}&token_hash=…` (supabase/templates/confirmation.html), et sans lui
+    // `.RedirectTo` retombe sur le site_url NU — le lien renvoyé ne mènerait nulle part.
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email as string,
+      options: {
+        emailRedirectTo: buildAuthCallbackRedirect({
+          origin: window.location.origin,
+          next: `/${locale}`,
+        }),
+      },
+    });
     if (error) {
       toast.danger(t("resendError"));
     } else {
