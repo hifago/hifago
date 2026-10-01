@@ -38,6 +38,10 @@
   "pmsAvailabilityError": "Could not check availability right now. Please try again later.",
   "pmsAvailabilityRetry": "Try again",
   "pmsAvailabilityRateLimited": "Too many requests in a row. Wait a moment and try again.",
+  "pmsAvailabilityConnectorOff": "This accommodation can't be booked online for now. Please contact the establishment.",
+  "pmsNoReservableTitle": "Online booking unavailable",
+  "pmsNoReservableText": "This accommodation can't be booked online for now. The establishment can help you directly.",
+  "pmsNoReservableContact": "Contact {establecimiento}",
   "estimatedTotal": "Estimated total",
   "groupDiscount": "Once {threshold, plural, one {# person has} other {# people have}} signed up for this departure, the price drops {pct}%.",
   "occurrence": {

@@ -41,7 +41,8 @@ type Disponibilidad = { date: string; capacity: number; booked: number };
 function renderForm(
   durationDays?: number,
   minQty?: number,
-  availabilityOverride?: Disponibilidad[]
+  availabilityOverride?: Disponibilidad[],
+  maxQty = 20
 ) {
   return render(
     <NextIntlClientProvider locale="es" messages={{ ProductPage: messages.ProductPage, Common: messages.Common }}>
@@ -50,6 +51,7 @@ function renderForm(
         availability={availabilityOverride ?? [{ date: DEPARTURE, capacity: 5, booked: 0 }]}
         durationDays={durationDays}
         minQty={minQty}
+        maxQty={maxQty}
         locale="es"
       />
     </NextIntlClientProvider>
@@ -315,5 +317,26 @@ describe("ReservationForm — redirection vers /alojamientos après l'ajout d'un
     fireEvent.click(screen.getByTestId("add-to-cart-button"));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/?desdeCarrito=1"));
+  });
+});
+
+// `create_order` plafonne chaque ligne à `coalesce(max_qty, 20)` pour TOUT type depuis la migration
+// 20260929112240 : le champ ne doit jamais proposer davantage, même s'il reste plus de places.
+describe("ReservationForm — max_qty", () => {
+  it("borne la quantité au plafond du produit quand il reste plus de places", () => {
+    renderForm(undefined, 1, [{ date: DEPARTURE, capacity: 10, booked: 0 }], 3);
+    fireEvent.click(document.querySelector(`[data-date="${DEPARTURE}"]`)!);
+    const champ = document.getElementById("qty") as HTMLInputElement;
+
+    expect(champ.getAttribute("max")).toBe("3");
+    fireEvent.change(champ, { target: { value: "8" } });
+    expect(champ.value).toBe("3");
+  });
+
+  it("garde la place restante quand elle est sous le plafond", () => {
+    renderForm(undefined, 1, [{ date: DEPARTURE, capacity: 10, booked: 8 }], 5);
+    fireEvent.click(document.querySelector(`[data-date="${DEPARTURE}"]`)!);
+
+    expect((document.getElementById("qty") as HTMLInputElement).getAttribute("max")).toBe("2");
   });
 });

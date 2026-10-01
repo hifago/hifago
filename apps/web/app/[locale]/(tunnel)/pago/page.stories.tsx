@@ -105,6 +105,26 @@ export const CupoAgotado: StoryObj = {
   },
 };
 
+// Quantité hors des paliers de prix du produit (`no_matching_tier`, migration 20260929112240) :
+// une des trois raisons ligne par ligne qui retombaient sur le message générique.
+export const MotivoLineaNoTarifada: StoryObj = {
+  ...pagina(
+    invitado(() =>
+      simularRpc("create_order", {
+        data: { ok: false, reason: "no_matching_tier", line: { qty: 9 } },
+        error: null,
+      })
+    )
+  ),
+  name: "Refus : quantité sans tarif",
+  play: async ({ canvasElement }) => {
+    await completar(canvasElement);
+    await expect(await esperar(canvasElement, '[data-testid="checkout-error"]')).toHaveTextContent(
+      "No hay tarifa para la cantidad elegida"
+    );
+  },
+};
+
 export const PmsRechazo: StoryObj = {
   ...pagina(invitado(), {
     "/api/pms/reserve-nights": { status: 409, body: { ok: false, reason: "pms_refused", released: true } },

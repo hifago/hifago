@@ -318,6 +318,22 @@ export function FichaProducto({
                 testId="vitrina-contact-link"
               />
             ) : null
+          ) : ficha.modoReserva === "lodging" && alojamiento && !alojamiento.reservableEnLinea ? (
+            // Logement PMS à connecteur coupé : `create_order` le refuserait (`pms_unavailable`) et
+            // sa disponibilité ne peut pas être demandée. Aucun calendrier : la fiche le dit et
+            // renvoie vers l'établissement, dont la page porte le contact.
+            <section
+              className="flex flex-col gap-2 rounded-lg border border-default-200 p-4"
+              data-testid="pms-no-reservable"
+            >
+              <Title as="h2">{t("pmsNoReservableTitle")}</Title>
+              <p className="text-sm text-muted">{t("pmsNoReservableText")}</p>
+              {ficha.establecimiento?.slug ? (
+                <Link href={`/establecimientos/${ficha.establecimiento.slug}`} className="text-sm underline">
+                  {t("pmsNoReservableContact", { establecimiento: ficha.establecimiento.nombre })}
+                </Link>
+              ) : null}
+            </section>
           ) : ficha.modoReserva === "lodging" && alojamiento ? (
             <LodgingReservationForm
               productId={ficha.id}
@@ -331,13 +347,19 @@ export function FichaProducto({
               rates={ficha.tarifas}
             />
           ) : ficha.modoReserva === "slot" ? (
-            <SlotReservationForm productId={ficha.id} slots={ficha.franjas} minQty={ficha.minQty} />
+            <SlotReservationForm
+              productId={ficha.id}
+              slots={ficha.franjas}
+              minQty={ficha.minQty}
+              maxQty={ficha.maxQty}
+            />
           ) : (
             <ReservationForm
               productId={ficha.id}
               availability={ficha.disponibilidad}
               durationDays={ficha.duracionDias ?? undefined}
               minQty={ficha.minQty}
+              maxQty={ficha.maxQty}
               groupDiscount={ficha.descuentoGrupo ?? undefined}
               precio={ficha.precio}
               unidad={ficha.unidad}

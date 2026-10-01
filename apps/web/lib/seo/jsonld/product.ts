@@ -20,6 +20,11 @@ export type ProductJsonLdInput = {
   startTime?: string | null;
   /** L'établissement qui accueille — `location` est requis par Google pour un Event. */
   location?: { name: string; address?: string | null } | null;
+  /**
+   * Faux pour un logement PMS à connecteur coupé (`DatosAlojamiento.reservableEnLinea`) : l'offre
+   * garde son prix, mais `availability` est omise — annoncer `InStock` serait faux. Absent = vrai.
+   */
+  reservableEnLinea?: boolean;
 };
 
 /** `time` Postgres arrive en "HH:mm:ss" ; une valeur "HH:mm" reste possible côté saisie. */
@@ -109,7 +114,9 @@ export function buildProductJsonLd(input: ProductJsonLdInput): Record<string, un
             // « En vente », et non « disponible à telle date » : pour un logement adossé au PMS,
             // la disponibilité d'une nuit donnée vit chez LobbyPMS et se demande en direct. On ne
             // prétend rien de plus que ce que `sellable` garantit.
-            availability: "https://schema.org/InStock",
+            ...(input.reservableEnLinea === false
+              ? {}
+              : { availability: "https://schema.org/InStock" }),
           },
         }
       : {}),
