@@ -130,6 +130,15 @@ describe("POST /api/payments/create — la back_url de retour", () => {
     expect(preferenceInput).toBeNull();
   });
 
+  // Sans `source_news=webhooks`, Mercado Pago livre aussi au format IPN, dont la signature n'est
+  // pas vérifiable : chaque paiement finissait en SignatureMismatch (préprod, 2026-09-30).
+  it("ne demande que des notifications au format Webhooks, les seules dont la signature se vérifie", async () => {
+    await POST(requete());
+    expect(preferenceInput?.notificationUrl).toBe(
+      "https://hifago.test/api/payments/webhook?source_news=webhooks"
+    );
+  });
+
   it("suit l'origine réelle derrière un reverse proxy, jamais l'adresse locale du serveur", async () => {
     const request = new Request("http://127.0.0.1:3000/api/payments/create", {
       method: "POST",
