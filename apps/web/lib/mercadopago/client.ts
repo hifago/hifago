@@ -7,15 +7,59 @@ import { MercadoPagoConfig, Payment, Preference } from "mercadopago";
 // marchand (Hifago) — aucun split natif, aucun OAuth établissement/référent ici (spec §1/§3).
 let cachedConfig: MercadoPagoConfig | null = null;
 
+function getAccessToken(): string {
+  const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+  if (!accessToken) {
+    throw new Error("MERCADOPAGO_ACCESS_TOKEN manquant — impossible d'appeler Mercado Pago.");
+  }
+  return accessToken;
+}
+
 function getConfig(): MercadoPagoConfig {
   if (!cachedConfig) {
-    const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-    if (!accessToken) {
-      throw new Error("MERCADOPAGO_ACCESS_TOKEN manquant — impossible d'appeler Mercado Pago.");
-    }
-    cachedConfig = new MercadoPagoConfig({ accessToken });
+    cachedConfig = new MercadoPagoConfig({ accessToken: getAccessToken() });
   }
   return cachedConfig;
+}
+
+/**
+ * Bornes de la création de préférence. Le SDK 3.4.0 attend par défaut 60 s par tentative et retente
+ * 3 fois (attentes de 1, 2 puis 4 s, et jusqu'à 30 s sur un `Retry-After` de 429) — ses propres types
+ * annoncent 10 s, à tort. Sans bornes, un Mercado Pago lent faisait couper la route par la
+ * plateforme : le client recevait une 504 sans corps au lieu de `mercadopago_unavailable`.
+ *
+ * Une création de préférence répond en moins d'une seconde quand Mercado Pago va bien : 8 s par
+ * tentative ne coupe que l'anormal. Une seule nouvelle tentative (erreur réseau, délai dépassé, 429,
+ * 5xx — `retryOn` du SDK), après 1 s, ou après le `Retry-After` d'un 429 plafonné à 2 s : 18 s au
+ * pire tant que les en-têtes arrivent. La clé d'idempotence envoyée est notre `payments.id` ; que
+ * Mercado Pago la respecte sur les préférences n'est pas documenté. Au pire, une préférence créée
+ * pendant une tentative abandonnée reste orpheline : son lien n'est jamais remis au client.
+ */
+export const PREFERENCE_REQUEST_BOUNDS = {
+  timeout: 8_000,
+  maxRetries: 1,
+  maxDelay: 2_000,
+} as const;
+
+/**
+ * Échéance GLOBALE de la création de préférence, au-dessus des bornes du SDK : son délai s'arrête à
+ * l'arrivée des en-têtes (`clearTimeout` dès que `fetch` rend la main, `restClient/index.js:142`), la
+ * lecture du corps n'est bornée par rien, et le SDK écrase tout `signal` qu'on lui passerait. Un
+ * corps qui cale aurait donc encore fait couper la route par la plateforme. 20 s : au-delà du pire cas
+ * des bornes ci-dessus (18 s), sous le `maxDuration` de 30 s de `/api/payments/create`.
+ */
+export const PREFERENCE_DEADLINE_MS = 20_000;
+
+async function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Mercado Pago n'a pas répondu en ${ms} ms.`)), ms);
+  });
+  try {
+    return await Promise.race([promise, deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -71,8 +115,14 @@ export interface CheckoutPreferenceResult {
 export async function createCheckoutPreference(
   input: CreateCheckoutPreferenceInput
 ): Promise<CheckoutPreferenceResult> {
-  const preference = new Preference(getConfig());
-  const response = await preference.create({
+  // Config PROPRE à cet appel, jamais `cachedConfig` : `Preference.create` fusionne ses
+  // `requestOptions` DANS `this.config.options` (SDK 3.4.0, `clients/preference/index.js:49`). Sur
+  // l'objet partagé, ces bornes et la clé d'idempotence resteraient collées aux appels suivants,
+  // dont `getMercadoPagoPayment` (webhook), qui n'a pas le même budget.
+  const preference = new Preference(
+    new MercadoPagoConfig({ accessToken: getAccessToken(), options: { ...PREFERENCE_REQUEST_BOUNDS } })
+  );
+  const response = await withDeadline(preference.create({
     body: {
       items: [
         {
@@ -114,10 +164,11 @@ export async function createCheckoutPreference(
       },
       notification_url: input.notificationUrl,
     },
-    // Idempotence liée à NOTRE paiement interne (pas une clé aléatoire par appel SDK) : un retry
-    // réseau côté Route Handler sur le MÊME payment_id ne crée jamais deux préférences distinctes.
+    // Clé liée à NOTRE paiement interne, pas une clé aléatoire par appel SDK : si Mercado Pago la
+    // respecte, un nouvel essai sur le MÊME payment_id ne crée pas une seconde préférence (cf.
+    // PREFERENCE_REQUEST_BOUNDS sur ce qui n'est pas garanti).
     requestOptions: { idempotencyKey: input.paymentId },
-  });
+  }), PREFERENCE_DEADLINE_MS);
 
   if (!response.init_point) {
     throw new Error("Mercado Pago n'a renvoyé aucun init_point pour cette préférence.");
