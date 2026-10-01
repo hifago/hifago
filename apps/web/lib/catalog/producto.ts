@@ -69,12 +69,15 @@ export const getProductoPorSlug = cache(
   async (slug: string, { locale }: { locale: string }): Promise<FichaProducto | null> => {
     const supabase = createPublicClient();
 
-    const { data: producto } = await supabase
+    const { data: producto, error } = await supabase
       .from("products")
       .select(COLUMNAS_PRODUCTO)
       .eq("slug", slug)
       .maybeSingle();
 
+    // Une lecture en ÉCHEC n'est jamais une absence : elle lève, la page rend 500 + noindex (même
+    // geste que buscar.ts). Un 404 ici, sur une simple panne, dirait aux moteurs de désindexer.
+    if (error) throw error;
     // `null` plutôt qu'une exception : la page appelle `notFound()`. Un produit non publié est
     // invisible à `anon` (RLS), donc il arrive ici exactement comme un slug inconnu — c'est la
     // même 404 pour le visiteur, et c'est voulu (jamais un « soft 404 » vers la catégorie).
@@ -209,16 +212,7 @@ export const getProductoPorSlug = cache(
           })
         : { data: [] };
 
-    const [
-      { data: disponibilidad },
-      { count: nbReglasFranja },
-      { data: tarifas },
-      { data: fotosProducto },
-      { data: fotosEstablecimiento },
-      { data: ocurrenciasEvento },
-      { data: rsvpEvento },
-      { data: amenidadesRaw },
-    ] = await Promise.all([
+    const lecturas = await Promise.all([
       leerDisponibilidad(),
       contarReglasDeFranja(),
       leerTarifas(),
@@ -236,6 +230,19 @@ export const getProductoPorSlug = cache(
       leerRsvpEvento(),
       leerAmenidades(),
     ]);
+    // Une sous-lecture en échec lève comme la principale : jamais une fiche amputée (sans photos,
+    // calendrier vide) présentée comme complète.
+    for (const lectura of lecturas) if ("error" in lectura && lectura.error) throw lectura.error;
+    const [
+      { data: disponibilidad },
+      { count: nbReglasFranja },
+      { data: tarifas },
+      { data: fotosProducto },
+      { data: fotosEstablecimiento },
+      { data: ocurrenciasEvento },
+      { data: rsvpEvento },
+      { data: amenidadesRaw },
+    ] = lecturas;
 
     const amenidades = agruparAmenidadesPorCategoria((amenidadesRaw ?? []) as FilaAmenidad[], locale);
 
@@ -250,7 +257,7 @@ export const getProductoPorSlug = cache(
     // La SEULE attente séquentielle du module, et elle est structurelle : on ne sait qu'ici si le
     // produit est à créneaux. La grouper avec le `Promise.all` demanderait de compter les règles
     // deux fois.
-    const { data: franjas } =
+    const lecturaFranjas =
       modoReserva === "slot"
         ? await supabase.rpc("get_product_slots", {
             p_product_id: producto.id,
@@ -258,6 +265,8 @@ export const getProductoPorSlug = cache(
             p_to: lastBookableDateIso(hoyIso),
           })
         : { data: [] };
+    if ("error" in lecturaFranjas && lecturaFranjas.error) throw lecturaFranjas.error;
+    const { data: franjas } = lecturaFranjas;
 
     // Une Map construite UNE fois, jamais un `.find()` par occurrence : l'horizon evento va jusqu'à
     // six mois, soit ~180 occurrences pour un evento quotidien, et la jointure linéaire refaisait

@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { esMiroirFresco, resolverModoReserva, resolverUrlContacto } from "./producto";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  esMiroirFresco,
+  getProductoPorSlug,
+  resolverModoReserva,
+  resolverUrlContacto,
+} from "./producto";
 import { TELEFONO_HIFAGO, urlDeContacto } from "@/lib/contacto/whatsapp";
 
 // Lot B (20260918170000) : le miroir de disponibilité LobbyPMS ne doit JAMAIS être semé côté
@@ -112,5 +117,88 @@ describe("un transport n'a JAMAIS de calendrier", () => {
         tieneFranjas: false,
       }),
     ).toBe("date");
+  });
+});
+
+// ------------------------------------------------------------------------------------------------
+// Lecture de la fiche : une panne n'est JAMAIS une absence. Faux client minimal — chaque table ou
+// RPC peut être mise en erreur séparément ; sans erreur, toute sous-lecture rend une liste vide.
+// ------------------------------------------------------------------------------------------------
+const fauxSupabase = vi.hoisted(() => {
+  const state = {
+    principale: null as unknown,
+    nbRegles: 0,
+    erreurs: {} as Record<string, { message: string }>,
+  };
+  const resultat = (cle: string, principale: boolean) => {
+    const error = state.erreurs[cle] ?? null;
+    if (error) return { data: null, count: null, error };
+    return principale
+      ? { data: state.principale, error: null }
+      : { data: [], count: state.nbRegles, error: null };
+  };
+  const consulta = (table: string, principale: string) => {
+    const q: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "gte", "lte", "order", "in"]) q[m] = () => q;
+    q.maybeSingle = async () => resultat(table, table === principale);
+    q.then = (ok: (v: unknown) => unknown, ko: (e: unknown) => unknown) =>
+      Promise.resolve(resultat(table, false)).then(ok, ko);
+    return q;
+  };
+  const client = (principale: string) => ({
+    from: (table: string) => consulta(table, principale),
+    rpc: async (nom: string) => resultat(nom, false),
+    storage: { from: () => ({ getPublicUrl: (r: string) => ({ data: { publicUrl: r } }) }) },
+  });
+  return { state, client };
+});
+
+vi.mock("@/lib/supabase/publicClient", () => ({
+  createPublicClient: () => fauxSupabase.client("products"),
+}));
+
+const ACTIVIDAD = {
+  id: "p1",
+  slug: "kayak",
+  name: { es: "Kayak" },
+  description: { es: "Descripción" },
+  price_cop: 45000,
+  type: "activity",
+  external_booking_url: null,
+  transport_contact_phone: null,
+  establishment: { id: "e1", slug: "casa", name: { es: "Casa" }, description: null, address: null },
+};
+
+describe("getProductoPorSlug — panne ≠ absence", () => {
+  beforeEach(() => {
+    fauxSupabase.state.principale = ACTIVIDAD;
+    fauxSupabase.state.nbRegles = 0;
+    fauxSupabase.state.erreurs = {};
+  });
+
+  it("rend null pour un produit absent (404 voulu)", async () => {
+    fauxSupabase.state.principale = null;
+    expect(await getProductoPorSlug("inconnu", { locale: "es" })).toBeNull();
+  });
+
+  it("rend la fiche quand toutes les lectures répondent", async () => {
+    expect(await getProductoPorSlug("kayak", { locale: "es" })).not.toBeNull();
+  });
+
+  it.each([
+    ["products"],
+    ["product_media"],
+    ["establishment_media"],
+    ["product_availability"],
+    ["product_slot_rules"],
+  ])("lève si la lecture %s échoue — jamais un 404 ni une fiche amputée", async (cle) => {
+    fauxSupabase.state.erreurs = { [cle]: { message: "panne" } };
+    await expect(getProductoPorSlug("kayak", { locale: "es" })).rejects.toBeTruthy();
+  });
+
+  it("lève si la lecture des créneaux échoue", async () => {
+    fauxSupabase.state.nbRegles = 1;
+    fauxSupabase.state.erreurs = { get_product_slots: { message: "panne" } };
+    await expect(getProductoPorSlug("kayak", { locale: "es" })).rejects.toBeTruthy();
   });
 });
