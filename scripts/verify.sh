@@ -12,7 +12,7 @@
 # jours (2026-09-13 → 19) en masquant check-tokens.sh tout du long. Mesure du chantier : 39 runs
 # rouges sur 60, dont 15 des 20 derniers échecs imputables au seul job `lint`.
 #
-# Ce script inverse la logique : il lance les 12 contrôles, retient les sorties, puis imprime UN
+# Ce script inverse la logique : il lance les 13 contrôles, retient les sorties, puis imprime UN
 # récapitulatif. Un seul passage donne la liste complète de ce qu'il faut corriger.
 #
 # ⚠️ PAS de `set -e` — un `-e` ici ferait exactement ce que ce script existe pour empêcher. Les
@@ -85,6 +85,13 @@ lancer "Nommage kebab-case d'apps/admin/components"  bash scripts/check-admin-co
 lancer "Jetons de couleur (vitrine)"                 bash scripts/check-tokens.sh
 lancer "Couche d'accès (pas de requête en route)"    bash scripts/check-data-layer.sh
 lancer "Navigation localisée (@/i18n/navigation)"    bash scripts/check-i18n-links.sh
+
+# Bloquant depuis le 2026-09-30 — vérifié PAR MUTATION (rouge sur les quatre embeds d'avant le
+# correctif, sur un `.from('order_lines')` ajouté ; muet sur un commentaire ; code 2 sans filtre).
+# Une session n'a plus le SELECT d'`order_lines` depuis 20260922210000 : une lecture qui y revient,
+# directe ou par embed, échoue en silence derrière un `?? []` — c'est ce qui a vidé le ledger et
+# les commissions pendant une semaine.
+lancer "Lecture d'order_lines (jamais en session)"   bash scripts/check-order-lines-access.sh
 
 # ⚠️ N'EST PAS redondant avec le job `functions` de la CI : `deno check` résout à la TypeScript et
 # passe au vert sur un import relatif sans extension, alors que le worker Edge, lui, ne boote pas

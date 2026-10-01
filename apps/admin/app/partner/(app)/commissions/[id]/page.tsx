@@ -18,32 +18,29 @@ export default async function PartnerCommissionDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: partnerId } = await supabase.rpc("partner_id_for_account", {
-    uid: (await supabase.auth.getUser()).data.user?.id ?? "",
+  // Même RPC que la liste (partner_commissions_list, 20260930211348), filtrée sur l'id : la fiche
+  // n'affiche que des colonnes déjà présentes sur la ligne de liste. Le périmètre (le partenaire
+  // du compte connecté, entrées `referrer` seulement) est calculé DANS la RPC depuis `auth.uid()` :
+  // un référent qui devine l'id d'une entrée qui n'est pas la sienne obtient zéro ligne, donc 404.
+  // Une ERREUR, elle, lève : avant ce correctif, l'embed `order_lines` refusé depuis le revoke du
+  // 2026-09-22 finissait en 404 sur TOUTES les fiches, indiscernable d'un id inconnu.
+  const { data: entries, error } = await supabase.rpc("partner_commissions_list", {
+    p_entry_id: id,
+    p_limit: 1,
   });
-
-  // Filtre explicite sur referrer_partner_id ET beneficiary_type, au-delà de la RLS — même
-  // intention que page.tsx (liste) : un référent ne doit jamais atteindre la fiche d'une entrée
-  // qui n'est pas la sienne, même en devinant un id.
-  const { data: entry } = await supabase
-    .from("ledger_entries")
-    .select(
-      `id, amount_cop, status,
-       order_line:order_lines!inner(date, total_cop, holder_name, referrer_pct,
-         product:products(name, establishment:establishments(name)))`
-    )
-    .eq("id", id)
-    .eq("beneficiary_type", "referrer")
-    .eq("referrer_partner_id", partnerId ?? "")
-    .maybeSingle();
-
+  if (error) {
+    // 22P02 = `id` de l'URL qui n'est pas un uuid : une adresse inconnue, donc 404 comme avant,
+    // jamais une panne.
+    if (error.code === "22P02") notFound();
+    throw new Error(`Lecture de la commission impossible (partner_commissions_list) : ${error.message}`);
+  }
+  const entry = entries[0];
   if (!entry) {
     notFound();
   }
 
-  const productName = resolveLocalizedField(asLocalizedField(entry.order_line?.product?.name), "es") ?? "—";
-  const establishmentName =
-    resolveLocalizedField(asLocalizedField(entry.order_line?.product?.establishment?.name), "es") ?? "—";
+  const productName = resolveLocalizedField(asLocalizedField(entry.product_name), "es") ?? "—";
+  const establishmentName = resolveLocalizedField(asLocalizedField(entry.establishment_name), "es") ?? "—";
 
   return (
     <div className="flex flex-col gap-6">
@@ -59,7 +56,7 @@ export default async function PartnerCommissionDetailPage({
       <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
         <div>
           <dt className="text-muted">Fecha</dt>
-          <dd>{entry.order_line?.date ?? "—"}</dd>
+          <dd>{entry.date}</dd>
         </div>
         <div>
           <dt className="text-muted">Establecimiento</dt>
@@ -67,15 +64,15 @@ export default async function PartnerCommissionDetailPage({
         </div>
         <div>
           <dt className="text-muted">Cliente</dt>
-          <dd>{entry.order_line?.holder_name ?? "—"}</dd>
+          <dd>{entry.holder_name}</dd>
         </div>
         <div>
           <dt className="text-muted">Monto total</dt>
-          <dd>{formatCop(entry.order_line?.total_cop ?? 0)}</dd>
+          <dd>{formatCop(entry.total_cop)}</dd>
         </div>
         <div>
           <dt className="text-muted">% referido</dt>
-          <dd>{Math.round((entry.order_line?.referrer_pct ?? 0) * 100)}%</dd>
+          <dd>{Math.round(entry.referrer_pct * 100)}%</dd>
         </div>
         <div>
           <dt className="text-muted">Comisión referente</dt>

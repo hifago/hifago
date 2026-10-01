@@ -2499,6 +2499,30 @@ export type Database = {
           total_cop: number
         }[]
       }
+      admin_ledger_entries_list: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_establishment_id?: string
+          p_limit?: number
+          p_offset?: number
+          p_referrer_partner_id?: string
+          p_sort_desc?: boolean
+          p_sort_key?: string
+          p_status?: string
+          p_type?: string
+        }
+        Returns: {
+          amount_cop: number
+          date: string
+          establishment_name: Json
+          id: string
+          product_type: string
+          referrer_display_name: string
+          status: string
+          total_count: number
+        }[]
+      }
       admin_order_line_ledger: {
         Args: { p_order_id: string }
         Returns: {
@@ -3144,6 +3168,37 @@ export type Database = {
           qty: number
           slot_start_time: string
           status: string
+        }[]
+      }
+      partner_commission_totals: {
+        Args: { p_date_from?: string; p_date_to?: string; p_status?: string }
+        Returns: {
+          amount_cop: number
+          status: string
+        }[]
+      }
+      partner_commissions_list: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_entry_id?: string
+          p_limit?: number
+          p_offset?: number
+          p_sort_desc?: boolean
+          p_sort_key?: string
+          p_status?: string
+        }
+        Returns: {
+          amount_cop: number
+          date: string
+          establishment_name: Json
+          holder_name: string
+          id: string
+          product_name: Json
+          referrer_pct: number
+          status: string
+          total_cop: number
+          total_count: number
         }[]
       }
       partner_id_for_account: { Args: { uid: string }; Returns: string }

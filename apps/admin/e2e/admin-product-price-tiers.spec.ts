@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
-import { confirmAndContinue, createSignedInClient, goToNextWizardStep } from "@hifago/e2e-support";
+import { confirmAndContinue, createSignedInClient, goToNextWizardStep, withDb } from "@hifago/e2e-support";
 
 // Même partenaire réutilisé par plusieurs specs produit (admin-product-photos.spec.ts,
 // admin-product-tags.spec.ts), mais un établissement CRÉÉ ICI et jamais partagé : le sélectionner
@@ -100,22 +100,24 @@ test("admin crée une actividad avec paliers de prix et bornes de quantité ; cr
   // Dans le premier tramo — résout 30000, pas price_cop (le prix simple n'a jamais été défini,
   // écrasé par lowestTierPrice = 25000 à la création — vérifié ci-dessous que ce n'est PAS ce
   // qui est facturé, c'est bien le tramo qui gagne).
+  // Prix facturé lu par connexion directe (withDb), jamais par le client de session : depuis le
+  // revoke du 2026-09-22 (20260922210000), aucune session — admin comprise — ne lit `order_lines`.
+  // `::int` parce que `pg` rend un bigint en chaîne.
+  const linePrice = (orderId: string) =>
+    withDb(async (client) => {
+      const { rows } = await client.query<{ price_cop: number }>(
+        "select price_cop::int as price_cop from order_lines where order_id = $1",
+        [orderId]
+      );
+      return rows.length === 1 ? rows[0].price_cop : null;
+    });
+
   const first = await attemptOrder(2);
   expect(first.ok).toBe(true);
-  const { data: firstLine } = await adminClient
-    .from("order_lines")
-    .select("price_cop")
-    .eq("order_id", first.order_id as string)
-    .single();
-  expect(firstLine?.price_cop).toBe(30000);
+  expect(await linePrice(first.order_id as string)).toBe(30000);
 
   // Dans le second tramo — résout 25000.
   const second = await attemptOrder(5);
   expect(second.ok).toBe(true);
-  const { data: secondLine } = await adminClient
-    .from("order_lines")
-    .select("price_cop")
-    .eq("order_id", second.order_id as string)
-    .single();
-  expect(secondLine?.price_cop).toBe(25000);
+  expect(await linePrice(second.order_id as string)).toBe(25000);
 });
