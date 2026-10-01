@@ -4,7 +4,7 @@ titre: "Backlog hifago — points ouverts et arbitrages en attente"
 theme: journal
 statut: vivant
 langue: fr
-maj: 2026-09-30
+maj: 2026-10-01
 resume: >
   Points ouverts, arbitrages en attente et dette connue non traitée du chantier hifago. Remplace
   le "curseur" de CLAUDE.md §12 (supprimé le 2026-09-07, cf. docs/journal/2026-09.md).
@@ -28,7 +28,7 @@ repond_a:
 - LobbyPMS spec 21 §10 points 3-5 non tranchés : traslado↔commission hifago, valeur exacte de `orders.status` en cas d'échec PMS post-confirmation, chiffrement du token.
 - **Modification partielle d'une réservation depuis le compte client** — cible future, retirée du premier périmètre le 2026-09-07 ; `modify_order_line` reste utilisée côté socio/admin. ⚠️ **Sa moitié « annulation » a été TRANCHÉE le 2026-09-11** (spec 34 décision ⑤, Jérôme) : annuler porte désormais sur UNE prestation, `cancel_order` est supprimée, le cahier §2c est révisé. Reste ouvert ici : changer une date ou une quantité sans annuler.
 - **Spec 32 (panier en base) livrée le 2026-09-10** — restent ouverts (§10) : interaction avec `partner_accounts.saved_attribution_code` ; revérification de dispo à la reprise du panier (`products.sellable` seul aujourd'hui) ; valeur des plafonds jamais codée. ⚠️ Deux régressions mineures non corrigées : panier non restauré après un refus PMS (`create_order` vide `cart_items` dans sa propre transaction, `release_order_after_pms_refusal` ne les recrée pas — ce n'est pas son rôle) ; `CartSummary` figée après succès sur `/pago`, cosmétique.
-- 🔴 **Suite E2E en pause depuis le 2026-09-09 (décision Jérôme) — à remettre.** État, rouges déjà diagnostiqués, ruptures accumulées pendant la pause et ordre de reprise : `docs/specs/38-remise-en-route-suite-e2e.md`. Réactivation = ce point refermé.
+- 🔴 **Suite E2E en pause depuis le 2026-09-09 (décision Jérôme) — à remettre.** État, rouges déjà diagnostiqués, ruptures accumulées pendant la pause et ordre de reprise : `docs/specs/38-remise-en-route-suite-e2e.md` (relevé à jour du 2026-10-01 en §6). Réactivation = ce point refermé.
 - **La CLI Supabase n'est épinglée nulle part** — `npx supabase` installe la dernière version et peut monter les images Docker sans prévenir, comme le 2026-09-07 (GoTrue v2.195.0). À épingler.
 - **Spec 31 (identité anonyme) livrée le 2026-09-10** — point de vérification laissé ouvert par la Tranche 4 : `DELETE FROM auth.users` en SQL pur (pg_cron) n'a JAMAIS été testé sur Supabase Cloud, seul l'`INSERT` est confirmé refusé (2026-08-21). À vérifier en priorité dès qu'un projet préprod existe, avant de faire confiance au job de purge en production. Frontmatter de la spec passé `brouillon` → `partiel` le 2026-09-28 (état factuel) ; la promotion en `implemente` attend cette vérification et l'accord de Jérôme (spec 32 §10).
 - **Chantier front vitrine** — les points ouverts du parcours client cible sont groupés dans `docs/01-cahier-des-charges-client.md` §2f : recherche géo différée, forme du voucher, et dispo PMS en recherche datée (cette dernière adressée par le miroir Lobby, voir la ligne « Sens Lobby → hifago » ci-dessous).
@@ -42,7 +42,6 @@ repond_a:
 - Inscription par invitation : faut-il exiger la confirmation de l'e-mail saisi (compte aujourd'hui confirmé d'office) ? Décision produit (Jérôme) — soulevé par la remédiation de l'audit du 2026-09-28.
 
 ## Bloquants externes (action Jérôme)
-- **CI `functions` rouge jusqu'au 2026-10-01 16:07 UTC** : Deno 2.9 refuse les paquets npm de moins de 24 h et Next 16.3.8 (correctif RCE, PR #4) date du 2026-09-30 16:07. Relancer le job après — ne jamais désactiver cette protection.
 - 🔴 **Migration des comptes vers hifagotest@gmail.com — EN COURS** (journal 2026-09-29 et 2026-09-30 ; plan hors dépôt `~/.claude/plans/pour-le-moment-tout-robust-snowflake.md`). **Préprod complète et vérifiée** (Lobby, Maps, paiement par webhook). **Prod configurée, pas déployée** — restent : garde anti-indexation (code) → déblocage des builds prod → PR `staging→main` → 2FA admin prod ; relais Vultr prod ; mise à jour automatique Supabase par la CI ; décommission des anciens comptes (équipe Vercel `hifago`, projet Supabase en pause, ancien relais `104.207.147.127` et son IP chez Lobby, clé Resend, client Google).
 - **Étape DNS** (reportée le 2026-09-29) : domaines custom, domaine Resend vérifié (sans lui, envoi à hifagotest@gmail.com seulement), Resend en SMTP de l'Auth, templates email poussés, publication de l'écran de consentement Google (resté en mode Test : seuls les testeurs déclarés peuvent se connecter avec Google). Mercado Pago : compte de l'entité qui encaisse (vrai vendeur, puis nouveaux comptes de test tirés de lui) à la bascule.
 - **Clé Google Maps SANS restriction** (choix explicite du 2026-09-30) : visible dans le code des pages admin, utilisable par n'importe qui sur la facturation de Jérôme. À restreindre (sites : URLs admin + localhost:3101 ; APIs : Maps JavaScript, Places (New), Geocoding) et à couvrir d'une alerte budgétaire.
