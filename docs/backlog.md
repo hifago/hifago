@@ -4,7 +4,7 @@ titre: "Backlog hifago — points ouverts et arbitrages en attente"
 theme: journal
 statut: vivant
 langue: fr
-maj: 2026-09-29
+maj: 2026-09-30
 resume: >
   Points ouverts, arbitrages en attente et dette connue non traitée du chantier hifago. Remplace
   le "curseur" de CLAUDE.md §12 (supprimé le 2026-09-07, cf. docs/journal/2026-09.md).
@@ -42,10 +42,11 @@ repond_a:
 - Inscription par invitation : faut-il exiger la confirmation de l'e-mail saisi (compte aujourd'hui confirmé d'office) ? Décision produit (Jérôme) — soulevé par la remédiation de l'audit du 2026-09-28.
 
 ## Bloquants externes (action Jérôme)
-- 🔴 **Migration des comptes vers hifagotest@gmail.com — EN COURS** (2026-09-29, journal du jour ; plan pas à pas hors dépôt `~/.claude/plans/pour-le-moment-tout-robust-snowflake.md`). Préprod en ligne ; restent : bascule Lobby (pause de l'ancien projet `hqldjdzgvhfwoqypwzqx` puis vrai jeton), tests manuels Google/panier/paiement, toute la prod, déploiement automatique Supabase, outillage (`.mcp.json`, skill `hifago-verify-compte`, runbook), décommission des anciens comptes (équipe Vercel `hifago`, projet Supabase, clé Resend, client Google).
-- **Étape DNS** (reportée le 2026-09-29) : domaines custom, domaine Resend vérifié (sans lui, envoi à hifagotest@gmail.com seulement), Resend en SMTP de l'Auth, templates email poussés, publication de l'écran de consentement Google (resté en mode Test : seuls les testeurs déclarés peuvent se connecter avec Google).
-- Clé Google Maps non recréée sur le nouveau compte (facturation Google Cloud requise) → autocomplétion d'adresse admin désactivée d'ici là.
-- **Relais Vultr** : le nouveau compte n'a pas de carte — la nouvelle préprod garde l'ancien relais (`104-207-147-127.nip.io`) ; relais préprod ET prod à créer depuis `infra/relay/` (versionné le 2026-09-29) dès que la carte est posée. Rappel : chez Lobby, jeton ET liste d'IP sont PAR UTILISATEUR — le `lobby_api_token` stocké doit rester celui de l'utilisateur « claude » (seul à autoriser `104.207.147.127`).
+- **CI `functions` rouge jusqu'au 2026-10-01 16:07 UTC** : Deno 2.9 refuse les paquets npm de moins de 24 h et Next 16.3.8 (correctif RCE, PR #4) date du 2026-09-30 16:07. Relancer le job après — ne jamais désactiver cette protection.
+- 🔴 **Migration des comptes vers hifagotest@gmail.com — EN COURS** (journal 2026-09-29 et 2026-09-30 ; plan hors dépôt `~/.claude/plans/pour-le-moment-tout-robust-snowflake.md`). **Préprod complète et vérifiée** (Lobby, Maps, paiement par webhook). **Prod configurée, pas déployée** — restent : garde anti-indexation (code) → déblocage des builds prod → PR `staging→main` → 2FA admin prod ; relais Vultr prod ; mise à jour automatique Supabase par la CI ; décommission des anciens comptes (équipe Vercel `hifago`, projet Supabase en pause, ancien relais `104.207.147.127` et son IP chez Lobby, clé Resend, client Google).
+- **Étape DNS** (reportée le 2026-09-29) : domaines custom, domaine Resend vérifié (sans lui, envoi à hifagotest@gmail.com seulement), Resend en SMTP de l'Auth, templates email poussés, publication de l'écran de consentement Google (resté en mode Test : seuls les testeurs déclarés peuvent se connecter avec Google). Mercado Pago : compte de l'entité qui encaisse (vrai vendeur, puis nouveaux comptes de test tirés de lui) à la bascule.
+- **Clé Google Maps SANS restriction** (choix explicite du 2026-09-30) : visible dans le code des pages admin, utilisable par n'importe qui sur la facturation de Jérôme. À restreindre (sites : URLs admin + localhost:3101 ; APIs : Maps JavaScript, Places (New), Geocoding) et à couvrir d'une alerte budgétaire.
+- **Relais Vultr** : préprod sur le relais neuf `144.202.33.78` (compte hifago, 2026-09-30) ; IP pas encore convertie en IP réservée ; relais **prod** à créer depuis `infra/relay/`. Rappel : chez Lobby, jeton ET liste d'IP sont PAR UTILISATEUR — le `lobby_api_token` stocké doit rester celui de l'utilisateur « claude ».
 - `LOBBY_PMS_TOKEN` : révocation différée, décision explicite de Jérôme — déclencheur = fin de la campagne de tests LobbyPMS.
 - Secret `service_role` legacy encore affiché en clair par `supabase projects api-keys` sans `--reveal` (3ᵉ occurrence constatée) — rotation à envisager, jamais faite.
 
