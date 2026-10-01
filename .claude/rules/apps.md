@@ -43,6 +43,8 @@ Le SEO de la vitrine a sa propre règle (`seo.md`, `apps/web/**`) ; le design sy
 - **`Toast.Provider` HeroUI se monte en SIBLING de `{children}`, jamais en wrapper** : son
   `children` est un render-prop consommé par toast ; en wrapper, toute l'app rend `null` tant
   qu'aucun toast n'existe — page blanche, aucune erreur, build vert.
+- **Pas de `loading.tsx` au-dessus d'un segment qui lit Supabase** : sa `<Suspense>` streamerait une
+  erreur levée en 200 au lieu de 500 + noindex (vérifié par `scripts/check-supabase-errors.sh`).
 - Les appels LobbyPMS ne partent jamais d'un `page.tsx`/Server Component (rendu SSR bloqué) : un
   Route Handler public appelé depuis le composant client (`LodgingReservationForm.tsx`).
 
