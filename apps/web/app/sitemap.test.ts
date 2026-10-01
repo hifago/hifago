@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock du seul client que le sitemap utilise. Même forme que les mocks déjà en place dans
-// app/api/pms/*/route.test.ts : un builder chaînable, thenable en bout de chaîne.
+// Deux simulations : le client Supabase (fiches, même forme que les mocks de
+// app/api/pms/*/route.test.ts — un builder chaînable, thenable en bout de chaîne) et
+// `buscarCategorias` (catégories).
 const state = vi.hoisted(() => ({
   products: [] as unknown[],
   establishments: [] as unknown[],
@@ -148,14 +149,20 @@ describe("sitemap — établissements et métadonnées d'entrée", () => {
 // Une panne n'est jamais une absence : un sitemap réduit serait indiscernable d'un catalogue réduit.
 // La lecture en échec LÈVE — la route répond 500 et le moteur réessaie (décision du 2026-10-01).
 describe("sitemap — panne", () => {
-  it.each([["products"], ["establishments"]])("lève si la lecture de %s échoue", async (table) => {
+  it.each([
+    ["products", "[sitemap] lecture des produits échouée"],
+    ["establishments", "[sitemap] lecture des établissements échouée"],
+  ])("lève si la lecture de %s échoue, avec l'erreur d'origine en cause", async (table, message) => {
     state.erreurs = { [table]: { message: "connexion refusée" } };
-    await expect(sitemap()).rejects.toBeTruthy();
+    await expect(sitemap()).rejects.toMatchObject({ message, cause: { message: "connexion refusée" } });
   });
 
-  it("lève si la lecture des catégories échoue", async () => {
+  it("lève si la lecture des catégories échoue, en nommant le type", async () => {
     state.categoriasEnPanne = true;
-    await expect(sitemap()).rejects.toBeTruthy();
+    await expect(sitemap()).rejects.toMatchObject({
+      message: "[sitemap] lecture des catégories (activity) échouée",
+      cause: { message: "search_catalog_categorias injoignable" },
+    });
   });
 });
 
@@ -194,6 +201,30 @@ describe("sitemap — listings et catégories", () => {
     expect(liste).not.toContain("https://hifago.co/en/actividades/solo-es");
     expect(liste.some((u) => u.includes("sin-nativa"))).toBe(false);
     expect(liste).toContain("https://hifago.co/en/alojamientos/otras");
+  });
+
+  it("porte sur chaque catégorie la carte d'alternates de ses seules locales natives, sans lastModified", async () => {
+    state.categorias = {
+      activity: [
+        { slug: "kayak", localesNativas: ["es", "en"] },
+        { slug: "solo-es", localesNativas: ["es"] },
+      ],
+    };
+    const entries = await sitemap();
+    const soloEs = entries.find((e) => e.url === "https://hifago.co/es/actividades/solo-es");
+    expect(soloEs?.alternates?.languages).toEqual({
+      es: "https://hifago.co/es/actividades/solo-es",
+      "x-default": "https://hifago.co/es/actividades/solo-es",
+    });
+    const kayak = entries.find((e) => e.url === "https://hifago.co/en/actividades/kayak");
+    expect(kayak?.alternates?.languages).toEqual({
+      es: "https://hifago.co/es/actividades/kayak",
+      en: "https://hifago.co/en/actividades/kayak",
+      "x-default": "https://hifago.co/es/actividades/kayak",
+    });
+    // Ni les catégories ni les listings n'ont de date de mise à jour : la propriété est omise.
+    expect(kayak).not.toHaveProperty("lastModified");
+    expect(entries.find((e) => e.url === "https://hifago.co/es/camps")).not.toHaveProperty("lastModified");
   });
 
   it("interroge les catégories de chaque type sans critère, une carte par catégorie", async () => {

@@ -17,8 +17,8 @@ import { createPublicClient } from "@/lib/supabase/publicClient";
 // ⚠️ postgrest-js ne LÈVE pas sur une erreur réseau : il rend `{ data: null, error }`. Une lecture
 // en échec lève donc ICI, explicitement — la route répond 500 et le moteur réessaie. Un sitemap
 // réduit serait indiscernable d'un catalogue réduit (décision du 2026-10-01, qui remplace la
-// « réduction à l'accueil » de la spec 26 §5). Le smoke test de bascule reste le filet de la
-// production : `curl <site>/sitemap.xml | grep -c "<loc>"` (spec 26 §5.2).
+// « réduction à l'accueil » du tableau des cas limites de la spec 26 §0). Le smoke test de bascule
+// reste le filet de la production : `curl <site>/sitemap.xml | grep -c "<loc>"` (spec 26 §5.2).
 export const dynamic = "force-dynamic";
 
 /** Ce que le sitemap a besoin de savoir d'une entité publiable. */
@@ -102,12 +102,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     supabase.from("products").select("slug, name, updated_at").eq("sellable", true),
     supabase.from("establishments").select("slug, name, updated_at").eq("status", "active"),
     ...ORDEN_SECCIONES.map((tipo) =>
-      buscarCategorias(tipo, sinCriterios, { porCategoria: 1, locale: routing.defaultLocale })
+      buscarCategorias(tipo, sinCriterios, { porCategoria: 1, locale: routing.defaultLocale }).catch(
+        (cause: unknown) => {
+          throw new Error(`[sitemap] lecture des catégories (${tipo}) échouée`, { cause });
+        }
+      )
     ),
   ]);
 
-  if (products.error) throw products.error;
-  if (establishments.error) throw establishments.error;
+  // L'erreur d'origine est gardée en `cause` : le journal dit QUELLE lecture a échoué.
+  if (products.error) {
+    throw new Error("[sitemap] lecture des produits échouée", { cause: products.error });
+  }
+  if (establishments.error) {
+    throw new Error("[sitemap] lecture des établissements échouée", { cause: establishments.error });
+  }
 
   // L'accueil et les cinq listings sont servis dans les deux locales : ce sont des libellés
   // d'INTERFACE (next-intl, jeu fermé et complet), pas du contenu partenaire soumis au repli JSONB.
