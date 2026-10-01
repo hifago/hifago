@@ -430,6 +430,13 @@ chargés par la page et donnent un `startDate` réel.
   anonyme d'une URL `*.vercel.app` reçoit un 302 vers le SSO. Ni Search Console, ni le test de
   résultats enrichis, ni un crawler IA ne peuvent atteindre le site aujourd'hui. La validation réelle
   est **différée à la bascule** — elle n'est pas faite, et cette spec ne prétend pas le contraire.
+  ⚠️ **Révisé le 2026-09-30 (migration vers le compte hifago)** : la Deployment Protection est
+  désormais **désactivée** sur les deux projets. Elle ne distingue pas la production de la préprod,
+  qui doit rester joignable par les testeurs et par le webhook Mercado Pago. La production est donc
+  publique sous `*.vercel.app` avant la bascule. La garde « rien n'est indexable » passe dans le
+  code : `isIndexableSite()` (`apps/web/lib/seo/siteUrl.ts`) n'ouvre `robots.txt` que si
+  `VERCEL_ENV=production` **et** si `NEXT_PUBLIC_WEB_APP_URL` n'est pas un `*.vercel.app`.
+  À la bascule, poser `NEXT_PUBLIC_WEB_APP_URL=https://hifago.co` puis redéployer.
 
 ## 11. Annexe — traçabilité code→règle
 

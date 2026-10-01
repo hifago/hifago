@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from "vitest";
-import { getSiteUrl, isProductionSite } from "./siteUrl";
+import { getSiteUrl, isIndexableSite, isProductionSite } from "./siteUrl";
 
 const ORIGINAL = { ...process.env };
 
@@ -42,5 +42,37 @@ describe("isProductionSite", () => {
   it("n'est vrai que sur le déploiement de production", () => {
     process.env.VERCEL_ENV = "production";
     expect(isProductionSite()).toBe(true);
+  });
+});
+
+describe("isIndexableSite", () => {
+  it("reste fermé sur la production provisoire servie sous *.vercel.app (avant la bascule)", () => {
+    process.env.VERCEL_ENV = "production";
+    process.env.NEXT_PUBLIC_WEB_APP_URL = "https://hifago-web-orpin.vercel.app";
+    expect(isIndexableSite()).toBe(false);
+  });
+
+  it("s'ouvre sur la production servie sous le vrai domaine", () => {
+    process.env.VERCEL_ENV = "production";
+    process.env.NEXT_PUBLIC_WEB_APP_URL = "https://hifago.co";
+    expect(isIndexableSite()).toBe(true);
+  });
+
+  it("le vrai domaine n'ouvre RIEN hors production — VERCEL_ENV reste exigé", () => {
+    process.env.VERCEL_ENV = "preview";
+    process.env.NEXT_PUBLIC_WEB_APP_URL = "https://hifago.co";
+    expect(isIndexableSite()).toBe(false);
+  });
+
+  it("ne se laisse pas tromper par un domaine qui contient « vercel.app » sans en être un", () => {
+    process.env.VERCEL_ENV = "production";
+    process.env.NEXT_PUBLIC_WEB_APP_URL = "https://vercel.app.hifago.co";
+    expect(isIndexableSite()).toBe(true);
+  });
+
+  it("échoue fermé sur une URL configurée illisible", () => {
+    process.env.VERCEL_ENV = "production";
+    process.env.NEXT_PUBLIC_WEB_APP_URL = "pas une url";
+    expect(isIndexableSite()).toBe(false);
   });
 });

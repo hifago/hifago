@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getSiteUrl, isProductionSite } from "@/lib/seo/siteUrl";
+import { getSiteUrl, isIndexableSite } from "@/lib/seo/siteUrl";
 import { routing } from "@/i18n/routing";
 
 // DÉCISION Jérôme 2026-09-01 : TOUS les crawlers IA sont autorisés en production — GPTBot,
@@ -42,13 +42,15 @@ const DISALLOW = [
 export default function robots(): MetadataRoute.Robots {
   const siteUrl = getSiteUrl();
 
-  // Rien n'est public tant que le déploiement ne se déclare pas « production » : une préprod
-  // indexée cannibalise le vrai site. Aucun `sitemap:` n'est annoncé ici — on n'indique pas un
-  // plan de site qu'on refuse par ailleurs de faire crawler.
+  // Rien n'est public tant que le déploiement ne se déclare pas « production » ET ne sert pas le
+  // vrai domaine : une préprod indexée cannibalise le vrai site, et la prod provisoire sous
+  // `*.vercel.app` (avant la bascule) ne doit jamais entrer dans l'index (`isIndexableSite`).
+  // Aucun `sitemap:` n'est annoncé ici — on n'indique pas un plan de site qu'on refuse par ailleurs
+  // de faire crawler.
   //
   // ⚠️ robots.txt est PRÉRENDU AU BUILD : basculer ce drapeau exige un REDÉPLOIEMENT, pas
   // seulement un changement de variable d'environnement.
-  if (!isProductionSite()) {
+  if (!isIndexableSite()) {
     return { rules: { userAgent: "*", disallow: "/" } };
   }
 

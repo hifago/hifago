@@ -22,7 +22,8 @@ export function getSiteUrl(): string {
 }
 
 /**
- * Vrai uniquement sur le déploiement de production. Seul ce prédicat ouvre robots.txt.
+ * Vrai uniquement sur le déploiement de production. Condition NÉCESSAIRE de l'ouverture de
+ * robots.txt (voir `isIndexableSite`), et seule garde du simulateur de paiement (`mock.ts`).
  *
  * Adossé à VERCEL_ENV et JAMAIS à l'URL configurée : sur Vercel, une variable définie
  * « All Environments » ferait émettre `Allow: /` depuis CHAQUE build de preview — précisément le
@@ -30,4 +31,27 @@ export function getSiteUrl(): string {
  */
 export function isProductionSite(): boolean {
   return process.env.VERCEL_ENV === "production";
+}
+
+/**
+ * Vrai seulement si robots.txt peut s'ouvrir : production déclarée ET servie sous un vrai domaine.
+ *
+ * La production existe avant la bascule de domaine, publique sous `*.vercel.app` : la Deployment
+ * Protection Vercel ne peut plus la cacher (elle couvrirait aussi la préprod, que les testeurs et le
+ * webhook Mercado Pago doivent joindre — 2026-09-29). Sans cette garde, robots.txt dirait
+ * `Allow: /` sur une URL provisoire qu'on ne veut jamais voir indexée. Le domaine ne fait que
+ * RESTREINDRE, jamais ouvrir seul : l'objection de `isProductionSite` (une variable « All
+ * Environments ») reste tenue, puisque VERCEL_ENV est toujours exigé. À la bascule, poser
+ * NEXT_PUBLIC_WEB_APP_URL=https://hifago.co suffit — plus un redéploiement (robots.txt est
+ * prérendu).
+ */
+export function isIndexableSite(): boolean {
+  if (!isProductionSite()) return false;
+  let host: string;
+  try {
+    host = new URL(getSiteUrl()).hostname;
+  } catch {
+    return false; // URL configurée illisible : échec fermé, jamais d'indexation par défaut.
+  }
+  return host !== "vercel.app" && !host.endsWith(".vercel.app");
 }
