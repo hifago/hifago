@@ -8,13 +8,15 @@
 --   - record_pms_booking ne perd JAMAIS un booking : chaque booking surnuméraire (claim périmé, ligne
 --     déjà bookée, ligne morte) part en file d'annulation — y compris connecteur coupé (amendement
 --     du 30/09) — et un booking porté par une ligne vivante n'y part jamais ;
---   - release_pms_reserve_claim ne rend que SON claim.
+--   - release_pms_reserve_claim ne rend que SON claim ;
+--   - échéance de paiement (migration 20261001194704) : le claim refuse `order_expiring` dès
+--     23 min après la création (limite de paiement de 28 min − bail de 5 min), rien n'est posé.
 --
 -- ⚠️ pgTAP tourne dans UNE transaction : `now()` y est constant. Le claim pose `now()`, donc le bon
 -- jeton est `now()` et un claim « périmé » se simule en passant une autre valeur. La sérialisation
 -- de vrais appels concurrents relève de tests/concurrency/claim_order_for_pms_booking.concurrency.mjs.
 begin;
-select plan(44);
+select plan(54);
 
 insert into partners (id, display_name) values
   ('9b930000-0000-4000-8000-000000000001', 'Claim Test Partner');
@@ -126,6 +128,46 @@ select l.id::uuid, l.order_id::uuid, '9b930000-0000-4000-8000-000000000021', l.p
     ('9b930000-0000-4000-8000-000000000075', '9b930000-0000-4000-8000-00000000004a', '9b930000-0000-4000-8000-000000000031', '2029-07-14', '2029-07-15', 'cancelled_by_provider')
   ) as l(id, order_id, product_id, date, end_date, status);
 
+-- Échéance de paiement : `now()` est constant dans la transaction, on VIEILLIT LA DONNÉE (jamais
+-- l'horloge). 0e1 : 22 min 59 s ; 0e2 : 23 min pile ; 0e3 : 23 min 1 s ; 0e4 : payée ET vieille.
+insert into orders (id, account_id, holder_name, holder_email, payment_status, created_at) values
+  ('9b930000-0000-4000-8000-0000000000e1', '9b930000-0000-4000-8000-000000000021', 'Claim Echeance 1', 'claim-e1@test.local', 'unpaid', now() - interval '22 minutes 59 seconds'),
+  ('9b930000-0000-4000-8000-0000000000e2', '9b930000-0000-4000-8000-000000000021', 'Claim Echeance 2', 'claim-e2@test.local', 'unpaid', now() - interval '23 minutes'),
+  ('9b930000-0000-4000-8000-0000000000e3', '9b930000-0000-4000-8000-000000000021', 'Claim Echeance 3', 'claim-e3@test.local', 'unpaid', now() - interval '23 minutes 1 second'),
+  ('9b930000-0000-4000-8000-0000000000e4', '9b930000-0000-4000-8000-000000000021', 'Claim Echeance 4', 'claim-e4@test.local', 'paid', now() - interval '40 minutes'),
+  -- Ordre des gardes, toutes à 23 min 1 s : 0e5 claim encore vivant ; 0e6 plus aucune ligne vivante ;
+  -- 0e7 logement d'un établissement au connecteur coupé.
+  ('9b930000-0000-4000-8000-0000000000e5', '9b930000-0000-4000-8000-000000000021', 'Claim Echeance 5', 'claim-e5@test.local', 'unpaid', now() - interval '23 minutes 1 second'),
+  ('9b930000-0000-4000-8000-0000000000e6', '9b930000-0000-4000-8000-000000000021', 'Claim Echeance 6', 'claim-e6@test.local', 'unpaid', now() - interval '23 minutes 1 second'),
+  ('9b930000-0000-4000-8000-0000000000e7', '9b930000-0000-4000-8000-000000000021', 'Claim Echeance 7', 'claim-e7@test.local', 'unpaid', now() - interval '23 minutes 1 second');
+update orders set pms_reserve_claimed_at = now() - interval '1 minute' where id = '9b930000-0000-4000-8000-0000000000e5';
+insert into order_lines (
+  id, order_id, account_id, product_id, date, end_date, qty, status, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+)
+select l.id::uuid, l.order_id::uuid, '9b930000-0000-4000-8000-000000000021',
+       '9b930000-0000-4000-8000-000000000031', l.date::date, l.end_date::date, 1, 'reserved', 'Holder Claim',
+       100000, 100000, 'direct', 0.17, 0, 0.17, 17000, 0, 17000
+  from (values
+    ('9b930000-0000-4000-8000-0000000000f1', '9b930000-0000-4000-8000-0000000000e1', '2029-08-01', '2029-08-02'),
+    ('9b930000-0000-4000-8000-0000000000f2', '9b930000-0000-4000-8000-0000000000e2', '2029-08-03', '2029-08-04'),
+    ('9b930000-0000-4000-8000-0000000000f3', '9b930000-0000-4000-8000-0000000000e3', '2029-08-05', '2029-08-06'),
+    ('9b930000-0000-4000-8000-0000000000f4', '9b930000-0000-4000-8000-0000000000e4', '2029-08-07', '2029-08-08'),
+    ('9b930000-0000-4000-8000-0000000000f5', '9b930000-0000-4000-8000-0000000000e5', '2029-08-09', '2029-08-10'),
+    ('9b930000-0000-4000-8000-0000000000f6', '9b930000-0000-4000-8000-0000000000e6', '2029-08-11', '2029-08-12')
+  ) as l(id, order_id, date, end_date);
+update order_lines set status = 'expired' where id = '9b930000-0000-4000-8000-0000000000f6';
+insert into order_lines (
+  id, order_id, account_id, product_id, date, end_date, qty, status, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+) values (
+  '9b930000-0000-4000-8000-0000000000f7', '9b930000-0000-4000-8000-0000000000e7', '9b930000-0000-4000-8000-000000000021',
+  '9b930000-0000-4000-8000-000000000034', '2029-08-13', '2029-08-14', 1, 'reserved', 'Holder Claim',
+  100000, 100000, 'direct', 0.17, 0, 0.17, 17000, 0, 17000
+);
+
 set local role service_role;
 
 -- ── claim_order_for_pms_booking ──────────────────────────────────────────────────────────────
@@ -222,6 +264,60 @@ select is(
   (select pms_reserve_claimed_at from orders where id = '9b930000-0000-4000-8000-000000000045'),
   null,
   'claim : rien à réserver → aucun claim posé'
+);
+
+-- ── Échéance de paiement : 28 min − bail de 5 min = 23 min ────────────────────────────────────
+select is(
+  public.order_payment_deadline('2026-01-01 00:00:00+00'),
+  '2026-01-01 00:28:00+00'::timestamptz,
+  'échéance : order_payment_deadline = création + 28 min (contrat partagé avec client.ts et payments-reconcile)'
+);
+select is(
+  (select provolatile::text from pg_proc where oid = 'public.order_payment_deadline(timestamptz)'::regprocedure),
+  's',
+  'échéance : order_payment_deadline est STABLE (timestamptz + interval l''est ; jamais déclarée IMMUTABLE)'
+);
+select is(
+  public.claim_order_for_pms_booking('9b930000-0000-4000-8000-0000000000e1')->>'ok',
+  'true',
+  'échéance : commande de 22 min 59 s → claim accepté'
+);
+select is(
+  public.claim_order_for_pms_booking('9b930000-0000-4000-8000-0000000000e2')->>'reason',
+  'order_expiring',
+  'échéance : commande de 23 min pile → order_expiring (le bail dépasserait la limite de paiement)'
+);
+select is(
+  public.claim_order_for_pms_booking('9b930000-0000-4000-8000-0000000000e3')->>'reason',
+  'order_expiring',
+  'échéance : commande de 23 min 1 s → order_expiring'
+);
+select is(
+  (select count(*)::int from orders
+    where id in ('9b930000-0000-4000-8000-0000000000e2', '9b930000-0000-4000-8000-0000000000e3')
+      and pms_reserve_claimed_at is not null),
+  0,
+  'échéance : order_expiring → aucun claim posé'
+);
+select is(
+  public.claim_order_for_pms_booking('9b930000-0000-4000-8000-0000000000e4')->>'reason',
+  'order_paid',
+  'échéance : commande payée ET vieille → order_paid d''abord (I3 précède l''échéance)'
+);
+select is(
+  public.claim_order_for_pms_booking('9b930000-0000-4000-8000-0000000000e5')->>'reason',
+  'claim_in_progress',
+  'échéance : claim encore vivant (autre onglet) → claim_in_progress avant l''échéance — sa reprise peut encore rendre la commande payable'
+);
+select is(
+  public.claim_order_for_pms_booking('9b930000-0000-4000-8000-0000000000e6')->>'reason',
+  'order_not_active',
+  'échéance : plus aucune ligne vivante → order_not_active avant l''échéance (une commande morte le reste)'
+);
+select is(
+  public.claim_order_for_pms_booking('9b930000-0000-4000-8000-0000000000e7')->>'reason',
+  'order_expiring',
+  'échéance : connecteur coupé ET trop tard → order_expiring avant pms_unavailable (jamais un faux relâchement)'
 );
 
 -- ── record_pms_booking ───────────────────────────────────────────────────────────────────────
