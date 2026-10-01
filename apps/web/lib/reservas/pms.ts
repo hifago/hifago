@@ -23,7 +23,7 @@ export type MotivoPms = {
 };
 
 /**
- * Les dix motifs que `/api/pms/night-availability` peut rendre, chacun avec ce qu'on en fait.
+ * Les onze motifs que `/api/pms/night-availability` peut rendre, chacun avec ce qu'on en fait.
  *
  * RETENTABLES — rejouer la requête telle quelle peut réussir :
  *   `pms_rate_limited`  le quota se libère en attendant (c'est son seul remède) ;
@@ -31,7 +31,9 @@ export type MotivoPms = {
  *                       puis 30/30 (2026-08-28) : ce qui manquait n'était pas un meilleur
  *                       message, c'était de REDEMANDER ;
  *   `pms_rejected`      Lobby a répondu une erreur — elle peut être passagère (503) ;
- *   `pms_unparseable`   réponse illisible, même raisonnement.
+ *   `pms_unparseable`   réponse illisible, même raisonnement ;
+ *   `availability_unavailable` la lecture du produit ou de l'établissement a échoué (panne de
+ *                       la base) — jamais confondue avec un produit absent ou un connecteur coupé.
  *
  * NON RETENTABLES — rejouer donnera exactement le même résultat :
  *   `connector_inactive`      le connecteur est coupé CÔTÉ ADMIN : rien ne changera tant qu'un
@@ -52,6 +54,7 @@ export const MOTIVOS_PMS: Record<string, MotivoPms> = {
   pms_unreachable: { reintentable: true, claveI18n: "pmsAvailabilityError" },
   pms_rejected: { reintentable: true, claveI18n: "pmsAvailabilityError" },
   pms_unparseable: { reintentable: true, claveI18n: "pmsAvailabilityError" },
+  availability_unavailable: { reintentable: true, claveI18n: "pmsAvailabilityError" },
   // Texte propre : rien ne changera sans qu'un admin rallume le connecteur — inviter à réessayer
   // serait faux (le message générique le fait).
   connector_inactive: { reintentable: false, claveI18n: "pmsAvailabilityConnectorOff" },

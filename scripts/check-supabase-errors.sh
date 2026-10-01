@@ -79,9 +79,6 @@ est_exempte() {
     "apps/web/app/[locale]/r/[code]/route.ts") return 0 ;;
     # Dette — webhook Mercado Pago : paiement connu relu sans son error (traité avec le webhook).
     "apps/web/app/api/payments/webhook/route.ts") return 0 ;;
-    # Dette — disponibilité PMS : une panne y est lue comme « produit introuvable » ou « connecteur
-    # coupé » (à reprendre avec la fiche d'un logement à connecteur coupé).
-    "apps/web/app/api/pms/night-availability/route.ts") return 0 ;;
   esac
   return 1
 }
@@ -99,7 +96,6 @@ EXEMPTIONS=(
   "apps/web/app/api/payments/mock-checkout/route.ts"
   "apps/web/app/api/payments/mock-confirm/route.ts"
   "apps/web/app/api/payments/webhook/route.ts"
-  "apps/web/app/api/pms/night-availability/route.ts"
 )
 
 MOTIF='const \{ (data|count)(: [A-Za-z_]+)? \} = await|\.then\(\(\{ (data|count)(: [A-Za-z_]+)? \}(: [^)]*)?\)|if \((error|[A-Za-z]+Error) \|\| [^)]*\) return (\[\]|null)'

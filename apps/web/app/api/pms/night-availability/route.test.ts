@@ -45,6 +45,9 @@ const establishments = new Map<string, FakeEstablishment>();
 // catch` de la route protège, pas seulement ce faux client de test).
 let rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
 
+// Tables dont la lecture échoue (panne Supabase) : la route doit le distinguer d'une absence.
+const lecturesEnPanne = new Set<string>();
+
 // Reproduit la seule forme de requête que la route émet : .from().select().eq()…maybeSingle() et
 // .rpc(nom, args).
 vi.mock("@hifago/supabase/service", () => ({
@@ -58,6 +61,7 @@ vi.mock("@hifago/supabase/service", () => ({
           return builder;
         },
         maybeSingle: async () => {
+          if (lecturesEnPanne.has(table)) return { data: null, error: { message: "panne" } };
           if (table === "products") {
             const product = products.get(String(filters.id));
             // `sellable` est un filtre RÉEL de la route (un produit non publié ne doit pas exposer
@@ -136,6 +140,7 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
+  lecturesEnPanne.clear();
   resetPmsFixtureCalls();
   setPmsFixtureScenario({ catalogCategoryIds: [CATEGORY, OTHER_CATEGORY] });
   rpcCalls = [];
@@ -331,3 +336,20 @@ describe("les paramètres sont validés avant toute lecture", () => {
     expect(getPmsFixtureCalls("/api/v2/available-rooms")).toBe(0);
   });
 });
+
+// Une lecture en panne n'est jamais une absence : ni « produit introuvable » (404), ni « connecteur
+// coupé » (non réessayable, et son texte renvoie vers l'établissement). 503, motif réessayable.
+describe("une panne de lecture n'est jamais une absence", () => {
+  it.each([["products"], ["establishments"]])(
+    "lecture de %s en panne → 503 réessayable, sans appel Lobby",
+    async (table) => {
+      const productId = addProduct(freshEstablishment());
+      lecturesEnPanne.add(table);
+      const response = await call(productId, monthAhead(2));
+      expect(response.status).toBe(503);
+      expect(await response.json()).toMatchObject({ ok: false, reason: "availability_unavailable" });
+      expect(getPmsFixtureCalls("/api/v2/available-rooms")).toBe(0);
+    }
+  );
+});
+
