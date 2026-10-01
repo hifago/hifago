@@ -58,6 +58,8 @@ export default async function OrderResultPage({
 
   // Jeton inconnu, malformé, ou commande absente : la RPC ne distingue jamais les trois, et cet
   // écran non plus — 404, sans message qui trahirait laquelle des trois situations est la bonne.
+  // Une PANNE n'arrive jamais ici : `getOrderByToken` lève, l'écran d'erreur de la zone prend le
+  // relais (500), et le client peut réessayer au lieu de croire sa commande perdue.
   if (!order) notFound();
 
   // `?payment=` posé par les back_urls Mercado Pago (create/route.ts) ou par le simulateur de dev
