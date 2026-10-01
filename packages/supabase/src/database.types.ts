@@ -936,6 +936,7 @@ export type Database = {
           id: string
           marketing_consent: boolean
           payment_status: string
+          pms_reserve_claimed_at: string | null
           reconcile_checked_at: string | null
           reconcile_claimed_at: string | null
           reference: string
@@ -954,6 +955,7 @@ export type Database = {
           id?: string
           marketing_consent?: boolean
           payment_status?: string
+          pms_reserve_claimed_at?: string | null
           reconcile_checked_at?: string | null
           reconcile_claimed_at?: string | null
           reference?: string
@@ -972,6 +974,7 @@ export type Database = {
           id?: string
           marketing_consent?: boolean
           payment_status?: string
+          pms_reserve_claimed_at?: string | null
           reconcile_checked_at?: string | null
           reconcile_claimed_at?: string | null
           reference?: string
@@ -2668,6 +2671,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_order_for_pms_booking: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
       claim_orders_to_reconcile: {
         Args: { p_limit?: number }
         Returns: {
@@ -3276,6 +3283,15 @@ export type Database = {
         }
         Returns: Json
       }
+      record_pms_booking: {
+        Args: {
+          p_claimed_at: string
+          p_order_id: string
+          p_order_line_id: string
+          p_pms_booking_id: string
+        }
+        Returns: Json
+      }
       release_order_after_pms_refusal: {
         Args: { p_order_id: string; p_reason: string }
         Returns: Json
@@ -3283,6 +3299,10 @@ export type Database = {
       release_order_line_capacity: {
         Args: { p_line_id: string }
         Returns: undefined
+      }
+      release_pms_reserve_claim: {
+        Args: { p_claimed_at: string; p_order_id: string }
+        Returns: Json
       }
       reorder_gallery: {
         Args: {
