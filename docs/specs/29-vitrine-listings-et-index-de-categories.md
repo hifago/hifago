@@ -5,7 +5,7 @@ theme: specs
 public: [ia, dev, jerome]
 langue: fr
 statut: implemente
-maj: 2026-09-08
+maj: 2026-10-01
 resume: >
   Construit les six routes vers lesquelles pointent les cinq « Ver más » de l'accueil : l'index de
   catégories des activités (des tags devenus éditoriaux — image, nom, texte), la page d'offres
@@ -762,8 +762,9 @@ Les dix du §0, plus ce qui ne s'y résume pas :
    l'espagnol, tant qu'aucune traduction réelle n'existe. Le prédicat est `hasNativeContent`, celui
    du sitemap et des fiches — jamais recopié.
 3. **Le sitemap gagne les pages de catégorie**, une entrée par locale réellement traduite, avec le
-   **même** prédicat que le point 2. Les six routes fixes y entrent aussi, dans les deux locales :
-   elles sont indexables et n'ont pas de contenu partenaire.
+   **même** prédicat que le point 2. L'accueil et les cinq listings y entrent aussi, dans les deux
+   locales : ils sont indexables et n'ont pas de contenu partenaire. (Livré le 2026-10-01 — avant, le
+   sitemap ne portait ni les listings ni les catégories.)
 4. **Le JSON-LD `BreadcrumbList` est rendu côté serveur**, dans le `page.tsx`, échappé — jamais
    dans `Migas` (règle SEO 6). Le composant affiche ; la page décrit.
 5. **Un `error.tsx` existe déjà pour la zone vitrine** (spec 28 §10quater) : ces six pages en
