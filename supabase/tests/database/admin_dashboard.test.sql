@@ -2,9 +2,10 @@
 -- _referrer_commissions, _top_partners.
 --
 -- ⚠️ ASSERTIONS EN DELTA. Ces fonctions somment TOUT `order_lines` : sur une base seedée, un total
--- absolu serait faux (c'est le défaut de admin_dashboard_order_lines.test.sql, qu'il faut lancer sans
--- seed). Ici chaque fonction est lue AVANT l'insertion des lignes de ce fichier, puis APRÈS ; seule
--- la différence est affirmée. Patron : payments_reconcile.test.sql (table temporaire « before »).
+-- absolu serait faux (c'était le défaut de admin_dashboard_order_lines.test.sql, supprimé avec les
+-- fonctions qu'il testait, 20260930222511). Ici chaque fonction est lue AVANT l'insertion des
+-- lignes de ce fichier, puis APRÈS ; seule la différence est affirmée. Patron :
+-- payments_reconcile.test.sql (table temporaire « before »).
 --
 -- Montants des six lignes : des puissances de deux distinctes, pour qu'une somme fausse désigne
 -- d'elle-même la ligne comptée à tort ou oubliée.
