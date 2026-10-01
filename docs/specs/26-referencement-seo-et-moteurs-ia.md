@@ -8,7 +8,7 @@ statut: implemente
 reste: >
   Vérifiée en local le 2026-09-01 (build, serveur réel, 3 e2e). Validation par un outil externe
   différée à la bascule de domaine — le SSO Vercel renvoie un 302 à tout crawler avant.
-maj: 2026-09-01
+maj: 2026-10-01
 resume: >
   Rend apps/web indexable par Google et citable par les moteurs de réponse IA : metadataBase,
   robots.txt fermé hors production, sitemap dynamique multilingue, hreflang à source unique et
@@ -51,7 +51,7 @@ repond_a:
 | Chemin | Fichier | Rendu | Contenu |
 |---|---|---|---|
 | `/robots.txt` | `apps/web/app/robots.ts` | **statique** (prérendu au build) | Hors prod : `User-Agent: * / Disallow: /`, sans `Sitemap:`. En prod : `Allow: /` + `Disallow` + `Sitemap` + `Host`. |
-| `/sitemap.xml` | `apps/web/app/sitemap.ts` | **dynamique** (`export const dynamic = "force-dynamic"`) | Accueil ×2 locales, produits `sellable`, établissements `active` — une entrée par locale native, chacune avec `es`/`en`/`x-default` et `lastModified`. |
+| `/sitemap.xml` | `apps/web/app/sitemap.ts` | **dynamique** (`export const dynamic = "force-dynamic"`) | Accueil et les 5 listings (`/{actividades,alojamientos,transportes,camps,eventos}`) ×2 locales, pages de catégorie dans leurs seules locales natives (spec 29 §8.3, livré le 2026-10-01), produits `sellable`, établissements `active` — une entrée par locale native, chacune avec `es`/`en`/`x-default` (et `lastModified` pour les fiches). |
 | `<head>` de chaque page | `apps/web/lib/seo/pageMetadata.ts` | — | `title`, `description`, `canonical`, `hreflang`, `robots`, `openGraph`, `twitter`. |
 | `<script type="application/ld+json">` | `apps/web/components/seo/JsonLd.tsx` | Server Component | `Product`+`Offer` / `Event`, `LodgingBusiness`/`LocalBusiness`, `BreadcrumbList`, `WebSite`. |
 
@@ -101,8 +101,8 @@ mais non déclarée).
 | Établissement sans `mode` | `LocalBusiness` au lieu de `LodgingBusiness`. |
 | Produit sans photo | Propriété `image` omise, jamais un tableau vide. |
 | Description contenant `</script>` | Échappée en `\u003c/script>` ; le document reste du JSON valide. |
-| Lecture du catalogue en échec | `console.error` + sitemap réduit à l'accueil. ⚠️ Non couvert par les tests : garde-fou = smoke test de bascule. |
-| Build sans base accessible | Ne peut plus produire un sitemap figé (`force-dynamic`) — mais un déploiement dont la base est injoignable sert un sitemap réduit. |
+| Lecture du catalogue en échec | **Lève : `/sitemap.xml` répond 500** (décision du 2026-10-01, cohérente avec « une panne n'est jamais une absence ») ; l'erreur nomme la lecture en échec. Couvert par `sitemap.test.ts`. Avant : sitemap réduit à l'accueil. |
+| Build sans base accessible | Ne peut plus produire un sitemap figé (`force-dynamic`) ; un déploiement dont la base est injoignable répond 500 sur `/sitemap.xml` (décision du 2026-10-01). |
 
 ### Fichiers touchés
 
