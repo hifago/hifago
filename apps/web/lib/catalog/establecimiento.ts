@@ -36,17 +36,20 @@ export const getEstablecimientoPorSlug = cache(
   ): Promise<FichaEstablecimiento | null> => {
     const supabase = createPublicClient();
 
-    const { data: establecimiento } = await supabase
+    const { data: establecimiento, error } = await supabase
       .from("establishments")
       .select(COLUMNAS_ESTABLECIMIENTO)
       .eq("slug", slug)
       .eq("status", "active")
       .maybeSingle();
 
+    // Une lecture en ÉCHEC n'est jamais une absence : elle lève, la page rend 500 + noindex (même
+    // geste que buscar.ts) — un 404 sur une simple panne dirait aux moteurs de désindexer.
+    if (error) throw error;
     if (!establecimiento) return null;
 
     // Trois lectures indépendantes — aucune n'a besoin du résultat d'une autre.
-    const [{ data: fotos }, { data: productos }, { data: amenidadesRaw }] = await Promise.all([
+    const lecturas = await Promise.all([
       supabase
         .from("establishment_media")
         .select("storage_path")
@@ -67,6 +70,10 @@ export const getEstablecimientoPorSlug = cache(
         )
         .eq("establishment_id", establecimiento.id),
     ]);
+    // Une sous-lecture en échec lève comme la principale : jamais une fiche amputée (sans photos,
+    // sans offres) présentée comme complète.
+    for (const lectura of lecturas) if (lectura.error) throw lectura.error;
+    const [{ data: fotos }, { data: productos }, { data: amenidadesRaw }] = lecturas;
 
     const amenidades = agruparAmenidadesPorCategoria((amenidadesRaw ?? []) as FilaAmenidad[], locale);
 
@@ -75,7 +82,7 @@ export const getEstablecimientoPorSlug = cache(
     // client — le tri `sort` décide de la photo de COUVERTURE, et le perdre changerait l'image de
     // chaque carte sans que rien ne le signale.
     const ids = (productos ?? []).map((producto) => producto.id);
-    const { data: fotosProductos } =
+    const lecturaFotos =
       ids.length > 0
         ? await supabase
             .from("product_media")
@@ -83,6 +90,8 @@ export const getEstablecimientoPorSlug = cache(
             .in("product_id", ids)
             .order("sort", { ascending: true })
         : { data: [] };
+    if ("error" in lecturaFotos && lecturaFotos.error) throw lecturaFotos.error;
+    const { data: fotosProductos } = lecturaFotos;
 
     const urlPublica = (ruta: string) =>
       supabase.storage.from(BUCKET_MEDIA).getPublicUrl(ruta).data.publicUrl;

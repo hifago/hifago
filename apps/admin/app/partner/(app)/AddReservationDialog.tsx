@@ -13,14 +13,13 @@ import {
   toast,
   useOverlayState,
 } from "@hifago/ui";
+import { loadSlotOptions, type SlotOption } from "@/lib/agenda/slotOptions";
 
 export type ProductOption = {
   id: string;
   name: string;
   hasSlots: boolean;
 };
-
-type SlotOption = { slotStartTime: string; label: string };
 
 function toDateInputValue(date: Date): string {
   const year = date.getFullYear();
@@ -51,6 +50,9 @@ export function AddReservationDialog({
   const [productId, setProductId] = useState<string | null>(null);
   const [slotStartTime, setSlotStartTime] = useState<string | null>(null);
   const [slotOptions, setSlotOptions] = useState<SlotOption[]>([]);
+  // Lecture des créneaux en échec : dit à l'opérateur, au lieu d'un sélecteur vide qu'il lirait
+  // « aucun créneau ce jour-là » (même discipline que components/lobby-option-picker.tsx).
+  const [slotsUnavailable, setSlotsUnavailable] = useState(false);
   const [holderName, setHolderName] = useState("");
   const [qty, setQty] = useState("1");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,6 +64,7 @@ export function AddReservationDialog({
     setProductId(null);
     setSlotStartTime(null);
     setSlotOptions([]);
+    setSlotsUnavailable(false);
     setHolderName("");
     setQty("1");
   }
@@ -85,23 +88,11 @@ export function AddReservationDialog({
       return;
     }
     let cancelled = false;
-    const supabase = createClient();
-    supabase
-      .rpc("get_product_slots", { p_product_id: productId, p_from: date, p_to: date })
-      .then(({ data }) => {
-        if (cancelled) return;
-        const rows = (data ?? []) as {
-          slot_start_time: string;
-          capacity: number;
-          booked: number;
-        }[];
-        setSlotOptions(
-          rows.map((row) => ({
-            slotStartTime: row.slot_start_time,
-            label: `${row.slot_start_time.slice(0, 5)} (${row.booked}/${row.capacity})`,
-          }))
-        );
-      });
+    loadSlotOptions(createClient(), productId, date).then((result) => {
+      if (cancelled) return;
+      setSlotsUnavailable(!result.ok);
+      setSlotOptions(result.ok ? result.options : []);
+    });
     return () => {
       cancelled = true;
     };
@@ -222,6 +213,11 @@ export function AddReservationDialog({
                       </ListBox>
                     </Select.Popover>
                   </Select>
+                ) : null}
+                {selectedProduct?.hasSlots && slotsUnavailable ? (
+                  <p role="alert" className="text-sm text-danger" data-testid="manual-slot-error">
+                    No se pudieron cargar los horarios. Vuelve a intentarlo.
+                  </p>
                 ) : null}
 
                 <TextField value={holderName} onChange={setHolderName} isRequired>

@@ -12,7 +12,7 @@
 # jours (2026-09-13 → 19) en masquant check-tokens.sh tout du long. Mesure du chantier : 39 runs
 # rouges sur 60, dont 15 des 20 derniers échecs imputables au seul job `lint`.
 #
-# Ce script inverse la logique : il lance les 13 contrôles, retient les sorties, puis imprime UN
+# Ce script inverse la logique : il lance tous les contrôles, retient les sorties, puis imprime UN
 # récapitulatif. Un seul passage donne la liste complète de ce qu'il faut corriger.
 #
 # ⚠️ PAS de `set -e` — un `-e` ici ferait exactement ce que ce script existe pour empêcher. Les
@@ -84,6 +84,7 @@ lancer "Nommage kebab-case d'apps/admin/components"  bash scripts/check-admin-co
 # espagnol.
 lancer "Jetons de couleur (vitrine)"                 bash scripts/check-tokens.sh
 lancer "Couche d'accès (pas de requête en route)"    bash scripts/check-data-layer.sh
+lancer "Panne ≠ absence (error lu, pas de loading)"  bash scripts/check-supabase-errors.sh
 lancer "Navigation localisée (@/i18n/navigation)"    bash scripts/check-i18n-links.sh
 
 # Bloquant depuis le 2026-09-30 — vérifié PAR MUTATION (rouge sur les quatre embeds d'avant le

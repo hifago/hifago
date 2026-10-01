@@ -52,7 +52,11 @@ export async function getCartLines(locale: Locale): Promise<CartLineForDisplay[]
     .order("date", { ascending: true })
     .order("created_at", { ascending: true });
 
-  if (error || !data) return [];
+  // Un panier illisible n'est jamais un panier vide : l'erreur lève, l'écran d'erreur de la zone
+  // (tunnel) prend le relais — « Tu viaje está vacío » sur une panne ferait croire au client qu'il
+  // a perdu ses réservations.
+  if (error) throw error;
+  if (!data) return [];
 
   return data.map((row) => {
     const product = row.products;
