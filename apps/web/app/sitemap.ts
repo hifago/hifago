@@ -1,5 +1,9 @@
 import type { MetadataRoute } from "next";
 import { routing } from "@/i18n/routing";
+import { buscarCategorias } from "@/lib/catalog/buscar";
+import { leerCriterios } from "@/lib/catalog/criterios";
+import { segmentoDeTipo } from "@/lib/catalog/segmentos";
+import { ORDEN_SECCIONES } from "@/lib/catalog/tipos";
 import { hasNativeContent } from "@/lib/seo/nativeContent";
 import { getSiteUrl } from "@/lib/seo/siteUrl";
 import { createPublicClient } from "@/lib/supabase/publicClient";
@@ -10,15 +14,45 @@ import { createPublicClient } from "@/lib/supabase/publicClient";
 // dynamique » de hifago/CLAUDE.md §5.5. `revalidate` ne suffirait pas : le premier rendu se
 // ferait quand même au build, et un sitemap faux serait servi jusqu'à la première revalidation.
 //
-// ⚠️ Le piège qui rend l'erreur SILENCIEUSE : le job `build` de la CI n'a aucun Supabase, et
-// postgrest-js avale l'erreur réseau en `{ data: null }` au lieu de la lever. Un sitemap vide
-// serait donc produit et livré sans qu'aucun build n'échoue. Aucun test unitaire ne protège de
-// ça (un mock rend toujours des données) : le garde-fou est le smoke test de bascule,
-// `curl <site>/sitemap.xml | grep -c "<loc>"` (spec 26 §5.2).
+// ⚠️ postgrest-js ne LÈVE pas sur une erreur réseau : il rend `{ data: null, error }`. Une lecture
+// en échec lève donc ICI, explicitement — la route répond 500 et le moteur réessaie. Un sitemap
+// réduit serait indiscernable d'un catalogue réduit (décision du 2026-10-01, qui remplace la
+// « réduction à l'accueil » de la spec 26 §5). Le smoke test de bascule reste le filet de la
+// production : `curl <site>/sitemap.xml | grep -c "<loc>"` (spec 26 §5.2).
 export const dynamic = "force-dynamic";
 
 /** Ce que le sitemap a besoin de savoir d'une entité publiable. */
 type PublishableRow = { slug: string; name: unknown; updated_at: string };
+
+/**
+ * Les entrées d'UNE page : une par locale native, toutes avec la même carte d'alternates. x-default
+ * désigne l'espagnol dès qu'il est natif (§5.4) ; à défaut, la seule langue d'interface réellement
+ * servie — jamais une URL qu'on vient de déclarer non indexable. Aucune locale native : aucune entrée.
+ */
+function entriesFor(
+  nativeLocales: readonly string[],
+  pathFor: (locale: string) => string,
+  siteUrl: string,
+  lastModified?: string
+): MetadataRoute.Sitemap {
+  if (nativeLocales.length === 0) return [];
+
+  const xDefault = nativeLocales.includes(routing.defaultLocale)
+    ? routing.defaultLocale
+    : nativeLocales[0];
+
+  const languages: Record<string, string> = {};
+  for (const locale of nativeLocales) {
+    languages[locale] = `${siteUrl}${pathFor(locale)}`;
+  }
+  languages["x-default"] = `${siteUrl}${pathFor(xDefault)}`;
+
+  return nativeLocales.map((locale) => ({
+    url: `${siteUrl}${pathFor(locale)}`,
+    ...(lastModified ? { lastModified } : {}),
+    alternates: { languages },
+  }));
+}
 
 /**
  * Une entrée PAR LOCALE disposant d'un contenu réellement traduit, et non une seule entrée
@@ -38,34 +72,14 @@ function localizedEntries(
   pathFor: (locale: string, slug: string) => string,
   siteUrl: string
 ): MetadataRoute.Sitemap {
-  const entries: MetadataRoute.Sitemap = [];
-
-  for (const row of rows) {
-    const nativeLocales = routing.locales.filter((locale) => hasNativeContent(row.name, locale));
-    if (nativeLocales.length === 0) continue;
-
-    // x-default désigne l'espagnol dès qu'il est natif (§5.4) ; à défaut, la seule langue
-    // d'interface réellement servie — jamais une URL qu'on vient de déclarer non indexable.
-    const xDefault = nativeLocales.includes(routing.defaultLocale)
-      ? routing.defaultLocale
-      : nativeLocales[0];
-
-    const languages: Record<string, string> = {};
-    for (const locale of nativeLocales) {
-      languages[locale] = `${siteUrl}${pathFor(locale, row.slug)}`;
-    }
-    languages["x-default"] = `${siteUrl}${pathFor(xDefault, row.slug)}`;
-
-    for (const locale of nativeLocales) {
-      entries.push({
-        url: `${siteUrl}${pathFor(locale, row.slug)}`,
-        lastModified: row.updated_at,
-        alternates: { languages },
-      });
-    }
-  }
-
-  return entries;
+  return rows.flatMap((row) =>
+    entriesFor(
+      routing.locales.filter((locale) => hasNativeContent(row.name, locale)),
+      (locale) => pathFor(locale, row.slug),
+      siteUrl,
+      row.updated_at
+    )
+  );
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -77,34 +91,43 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // filtrage — les `.eq()` ci-dessous ne font que le rendre explicite et lisible.
   // Colonnes vérifiées accordées à `anon` sur les deux tables (migrations 20260819110000 et
   // 20260827200000) : une colonne non accordée ferait échouer TOUTE la requête (§11.1).
-  const [products, establishments] = await Promise.all([
+  //
+  // Catégories (spec 29 §8.3) : `buscarCategorias`, la lecture des pages de catégorie elles-mêmes,
+  // sans critère et à une carte par catégorie — elle ne rend que les catégories qui ont au moins
+  // une offre (une page vide n'existe pas), et `localesNativas` est le prédicat que leurs
+  // métadonnées appliquent déjà : jamais recalculé ici. La locale de l'appel ne joue que sur les
+  // libellés et le tri, jamais sur `localesNativas`.
+  const sinCriterios = leerCriterios({});
+  const [products, establishments, ...categoriasPorTipo] = await Promise.all([
     supabase.from("products").select("slug, name, updated_at").eq("sellable", true),
     supabase.from("establishments").select("slug, name, updated_at").eq("status", "active"),
+    ...ORDEN_SECCIONES.map((tipo) =>
+      buscarCategorias(tipo, sinCriterios, { porCategoria: 1, locale: routing.defaultLocale })
+    ),
   ]);
 
-  if (products.error || establishments.error) {
-    // Tracé plutôt que tu : un sitemap vide est indiscernable d'un catalogue vide côté sortie.
-    console.error("[sitemap] lecture du catalogue échouée", {
-      products: products.error?.message,
-      establishments: establishments.error?.message,
-    });
-  }
+  if (products.error) throw products.error;
+  if (establishments.error) throw establishments.error;
 
-  // L'accueil est servi dans les deux locales : ce sont des libellés d'INTERFACE (next-intl,
-  // jeu fermé et complet), pas du contenu partenaire soumis au repli JSONB.
-  const homeLanguages: Record<string, string> = {};
-  for (const locale of routing.locales) {
-    homeLanguages[locale] = `${siteUrl}/${locale}`;
-  }
-  homeLanguages["x-default"] = `${siteUrl}/${routing.defaultLocale}`;
-
-  const home: MetadataRoute.Sitemap = routing.locales.map((locale) => ({
-    url: `${siteUrl}/${locale}`,
-    alternates: { languages: homeLanguages },
-  }));
+  // L'accueil et les cinq listings sont servis dans les deux locales : ce sont des libellés
+  // d'INTERFACE (next-intl, jeu fermé et complet), pas du contenu partenaire soumis au repli JSONB.
+  const home = entriesFor(routing.locales, (locale) => `/${locale}`, siteUrl);
+  const listings = ORDEN_SECCIONES.flatMap((tipo) =>
+    entriesFor(routing.locales, (locale) => `/${locale}/${segmentoDeTipo(tipo)}`, siteUrl)
+  );
+  const categorias = ORDEN_SECCIONES.flatMap((tipo, indice) =>
+    categoriasPorTipo[indice].flatMap((categoria) =>
+      entriesFor(
+        categoria.localesNativas,
+        (locale) => `/${locale}/${segmentoDeTipo(tipo)}/${categoria.slug}`,
+        siteUrl
+      )
+    )
+  );
 
   return [
     ...home,
+    ...listings,
     ...localizedEntries(
       (products.data ?? []) as PublishableRow[],
       (locale, slug) => `/${locale}/productos/${slug}`,
@@ -115,5 +138,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       (locale, slug) => `/${locale}/establecimientos/${slug}`,
       siteUrl
     ),
+    ...categorias,
   ];
 }
