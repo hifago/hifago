@@ -1,11 +1,15 @@
 import type { Decorator, Preview } from "@storybook/nextjs-vite";
 import { withThemeByDataAttribute } from "@storybook/addon-themes";
 import { useEffect } from "storybook/preview-api";
+import { sb } from "storybook/test";
 import { NextIntlClientProvider } from "next-intl";
 
 import "../app/globals.css";
 import { loadMessages, type Locale } from "../messages";
 import { routing } from "../i18n/routing";
+import { simularFetch } from "./support/fetch";
+import { instalarDatosPorDefecto } from "./support/datos";
+import { reiniciarSupabaseFalso } from "./support/supabaseFalso";
 
 // ⚠️ Les polices Geist ne sont VOLONTAIREMENT pas appliquées ici, et ce n'est pas un oubli :
 // elles ne le sont pas non plus en production. `app/[locale]/layout.tsx` définit
@@ -17,6 +21,22 @@ import { routing } from "../i18n/routing";
 // lignes dans `app/[locale]/layout.tsx`, mais il change la typographie de tout le site d'un coup,
 // donc il est proposé à Jérôme plutôt qu'appliqué en passant. Voir `Playground/Palette`, section
 // « Polices », qui affiche la pile réellement en vigueur à côté de celle qui était prévue.
+
+// Modules de DONNÉES remplacés pour les stories d'écran (2026-10-01) — avec les alias de paquets de
+// `main.ts`, c'est ce qui permet de rendre le vrai `page.tsx` SANS Docker, sans Supabase et sans
+// `.env.local`. Mode ESPION : le vrai module est chargé (ses fonctions pures restent vraies), ses
+// lectures sont redirigées vers les fixtures par `instalarDatosPorDefecto` (support/datos.ts), et
+// une story en pilote la réponse par `mocked(fonction)`. Ne s'enregistre QU'ICI : Storybook refuse
+// un `sb.mock` dans une story.
+sb.mock(import("../lib/catalog/producto.ts"), { spy: true });
+sb.mock(import("../lib/catalog/buscar.ts"), { spy: true });
+sb.mock(import("../lib/catalog/establecimiento.ts"), { spy: true });
+sb.mock(import("../lib/auth/viewer.ts"), { spy: true });
+sb.mock(import("../lib/account/getMyProfile.ts"), { spy: true });
+sb.mock(import("../lib/orders/getMyOrders.ts"), { spy: true });
+sb.mock(import("../lib/cart/getCartLines.ts"), { spy: true });
+sb.mock(import("../lib/orders/getPendingOrdersForViewer.ts"), { spy: true });
+sb.mock(import("../lib/orders/getOrderByToken.ts"), { spy: true });
 
 const LIBELLES_LOCALE: Record<Locale, string> = { es: "Español", en: "English" };
 
@@ -43,6 +63,14 @@ function attributSurHtml(attribut: string, global: string, valeurNeutre: string)
 }
 
 const preview: Preview = {
+  // Les Route Handlers `/api/*` simulés par story (`parameters.simularFetch`) — mode d'emploi en
+  // tête de `support/fetch.ts`. Le nettoyage renvoyé restaure le vrai `fetch` entre deux stories.
+  beforeEach: ({ parameters }) => {
+    // Une story n'hérite JAMAIS de la session ou du panier d'une autre — composants compris.
+    reiniciarSupabaseFalso();
+    instalarDatosPorDefecto();
+    return simularFetch(parameters.simularFetch);
+  },
   parameters: {
     // Trois gabarits repris de l'existant plutôt qu'inventés. ⚠️ Source exacte, parce que je
     // l'avais d'abord mal attribuée : 390×844 et 1280×900 viennent de

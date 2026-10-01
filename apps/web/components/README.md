@@ -14,6 +14,7 @@ c'est CLAUDE.md qui fait foi.
 | `organisms/` | Bloc autonome, souvent avec état ou navigation | `SiteHeader`, `CartSummary` |
 | `seo/` | Pas de l'interface : données structurées | `JsonLd` |
 | `playground/` | Stories de référence (jetons, palettes, sémantique) | `Palette.stories.tsx` |
+| `parcours/` | Stories de PARCOURS : une suite d'écrans réutilisés, une story par étape | `ReservarActividad.stories.tsx` |
 
 Un composant lié à **une seule route** reste colocalisé dans `app/[locale]/…` — c'est déjà le cas
 des treize composants d'écran actuels. On ne remonte dans `components/` que ce qui sert **au moins
@@ -128,13 +129,19 @@ un prix. Cinq groupes, décidés le 2026-09-02 :
 |---|---|
 | `Actions/` | `Button`, `IconButton`, `LinkButton`, `IconLink`, `BackLink` |
 | `Saisie/` | `Field`, `Textarea`, `Select`, `Checkbox` |
-| `Affichage/` | `Price`, `TypeBadge`, `Image`, `Title`, `PhotoStrip` |
+| `Affichage/` | `Price`, `TypeBadge`, `Image`, `Title`, `PhotoStrip`, `CartSummary` |
 | `Structure/` | `PageShell`, `Card` |
 | `Coquille/` | `SiteHeader`, `SiteMenu`, `SiteFooter`, `LanguageSwitcher` |
 | `Playground/` | les stories de référence — jetons, palettes, sémantique |
+| `Écrans/` | les PAGES ENTIÈRES de la vitrine, une story par état (voir « Stories d'écran » plus bas) |
+| `Parcours/` | les enchaînements d'écrans, une story par étape `n · Étape` |
 
 Un nouveau composant rejoint le groupe qui décrit **ce qu'il fait**, quel que soit son dossier. Si
 aucun ne convient, c'est une conversation, pas un groupe créé au passage.
+
+*`Écrans/` et `Parcours/` sont nés de la même conversation le 2026-10-01 (Gabriel : « que Jérôme
+voie tous les écrans dans tous leurs états pour décider du design ») : une page n'est le composant
+d'aucun des cinq groupes, et la ranger dans `Structure/` l'aurait noyée parmi les gabarits.*
 
 *Cette conversation a eu lieu le 2026-09-02 : les composants de la coquille du site étaient arrivés
 sous un `Organisms/` qui reproduisait le nom du dossier — exactement ce que ce tableau existe pour
@@ -149,6 +156,76 @@ fragile.
 Le playground se lance avec `npm run storybook` (port 6006) et **découvre les stories par glob** :
 aucun fichier central à modifier. Le gabarit **Mobile 390 est actif par défaut**, et la barre
 d'outils permet de basculer la langue (es/en) et le thème (vitrine/admin).
+
+## Stories d'écran et parcours
+
+Posé le 2026-10-01 : **chaque écran de la vitrine existe en entier dans Storybook, dans chacun de
+ses états**, à côté des briques. C'est le support sur lequel Jérôme tranche le design du front.
+
+### Pour Jérôme — le regarder chez soi
+
+`npm run storybook -w @hifago/web`, puis <http://localhost:6006>. **Rien d'autre à lancer** : ni
+Docker, ni Supabase, ni `.env.local` — tout est simulé. Dans la barre latérale, `Écrans/` (une
+entrée par page, une story par état) et `Parcours/` (les étapes dans l'ordre). La barre d'outils
+s'applique à la page entière : **Piste** (Hifago, Embalse, Zócalo, Cal, Chiva), **Mode**
+(clair/sombre), **Rayon**, **langue** (es/en) et **gabarit** (Mobile 390 par défaut, Tablette 768,
+Desktop 1280). Un état obtenu par un clic (erreur, envoi en cours, calendrier ouvert…) se rejoue
+seul à l'ouverture ; l'onglet **Interactions** le montre pas à pas.
+
+### Comment c'est fait
+
+Une story d'écran rend le **vrai `page.tsx`**, dans la vraie chaîne de layouts — jamais une copie :
+un écran redessiné est à jour ici sans toucher sa story. Elle est colocalisée (`page.stories.tsx` à
+côté de `page.tsx`) et s'écrit avec `historiaDePagina` (`.storybook/support/pagina.tsx`) :
+
+```tsx
+export const PanierVide: StoryObj = {
+  ...historiaDePagina({ Page: CartPage, grupo: "tunnel", ruta: "/mi-viaje", preparar: () => … }),
+  name: "Panier vide", // ⚠️ en littéral, À CÔTÉ : l'indexeur ne lit pas dans un appel de fonction
+};
+```
+
+Les données sont simulées à trois frontières, et **nulle part ailleurs** :
+
+| Frontière | Mécanisme | Où |
+|---|---|---|
+| Lectures de `lib/` (`getProductoPorSlug`, `getCartLines`…) | `sb.mock(…, { spy: true })` : le vrai module est chargé, ses fonctions pures restent vraies, seules ses lectures sont redirigées vers les fixtures | `preview.tsx` + `support/datos.ts` |
+| Paquets serveur (`next-intl/server`, `@hifago/supabase/{client,server}`) | alias Vite vers des mocks TS (`sb.mock` ne sait pas les remplacer) | `main.ts` + `support/mocks/` |
+| Route Handlers `/api/*` appelés par le navigateur | `parameters.simularFetch` par story ; un appel non déclaré part en 404 **visible** | `support/fetch.ts` |
+
+Le faux client Supabase (`support/supabaseFalso.ts`) tient une session (aucune, anonyme, compte),
+un panier en mémoire et des réponses de RPC : `simularSesion`, `simularCarrito`, `simularRpc`,
+`simularPendiente` (une requête qui ne répond jamais = l'état « en cours »), `simularErrorAuth`.
+Une story surcharge une lecture dans son `preparar` : `mocked(getMyOrders).mockResolvedValue(null)`.
+Fixtures **réalistes** (textes, vraies photos de `mockData/` servies sous `/mock`, dates relatives
+à aujourd'hui à Guatapé) dans `.storybook/support/fixtures/`.
+
+⚠️ **Un nouveau module de données branché sur une page doit arriver dans `preview.tsx` ET dans
+`support/datos.ts` dans le même geste**, sinon la story part vers une base qui n'existe pas.
+
+Un **parcours** (`components/parcours/`) réutilise les stories d'écran par `etapa(n, nom,
+Ecran.Story, play)` ; le dernier geste de chaque étape vérifie qu'elle mène à la suivante (lien ou
+navigation). Les vrais enchaînements de bout en bout restent prouvés par Playwright.
+
+### Inventaire écran → états (tiré du code le 2026-10-01)
+
+Une branche de rendu sans story est un trou visible ici ; les cas volontairement absents disent
+pourquoi.
+
+| Écran | États couverts | Absents, et pourquoi |
+|---|---|---|
+| Accueil | défaut, connecté + panier, dates/personnes, un seul type, sans résultat, retour après ajout (réordonné + toast), menu ouvert, raccourcis, suggestions, aucune suggestion, calendrier, personnes | « Buscando… » : `router.push` simulé est synchrone |
+| Index par type | les 5 types, sans résultat, section vide, bandeau camp, bandeau événement | — |
+| Catégorie | avec / sans description, « otras », > 24 offres, chargement, échec, sans résultat | 404 de catégorie : `notFound()` (voir Erreurs) |
+| Fiche établissement | complète, presque vide (maison entière), rien à vendre | — |
+| Fiche produit | créneaux, date (minimum), camp, hébergement hors PMS, PMS, transport, événement récurrent / réservable / gratuit, « Consultar » sans photo, événement sans lien, créneau / date / édition / nuits choisis, ajouté, ajout impossible, PMS en lecture / injoignable / quota / connecteur coupé | introuvable : `notFound()` (voir Erreurs) |
+| Mi viaje | vide, vide + réservation à payer, plusieurs établissements, un jour, offre indisponible, camp bloqué, camp débloqué, retrait en cours | panne de lecture : voir Erreurs |
+| Pago | vide, vide + réservation à payer, invité, compte (profil), compte (dernière réservation), WhatsApp invalide, en cours, plus de places, refus PMS | WhatsApp vide : infobulle NATIVE (pas de `noValidate`) |
+| Résultat de réservation | à payer (invité / compte), départ vers Mercado Pago, paiement impossible, refusé, en confirmation, payée, gratuite, non honorée, remboursée, expirée, annulée, lignes mixtes | succès du départ : quitterait l'iframe |
+| Connexion · Inscription · Mot de passe oublié / nouveau · Vérification e-mail | formulaires, erreurs, envois en cours, succès affichables (e-mail envoyé, renvoi + compte à rebours), Google en cours / échec | succès qui naviguent ailleurs (connexion, inscription, nouveau mot de passe) : c'est l'écran suivant |
+| Mon profil | rempli, vide, modifié, en cours, enregistré, erreur, compte pro, suppression (confirmation, e-mail différent, en cours, échec) | déconnexion / suppression réussies : naviguent vers l'accueil |
+| Mes réservations | toutes les variantes (8 états de commande, chaque forme de ligne), à venir seules, aucune, erreur, confirmation, dernière ligne, annulation en cours, échec | annulation réussie : `router.refresh` sans effet en story |
+| Erreurs | 404, panne vitrine / tunnel / compte | — |
 
 ## Quand une spec d'écran a besoin d'un composant qui n'existe pas
 

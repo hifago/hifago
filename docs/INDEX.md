@@ -79,9 +79,9 @@
 - [Avant d'écrire une spec — poser les bonnes questions](specs/avant-la-spec.md) 8K
 
 ## Suivi — backlog, dette, pièges, journal
-- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 12K
-- [Dette technique et QA/UI connue — hifago](dette-technique.md) 33K
+- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 13K
+- [Dette technique et QA/UI connue — hifago](dette-technique.md) 35K
 - [Journal hifago — août 2026](journal/2026-08.md) 660K · jamais en entier (voir 5.)
 - [Journal hifago — septembre 2026](journal/2026-09.md) 678K · jamais en entier (voir 5.)
-- [Journal hifago — octobre 2026](journal/2026-10.md) 5K · jamais en entier (voir 5.)
+- [Journal hifago — octobre 2026](journal/2026-10.md) 14K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K
