@@ -16,6 +16,9 @@ ouvert ou bloqué : `docs/backlog.md`.
 **Pour démarrer** : `/hifago-dev` (Supabase local + les deux apps) ou lire `CLAUDE.md` en entier
 d'abord si c'est une première session — il tient sous 200 lignes.
 
+**Première installation sur un PC Windows** (WSL 2 + Docker Desktop, base de démo, comptes de
+test) : [`DEMARRAGE-LOCAL-WINDOWS.md`](DEMARRAGE-LOCAL-WINDOWS.md), de A à Z.
+
 ## Avant de pousser
 
 `npm run verify` lance en ~35 s les 12 contrôles du job `lint` de la CI — **exactement les mêmes,
