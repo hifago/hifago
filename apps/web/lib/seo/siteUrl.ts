@@ -15,9 +15,20 @@ const LOCAL_FALLBACK = "http://localhost:3100";
  * packages/domain/src/http/resolveOrigin.ts sache le faire : une URL canonique qui change avec
  * l'hôte servant la requête annule exactement ce que le canonical sert à résoudre — deux hôtes
  * produiraient deux canonicals pour la même page (spec 26 §10 point C).
+ *
+ * ⚠️ LÈVE en production (`isProductionSite`, jamais NODE_ENV : la CI builde en production) si la
+ * variable manque : le repli local y donnerait canonical, hreflang, sitemap et robots.txt sous
+ * localhost — et `isIndexableSite` ouvrirait même l'indexation, localhost n'étant pas `*.vercel.app`.
+ * robots.txt étant prérendu, c'est le BUILD de production qui échoue : un échec fermé et visible.
+ * Hors production (preview, staging, local, CI), le repli reste.
  */
 export function getSiteUrl(): string {
   const configured = process.env.NEXT_PUBLIC_WEB_APP_URL?.trim();
+  if (!configured && isProductionSite()) {
+    throw new Error(
+      "NEXT_PUBLIC_WEB_APP_URL manquante en production : l'URL publique du site est obligatoire."
+    );
+  }
   return (configured || LOCAL_FALLBACK).replace(/\/+$/, "");
 }
 
@@ -51,7 +62,7 @@ export function isIndexableSite(): boolean {
   try {
     host = new URL(getSiteUrl()).hostname;
   } catch {
-    return false; // URL configurée illisible : échec fermé, jamais d'indexation par défaut.
+    return false; // URL absente (getSiteUrl lève) ou illisible : échec fermé, jamais d'indexation.
   }
   return host !== "vercel.app" && !host.endsWith(".vercel.app");
 }
