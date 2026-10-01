@@ -138,7 +138,13 @@ export async function POST(request: Request) {
       successUrl: withPaymentOutcome("approved"),
       pendingUrl: withPaymentOutcome("pending"),
       failureUrl: withPaymentOutcome("rejected"),
-      notificationUrl: `${origin}/api/payments/webhook`,
+      // `source_news=webhooks` : sans lui, Mercado Pago peut livrer à cette URL au format IPN
+      // (`?topic=payment&id=…`), dont le `x-signature` n'est PAS vérifiable avec la clé secrète
+      // (doc MP « IPN ») — la route le rejetait en SignatureMismatch, ouvrait une entrée de
+      // réconciliation et e-mailait tous les admins, le paiement n'étant rattrapé que par le job
+      // 2 à 4 min plus tard (vécu le 2026-09-30, première préprod du compte hifago). Le paramètre
+      // restreint les livraisons au format Webhooks (`?type=payment&data.id=…`), le seul signé.
+      notificationUrl: `${origin}/api/payments/webhook?source_news=webhooks`,
       expiresAt,
     });
     // Spec 39 (2026-09-21) : la préférence et le compte qui ENCAISSE sont persistés. Le job de
