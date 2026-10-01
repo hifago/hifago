@@ -71,7 +71,7 @@
 - [Compte client : profil, édition, déconnexion, suppression](specs/35-compte-profil.md) 32K ✓ · §0 offset 63 limit 45
 - [Remise par seuil de remplissage cumulé (camps)](specs/36-remise-remplissage-camp.md) 16K ✓ · §0 offset 56 limit 80
 - [Programme jour par jour d'un camp](specs/37-programme-camp.md) 15K ✓ · §0 offset 53 limit 70
-- [Remise en route de la suite E2E Playwright](specs/38-remise-en-route-suite-e2e.md) 8K ○ · sans §0
+- [Remise en route de la suite E2E Playwright](specs/38-remise-en-route-suite-e2e.md) 10K ○ · sans §0
 - [Garantir la confirmation d'un paiement quand le client ne revient pas](specs/39-garantie-confirmation-paiement.md) 30K ◐ · §0 offset 144 limit 57 · reste : Lot A + B1 + B2 livrés et vérifiés en local le 2026-09-22 (§C). Restent : validation par…
 - [Assistant par étapes — création/édition produit et établissement,…](specs/40-admin-produit-etablissement-assistant-par-etapes.md) 11K ✓ · §0 offset 41 limit 44
 - [Specs — fonctionnalités prêtes à coder, une par une](specs/README.md) 3K
@@ -83,4 +83,5 @@
 - [Dette technique et QA/UI connue — hifago](dette-technique.md) 33K
 - [Journal hifago — août 2026](journal/2026-08.md) 660K · jamais en entier (voir 5.)
 - [Journal hifago — septembre 2026](journal/2026-09.md) 678K · jamais en entier (voir 5.)
+- [Journal hifago — octobre 2026](journal/2026-10.md) 5K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K
