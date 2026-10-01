@@ -11,13 +11,16 @@ région Miami, un nœud de connectivité majeur pour l'Amérique latine (choix d
 
 ## Créer un relais
 
-1. **Clé SSH** : ajouter `~/.ssh/hifago_relay_ed25519.pub` dans Vultr → Account → SSH Keys. Il
-   n'y a jamais d'accès SSH par mot de passe.
+1. **Clé SSH** : ajouter `~/.ssh/hifago_relay_ed25519.pub`. Le plus simple est de le faire
+   directement sur la page Deploy (section SSH Keys → Add). Il n'y a jamais d'accès SSH par mot
+   de passe.
 2. **Instance** : Deploy → Cloud Compute (Shared CPU), avec les réglages suivants :
    - Location : Miami
    - Image : Ubuntu LTS (26.04 au 2026-09-30)
    - Plan : `vc2-1c-1gb`
    - Auto Backups : désactivé (tout est reconstructible depuis ce dossier)
+   - Instance Connectivity : « with Public IP », **Public IPv4 seulement** (décocher IPv6)
+   - Limited User Login : décoché (connexion `root` par clé uniquement)
    - SSH Key : celle de l'étape 1
    - Hostname : `hifago-relay-<env>`
    - Cloud-Init User-Data : le contenu **intégral** de `cloud-init.yaml`
@@ -29,11 +32,16 @@ région Miami, un nœud de connectivité majeur pour l'Amérique latine (choix d
    - port 443 ouvert à tous.
 5. **Vérifier**, 3 à 5 minutes après le démarrage :
    - `ssh -i ~/.ssh/hifago_relay_ed25519 root@<ip> cloud-init status --long` → `status: done`,
-     sans erreur ;
+     sans erreur. ⚠️ `done` ne prouve PAS que le fichier a été lu : vérifier aussi que
+     `head -1 /var/lib/cloud/instance/user-data.txt` affiche `#cloud-config`. S'il est vide (champ
+     oublié à la création, vécu le 2026-09-30), pas besoin de recréer l'instance : rejouer par SSH
+     les étapes du fichier, dans l'ordre (paquets, `write_files`, puis `runcmd`) ;
    - `curl https://<ip-avec-tirets>.nip.io/healthz` → `ok` ;
    - la même URL sur un autre chemin, sans en-tête → `forbidden` (403).
-6. **Récupérer les deux valeurs tirées sur la machine.** Cette étape se fait dans son propre
-   terminal, jamais par un agent. Les copier dans le gestionnaire de mots de passe :
+6. **Récupérer les deux valeurs tirées sur la machine.** Elles ne doivent jamais s'afficher dans
+   une conversation : soit un humain les lit dans son propre terminal, soit un agent les transfère
+   directement vers Supabase et Vercel sans les afficher (`… "$(ssh … grep …)"`). Les commandes de
+   lecture, à copier dans le gestionnaire de mots de passe :
    - le secret du relais :
      `ssh … root@<ip> "grep ^RELAY_SECRET= /etc/caddy/relay.env | cut -d= -f2"` ;
    - le topic d'alerte : `ssh … root@<ip> "cut -d= -f2 /etc/relay/healthcheck.env"`. S'y
@@ -58,7 +66,8 @@ région Miami, un nœud de connectivité majeur pour l'Amérique latine (choix d
 
 ## Pièges déjà rencontrés (docs/journal/2026-08.md, 2026-09.md)
 
-Chacun est désormais neutralisé dans `cloud-init.yaml`, où un commentaire explique la parade.
+Chacun est désormais neutralisé dans `cloud-init.yaml` (ou, pour le 8, à la création de
+l'instance), où un commentaire explique la parade.
 
 1. Un en-tête `#cloud-init` au lieu de `#cloud-config` fait ignorer tout le fichier.
 2. Vultr pose un `50-cloud-init.conf` avec `PasswordAuthentication yes`, et sshd garde la
@@ -67,3 +76,8 @@ Chacun est désormais neutralisé dans `cloud-init.yaml`, où un commentaire exp
 4. Si le fichier de log est pré-créé par root, le service caddy ne peut plus y écrire.
 5. Un healthcheck en HTTP reçoit le 308 de Caddy, que `curl -f` prend pour un succès.
 6. Lobby prend `X-Forwarded-Host` pour l'hôte réel : il faut retirer cet en-tête (2026-09-19).
+7. Le dépôt apt de Caddy (Cloudsmith) est signé par une sous-clé expirée en 2024 : l'apt d'Ubuntu
+   26.04 le rejette depuis le 2026-09-30 (`EXPKEYSIG`, caddyserver/caddy#8095). Il faut donc
+   installer le `.deb` des releases GitHub, empreinte SHA-512 vérifiée.
+8. Pas d'IPv6 publique sur l'instance : Lobby n'autorise que l'IPv4 déclarée, et une sortie en IPv6
+   serait refusée.

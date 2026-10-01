@@ -114,11 +114,12 @@ runcmd:
   - ufw allow 443/tcp
   - ufw --force enable
   - dpkg-reconfigure -f noninteractive unattended-upgrades
-  # Caddy depuis son dépôt officiel, comme l'instance du 2026-08-23 — pas le paquet Ubuntu.
-  - curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-  - curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt -o /etc/apt/sources.list.d/caddy-stable.list
-  - apt-get update
-  - DEBIAN_FRONTEND=noninteractive apt-get install -y caddy
+  # Caddy = le .deb OFFICIEL des releases GitHub, empreinte SHA-512 vérifiée avant installation
+  # (même paquet que le dépôt apt : unit systemd, utilisateur caddy). PAS le dépôt apt Cloudsmith :
+  # depuis 2026-09-30 l'apt d'Ubuntu 26.04 le rejette — InRelease signé par une sous-clé expirée
+  # en 2024 (caddyserver/caddy#8095, ouvert). PAS le paquet Ubuntu : 2.6.2, de 2022.
+  # Montée de version = changer V ici, puis rejouer ces lignes à la main sur chaque relais.
+  - [bash, -c, 'set -euo pipefail; V=2.11.4; B=https://github.com/caddyserver/caddy/releases/download/v$V; cd /tmp && curl -fsSLO "$B/caddy_${V}_checksums.txt" && curl -fsSLO "$B/caddy_${V}_linux_amd64.deb" && grep " caddy_${V}_linux_amd64.deb$" "caddy_${V}_checksums.txt" | sha512sum -c - && DEBIAN_FRONTEND=noninteractive apt-get install -y "./caddy_${V}_linux_amd64.deb"']
   - install -m 644 /etc/relay/Caddyfile /etc/caddy/Caddyfile
   # Nom d'hôte = IP publique en nip.io (certificat Let's Encrypt sans DNS à nous). L'IP lue ici est
   # celle du premier boot : la convertir en IP réservée ENSUITE la conserve (README, étape 3).
