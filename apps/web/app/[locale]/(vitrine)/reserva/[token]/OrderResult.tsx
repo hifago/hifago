@@ -44,6 +44,7 @@ const PAYMENT_ERROR_REASONS = [
   "nothing_to_pay",
   "order_not_found",
   "mercadopago_unavailable",
+  "order_expiring",
 ] as const;
 
 type PaymentIntentResult = { ok: boolean; reason?: string; payment_id?: string };
@@ -78,13 +79,23 @@ export type PmsNoticeKey =
   | "pms_claim_in_progress"
   | "pms_unknown_outcome"
   | "pms_unconfirmed"
-  | "order_not_found";
+  | "order_not_found"
+  | "order_expiring";
 
 export type BookingRecovery =
   | { kind: "booked" }
   | { kind: "stop"; notice: PmsNoticeKey | null; blockPayment: boolean };
 
 type ReserveNightsBody = { ok?: boolean; reason?: string; released?: boolean };
+
+/** Ce qu'une notice peut expliquer : un arrêt de la reprise PMS, ou un intent devenu sans objet. */
+type NoticeKey = PmsNoticeKey | "nothing_to_pay" | "already_paid";
+
+/**
+ * États où un paiement a progressé (ici ou dans un autre onglet) : une notice d'arrêt n'y a plus
+ * rien à dire — « vuelve a reservar » sous « Pago confirmado » pousserait à une seconde réservation.
+ */
+const PAYMENT_PROGRESSED_STATES: readonly string[] = ["paid", "awaiting", "refunded", "paid_not_honored"];
 
 const stop = (notice: PmsNoticeKey | null, blockPayment = false): BookingRecovery => ({
   kind: "stop",
@@ -96,6 +107,9 @@ export function bookingRecovery(httpOk: boolean, body: ReserveNightsBody | null)
   if (httpOk) return { kind: "booked" };
   if (body === null) return stop("pms_unknown_outcome"); // 500/504 de la plateforme, corps illisible
   if (body.reason === "order_paid") return stop(null);
+  // Trop tard pour payer (limite de paiement − bail, migration 20261001194704) : rien n'a été réservé,
+  // et un nouvel essai ne ferait que répéter le refus — bouton retiré.
+  if (body.reason === "order_expiring") return stop("order_expiring", true);
   if (body.reason === "pms_claim_in_progress") return stop("pms_claim_in_progress");
   if (body.released === true) {
     if (body.reason === "pms_refused" || body.reason === "pms_unavailable") return stop(body.reason);
@@ -157,10 +171,11 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
   // Pendant l'appel à reserve-nights (jusqu'à près d'une minute chez Lobby) : le bouton ne dit pas
   // « Redirigiendo a Mercado Pago » tant que rien n'est parti vers Mercado Pago.
   const [isConfirmingBooking, setIsConfirmingBooking] = useState(false);
-  // La raison d'un arrêt, affichée PAR-DESSUS l'état relu (annulée, expirée, payée) — jamais l'état
-  // d'écran `failed`, dont le détail dit « Tu reserva sigue guardada ». Cf. `bookingRecovery`.
-  const [notice, setNotice] = useState<string | null>(null);
-  // Relâchement impossible : plus de bouton sur cette page (cf. `bookingRecovery`).
+  // La raison d'un arrêt, affichée PAR-DESSUS l'état relu (annulée, expirée) — jamais l'état d'écran
+  // `failed`, dont le détail dit « Tu reserva sigue guardada ». Cf. `bookingRecovery`. Gardée en
+  // CLÉ, et filtrée au rendu selon l'état relu (cf. `visibleNotice`).
+  const [noticeKey, setNoticeKey] = useState<NoticeKey | null>(null);
+  // Relâchement impossible, ou trop tard pour payer : plus de bouton sur cette page.
   const [isPaymentBlocked, setIsPaymentBlocked] = useState(false);
   const [isRefreshing, startRefresh] = useTransition();
 
@@ -183,20 +198,29 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
   const isAwaiting = orderState === "awaiting";
 
   const state = paymentError ? "failed" : orderState;
+  // Une notice se tait dès qu'un paiement a progressé, et celle de `order_expiring` ne parle que d'une
+  // commande encore à payer : expirée ou annulée entre-temps, l'état relu dit déjà tout (« Esta
+  // reserva expiró… las fechas quedaron liberadas » sous « se liberarán » se contredisait).
+  const visibleNotice =
+    noticeKey !== null &&
+    !PAYMENT_PROGRESSED_STATES.includes(orderState) &&
+    (noticeKey !== "order_expiring" || orderState === "unpaid")
+      ? t(`errors.${noticeKey}`)
+      : null;
   const isPayable = orderState === "unpaid" && !isPaymentBlocked;
 
   // Le webhook Mercado Pago peut arriver APRÈS la redirection du client : tant que la commande est
   // 'pending', on relit l'écran pour qu'il se mette à jour tout seul.
   //
-  // ⚠️ `router.refresh()` et NON un appel à `GET /api/payments/[orderId]/status`. Cette route lit
-  // `orders` en `service_role` sur la seule possession de l'`order_id` — c'est-à-dire l'autre
-  // modèle d'autorisation, celui que la spec 33 a justement écarté (§3 décision ② : l'identifiant
-  // et le secret ne doivent pas être le même objet). La faire sonder d'ici aurait donné DEUX
-  // modèles d'accès au même écran, et rendu faux l'invariant 2 (« l'écran ne fait ni `.from` ni
-  // appel `service_role` »). Un refresh relit `get_order_by_token` — même jeton, même garde.
+  // ⚠️ L'ÉTAT affiché se relit par `router.refresh()`, jamais par une route qui le renverrait en
+  // `service_role` sur la seule possession de l'`order_id` — l'autre modèle d'autorisation, celui que
+  // la spec 33 a écarté (§3 décision ② : l'identifiant et le secret ne doivent pas être le même
+  // objet). Sonder une telle route d'ici aurait donné DEUX modèles d'accès au même écran, et rendu
+  // faux l'invariant 2 (« aucune lecture directe de la commande depuis l'écran : tout passe par
+  // `get_order_by_token` »). Un refresh relit `get_order_by_token` — même jeton, même garde.
   //
-  // ⚠️ BORNÉ. Sans plafond, un paiement abandonné ferait sonder toutes les 3 s jusqu'à ce que
-  // `expire_stale_payment_orders` reprenne la commande, ~30 minutes plus tard : ~600 rendus serveur
+  // ⚠️ BORNÉ. Sans plafond, un paiement abandonné ferait sonder toutes les 3 s jusqu'à ce que le job
+  // de réconciliation expire la commande, une demi-heure plus tard : des centaines de rendus serveur
   // pour une information qui arrive en quelques secondes. On s'arrête après MAX_TICKS, et on ne
   // sonde pas un onglet que personne ne regarde.
   //
@@ -220,8 +244,18 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
 
   async function startPayment() {
     setPaymentError(null);
-    setNotice(null);
+    setNoticeKey(null);
     setIsPaying(true);
+
+    // Trop tard pour payer (`order_expiring`) : la commande n'est pas défaite, elle expirera seule.
+    // Notice, plus de bouton (un nouvel essai répéterait le refus), écran relu — jamais
+    // `failed`, dont le détail promet « Tu reserva sigue guardada. Puedes intentar el pago de nuevo ».
+    const stopExpiring = () =>
+      startRefresh(() => {
+        setNoticeKey("order_expiring");
+        setIsPaymentBlocked(true);
+        router.refresh();
+      });
 
     const supabase = createClient();
     const requestIntent = async () => {
@@ -239,7 +273,7 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
         // Dans la transition : la notice n'apparaît qu'avec l'état relu, jamais au-dessus de
         // l'ancien (« Paga el anticipo » sous « la reserva quedó anulada »).
         startRefresh(() => {
-          setNotice(recovery.notice ? t(`errors.${recovery.notice}`) : null);
+          setNoticeKey(recovery.notice);
           if (recovery.blockPayment) setIsPaymentBlocked(true);
           router.refresh();
         });
@@ -256,12 +290,16 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
         raw !== undefined && (PAYMENT_ERROR_REASONS as readonly string[]).includes(raw)
           ? raw
           : "unknown";
+      if (reason === "order_expiring") {
+        stopExpiring();
+        return;
+      }
       // Plus rien à payer, ou déjà payé : la commande a changé sous cet écran (expirée, défaite ou
       // payée depuis un autre onglet). On relit au lieu d'afficher `failed` et « Tu reserva sigue
       // guardada » sur une commande qui ne l'est plus.
       if (reason === "nothing_to_pay" || reason === "already_paid") {
         startRefresh(() => {
-          setNotice(t(`errors.${reason}`));
+          setNoticeKey(reason === "nothing_to_pay" ? "nothing_to_pay" : "already_paid");
           router.refresh();
         });
         return;
@@ -283,8 +321,17 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
       return;
     }
     const createResult = (await createResponse.json().catch(() => null)) as
-      | { ok: boolean; init_point?: string }
+      | { ok: boolean; init_point?: string; reason?: string }
       | null;
+    // La même limite, vue par payments/create (horloge du serveur, à la seconde près de celle de la
+    // base) : jamais affichée comme une panne de Mercado Pago. ⚠️ L'intent vient d'être accepté juste
+    // avant la limite : il a DÉJÀ passé la commande en `pending`, et l'écran relu dit « confirmando »
+    // (notice tue) jusqu'à l'expiration — fenêtre de quelques secondes, limite connue.
+    if (createResult?.reason === "order_expiring") {
+      setIsPaying(false);
+      stopExpiring();
+      return;
+    }
     if (!createResponse.ok || !createResult?.ok || !createResult.init_point) {
       setIsPaying(false);
       setPaymentError(t("errors.mercadopago_unavailable"));
@@ -314,8 +361,9 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
         )}
       >
         <p className="font-medium">{t(`status.${state}`)}</p>
-        {/* Paiement retiré (relâchement impossible) : le détail d'`unpaid` dirait encore « Paga el
-            anticipo » sous une page sans bouton — la notice dit seule ce qui va se passer. */}
+        {/* Paiement retiré (relâchement impossible, trop tard pour payer) : le détail d'`unpaid`
+            dirait encore « Paga el anticipo » sous une page sans bouton — la notice dit seule ce qui
+            va se passer. */}
         {isPaymentBlocked && state === "unpaid" ? null : (
           <p className="text-sm text-muted">{t(`status.${state}Detail`)}</p>
         )}
@@ -324,9 +372,9 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
             {paymentError}
           </p>
         ) : null}
-        {notice ? (
+        {visibleNotice ? (
           <p role="alert" data-testid="pms-notice" className="text-sm">
-            {notice}
+            {visibleNotice}
           </p>
         ) : null}
       </div>

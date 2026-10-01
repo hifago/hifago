@@ -94,6 +94,7 @@ const ids = {
   acheteur2: randomUUID(),
   acheteur3: randomUUID(),
   acheteur4: randomUUID(),
+  acheteur5: randomUUID(),
 };
 
 async function poserFixtures(client) {
@@ -325,6 +326,41 @@ async function main() {
     verifier(appels.bookings === bookingsAvant4, "Lobby n'est jamais appelé pour un connecteur coupé");
     const { rows: apres4 } = await client.query("select status from order_lines where order_id = $1", [orderId4]);
     verifier(apres4[0]?.status === "cancelled_by_provider", `la ligne est défaite (${apres4[0]?.status})`);
+
+    // ── 5. Trop tard pour payer (migration 20261001194704) ──────────────────────────────────────
+    // Passé limite de paiement − bail (28 − 5 = 23 min), le claim refuse `order_expiring` : Lobby
+    // n'est jamais appelé, aucun claim n'est posé, et la commande n'est PAS défaite (elle expirera
+    // seule, avec le vrai statut `expired`). On vieillit la donnée, jamais l'horloge.
+    await client.query("update establishments set lobby_connector_active = true where id = $1", [ids.establishment]);
+    const { result: result5 } = await creerCommande(
+      ids.acheteur5,
+      `reserve-nights-echeance-${ids.acheteur5.slice(0, 8)}@hifago.test`
+    );
+    const orderId5 = result5?.order_id;
+    verifier(Boolean(orderId5), "cinquième commande créée");
+    await client.query("update orders set created_at = now() - interval '23 minutes 1 second' where id = $1", [orderId5]);
+    const bookingsAvant5 = appels.bookings;
+    const reponse5 = await fetch(`${WEB_URL}/api/pms/reserve-nights`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: orderId5 }),
+    });
+    const corps5 = await reponse5.json().catch(() => null);
+    verifier(
+      reponse5.status === 409 && corps5?.reason === "order_expiring" && corps5?.released === false,
+      `commande de 23 min 1 s → 409 order_expiring, released:false (${reponse5.status} ${JSON.stringify(corps5)})`
+    );
+    verifier(appels.bookings === bookingsAvant5, "Lobby n'est jamais appelé passé la limite");
+    const { rows: apres5 } = await client.query(
+      `select ol.status, o.pms_reserve_claimed_at
+         from order_lines ol join orders o on o.id = ol.order_id
+        where ol.order_id = $1`,
+      [orderId5]
+    );
+    verifier(
+      apres5[0]?.status === "reserved" && apres5[0]?.pms_reserve_claimed_at === null,
+      `ligne toujours reserved, aucun claim posé (${apres5[0]?.status}, ${apres5[0]?.pms_reserve_claimed_at})`
+    );
   } finally {
     await nettoyer(client);
     await client.end();
@@ -339,7 +375,7 @@ async function main() {
 }
 
 async function nettoyer(client) {
-  const comptes = [ids.acheteur, ids.acheteur2, ids.acheteur3, ids.acheteur4];
+  const comptes = [ids.acheteur, ids.acheteur2, ids.acheteur3, ids.acheteur4, ids.acheteur5];
   await client.query(`delete from cart_items where account_id = any($1::uuid[])`, [comptes]);
   await client.query(
     `delete from pms_cancellation_queue where pms_booking_id in (

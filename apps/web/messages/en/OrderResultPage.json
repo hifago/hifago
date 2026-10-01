@@ -55,6 +55,7 @@
     "nothing_to_pay": "There is nothing left to pay for this order.",
     "order_not_found": "We could not find the order to start the payment.",
     "mercadopago_unavailable": "We could not reach Mercado Pago. Please try again in a moment.",
+    "order_expiring": "The time to pay for this booking has run out. You can make a new one; if those dates still show as taken, they will be released within the hour.",
     "unknown": "The payment could not be started. Please try again.",
     "payment_rejected": "Your payment method was rejected. You can try again or use a different method.",
     "pms_refused": "The accommodation is no longer available for those dates. Nothing was charged and the booking was cancelled: you can look for other dates or another place.",

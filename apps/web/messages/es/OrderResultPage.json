@@ -55,6 +55,7 @@
     "nothing_to_pay": "No hay nada pendiente de pago para este pedido.",
     "order_not_found": "No se pudo encontrar el pedido para iniciar el pago.",
     "mercadopago_unavailable": "No pudimos conectar con Mercado Pago. Inténtalo de nuevo en unos instantes.",
+    "order_expiring": "Se agotó el tiempo para pagar esta reserva. Puedes hacer una nueva; si esas fechas aún aparecen ocupadas, se liberarán en menos de una hora.",
     "unknown": "No se pudo iniciar el pago. Inténtalo de nuevo.",
     "payment_rejected": "Tu método de pago fue rechazado. Puedes intentarlo de nuevo o probar con otro método.",
     "pms_refused": "El alojamiento ya no está disponible para esas fechas. No se cobró nada y la reserva quedó anulada: puedes buscar otras fechas u otro alojamiento.",
