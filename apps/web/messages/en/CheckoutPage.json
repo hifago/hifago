@@ -7,6 +7,7 @@
   "marketingConsent": "I want to receive promotions and news by WhatsApp or email.",
   "submit": "Confirm booking",
   "submitting": "Processing…",
+  "resumeOrder": "Your order is still on file: you can pick it up from My trip.",
   "loginLink": "Sign in to find your reservations",
   "pendingOrdersTitle": "You have bookings pending payment:",
   "pendingOrderLink": "Booking {reference}",
@@ -34,10 +35,11 @@
     "slot_required": "This service requires choosing a time slot.",
     "unsupported_slot_combination": "Unsupported time slot combination for this service.",
     "pms_refused": "The accommodation is no longer available for those dates. Nothing was charged and the dates were released — try other dates or another place.",
-    "pms_refused_pending": "The accommodation is no longer available for those dates. Nothing was charged. We are releasing your booking; if anything still looks pending in a few minutes, get in touch.",
+    "pms_refused_pending": "The accommodation is no longer available for those dates. Nothing was charged and your booking will be released automatically in about 30 minutes.",
     "pms_unreachable": "We could not confirm availability with the accommodation. Nothing was charged — please try again in a few minutes.",
     "pms_unconfirmed_pending": "We could not confirm your booking with the accommodation. Nothing was charged. If you see a pending booking, it will be released automatically within about 30 minutes.",
-    "pms_claim_in_progress": "Your booking is already being confirmed with the accommodation. Wait a few seconds before trying again.",
+    "pms_claim_in_progress": "Your booking is already being confirmed with the accommodation. Try again in a few minutes.",
+    "order_placed_unreadable": "Your booking was registered, but we could not open it.",
     "unknown": "The order could not be completed. Please try again."
   }
 }

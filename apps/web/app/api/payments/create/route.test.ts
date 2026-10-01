@@ -71,7 +71,7 @@ vi.mock("@/lib/mercadopago/client", () => ({
   PREFERENCE_EXPIRY_MARGIN_MINUTES: 2,
 }));
 
-const { POST } = await import("./route");
+const { POST, maxDuration } = await import("./route");
 
 function requete(origin = "https://hifago.test") {
   return new Request(`${origin}/api/payments/create`, {
@@ -86,6 +86,12 @@ describe("POST /api/payments/create — la back_url de retour", () => {
     preferenceInput = null;
     paymentUpdate = null;
     orderRow = commandeRecente();
+    // Ce bloc couvre le repli sans URL configurée (poste de dev) ; l'URL configurée a le sien.
+    delete process.env.NEXT_PUBLIC_WEB_APP_URL;
+  });
+
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
   });
 
   it("renvoie le client sur l'adresse propre à sa commande, jamais sur /pago", async () => {
@@ -224,5 +230,66 @@ describe("POST /api/payments/create — identité du compte qui encaisse (spec 3
 
     expect(response.status).toBe(200);
     expect(paymentUpdate).toEqual({ mp_preference_id: "pref-fake-1", mp_collector_id: "3627131944" });
+  });
+});
+
+// Audit 2026-09-28 : en production, l'adresse de NOTIFICATION ne dépend que de la configuration du
+// déploiement. Le RETOUR du client, lui, suit toujours l'hôte où il a commandé (sa session y vit).
+describe("POST /api/payments/create — URL configurée (NEXT_PUBLIC_WEB_APP_URL)", () => {
+  beforeEach(() => {
+    preferenceInput = null;
+    orderRow = commandeRecente();
+    process.env.NEXT_PUBLIC_WEB_APP_URL = "https://hifago.test/";
+    process.env.VERCEL_ENV = "production";
+  });
+
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+  });
+
+  function requeteAutreHote() {
+    return new Request("https://autre-hote.test/api/payments/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-forwarded-host": "autre-hote.test",
+        "x-forwarded-proto": "https",
+      },
+      body: JSON.stringify({ paymentId: PAYMENT_ID }),
+    });
+  }
+
+  it("en production : notification sur l'URL configurée, jamais sur l'hôte de la requête", async () => {
+    await POST(requeteAutreHote());
+    expect(preferenceInput?.notificationUrl).toBe("https://hifago.test/api/payments/webhook?source_news=webhooks");
+  });
+
+  // Un client entré par un alias de la prod (*.vercel.app) renvoyé sur le domaine configuré y
+  // arriverait sans session : plus de nouvel essai de paiement possible.
+  it("en production aussi, le client revient sur l'hôte où il a commandé", async () => {
+    await POST(requeteAutreHote());
+    const base = `https://autre-hote.test/reserva/${ACCESS_TOKEN}`;
+    expect(preferenceInput?.successUrl).toBe(`${base}?payment=approved`);
+    expect(preferenceInput?.pendingUrl).toBe(`${base}?payment=pending`);
+    expect(preferenceInput?.failureUrl).toBe(`${base}?payment=rejected`);
+  });
+
+  // Une preview peut porter l'URL de la préprod : le client reviendrait sur un autre déploiement, où
+  // sa session n'existe pas, et le webhook y serait livré au lieu de la preview qui a créé le paiement.
+  it("hors production (preview, préprod, local), l'hôte de la requête même si la variable est posée", async () => {
+    process.env.VERCEL_ENV = "preview";
+    await POST(requeteAutreHote());
+    expect(preferenceInput?.successUrl).toBe(`https://autre-hote.test/reserva/${ACCESS_TOKEN}?payment=approved`);
+    expect(preferenceInput?.notificationUrl).toBe(
+      "https://autre-hote.test/api/payments/webhook?source_news=webhooks"
+    );
+  });
+});
+
+describe("POST /api/payments/create — plafond de durée", () => {
+  it("coupe Mercado Pago assez tôt pour répondre avant la plateforme", async () => {
+    const { PREFERENCE_DEADLINE_MS } =
+      await vi.importActual<typeof import("@/lib/mercadopago/client")>("@/lib/mercadopago/client");
+    expect(maxDuration * 1000 - PREFERENCE_DEADLINE_MS).toBeGreaterThanOrEqual(5_000);
   });
 });

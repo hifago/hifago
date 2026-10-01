@@ -6,6 +6,13 @@ import {
   PREFERENCE_EXPIRY_MARGIN_MINUTES,
 } from "@/lib/mercadopago/client";
 import { isPaymentsMockEnabled } from "@/lib/mercadopago/mock";
+import { getSiteUrl, isProductionSite } from "@/lib/seo/siteUrl";
+
+// Plafond de la plateforme pour cette route. L'appel Mercado Pago est coupé à 20 s
+// (`PREFERENCE_DEADLINE_MS`, lib/mercadopago/client.ts) : il reste 10 s pour répondre
+// `mercadopago_unavailable` plutôt qu'une 504 sans corps. Les deux accès base, eux, ne sont pas
+// bornés ici — une base qui cale finit encore coupée par la plateforme.
+export const maxDuration = 30;
 
 // Spec 19 §0 Tranche 1 — création de la préférence Checkout Pro. Le CLIENT appelle d'abord
 // create_payment_intent(order_id) directement via son propre client Supabase (RPC anon/
@@ -82,11 +89,23 @@ export async function POST(request: Request) {
   // `notification_url` construits dessus pointaient vers une adresse injoignable depuis Mercado
   // Pago, silencieusement. Extrait dans @hifago/domain (packages/domain/src/http/resolveOrigin.ts) :
   // le même besoin existe ailleurs (apps/web/app/auth/callback/route.ts).
+  //
+  // ⚠️ LE RETOUR DU CLIENT SUIT L'HÔTE DE LA REQUÊTE, jamais l'URL configurée : sa session Supabase
+  // est liée à l'hôte sur lequel il a commandé. Le renvoyer ailleurs (préprod depuis une preview,
+  // domaine final depuis un alias *.vercel.app de la prod) l'y ferait arriver sans session — plus de
+  // nouvel essai de paiement possible (`create_payment_intent` → order_not_found). Sur Vercel, ces
+  // en-têtes sont posés par la plateforme.
   const origin = resolveOrigin({
     requestUrl: request.url,
     forwardedHost: request.headers.get("x-forwarded-host"),
     forwardedProto: request.headers.get("x-forwarded-proto"),
   });
+  // La NOTIFICATION, elle, n'a pas de session à préserver : en production elle part sur l'URL
+  // configurée (audit 2026-09-28), stable quel que soit l'hôte servi. Hors production, l'hôte de la
+  // requête : une preview peut porter l'URL de la préprod, et son webhook y serait livré au lieu
+  // d'elle. ⚠️ À la bascule de domaine : ne poser la nouvelle valeur qu'une fois le DNS actif.
+  const notificationOrigin =
+    isProductionSite() && process.env.NEXT_PUBLIC_WEB_APP_URL?.trim() ? getSiteUrl() : origin;
   const returnUrl = `${origin}/reserva/${order.access_token}`;
 
   // EXPIRATION DE LA PRÉFÉRENCE — ancrée sur la création de la COMMANDE (incident du 2026-09-20).
@@ -144,7 +163,7 @@ export async function POST(request: Request) {
       // réconciliation et e-mailait tous les admins, le paiement n'étant rattrapé que par le job
       // 2 à 4 min plus tard (vécu le 2026-09-30, première préprod du compte hifago). Le paramètre
       // restreint les livraisons au format Webhooks (`?type=payment&data.id=…`), le seul signé.
-      notificationUrl: `${origin}/api/payments/webhook?source_news=webhooks`,
+      notificationUrl: `${notificationOrigin}/api/payments/webhook?source_news=webhooks`,
       expiresAt,
     });
     // Spec 39 (2026-09-21) : la préférence et le compte qui ENCAISSE sont persistés. Le job de
