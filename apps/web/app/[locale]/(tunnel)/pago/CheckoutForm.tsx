@@ -45,6 +45,11 @@ const LINE_SCOPED_REASONS = [
   "qty_cap_exceeded",
   "date_range_required",
   "pms_unavailable",
+  // Migration 20260929112240, renvoyées avec la ligne fautive comme les autres : date qui n'est pas
+  // une représentation d'un evento réservable, quantité hors des paliers de prix, produit sans prix.
+  "invalid_occurrence_date",
+  "no_matching_tier",
+  "price_missing",
 ] as const;
 
 // Raisons de create_order qui ne visent PAS une ligne précise (visibles seulement au niveau de la
