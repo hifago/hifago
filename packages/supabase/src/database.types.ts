@@ -2581,45 +2581,6 @@ export type Database = {
           product_name: Json
         }[]
       }
-      admin_order_lines_commission_rows: {
-        Args: never
-        Returns: {
-          app_commission_cop: number
-          referrer_commission_cop: number
-          referrer_partner_id: string
-        }[]
-      }
-      admin_order_lines_daily_series: {
-        Args: { p_since: string }
-        Returns: {
-          app_commission_cop: number
-          date: string
-          referrer_commission_cop: number
-          status: string
-          total_cop: number
-        }[]
-      }
-      admin_order_lines_pending_action_count: {
-        Args: { p_today: string }
-        Returns: {
-          pending_count: number
-        }[]
-      }
-      admin_order_lines_revenue_rows: {
-        Args: never
-        Returns: {
-          total_cop: number
-        }[]
-      }
-      admin_order_lines_volume_by_partner_rows: {
-        Args: never
-        Returns: {
-          establishment_id: string
-          partner_display_name: string
-          partner_id: string
-          total_cop: number
-        }[]
-      }
       admin_orders_list: {
         Args: {
           p_date_from?: string
