@@ -2499,6 +2499,39 @@ export type Database = {
           total_cop: number
         }[]
       }
+      admin_dashboard_daily_series: {
+        Args: { p_since: string }
+        Returns: {
+          app_commission_cop: number
+          date: string
+          referrer_commission_cop: number
+          sales_cop: number
+        }[]
+      }
+      admin_dashboard_referrer_commissions: {
+        Args: never
+        Returns: {
+          referrer_commission_cop: number
+          referrer_partner_id: string
+        }[]
+      }
+      admin_dashboard_top_partners: {
+        Args: { p_limit?: number }
+        Returns: {
+          partner_display_name: string
+          partner_id: string
+          total_cop: number
+        }[]
+      }
+      admin_dashboard_totals: {
+        Args: { p_today: string }
+        Returns: {
+          app_commission_cop: number
+          pending_count: number
+          referrer_commission_cop: number
+          revenue_cop: number
+        }[]
+      }
       admin_ledger_entries_list: {
         Args: {
           p_date_from?: string

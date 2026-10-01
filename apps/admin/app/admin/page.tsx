@@ -26,13 +26,20 @@ export default async function AdminHomePage({
   const supabase = await createClient();
   const { since, todayIso, days } = computeDateWindow(windowDays);
 
+  // KPI et graphiques : quatre agrégats SQL (20260930221527), chacun rend une ligne ou une ligne par
+  // jour/partenaire. Avant, cinq RPC rendaient une ligne par `order_line`, sommée ici en JS —
+  // tronquée par `max_rows` au-delà de 1000 — et filtraient un statut `'confirmed'` qui n'existe
+  // plus. Les statuts comptés comme vente sont ceux de la spec 02 §5.2, écrits dans la migration.
+  // Une erreur LÈVE au lieu de s'afficher en 0 : un KPI faux mais plausible est pire qu'une page
+  // en erreur.
   const [
-    revenueRes,
-    commissionsRes,
+    totalsRes,
+    referrerCommissionsRes,
     establishmentsCountRes,
-    pendingActionRes,
-    windowLinesRes,
-    proposalsPendingRes,
+    dailySeriesRes,
+    topPartnersRes,
+    productProposalsPendingRes,
+    establishmentProposalsPendingRes,
     reconciliationOpenRes,
     paymentReconciliationOpenRes,
     recentPartnersRes,
@@ -42,12 +49,18 @@ export default async function AdminHomePage({
     catalogProposalPendingRes,
     catalogProposalRejectedRes,
   ] = await Promise.all([
-    supabase.rpc("admin_order_lines_revenue_rows"),
-    supabase.rpc("admin_order_lines_commission_rows"),
+    supabase.rpc("admin_dashboard_totals", { p_today: todayIso }),
+    supabase.rpc("admin_dashboard_referrer_commissions"),
     supabase.from("establishments").select("id", { count: "exact", head: true }).eq("status", "active"),
-    supabase.rpc("admin_order_lines_pending_action_count", { p_today: todayIso }),
-    supabase.rpc("admin_order_lines_daily_series", { p_since: since }),
+    supabase.rpc("admin_dashboard_daily_series", { p_since: since }),
+    // Volume = ventes des établissements du partenaire (le vendeur), pas le référent qui a apporté
+    // la commande — lecture « qui a généré le plus » du cahier des charges §2, la même que la table
+    // « Détail par Hostel » du legacy.
+    supabase.rpc("admin_dashboard_top_partners", { p_limit: 8 }),
+    // Alerte « propuestas pendientes » : les DEUX tables, comme la pastille de la sidebar
+    // (admin/layout.tsx) — sinon l'accueil annonçait moins de propositions que la sidebar.
     supabase.from("product_proposals").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("establishment_proposals").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase
       .from("pms_reconciliation_entries")
       .select("id", { count: "exact", head: true })
@@ -68,61 +81,39 @@ export default async function AdminHomePage({
     supabase.from("product_proposals").select("id", { count: "exact", head: true }).eq("status", "rejected"),
   ]);
 
-  // Top partenaires par volume : agrégation en mémoire (dataset "vue d'ensemble", pas une liste
-  // paginée) — PostgREST ne fait pas de GROUP BY, et une RPC dédiée serait disproportionnée pour
-  // un aperçu top-5. Volume = ventes des établissements du partenaire (le vendeur), pas le
-  // référent qui a apporté la commande — c'est la lecture « qui a généré le plus » du cahier des
-  // charges §2, la même que la table « Détail par Hostel » du legacy.
-  const { data: volumeByPartnerRows } = await supabase.rpc("admin_order_lines_volume_by_partner_rows");
-
-  const volumeByPartner = new Map<string, { name: string; total: number }>();
-  for (const row of volumeByPartnerRows ?? []) {
-    if (!row.partner_id) continue;
-    const entry = volumeByPartner.get(row.partner_id) ?? { name: row.partner_display_name, total: 0 };
-    entry.total += row.total_cop ?? 0;
-    volumeByPartner.set(row.partner_id, entry);
-  }
-  const topPartners = Array.from(volumeByPartner.values())
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 8);
-
-  const totalRevenue = (revenueRes.data ?? []).reduce((sum, row) => sum + (row.total_cop ?? 0), 0);
-  const commissionRows = commissionsRes.data ?? [];
-  const totalReferrerCommission = commissionRows.reduce((sum, row) => sum + (row.referrer_commission_cop ?? 0), 0);
-  const totalAppCommission = commissionRows.reduce((sum, row) => sum + (row.app_commission_cop ?? 0), 0);
-  const totalCommission = totalReferrerCommission + totalAppCommission;
-
-  // Répartition par bénéficiaire (chips, même esprit que « commission par payeur » du legacy).
-  const commissionByPartner = new Map<string, number>();
-  for (const row of commissionRows) {
-    if (!row.referrer_partner_id) continue;
-    commissionByPartner.set(
-      row.referrer_partner_id,
-      (commissionByPartner.get(row.referrer_partner_id) ?? 0) + (row.referrer_commission_cop ?? 0)
-    );
-  }
-
-  // Séries journalières pour les 2 premiers graphiques — un seau par jour dans la fenêtre
-  // (`days` déjà calculé par computeDateWindow, cf. import).
-  const salesByDay = new Map(days.map((day) => [day, 0]));
-  const referrerCommissionByDay = new Map(days.map((day) => [day, 0]));
-  const appCommissionByDay = new Map(days.map((day) => [day, 0]));
-  for (const row of windowLinesRes.data ?? []) {
-    if (!salesByDay.has(row.date)) continue;
-    salesByDay.set(row.date, (salesByDay.get(row.date) ?? 0) + (row.total_cop ?? 0));
-    if (row.status === "fulfilled") {
-      referrerCommissionByDay.set(
-        row.date,
-        (referrerCommissionByDay.get(row.date) ?? 0) + (row.referrer_commission_cop ?? 0)
-      );
-      appCommissionByDay.set(row.date, (appCommissionByDay.get(row.date) ?? 0) + (row.app_commission_cop ?? 0));
+  for (const [name, res] of [
+    ["admin_dashboard_totals", totalsRes],
+    ["admin_dashboard_referrer_commissions", referrerCommissionsRes],
+    ["admin_dashboard_daily_series", dailySeriesRes],
+    ["admin_dashboard_top_partners", topPartnersRes],
+  ] as const) {
+    if (res.error) {
+      throw new Error(`Lecture du tableau de bord impossible (${name}) : ${res.error.message}`);
     }
   }
-  const salesSeries = days.map((day) => ({ day, ventas: salesByDay.get(day) ?? 0 }));
+
+  const totals = totalsRes.data?.[0];
+  const totalRevenue = totals?.revenue_cop ?? 0;
+  const totalCommission = (totals?.referrer_commission_cop ?? 0) + (totals?.app_commission_cop ?? 0);
+
+  // Répartition par bénéficiaire (chips, même esprit que « commission par payeur » du legacy) —
+  // déjà triée par montant décroissant côté SQL.
+  const referrerCommissions = referrerCommissionsRes.data ?? [];
+
+  const topPartners = (topPartnersRes.data ?? []).map((row) => ({
+    name: row.partner_display_name,
+    total: row.total_cop,
+  }));
+
+  // Séries journalières pour les 2 premiers graphiques — un seau par jour dans la fenêtre
+  // (`days` déjà calculé par computeDateWindow, cf. import) ; un jour sans vente reste à zéro, et
+  // une date de service hors de la fenêtre (une réservation à venir) est ignorée.
+  const dailyByDay = new Map((dailySeriesRes.data ?? []).map((row) => [row.date, row]));
+  const salesSeries = days.map((day) => ({ day, ventas: dailyByDay.get(day)?.sales_cop ?? 0 }));
   const commissionsSeries = days.map((day) => ({
     day,
-    referente: referrerCommissionByDay.get(day) ?? 0,
-    app: appCommissionByDay.get(day) ?? 0,
+    referente: dailyByDay.get(day)?.referrer_commission_cop ?? 0,
+    app: dailyByDay.get(day)?.app_commission_cop ?? 0,
   }));
 
   const catalogHealth = [
@@ -143,20 +134,17 @@ export default async function AdminHomePage({
           label="Comisiones generadas"
           value={formatCop(totalCommission)}
           sublabel={
-            commissionByPartner.size > 0 ? (
+            referrerCommissions.length > 0 ? (
               <div className="flex flex-wrap gap-1">
-                {Array.from(commissionByPartner.entries())
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 3)
-                  .map(([partnerId, amount]) => (
-                    <a
-                      key={partnerId}
-                      href={`/admin/partners/${partnerId}`}
-                      className="rounded bg-surface-secondary px-1.5 py-0.5 text-[11px] hover:underline"
-                    >
-                      {formatCop(amount)}
-                    </a>
-                  ))}
+                {referrerCommissions.slice(0, 3).map((row) => (
+                  <a
+                    key={row.referrer_partner_id}
+                    href={`/admin/partners/${row.referrer_partner_id}`}
+                    className="rounded bg-surface-secondary px-1.5 py-0.5 text-[11px] hover:underline"
+                  >
+                    {formatCop(row.referrer_commission_cop)}
+                  </a>
+                ))}
               </div>
             ) : undefined
           }
@@ -169,13 +157,13 @@ export default async function AdminHomePage({
         <KpiCard
           testId="kpi-pending-orders"
           label="Pedidos pendientes de acción"
-          value={String(pendingActionRes.data?.[0]?.pending_count ?? 0)}
+          value={String(totals?.pending_count ?? 0)}
           sublabel="Fecha de servicio ya pasada, aún sin resolver"
         />
       </div>
 
       <AdminAlerts
-        proposalsPending={proposalsPendingRes.count ?? 0}
+        proposalsPending={(productProposalsPendingRes.count ?? 0) + (establishmentProposalsPendingRes.count ?? 0)}
         reconciliationOpen={reconciliationOpenRes.count ?? 0}
         paymentReconciliationOpen={paymentReconciliationOpenRes.count ?? 0}
       />
