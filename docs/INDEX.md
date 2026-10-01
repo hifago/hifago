@@ -26,8 +26,8 @@
 
 ## Cadrage — la cible de la refonte
 - [Audit du modèle de données cible — entités partagées](00-modele-de-donnees.md) 56K
-- [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 96K
-- [Cahier des charges — portail socio (aujourd'hui /partner)](02-cahier-des-charges-socio.md) 56K
+- [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 97K
+- [Cahier des charges — portail socio (aujourd'hui /partner)](02-cahier-des-charges-socio.md) 57K
 - [Cahier des charges — back-office admin (aujourd'hui /admin)](03-cahier-des-charges-admin.md) 49K
 - [Choix de stack et architecture cible](04-architecture-cible.md) 78K
 - [Référence technique — patterns validés et extensions requises](05-reference-technique.md) 9K
@@ -52,7 +52,7 @@
 - [Notifications toast succès/échec sur toute…](specs/16-notifications-toast.md) 18K ✓ · §0 offset 44 limit 113
 - [Calendrier/disponibilité — audit complet + refonte phasée (Tranches…](specs/17-calendrier-disponibilite-refonte.md) 57K ◐ · §0 offset 75 limit 241 · reste : Tranche 1 (crash price_cop null, Mis Reservas) et Tranche 2 (SVAR, moteur unifié…
 - [Créneaux horaires réellement réservables (product_slot_rules)](specs/18-creneaux-horaires-reservables.md) 36K ✓ · §0 offset 59 limit 53
-- [Paiement en ligne Mercado Pago — acompte obligatoire, ledger de…](specs/19-paiement-mercadopago-acompte-ledger.md) 53K ◐ · §0 offset 78 limit 370 · reste : Tranche 1 (capture d'acompte, CheckoutForm branché, ledger) livrée et vérifiée en…
+- [Paiement en ligne Mercado Pago — acompte obligatoire, ledger de…](specs/19-paiement-mercadopago-acompte-ledger.md) 53K ◐ · §0 offset 78 limit 371 · reste : Tranche 1 (capture d'acompte, CheckoutForm branché, ledger) livrée et vérifiée en…
 - [Agenda de réservations socio (vue jour/semaine/mois)](specs/20-agenda-reservations-socio.md) 26K ✓ · §0 offset 42 limit 55
 - [Connecteur LobbyPMS — contrat générique multi-prestataire](specs/21-connecteur-lobbypms.md) 42K ◐ · §0 offset 60 limit 57 · reste : Tranche 1 implémentée le 2026-08-19, disponibilité live côté client comblée le…
 - [Vue référent restreinte — pas d'établissement/mis reservas, liste…](specs/22-vue-referent-restreinte.md) 13K ✓ · §0 offset 43 limit 77
