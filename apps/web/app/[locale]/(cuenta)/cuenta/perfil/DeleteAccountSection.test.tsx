@@ -14,11 +14,17 @@ import { DeleteAccountSection } from "./DeleteAccountSection";
 
 const EMAIL = "cliente@test.local";
 let appelsSignOut = 0;
+let signOutRejette = false;
 let appelsRouterPush: string[] = [];
 
 vi.mock("@hifago/supabase/client", () => ({
   createClient: () => ({
-    auth: { signOut: async () => { appelsSignOut += 1; } },
+    auth: {
+      signOut: async () => {
+        appelsSignOut += 1;
+        if (signOutRejette) throw new TypeError("Failed to fetch");
+      },
+    },
   }),
 }));
 
@@ -53,6 +59,7 @@ async function ouvrirSaisirEtSoumettre(container: HTMLElement, emailSaisi: strin
 describe("DeleteAccountSection", () => {
   beforeEach(() => {
     appelsSignOut = 0;
+    signOutRejette = false;
     appelsRouterPush = [];
     vi.stubGlobal("fetch", vi.fn());
   });
@@ -96,5 +103,27 @@ describe("DeleteAccountSection", () => {
 
     expect(container.querySelector('[data-testid="delete-account-error"]')).not.toBeNull();
     expect(appelsSignOut).toBe(0);
+  });
+
+  it("une panne réseau affiche l'erreur et rend la main — jamais un bouton bloqué en attente", async () => {
+    vi.mocked(fetch).mockRejectedValue(new TypeError("Failed to fetch"));
+    const container = rendre(false);
+    await ouvrirSaisirEtSoumettre(container, EMAIL);
+
+    expect(container.querySelector('[data-testid="delete-account-error"]')).not.toBeNull();
+    const non = container.querySelector('[data-testid="delete-account-confirm-no"]') as HTMLButtonElement;
+    expect(non.disabled).toBe(false);
+    expect(appelsSignOut).toBe(0);
+  });
+
+  it("une suppression réussie redirige vers l'accueil même si la déconnexion locale échoue", async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: true } as Response);
+    signOutRejette = true;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const container = rendre(false);
+    await ouvrirSaisirEtSoumettre(container, EMAIL);
+
+    expect(appelsSignOut).toBe(1);
+    expect(appelsRouterPush).toEqual(["/"]);
   });
 });

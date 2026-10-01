@@ -54,11 +54,21 @@ export function DeleteAccountSection({
     }
 
     setIsSubmitting(true);
-    const reponse = await fetch("/api/account/delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: confirmEmail }),
-    });
+    let reponse: Response;
+    try {
+      reponse = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: confirmEmail }),
+      });
+    } catch {
+      // Panne réseau : `fetch` REJETTE au lieu de répondre. Sans ce garde, le bouton restait figé
+      // « en cours » et « No » désactivé, sans un mot. Même écran que l'échec renvoyé par le
+      // serveur : la main est rendue, réessayer est possible.
+      setIsSubmitting(false);
+      setErreur("failed");
+      return;
+    }
 
     if (!reponse.ok) {
       setIsSubmitting(false);

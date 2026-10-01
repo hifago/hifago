@@ -126,3 +126,21 @@ export const SupresionFallida: StoryObj = {
     await expect(await esperar(canvasElement, '[data-testid="delete-account-error"]')).toBeVisible();
   },
 };
+
+// Panne réseau : `fetch` REJETTE au lieu de répondre (la route simulée lève). L'erreur s'affiche et
+// la main est rendue — avant le correctif, le bouton restait figé « en cours » et « No » désactivé.
+export const SupresionError: StoryObj = {
+  ...pagina({
+    simularFetch: {
+      "/api/account/delete": () => {
+        throw new TypeError("Failed to fetch");
+      },
+    },
+  }),
+  name: "Suppression : panne réseau",
+  play: async ({ canvasElement }) => {
+    await abrirSupresion(canvasElement);
+    await expect(await esperar(canvasElement, '[data-testid="delete-account-error"]')).toBeVisible();
+    await expect(await esperar(canvasElement, '[data-testid="delete-account-confirm-no"]')).toBeEnabled();
+  },
+};
