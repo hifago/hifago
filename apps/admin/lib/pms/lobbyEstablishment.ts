@@ -125,10 +125,17 @@ export async function resolveLobbyEstablishment(
   // isolé sur lobby-rooms pendant que lobby-services répondait 200, avec la même session et le même
   // établissement. Un 503 explicite est à la fois plus honnête et plus facile à diagnostiquer, et
   // reste fermé par défaut : on n'autorise jamais sur une réponse qu'on n'a pas obtenue.
-  if (adminResult.error || capabilityResult.error) {
+  //
+  // La lecture de l'établissement suit la même règle : sur une panne, `data` vaut null, que
+  // `lobbyCredentials` aurait lu « établissement introuvable » (404) — un faux refus de plus.
+  if (adminResult.error || capabilityResult.error || establishmentResult.error) {
     console.error(
       `resolveLobbyEstablishment : autorisation indéterminable (establishment ${establishmentId})`,
-      { isAdmin: adminResult.error?.message, hasCapability: capabilityResult.error?.message },
+      {
+        isAdmin: adminResult.error?.message,
+        hasCapability: capabilityResult.error?.message,
+        establishment: establishmentResult.error?.message,
+      },
     );
     return deny("authorization_unavailable", 503);
   }
