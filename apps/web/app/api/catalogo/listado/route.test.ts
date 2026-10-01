@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Le pont du défilement infini, appelable directement sans passer par la page. Ce fichier prouve
 // ses trois garanties : un type inconnu est refusé (jamais « toutes les offres »), le plafond de
@@ -31,6 +31,10 @@ describe("GET /api/catalogo/listado", () => {
     state.echec = false;
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it.each([[""], ["tipo=inexistant"]])("refuse un type absent ou inconnu (%j) sans lire le catalogue", async (query) => {
     expect(await appeler(query)).toEqual({ statut: 400, corps: { ok: false, reason: "tipo_desconocido" } });
     expect(state.appels).toEqual([]);
@@ -59,6 +63,5 @@ describe("GET /api/catalogo/listado", () => {
     expect(statut).toBe(500);
     expect(corps).toEqual({ ok: false, reason: "catalogo_no_disponible" });
     expect(JSON.stringify(corps)).not.toContain("public.products");
-    vi.restoreAllMocks();
   });
 });

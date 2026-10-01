@@ -6,9 +6,11 @@ export const REF_COOKIE = "hifago_ref";
 
 /**
  * Longueur maximale acceptée. `partner_codes.code` n'impose aucun motif (codes saisis par l'admin,
- * `SEED-REFACTIVE` en local) : la borne est donc une longueur, jamais une forme inventée. Un code
- * réel tient largement dedans ; au-delà, ce n'est pas un code — et la valeur, recopiée telle quelle
- * dans `carts`, ne doit pas pouvoir grossir jusqu'à la limite d'un cookie.
+ * `SEED-REFACTIVE` en local) : la borne est donc une longueur, jamais une forme inventée. ⚠️ Rien ne
+ * la pose encore côté base ni dans les saisies admin : un code plus long y reste créable, et son
+ * attribution serait alors ignorée ici. Défense en profondeur seulement — `create_order` ne retient
+ * de toute façon qu'un `partner_codes` actif ; la borne empêche que la valeur recopiée telle quelle
+ * dans `carts` grossisse jusqu'à la limite d'un cookie.
  */
 export const REF_CODE_MAX_LENGTH = 64;
 

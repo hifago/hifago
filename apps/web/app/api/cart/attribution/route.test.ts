@@ -60,6 +60,7 @@ describe("POST /api/cart/attribution", () => {
     state.cookie = "x".repeat(65);
     expect(await appeler()).toEqual({ statut: 200, corps: { ok: true, captured: false } });
     expect(state.upserts).toEqual([]);
+    expect(state.clients).toBe(0);
   });
 
   it("enregistre le code nettoyé sur le panier du visiteur", async () => {
