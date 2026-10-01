@@ -36,6 +36,8 @@
     "pms_refused": "El alojamiento ya no está disponible para esas fechas. No se cobró nada y las fechas quedaron liberadas — prueba con otras fechas o con otro alojamiento.",
     "pms_refused_pending": "El alojamiento ya no está disponible para esas fechas. No se cobró nada. Estamos liberando tu reserva; si ves algo pendiente en unos minutos, escríbenos.",
     "pms_unreachable": "No pudimos confirmar la disponibilidad con el alojamiento. No se cobró nada — inténtalo de nuevo en unos minutos.",
+    "pms_unconfirmed_pending": "No pudimos confirmar tu reserva con el alojamiento. No se cobró nada. Si ves una reserva pendiente, se liberará sola en unos 30 minutos.",
+    "pms_claim_in_progress": "Tu reserva ya se está confirmando con el alojamiento. Espera unos segundos antes de volver a intentarlo.",
     "unknown": "No se pudo completar el pedido. Inténtalo de nuevo."
   }
 }
