@@ -2,13 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { loadMessages } from "@/messages";
-import ErrorVitrine from "./error";
+import { ErrorScreen } from "./ErrorScreen";
 
 // Pas de @testing-library/jest-dom dans ce monorepo — assertions DOM natives uniquement.
 //
 // Ce que ce test protège tient en une phrase : **le message brut de l'erreur ne doit jamais
 // atteindre l'écran**. Il peut porter un fragment de requête SQL ou un nom de table, et il arrive
 // ici depuis une couche qui parle à Supabase. Le reste (un titre, deux actions) est du rendu.
+// Repris de l'ancien `app/[locale]/(vitrine)/error.test.tsx` quand l'écran a été partagé.
 
 vi.mock("@/i18n/navigation", () => ({
   Link: ({ href, children, ...props }: React.ComponentProps<"a">) => (
@@ -18,29 +19,29 @@ vi.mock("@/i18n/navigation", () => ({
   ),
 }));
 
-// ⚠️ Le catalogue de messages est le VRAI (`loadMessages`), jamais un objet écrit à la main — c'est
-// la convention déjà majoritaire du dépôt (SiteHeader, SiteMenu, SiteFooter, LanguageSwitcher,
-// ProductDetailView, formatOccurrenceLabel) et sa raison est mécanique : un catalogue de test
-// recopié à la main teste le catalogue de test. Mesuré le 2026-09-08 par la revue du lot : renommer
-// `{indice}` en `{index}` dans messages/{es,en}/HomePage.json laissait les 514 tests VERTS pendant
-// que chaque photo du catalogue aurait porté `alt="HomePage.fotoAlt"` en production — `t()` n'est
-// pas typé sur le catalogue (aucune augmentation `IntlMessages` dans ce dépôt), donc ni tsc ni le
-// lint ne voient rien, et `parity.test.ts` ne compare que des CHEMINS de clés, jamais leurs
-// variables.
+// ⚠️ Le catalogue de messages est le VRAI (`loadMessages`), jamais un objet écrit à la main : un
+// catalogue de test recopié à la main teste le catalogue de test (mesuré le 2026-09-08, cf. l'ancien
+// test de la frontière vitrine).
 const MESSAGES = loadMessages("es");
 
-function monter(reset = () => {}) {
+function monter({ retry = () => {}, inicioHref }: { retry?: () => void; inicioHref?: string } = {}) {
   const erreur = Object.assign(new Error('relation "public.products" does not exist'), {
     digest: "abc123",
   });
   return render(
     <NextIntlClientProvider locale="es" messages={MESSAGES}>
-      <ErrorVitrine error={erreur} reset={reset} />
+      <ErrorScreen
+        error={erreur}
+        retry={retry}
+        zone="vitrine"
+        testId="error-vitrine"
+        inicioHref={inicioHref}
+      />
     </NextIntlClientProvider>
   );
 }
 
-describe("ErrorVitrine", () => {
+describe("ErrorScreen", () => {
   it("rend un texte traduit, jamais le message brut de l'erreur", () => {
     const journal = vi.spyOn(console, "error").mockImplementation(() => {});
     const { container } = monter();
@@ -54,15 +55,22 @@ describe("ErrorVitrine", () => {
     journal.mockRestore();
   });
 
-  it("propose de réessayer sans recharger, et de revenir à l'accueil", () => {
+  it("propose de réessayer (relecture serveur via retry) et de revenir à l'accueil localisé", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const reset = vi.fn();
-    monter(reset);
+    const retry = vi.fn();
+    monter({ retry });
 
     (screen.getByTestId("error-vitrine-reintentar") as HTMLButtonElement).click();
-    expect(reset).toHaveBeenCalledTimes(1);
+    expect(retry).toHaveBeenCalledTimes(1);
 
     expect(screen.getByTestId("error-vitrine-volver").getAttribute("href")).toBe("/");
+    vi.restoreAllMocks();
+  });
+
+  it("hors routage localisé (global-error), pointe l'accueil complet fourni", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    monter({ inicioHref: "/en" });
+    expect(screen.getByTestId("error-vitrine-volver").getAttribute("href")).toBe("/en");
     vi.restoreAllMocks();
   });
 
@@ -70,7 +78,7 @@ describe("ErrorVitrine", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const { container } = monter();
 
-    // ⚠️ Un `error.tsx` de groupe est rendu À L'INTÉRIEUR du layout de sa zone : l'en-tête et le
+    // ⚠️ Une frontière de zone est rendue À L'INTÉRIEUR du layout de sa zone : l'en-tête et le
     // pied de page sont déjà là. En rendre un second donnerait deux en-têtes — faute invisible au
     // typecheck, et que seule cette assertion attrape.
     expect(container.querySelectorAll("main").length).toBe(1);
