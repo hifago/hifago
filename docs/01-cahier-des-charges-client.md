@@ -16,6 +16,7 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-10-01 — spec 19 retouchée, sans changement de périmètre** : la route de poll `apps/web/app/api/payments/[orderId]/status` est supprimée (aucun appelant, spec 33 §10) ; rien ne change pour ce cahier.
 - **Paiement en ligne, statut « hors périmètre v1 »** (l.845, l.904 « Cibles futures importantes ») —
   rouvert explicitement par `docs/specs/19-paiement-mercadopago-acompte-ledger.md` (statut
   `partiel`) : Mercado Pago remplace Wompi comme gateway cible, l'acompte devient obligatoire en

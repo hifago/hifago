@@ -16,6 +16,7 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-10-01 — spec 19 retouchée, sans changement de périmètre** : la route de poll `apps/web/app/api/payments/[orderId]/status` est supprimée (aucun appelant, spec 33 §10) ; rien ne change pour ce cahier.
 - **§3e** (l.419) — révisé par `docs/specs/15-socio-creation-produit.md` : la règle « jamais un
   hébergement directement » ne s'applique plus à la CRÉATION (les 6 types, hôtel compris à
   l'époque, sont couverts). Déjà annoté inline le 2026-08-17 (voir le bloc `> **Révisé le

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@hifago/supabase/server";
+import { REF_COOKIE, normalizeRefCode } from "@/lib/attribution/refCookie";
 
 // Spec 32 (panier en base) — capture l'attribution d'un visiteur dans `carts.attribution_code`,
 // au lieu du paramètre `p_attribution_code` que `create_order` recevait jusqu'ici. Appelé par
@@ -15,7 +16,9 @@ import { createClient } from "@hifago/supabase/server";
 // une obligation (cahier §3e).
 export async function POST() {
   const cookieStore = await cookies();
-  const attributionCode = cookieStore.get("hifago_ref")?.value;
+  // Même borne que `proxy.ts` à l'écriture : le cookie revient du navigateur tel quel et peut avoir
+  // été forgé sans passer par le proxy — un code trop long n'est jamais recopié dans `carts`.
+  const attributionCode = normalizeRefCode(cookieStore.get(REF_COOKIE)?.value);
   if (!attributionCode) {
     return NextResponse.json({ ok: true, captured: false });
   }
