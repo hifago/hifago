@@ -25,6 +25,7 @@
   "pay": "Pay the deposit",
   "retryPayment": "Retry payment",
   "paying": "Redirecting to Mercado Pago…",
+  "confirmingBooking": "Confirming with the accommodation…",
   "trip": {
     "range": "Your trip from {start} to {end}",
     "single": "Your trip on {start}"
@@ -55,7 +56,15 @@
     "order_not_found": "We could not find the order to start the payment.",
     "mercadopago_unavailable": "We could not reach Mercado Pago. Please try again in a moment.",
     "unknown": "The payment could not be started. Please try again.",
-    "payment_rejected": "Your payment method was rejected. You can try again or use a different method."
+    "payment_rejected": "Your payment method was rejected. You can try again or use a different method.",
+    "pms_refused": "The accommodation is no longer available for those dates. Nothing was charged and the booking was cancelled: you can look for other dates or another place.",
+    "pms_refused_pending": "The accommodation is no longer available for those dates. Nothing was charged and your booking will be released automatically within the hour.",
+    "pms_release_pending": "We could not confirm your booking with the accommodation. Nothing was charged and your booking will be released automatically within the hour.",
+    "pms_unavailable": "This accommodation cannot be booked online right now. Nothing was charged and the booking was cancelled.",
+    "pms_unreachable": "We could not confirm your booking with the accommodation. Nothing was charged and the booking was cancelled; you can book again in a few minutes.",
+    "pms_claim_in_progress": "Your booking is already being confirmed with the accommodation. Try again in a few minutes.",
+    "pms_unknown_outcome": "We don't know whether the accommodation managed to register your booking. Nothing was charged: try again in a few minutes.",
+    "pms_unconfirmed": "We could not confirm your booking with the accommodation. Nothing was charged: try again in a few minutes."
   },
   "contactWhatsApp": "Message {establishment}",
   "contactMessage": "Hi, I'm {name}, booking {reference}",

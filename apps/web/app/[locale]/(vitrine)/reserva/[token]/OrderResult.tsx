@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { createClient } from "@hifago/supabase/client";
 import { Button, cn } from "@hifago/ui";
@@ -48,6 +48,85 @@ const PAYMENT_ERROR_REASONS = [
 
 type PaymentIntentResult = { ok: boolean; reason?: string; payment_id?: string };
 
+/**
+ * Que faire de la réponse de `/api/pms/reserve-nights`, appelée quand `create_payment_intent` refuse
+ * avec `pms_booking_missing` (migration 20260930221837 : aucun paiement tant qu'une nuit PMS n'a pas
+ * son booking — client parti avant la fin du tunnel, onglet fermé pendant l'appel à Lobby).
+ *
+ * - `booked` : redemander UN intent, une seule fois. S'il manque encore un booking, ce second refus
+ *   tombe sur « unknown » : jamais de boucle.
+ * - `stop` : on s'arrête, et l'écran est TOUJOURS relu — un autre onglet a pu défaire ou payer la
+ *   commande pendant l'appel, et c'est l'état relu (annulée, expirée, payée, encore à payer) qui dit
+ *   ce qu'elle est devenue. `notice` en donne la raison ; jamais l'état d'écran `failed`, dont le
+ *   détail promet « Tu reserva sigue guardada ».
+ *
+ * « Relâchée » n'est cru que sur `released === true`, comme dans CheckoutForm. Quand la route devait
+ * défaire la commande et n'a pas pu (`released: false` sur un échec PMS), `blockPayment` retire le
+ * bouton : un nouvel essai rappellerait Lobby et rouvrirait une entrée de réconciliation (un e-mail à
+ * chaque admin) pour une commande qui expirera de toute façon. « On ne sait pas »
+ * (`pms_unknown_outcome`) n'est dit que sur un corps illisible ou un réseau coupé.
+ *
+ * Même lecture de `reason`/`released` que `reserveNightsErrorKey` (CheckoutForm), mais pas la même
+ * fonction : ici une commande peut déjà être payée (`order_paid`), et l'écran sait se relire.
+ */
+export type PmsNoticeKey =
+  | "pms_refused"
+  | "pms_unavailable"
+  | "pms_unreachable"
+  | "pms_refused_pending"
+  | "pms_release_pending"
+  | "pms_claim_in_progress"
+  | "pms_unknown_outcome"
+  | "pms_unconfirmed"
+  | "order_not_found";
+
+export type BookingRecovery =
+  | { kind: "booked" }
+  | { kind: "stop"; notice: PmsNoticeKey | null; blockPayment: boolean };
+
+type ReserveNightsBody = { ok?: boolean; reason?: string; released?: boolean };
+
+const stop = (notice: PmsNoticeKey | null, blockPayment = false): BookingRecovery => ({
+  kind: "stop",
+  notice,
+  blockPayment,
+});
+
+export function bookingRecovery(httpOk: boolean, body: ReserveNightsBody | null): BookingRecovery {
+  if (httpOk) return { kind: "booked" };
+  if (body === null) return stop("pms_unknown_outcome"); // 500/504 de la plateforme, corps illisible
+  if (body.reason === "order_paid") return stop(null);
+  if (body.reason === "pms_claim_in_progress") return stop("pms_claim_in_progress");
+  if (body.released === true) {
+    if (body.reason === "pms_refused" || body.reason === "pms_unavailable") return stop(body.reason);
+    // order_not_active : la commande était déjà défaite (expirée) — l'écran relu le dit seul.
+    if (body.reason === "order_not_active") return stop(null);
+    return stop("pms_unreachable");
+  }
+  if (body.reason === "pms_refused") return stop("pms_refused_pending", true);
+  if (body.reason === "pms_unavailable" || body.reason === "pms_unreachable") {
+    return stop("pms_release_pending", true);
+  }
+  if (body.reason === "order_not_found") return stop("order_not_found");
+  // Erreur de base avant tout appel à Lobby (db_error), corps refusé : rien n'a été tenté.
+  return stop("pms_unconfirmed");
+}
+
+async function reserveMissingBookings(orderId: string): Promise<BookingRecovery> {
+  let response: Response;
+  try {
+    response = await fetch("/api/pms/reserve-nights", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId }),
+    });
+  } catch {
+    return stop("pms_unknown_outcome");
+  }
+  const body = (await response.json().catch(() => null)) as ReserveNightsBody | null;
+  return bookingRecovery(response.ok, body);
+}
+
 /** Cadence et plafond du rafraîchissement pendant l'attente du webhook (≈ 1 minute au total). */
 const REFRESH_INTERVAL_MS = 3000;
 const MAX_REFRESH_TICKS = 20;
@@ -75,6 +154,15 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
     paymentOutcome === "rejected" ? t("errors.payment_rejected") : null
   );
   const [isPaying, setIsPaying] = useState(false);
+  // Pendant l'appel à reserve-nights (jusqu'à près d'une minute chez Lobby) : le bouton ne dit pas
+  // « Redirigiendo a Mercado Pago » tant que rien n'est parti vers Mercado Pago.
+  const [isConfirmingBooking, setIsConfirmingBooking] = useState(false);
+  // La raison d'un arrêt, affichée PAR-DESSUS l'état relu (annulée, expirée, payée) — jamais l'état
+  // d'écran `failed`, dont le détail dit « Tu reserva sigue guardada ». Cf. `bookingRecovery`.
+  const [notice, setNotice] = useState<string | null>(null);
+  // Relâchement impossible : plus de bouton sur cette page (cf. `bookingRecovery`).
+  const [isPaymentBlocked, setIsPaymentBlocked] = useState(false);
+  const [isRefreshing, startRefresh] = useTransition();
 
   // Efface `?payment=` une fois lu, pour qu'un simple rechargement de cette page n'affiche pas
   // indéfiniment un rejet déjà vu. Ne pose aucun état — seulement l'URL — donc pas concerné par
@@ -95,7 +183,7 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
   const isAwaiting = orderState === "awaiting";
 
   const state = paymentError ? "failed" : orderState;
-  const isPayable = orderState === "unpaid";
+  const isPayable = orderState === "unpaid" && !isPaymentBlocked;
 
   // Le webhook Mercado Pago peut arriver APRÈS la redirection du client : tant que la commande est
   // 'pending', on relit l'écran pour qu'il se mette à jour tout seul.
@@ -132,13 +220,35 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
 
   async function startPayment() {
     setPaymentError(null);
+    setNotice(null);
     setIsPaying(true);
 
     const supabase = createClient();
-    const { data, error: intentError } = await supabase.rpc("create_payment_intent", {
-      p_order_id: order.id,
-    });
-    const intentResult = data as PaymentIntentResult | null;
+    const requestIntent = async () => {
+      const { data, error } = await supabase.rpc("create_payment_intent", { p_order_id: order.id });
+      return { intentResult: data as PaymentIntentResult | null, intentError: error };
+    };
+    let { intentResult, intentError } = await requestIntent();
+
+    if (!intentError && intentResult?.reason === "pms_booking_missing") {
+      setIsConfirmingBooking(true);
+      const recovery = await reserveMissingBookings(order.id);
+      setIsConfirmingBooking(false);
+      if (recovery.kind === "stop") {
+        setIsPaying(false);
+        // Dans la transition : la notice n'apparaît qu'avec l'état relu, jamais au-dessus de
+        // l'ancien (« Paga el anticipo » sous « la reserva quedó anulada »).
+        startRefresh(() => {
+          setNotice(recovery.notice ? t(`errors.${recovery.notice}`) : null);
+          if (recovery.blockPayment) setIsPaymentBlocked(true);
+          router.refresh();
+        });
+        return;
+      }
+      // Une seule fois : un second `pms_booking_missing` retombe sur « unknown » ci-dessous.
+      ({ intentResult, intentError } = await requestIntent());
+    }
+
     if (intentError || !intentResult?.ok) {
       setIsPaying(false);
       const raw = intentResult?.reason;
@@ -146,6 +256,16 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
         raw !== undefined && (PAYMENT_ERROR_REASONS as readonly string[]).includes(raw)
           ? raw
           : "unknown";
+      // Plus rien à payer, ou déjà payé : la commande a changé sous cet écran (expirée, défaite ou
+      // payée depuis un autre onglet). On relit au lieu d'afficher `failed` et « Tu reserva sigue
+      // guardada » sur une commande qui ne l'est plus.
+      if (reason === "nothing_to_pay" || reason === "already_paid") {
+        startRefresh(() => {
+          setNotice(t(`errors.${reason}`));
+          router.refresh();
+        });
+        return;
+      }
       setPaymentError(t(`errors.${reason}`));
       return;
     }
@@ -194,10 +314,19 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
         )}
       >
         <p className="font-medium">{t(`status.${state}`)}</p>
-        <p className="text-sm text-muted">{t(`status.${state}Detail`)}</p>
+        {/* Paiement retiré (relâchement impossible) : le détail d'`unpaid` dirait encore « Paga el
+            anticipo » sous une page sans bouton — la notice dit seule ce qui va se passer. */}
+        {isPaymentBlocked && state === "unpaid" ? null : (
+          <p className="text-sm text-muted">{t(`status.${state}Detail`)}</p>
+        )}
         {paymentError ? (
           <p role="alert" data-testid="payment-error" className="text-sm text-danger">
             {paymentError}
+          </p>
+        ) : null}
+        {notice ? (
+          <p role="alert" data-testid="pms-notice" className="text-sm">
+            {notice}
           </p>
         ) : null}
       </div>
@@ -206,11 +335,17 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
         <Button
           type="button"
           onPress={startPayment}
-          isDisabled={isPaying}
+          isDisabled={isPaying || isRefreshing}
           data-testid={paymentError ? "retry-payment-button" : "pay-button"}
           className="w-fit"
         >
-          {isPaying ? t("paying") : paymentError ? t("retryPayment") : t("pay")}
+          {isConfirmingBooking
+            ? t("confirmingBooking")
+            : isPaying
+              ? t("paying")
+              : paymentError
+                ? t("retryPayment")
+                : t("pay")}
         </Button>
       ) : null}
 
