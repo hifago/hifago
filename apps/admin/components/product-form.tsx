@@ -299,6 +299,7 @@ export function ProductForm({
       minQty: fields.minQty,
       maxQty: fields.maxQty,
       stayRates: fields.stayRates,
+      externalBookingUrl: fields.externalBookingUrl,
     });
   }
 
