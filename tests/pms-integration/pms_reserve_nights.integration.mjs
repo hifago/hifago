@@ -270,9 +270,8 @@ async function main() {
     verifier(paiement[0]?.payment_status === "unpaid", `la commande reste 'unpaid' (${paiement[0]?.payment_status})`);
 
     // ── 3. Dix POST simultanés sur la même commande → UN SEUL booking chez Lobby ────────────────
-    // Migration 20260930221837 : le claim sérialise les appels. Avant, chaque POST lisait les lignes
-    // sans booking et réservait : N POST = N bookings, dont N-1 jamais annulés (aucune ligne ne les
-    // portait). Mutation « Lobby avant le claim » → plus d'un booking ici.
+    // Migration 20260930221837 : le claim sérialise les appels — un seul réserve la commande, les
+    // autres reçoivent pms_claim_in_progress. Mutation « claim sans bail » → plus d'un booking ici.
     refuserLeBooking = false;
     delaiBookingMs = 400;
     const { result: result3 } = await creerCommande(
@@ -303,8 +302,8 @@ async function main() {
     verifier(apres3[0]?.pms_booking_id === "90000001", `la ligne porte le booking (${apres3[0]?.pms_booking_id})`);
 
     // ── 4. Connecteur coupé ENTRE create_order et la route ──────────────────────────────────────
-    // CLAUDE.md §4.4 : avant, la route écartait l'établissement et répondait ok:true — commande
-    // confirmée et encaissable sans aucun contrôle de capacité, jamais transmise au PMS.
+    // CLAUDE.md §4.4 : un logement PMS dont le connecteur est coupé n'a plus aucun contrôle de
+    // capacité — la commande est défaite (échec fermé).
     const { result: result4 } = await creerCommande(
       ids.acheteur4,
       `reserve-nights-coupe-${ids.acheteur4.slice(0, 8)}@hifago.test`

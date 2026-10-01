@@ -14,7 +14,7 @@
 -- Function, un cron ou un Route Handler serveur.
 
 begin;
-select plan(1);
+select plan(2);
 
 select is(
   (
@@ -89,6 +89,81 @@ select is(
   ),
   '',
   'aucune RPC service_role-seul n''est exécutable par anon ou authenticated (le grant EST la protection)'
+);
+
+-- Revue adversariale (P4a) : la requête ci-dessus ignore silencieusement un nom ABSENT ou mal
+-- orthographié — une RPC renommée sortirait de la garde sans que rien ne rougisse. Chaque nom de la
+-- liste doit exister.
+select is(
+  (
+    select coalesce(string_agg(n, ', ' order by n), '')
+    from unnest(array['apply_payment_webhook',
+        'claim_notification_email_batch',
+        'claim_pms_cancellation_batch',
+        'claim_pms_poll_batch',
+        'mark_notification_email_failed',
+        'mark_notification_email_sent',
+        'requeue_pms_cancellation',
+        'resolve_pms_cancellation',
+        
+        
+        'apply_order_line_ledger_transition',
+        
+        
+        
+        'release_order_after_pms_refusal',
+        
+        
+        
+        'invoke_pms_poll_bookings',
+        'invoke_pms_cancel_bookings',
+        'invoke_pms_nightly_contract_check',
+        'invoke_pms_sync_availability',
+        'invoke_send_notification_emails',
+        
+        
+        
+        'claim_pms_sync_batch',
+        'sync_pms_availability_month',
+        'fail_pms_sync',
+        
+        
+        'mark_pms_sync_due',
+        'mark_pms_sync_due_for_order_line',
+        
+        
+        
+        
+        'heartbeat_job',
+        'lock_order_capacity_rows',
+        'release_order_line_capacity',
+        'expire_payment_order',
+        'apply_payment_webhook_checked',
+        'claim_orders_to_reconcile',
+        'claim_payments_to_watch',
+        'reconcile_order',
+        'mark_mp_cancel_attempt',
+        'record_mp_payment_status',
+        'invoke_payments_reconcile',
+        'payments_reconcile_watchdog',
+        
+        'claim_payment_refunds',
+        'finalize_payment_refund',
+        'fail_payment_refund',
+        
+        
+        'claim_order_for_pms_booking',
+        'record_pms_booking',
+        'release_pms_reserve_claim'
+    ]) as n
+    where not exists (
+      select 1 from pg_proc p
+      join pg_namespace ns on ns.oid = p.pronamespace
+      where ns.nspname = 'public' and p.proname = n
+    )
+  ),
+  '',
+  'chaque RPC de la liste existe (aucun nom absent ou mal orthographié)'
 );
 
 select * from finish();

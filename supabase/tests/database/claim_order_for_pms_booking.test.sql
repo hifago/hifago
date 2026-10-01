@@ -14,7 +14,7 @@
 -- jeton est `now()` et un claim « périmé » se simule en passant une autre valeur. La sérialisation
 -- de vrais appels concurrents relève de tests/concurrency/claim_order_for_pms_booking.concurrency.mjs.
 begin;
-select plan(32);
+select plan(44);
 
 insert into partners (id, display_name) values
   ('9b930000-0000-4000-8000-000000000001', 'Claim Test Partner');
@@ -91,6 +91,40 @@ select l.id::uuid, l.order_id::uuid, '9b930000-0000-4000-8000-000000000021', l.p
     ('9b930000-0000-4000-8000-000000000064', '9b930000-0000-4000-8000-000000000046', '9b930000-0000-4000-8000-000000000031', '2029-06-10', '2029-06-11', 'reserved', null),
     ('9b930000-0000-4000-8000-000000000065', '9b930000-0000-4000-8000-000000000046', '9b930000-0000-4000-8000-000000000033', '2029-06-01', null, 'reserved', null)
   ) as l(id, order_id, product_id, date, end_date, status, booking);
+
+-- Fixtures de la revue adversariale : un second établissement actif (014) et son logement PMS
+-- (037) pour une commande à deux établissements (047) ; une commande `pending` (048) ; une commande
+-- remboursée (049) ; une commande sans ligne vivante (04a) ; un code d'attribution sur 041.
+insert into establishments (id, partner_id, name, lobby_connector_active, lobby_api_token) values
+  ('9b930000-0000-4000-8000-000000000014', '9b930000-0000-4000-8000-000000000001',
+   jsonb_build_object('es', 'Establecimiento Claim Bis'), true, 'claim-token-bis');
+insert into products (id, partner_id, establishment_id, type, name, price_cop, sellable, slug, lobby_category_id) values
+  ('9b930000-0000-4000-8000-000000000037', '9b930000-0000-4000-8000-000000000001',
+   '9b930000-0000-4000-8000-000000000014', 'lodging', jsonb_build_object('es', 'Claim PMS Bis'),
+   100000, true, 'claim-pms-bis', 7004);
+insert into partner_codes (code) values ('CLAIM-PROMO');
+update orders set attribution_code = 'CLAIM-PROMO', attribution_source = 'link'
+ where id = '9b930000-0000-4000-8000-000000000041';
+insert into orders (id, account_id, holder_name, holder_email, payment_status) values
+  ('9b930000-0000-4000-8000-000000000047', '9b930000-0000-4000-8000-000000000021', 'Claim G', 'claim-g@test.local', 'unpaid'),
+  ('9b930000-0000-4000-8000-000000000048', '9b930000-0000-4000-8000-000000000021', 'Claim H', 'claim-h@test.local', 'pending'),
+  ('9b930000-0000-4000-8000-000000000049', '9b930000-0000-4000-8000-000000000021', 'Claim I', 'claim-i@test.local', 'refunded'),
+  ('9b930000-0000-4000-8000-00000000004a', '9b930000-0000-4000-8000-000000000021', 'Claim J', 'claim-j@test.local', 'unpaid');
+insert into order_lines (
+  id, order_id, account_id, product_id, date, end_date, qty, status, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+)
+select l.id::uuid, l.order_id::uuid, '9b930000-0000-4000-8000-000000000021', l.product_id::uuid,
+       l.date::date, l.end_date::date, 1, l.status, 'Holder Claim',
+       100000, 100000, 'direct', 0.17, 0, 0.17, 17000, 0, 17000
+  from (values
+    ('9b930000-0000-4000-8000-000000000071', '9b930000-0000-4000-8000-000000000047', '9b930000-0000-4000-8000-000000000031', '2029-07-01', '2029-07-03', 'reserved'),
+    ('9b930000-0000-4000-8000-000000000072', '9b930000-0000-4000-8000-000000000047', '9b930000-0000-4000-8000-000000000037', '2029-07-01', '2029-07-03', 'reserved'),
+    ('9b930000-0000-4000-8000-000000000073', '9b930000-0000-4000-8000-000000000048', '9b930000-0000-4000-8000-000000000031', '2029-07-10', '2029-07-11', 'reserved'),
+    ('9b930000-0000-4000-8000-000000000074', '9b930000-0000-4000-8000-000000000049', '9b930000-0000-4000-8000-000000000031', '2029-07-12', '2029-07-13', 'reserved'),
+    ('9b930000-0000-4000-8000-000000000075', '9b930000-0000-4000-8000-00000000004a', '9b930000-0000-4000-8000-000000000031', '2029-07-14', '2029-07-15', 'cancelled_by_provider')
+  ) as l(id, order_id, product_id, date, end_date, status);
 
 set local role service_role;
 
@@ -308,6 +342,110 @@ select is(
   (select pms_reserve_claimed_at from orders where id = '9b930000-0000-4000-8000-000000000046'),
   null,
   'release : son propre jeton rend le claim (colonne vidée)'
+);
+
+-- ── Cas de la revue adversariale ───────────────────────────────────────────────────────────
+-- (Ce bloc tourne APRÈS les précédents : l'établissement 011 a encore son connecteur coupé depuis
+-- le cas de l'amendement — on le rallume d'abord.)
+reset role;
+update establishments set lobby_connector_active = true where id = '9b930000-0000-4000-8000-000000000011';
+update orders set pms_reserve_claimed_at = now() - interval '4 minutes'
+ where id = '9b930000-0000-4000-8000-000000000041';
+set local role service_role;
+select is(
+  public.claim_order_for_pms_booking('9b930000-0000-4000-8000-000000000041')->>'reason',
+  'claim_in_progress',
+  'claim : un claim de 4 min est encore vivant (bail de 5 min) → claim_in_progress'
+);
+reset role;
+update orders set pms_reserve_claimed_at = null where id = '9b930000-0000-4000-8000-000000000041';
+set local role service_role;
+create temp table claim_041_attr as
+  select public.claim_order_for_pms_booking('9b930000-0000-4000-8000-000000000041') as r;
+select is(
+  (select jsonb_build_object('code', r->>'attribution_code', 'source', r->>'attribution_source') from claim_041_attr),
+  jsonb_build_object('code', 'CLAIM-PROMO', 'source', 'link'),
+  'claim : l''attribution de la commande est renvoyée (la note Lobby en a besoin)'
+);
+
+create temp table claim_047 as
+  select public.claim_order_for_pms_booking('9b930000-0000-4000-8000-000000000047') as r;
+select is(
+  (select jsonb_agg(jsonb_build_array(g->>'establishment_id', g->>'api_token', jsonb_array_length(g->'lodging_lines'))
+                    order by g->>'establishment_id')
+     from claim_047, jsonb_array_elements(r->'groups') g),
+  jsonb_build_array(
+    jsonb_build_array('9b930000-0000-4000-8000-000000000011', 'claim-token', 1),
+    jsonb_build_array('9b930000-0000-4000-8000-000000000014', 'claim-token-bis', 1)
+  ),
+  'claim : deux établissements → deux groupes, chacun SON jeton et SA nuit'
+);
+
+select is(
+  public.claim_order_for_pms_booking('9b930000-0000-4000-8000-000000000048')->>'ok',
+  'true',
+  'claim : commande pending (client chez Mercado Pago) → la nuit manquante peut encore être réservée'
+);
+select is(
+  public.claim_order_for_pms_booking('9b930000-0000-4000-8000-000000000049')->>'reason',
+  'order_paid',
+  'claim : commande remboursée → order_paid (I3)'
+);
+-- Toutes les nuits PMS déjà bookées, une ligne vivante : rien à réserver, mais la commande est
+-- VIVANTE — jamais order_not_active.
+reset role;
+insert into orders (id, account_id, holder_name, holder_email) values
+  ('9b930000-0000-4000-8000-00000000004b', '9b930000-0000-4000-8000-000000000021', 'Claim K', 'claim-k@test.local');
+insert into order_lines (
+  id, order_id, account_id, product_id, date, end_date, qty, status, pms_booking_id, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+) values (
+  '9b930000-0000-4000-8000-000000000076', '9b930000-0000-4000-8000-00000000004b', '9b930000-0000-4000-8000-000000000021',
+  '9b930000-0000-4000-8000-000000000031', '2029-07-20', '2029-07-21', 1, 'reserved', 'B-KEEP', 'Holder Claim',
+  100000, 100000, 'direct', 0.17, 0, 0.17, 17000, 0, 17000
+);
+set local role service_role;
+select is(
+  (select jsonb_build_object('ok', r->'ok', 'claimed_at', r->'claimed_at', 'groupes', jsonb_array_length(r->'groups'))
+     from (select public.claim_order_for_pms_booking('9b930000-0000-4000-8000-00000000004b') as r) x),
+  jsonb_build_object('ok', true, 'claimed_at', null, 'groupes', 0),
+  'claim : nuits toutes bookées, ligne vivante → ok, aucun groupe (jamais order_not_active)'
+);
+select is(
+  public.claim_order_for_pms_booking('9b930000-0000-4000-8000-00000000004a')->>'reason',
+  'order_not_active',
+  'claim : plus aucune ligne vivante → order_not_active, jamais un succès'
+);
+
+select is(
+  public.record_pms_booking('9b930000-0000-4000-8000-000000000046', null, '9b930000-0000-4000-8000-000000000062', 'B-NULL')->>'reason',
+  'invalid_arguments',
+  'record : jeton NULL → invalid_arguments (jamais un enregistrement hors claim)'
+);
+select is(
+  public.record_pms_booking('9b930000-0000-4000-8000-000000000041', now(), '9b930000-0000-4000-8000-000000000062', 'B-AUTRE')->>'reason',
+  'line_not_found',
+  'record : ligne d''une AUTRE commande → line_not_found'
+);
+select is(
+  (select pms_booking_id from order_lines where id = '9b930000-0000-4000-8000-000000000062'),
+  null,
+  'record : la ligne d''une autre commande n''est pas touchée'
+);
+
+reset role;
+update orders set pms_reserve_claimed_at = now() where id = '9b930000-0000-4000-8000-000000000046';
+set local role service_role;
+select is(
+  public.record_pms_booking('9b930000-0000-4000-8000-000000000046', now(), '9b930000-0000-4000-8000-000000000065', 'B-61'),
+  jsonb_build_object('ok', true),
+  'record : activité rattachée au booking principal, claim valide → ok'
+);
+select ok(
+  (select invalidated_at is not null from pms_sync_state
+    where establishment_id = '9b930000-0000-4000-8000-000000000011' and month = '2029-06'),
+  'record : une nuit enregistrée invalide le mois du miroir de disponibilité'
 );
 
 select * from finish();

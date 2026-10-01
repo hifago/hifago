@@ -13,7 +13,7 @@
 -- hifago/CLAUDE.md §6.3) : le verrou `for update` sur orders, partagé avec
 -- expire_stale_payment_orders, relève de tests/concurrency/.
 begin;
-select plan(15);
+select plan(18);
 
 -- Fixtures dédiées, jamais un enregistrement seedé partagé (AGENTS-PARALLELES point 5).
 insert into partners (id, display_name) values
@@ -205,6 +205,42 @@ select is(
                 where product_id = '9a930000-0000-4000-8000-000000000033' and date = '2028-09-21'))),
   jsonb_build_object('commande', 'unpaid', 'paiement', 'cancelled', 'place', 0),
   'commande pending relâchée : unpaid, paiement cancelled, place rendue'
+);
+
+-- Revue adversariale : connecteur coupé ENTRE le claim et le relâchement. Le trigger
+-- enqueue_pms_cancellations filtre les connecteurs actifs : sans l'enfilage explicite de la
+-- fonction, le booking déjà créé chez Lobby resterait orphelin.
+reset role;
+insert into orders (id, account_id, holder_name, holder_email, payment_status) values
+  ('9a930000-0000-4000-8000-000000000073', '9a930000-0000-4000-8000-000000000021', 'Holder Off', 'release-off@test.local', 'unpaid'),
+  ('9a930000-0000-4000-8000-000000000074', '9a930000-0000-4000-8000-000000000021', 'Holder Refunded', 'release-refunded@test.local', 'refunded');
+insert into order_lines (
+  id, order_id, account_id, product_id, date, end_date, qty, status, pms_booking_id, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+) values
+  ('9a930000-0000-4000-8000-000000000083', '9a930000-0000-4000-8000-000000000073', '9a930000-0000-4000-8000-000000000021',
+   '9a930000-0000-4000-8000-000000000032', '2028-10-01', '2028-10-03', 1, 'reserved', 'R-OFF', 'Holder Off',
+   100000, 100000, 'direct', 0.17, 0, 0.17, 17000, 0, 17000),
+  ('9a930000-0000-4000-8000-000000000084', '9a930000-0000-4000-8000-000000000074', '9a930000-0000-4000-8000-000000000021',
+   '9a930000-0000-4000-8000-000000000032', '2028-10-05', '2028-10-06', 1, 'reserved', null, 'Holder Refunded',
+   100000, 100000, 'direct', 0.17, 0, 0.17, 17000, 0, 17000);
+update establishments set lobby_connector_active = false where id = '9a930000-0000-4000-8000-000000000011';
+set local role service_role;
+select is(
+  (select (public.release_order_after_pms_refusal('9a930000-0000-4000-8000-000000000073', 'refus, connecteur coupé'))->>'released_lines')::int,
+  1,
+  'connecteur coupé : la commande est relâchée'
+);
+select is(
+  (select count(*)::int from pms_cancellation_queue where pms_booking_id = 'R-OFF' and status = 'pending'),
+  1,
+  'connecteur coupé : le booking de la ligne relâchée part QUAND MÊME en file d''annulation'
+);
+select is(
+  (select public.release_order_after_pms_refusal('9a930000-0000-4000-8000-000000000074', 'refus après remboursement')->>'reason'),
+  'order_paid',
+  'commande remboursée → order_paid, rien n''est défait (I3)'
 );
 
 select * from finish();

@@ -87,6 +87,15 @@ async function runOnce(run, seedClient) {
     })
   );
 
+  // Coordinateur : il tient le verrou de la commande AVANT que les workers partent, et ne le rend
+  // qu'une fois qu'ils sont tous bloqués dessus. Sans lui, le bail seul donnerait le même résultat
+  // en exécution séquentielle, et le test ne prouverait pas que le `for update` sérialise. Avec lui,
+  // une version sans `for update` laisse passer les 20 claims, de façon déterministe.
+  const coordinator = new Client({ connectionString: CONNECTION_STRING });
+  await coordinator.connect();
+  await coordinator.query("begin");
+  await coordinator.query("select 1 from orders where id = $1 for update", [ORDER_ID]);
+
   // Barrière : chaque worker signale qu'il est prêt, puis attend un signal commun qui ne part que
   // lorsque TOUS sont prêts — chevauchement réel des `for update` sur la commande.
   let readyCount = 0;
@@ -98,7 +107,7 @@ async function runOnce(run, seedClient) {
     if (++readyCount === N) resolveGo();
   };
 
-  const results = await Promise.all(
+  const pending = Promise.all(
     clients.map(async (client) => {
       markReady();
       await go;
@@ -106,6 +115,12 @@ async function runOnce(run, seedClient) {
       return res.rows[0].result;
     })
   );
+  // Laisse aux 20 appels le temps d'arriver sur le verrou, puis le rend.
+  await go;
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  await coordinator.query("commit");
+  await coordinator.end();
+  const results = await pending;
   await Promise.all(clients.map((client) => client.end()));
 
   const successes = results.filter((r) => r.ok === true && r.claimed_at !== null);

@@ -13,11 +13,15 @@
 --        qu'une nuit PMS-backed `reserved` n'a pas son booking.
 --   I3 — jamais dé-payer : release_order_after_pms_refusal refuse une commande payée, le claim
 --        aussi.
+-- Tout booking des lignes que release_order_after_pms_refusal relâche part aussi EXPLICITEMENT en
+-- file d'annulation (même règle que record_pms_booking : jamais délégué au seul trigger, qui filtre
+-- les connecteurs actifs). Une commande sans ligne vivante est `order_not_active` pour le claim.
 --
 -- ORDRE DES VERROUS (.claude/rules/supabase.md règle 8 : `orders` d'abord, toujours) :
 --   claim_order_for_pms_booking  : orders → order_lines candidates (order by id) ; establishments
 --                                  lus sous le verrou de la commande, sans verrou propre ;
---   record_pms_booking           : orders → la ligne → (trigger d'annulation) ;
+--   record_pms_booking           : orders → la ligne → (trigger d'annulation) → pms_sync_state
+--                                  (invalidation du miroir, en sous-bloc best-effort) ;
 --   release_pms_reserve_claim    : orders ;
 --   create_payment_intent        : orders → payments (inchangé) ;
 --   release_order_after_pms_refusal : orders → order_lines (inchangé).
@@ -33,10 +37,12 @@ comment on column public.orders.pms_reserve_claimed_at is
   'Claim de réservation Lobby en cours (bail de 5 min) — posé par claim_order_for_pms_booking, '
   'renvoyé comme jeton et repassé à record_pms_booking / release_pms_reserve_claim.';
 
--- Un seul intent en attente par commande : jusqu'ici l'unicité ne tenait qu'au `for update` sur
--- orders de create_payment_intent. 0 doublon en local au moment de l'écrire — à recompter en
--- préprod avant le push.
-create unique index payments_one_pending_per_order on public.payments (order_id) where status = 'pending';
+-- PAS d'index unique sur payments(order_id) where status = 'pending', délibérément (décision du
+-- 2026-10-01) : apply_payment_webhook peut légitimement repasser un ancien paiement à `pending`
+-- pendant qu'un nouvel intent l'est déjà. L'unicité des intents créés tient au `for update` sur
+-- orders de create_payment_intent, seul code qui insère dans payments
+-- (tests/concurrency/create_payment_intent.concurrency.mjs). L'index reviendra avec une garde
+-- d'apply_payment_webhook contre la rétrogradation vers `pending`.
 
 create function public.claim_order_for_pms_booking(p_order_id uuid)
 returns jsonb
@@ -83,6 +89,14 @@ begin
      and ol.pms_booking_id is null
    order by ol.id
    for update;
+
+  -- Plus aucune ligne vivante (commande relâchée, expirée, annulée) : ce n'est pas « rien à
+  -- réserver », c'est une commande morte — jamais un succès renvoyé au tunnel.
+  if not exists (
+    select 1 from public.order_lines ol where ol.order_id = p_order_id and ol.status = 'reserved'
+  ) then
+    return jsonb_build_object('ok', false, 'reason', 'order_not_active');
+  end if;
 
   -- CLAUDE.md §4.4 : un logement PMS-backed n'a aucun contrôle de capacité local — Lobby est le
   -- seul. Connecteur coupé ou sans jeton (même prédicat que create_order, 20260929112240, relu ici
@@ -171,7 +185,10 @@ declare
   v_reason text;
   v_queue_status text;
 begin
-  if p_order_id is null or p_order_line_id is null or nullif(btrim(p_pms_booking_id), '') is null then
+  -- Le jeton est obligatoire : sans lui, `null is distinct from null` laisserait enregistrer un
+  -- booking hors de tout claim.
+  if p_order_id is null or p_claimed_at is null or p_order_line_id is null
+     or nullif(btrim(p_pms_booking_id), '') is null then
     return jsonb_build_object('ok', false, 'reason', 'invalid_arguments');
   end if;
 
@@ -215,8 +232,14 @@ begin
     update public.order_lines set pms_booking_id = p_pms_booking_id where id = p_order_line_id;
     -- Le miroir de disponibilité doit savoir tout de suite que ces nuits sont prises chez Lobby
     -- (migration 20260918170000) — dans la même transaction, plus en best-effort séparé.
+    -- Best-effort, comme dans la route avant : un échec ici retarde le reflet du miroir, il ne doit
+    -- jamais faire échouer l'enregistrement d'un booking déjà acté chez Lobby.
     if v_line.end_date is not null then
-      perform public.mark_pms_sync_due_for_order_line(p_order_line_id);
+      begin
+        perform public.mark_pms_sync_due_for_order_line(p_order_line_id);
+      exception when others then
+        raise warning 'record_pms_booking : invalidation du miroir impossible (%) — reflet retardé', sqlerrm;
+      end;
     end if;
     return jsonb_build_object('ok', true);
   end if;
@@ -353,12 +376,16 @@ begin
   -- réservation jusqu'à son expiration.
   if v_existing_status = 'pending' then
     if v_existing_amount_cop = v_amount_cop then
+      update public.orders set payment_status = 'pending' where id = p_order_id;
       return jsonb_build_object(
         'ok', true, 'payment_id', v_existing_payment_id, 'amount_cop', v_amount_cop,
         'payer_email', v_payer_email, 'reused', true
       );
     end if;
-    update public.payments set status = 'cancelled', updated_at = now() where id = v_existing_payment_id;
+    -- Tous les pending de la commande, pas seulement le dernier : un ancien paiement redevenu
+    -- `pending` (retentative Checkout Pro) ne doit pas survivre à l'ancien montant.
+    update public.payments set status = 'cancelled', updated_at = now()
+     where order_id = p_order_id and status = 'pending';
   end if;
 
   insert into public.payments (order_id, amount_cop, payer_email)
@@ -394,9 +421,9 @@ begin
   end if;
 
   -- Ajout de la migration 20260930221837 (I3) : une commande payée n'est JAMAIS défaite par un
-  -- refus Lobby. Avant : `payment_status = 'unpaid'` inconditionnel plus bas — la commande était
-  -- dé-payée, payments restait `approved`, et l'argent devenait invisible. La route garde alors
-  -- la commande et l'envoie en réconciliation (chemin « relâchement impossible »).
+  -- refus Lobby (le `payment_status = 'unpaid'` plus bas ne concerne que les commandes non
+  -- payées). La route garde alors la commande et l'envoie en réconciliation (chemin
+  -- « relâchement impossible »).
   if v_payment_status in ('paid', 'partially_refunded', 'refunded') then
     return jsonb_build_object('ok', false, 'reason', 'order_paid');
   end if;
@@ -424,6 +451,23 @@ begin
   update public.order_lines
      set status = 'cancelled_by_provider'
    where id = any(v_released_ids);
+
+  -- Ajout de la migration 20260930221837 : les bookings Lobby des lignes relâchées partent EXPLICITEMENT
+  -- en file d'annulation. Le trigger enqueue_pms_cancellations filtre les établissements au
+  -- connecteur actif : un connecteur coupé entre le claim et ce relâchement laisserait sinon ces
+  -- bookings orphelins chez Lobby. L'entrée attend la réactivation (claim_pms_cancellation_batch) ;
+  -- si le trigger l'a déjà posée, l'index partiel absorbe le doublon.
+  insert into public.pms_cancellation_queue (pms_booking_id, establishment_id, hifago_status)
+  select distinct on (ol.pms_booking_id) ol.pms_booking_id, p.establishment_id, 'cancelled_by_provider'
+    from public.order_lines ol
+    join public.products p on p.id = ol.product_id
+   where ol.id = any(v_released_ids)
+     and ol.pms_booking_id is not null
+     and not exists (
+       select 1 from public.order_lines o2
+        where o2.pms_booking_id = ol.pms_booking_id and o2.status = 'reserved'
+     )
+  on conflict (pms_booking_id) where status = 'pending' do nothing;
 
   perform public.apply_order_line_ledger_transition(v_released_ids, 'cancelled_by_provider');
 

@@ -13,10 +13,9 @@ import { createServiceRoleClient } from "@hifago/supabase/service";
 // l'orderId, tout le reste est relu en base — aucune vérification auth.getUser() ici, create_order a
 // déjà entièrement statué sur l'autorisation de la réservation elle-même.
 //
-// ⚠️ INVARIANT RETOURNÉ LE 2026-08-29. Cette route était fire-and-forget APRÈS confirmation, et
-// répondait donc toujours `200 {ok:true}` : « un échec PMS ne défait jamais une réservation déjà
-// confirmée ». Elle est désormais ATTENDUE, avant confirmation visible et avant tout encaissement
-// (spec 21 §8 : « échec fermé uniquement AVANT confirmation »), et elle rend un VERDICT.
+// ⚠️ INVARIANT RETOURNÉ LE 2026-08-29. Cette route est ATTENDUE, avant confirmation visible et avant
+// tout encaissement (spec 21 §8 : « échec fermé uniquement AVANT confirmation »), et elle rend un
+// VERDICT.
 //
 // LE FAIT QUI A DÉCIDÉ (spec 24 §11.2) : deux catégories du compte réel (49823, 18013) refusent
 // `POST /bookings` en 422 tout en affichant une disponibilité NON NULLE, et C1 est RÉFUTÉ —
@@ -25,39 +24,58 @@ import { createServiceRoleClient } from "@hifago/supabase/service";
 //
 // LE CLAIM (migration 20260930221837) — trois temps, chacun sa transaction, jamais un verrou tenu
 // pendant l'appel à LobbyPMS :
-//   1. claim_order_for_pms_booking : relit TOUT (lignes, produits, connecteur, jeton) sous le
-//      verrou de la commande et pose un bail de 5 min. Avant, quatre lectures séparées dont aucune
-//      ne lisait son `error` répondaient `{ok:true}` sur une panne, et deux POST simultanés
-//      créaient deux bookings — le surnuméraire, qu'aucune ligne ne référençait, n'était jamais
-//      annulé ;
-//   2. LobbyPMS, ligne par ligne ;
-//   3. record_pms_booking : enregistre chaque booking SOUS le claim (son horodatage sert de jeton) ;
+//   1. claim_order_for_pms_booking relit tout (lignes, produits, connecteur, jeton) sous le verrou
+//      de la commande et pose un bail de 5 min : un seul appel à la fois réserve une commande ;
+//   2. LobbyPMS, ligne par ligne, dans un budget de temps global ;
+//   3. record_pms_booking enregistre chaque booking SOUS le claim (son horodatage sert de jeton) ;
 //      un booking qu'aucune ligne vivante ne peut porter part en file d'annulation, jamais perdu.
-// Le claim est rendu en `finally`, quoi qu'il arrive.
+// Le claim est rendu en `finally`.
 //
-// CE QUI DÉCLENCHE UN RELÂCHEMENT, et ce qui n'en déclenche pas :
-//   - une NUIT qui n'obtient pas son booking → la commande entière est défaite
-//     (release_order_after_pms_refusal), rien n'est encaissé, les places non-PMS sont rendues ;
-//   - une ACTIVITÉ refusée alors que sa nuit est bien réservée → surtout PAS de relâchement : la
-//     nuit existe chez le partenaire, l'annuler pour un extra serait pire que le défaut. On garde
-//     l'ancien chemin (pms_reconciliation_entries), qui est exactement fait pour ça ;
-//   - une activité SANS aucune nuit dans cette commande pour cet établissement → ni l'un ni
-//     l'autre : Lobby n'accepte pas de vente de service isolée, c'est une limite connue.
+// ORDRE : toutes les NUITS d'abord, arrêt à la première qui échoue (la commande sera défaite de
+// toute façon : réserver les suivantes ne ferait que créer des bookings à annuler) ; les ACTIVITÉS
+// ensuite, seulement si toutes les nuits sont réservées. Une activité refusée ne défait jamais la
+// commande : la nuit existe chez le partenaire, on réconcilie l'extra (pms_reconciliation_entries).
+// Une activité sans nuit pour son établissement n'est jamais vendue à Lobby (limite connue : pas de
+// vente de service isolée).
 //
-// ISSUE INCONNUE (timeout, coupure réseau) : LobbyPMS n'a ni clé d'idempotence ni recherche de
-// booking. Un `POST /bookings` sans réponse a PU créer le booking, et son id est perdu : la commande
-// est relâchée comme sur un refus, MAIS une entrée de réconciliation est écrite quand même, avec la
-// clé que l'hôte retrouve dans Lobby (la note « hifago order_line <id> »). Seul un humain peut
-// vérifier.
+// QUATRE ISSUES pour un appel de nuit, et elles ne se traitent pas pareil :
+//   - booking obtenu → enregistré ;
+//   - REFUS (400/422 — le 422 ci-dessus) : aucun booking créé, la commande est défaite, rien n'est
+//     écrit en réconciliation (un incident défait n'est pas « à traiter ») ;
+//   - PANNE (autre 4xx : relais, quota, jeton ; connexion jamais établie) : aucun booking créé non
+//     plus, la commande est défaite, motif `pms_unreachable` — jamais présenté au client comme une
+//     indisponibilité — et une ligne de journal à marqueur fixe pour l'alerte ;
+//   - ISSUE INCONNUE (timeout, 5xx, 2xx inexploitable, connexion coupée en vol) : LobbyPMS n'a ni
+//     clé d'idempotence ni recherche de booking, le booking a PU être créé et son id est perdu. La
+//     commande est défaite comme sur un refus, MAIS une entrée de réconciliation est écrite TOUT DE
+//     SUITE (une coupure de la plateforme plus tard ne doit pas l'emporter), avec la clé que l'hôte
+//     retrouve dans Lobby : la note « hifago order_line <id> ».
 //
-// Chaque établissement PMS-backed de la commande est traité INDÉPENDAMMENT (cahier des charges
-// client §5) : son propre booking, ses propres activités rattachées.
+// Chaque établissement PMS-backed de la commande a son propre booking et ses propres activités
+// (cahier des charges client §5).
 export const runtime = "nodejs";
-// Une commande à plusieurs nuits enchaîne plusieurs appels LobbyPMS de 15 s au plus : sans ce
-// plafond explicite, la plateforme couperait la fonction avant les timeouts.
+// Une commande à plusieurs nuits enchaîne plusieurs appels LobbyPMS : le budget ci-dessous garantit
+// que la route conclut (relâche, écrit, rend le claim) AVANT que la plateforme ne la coupe.
 export const maxDuration = 60;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// maxDuration (60 s) moins une marge pour relâcher la commande, écrire en réconciliation et rendre
+// le claim — jamais dépassé, même par la variable d'environnement des tests.
+const MAX_BUDGET_MS = 50_000;
+const DEFAULT_CALL_TIMEOUT_MS = 15_000;
+// Erreurs de la phase de connexion (undici sous Node) : la requête n'est jamais partie.
+const CONNECT_ERROR_CODES = new Set([
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "CERT_HAS_EXPIRED",
+  "DEPTH_ZERO_SELF_SIGNED_CERT",
+  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+  "ERR_TLS_CERT_ALTNAME_INVALID",
+]);
 
 interface ClaimedLodgingLine {
   id: string;
@@ -98,36 +116,51 @@ type ClaimResult =
 
 type Service = ReturnType<typeof createServiceRoleClient>;
 
-// `detail` répond à « pourquoi », que cette entrée ne disait pas jusqu'au 2026-08-27 : l'e-mail
-// envoyé à chaque admin (notify_all_admins) et l'écran de réconciliation disaient « quelque chose a
-// échoué » sans plus.
-//
-// ⚠️ SEULEMENT des corps de réponse, jamais l'URL de la requête : elle porte `api_token` en query
-// string (hifago/CLAUDE.md §8). Tronqué à 300 caractères.
-async function recordFailure(service: Service, orderLineId: string, detail: string) {
-  console.error(`reserve-nights : échec PMS (order_line ${orderLineId}) — ${detail}`);
-  await service.from("pms_reconciliation_entries").insert({
-    order_line_id: orderLineId,
-    detail: detail.length > 300 ? `${detail.slice(0, 300)}…` : detail,
-  });
-}
-
-function describeLobbyResponse(status: number, body: unknown): string {
-  const text = typeof body === "string" ? body : JSON.stringify(body);
-  return `HTTP ${status} — ${text || "corps vide"}`;
-}
-
-function describeError(error: unknown): string {
-  if (error instanceof Error) return `${error.name} : ${error.message}`;
-  return String(error);
-}
+// refused : aucun booking, motif métier ; system : aucun booking, panne ; not_attempted : budget
+// épuisé, aucun appel envoyé ; unknown / unrecorded : un booking existe ou a pu être créé chez Lobby
+// sans qu'aucune ligne ne le porte — les seuls qui demandent un humain.
+type FailureKind = "refused" | "system" | "not_attempted" | "unknown" | "unrecorded";
 
 interface LodgingFailure {
   lineId: string;
   detail: string;
-  // Vrai quand un booking existe (ou a pu être créé) chez Lobby sans être porté par une ligne :
-  // l'entrée de réconciliation est alors écrite MÊME si la commande est relâchée.
-  needsHuman: boolean;
+  kind: FailureKind;
+}
+
+const needsHuman = (kind: FailureKind) => kind === "unknown" || kind === "unrecorded";
+
+function truncate(text: string, max = 300): string {
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+// ⚠️ SEULEMENT des corps de réponse, jamais l'URL de la requête : elle porte `api_token` en query
+// string (hifago/CLAUDE.md §8). Et si un corps renvoyait la requête en écho, le jeton y est masqué.
+function describeLobbyResponse(status: number, body: unknown): string {
+  const text = typeof body === "string" ? body : JSON.stringify(body);
+  const masked = (text || "corps vide").replace(/("api_token"\s*:\s*")[^"]*"/g, '$1***"');
+  return `HTTP ${status} — ${masked}`;
+}
+
+function describeError(error: unknown): string {
+  if (error instanceof Error) {
+    const code = (error.cause as { code?: string } | undefined)?.code;
+    return `${error.name} : ${error.message}${code ? ` (${code})` : ""}`;
+  }
+  return String(error);
+}
+
+// `detail` répond à « pourquoi » dans l'écran de réconciliation. Une écriture qui échoue est
+// retentée une fois : sur les issues inconnues, cette entrée est la SEULE trace durable d'un booking
+// peut-être créé chez Lobby. Si elle échoue encore, la ligne de journal à marqueur fixe reste.
+async function recordFailure(service: Service, orderLineId: string, detail: string) {
+  const entry = { order_line_id: orderLineId, detail: truncate(detail) };
+  console.error(`reserve-nights : échec PMS (order_line ${orderLineId}) — ${entry.detail}`);
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const { error } = await service.from("pms_reconciliation_entries").insert(entry);
+    if (!error) return;
+    console.error(`reserve-nights : écriture de réconciliation impossible (tentative ${attempt})`, error);
+  }
+  console.error(`reserve-nights[RECONCILIATION_PERDUE] order_line ${orderLineId} — ${entry.detail}`);
 }
 
 type RecordOutcome = "ok" | "claim_stale" | "already_booked" | "line_not_reserved" | "not_recorded";
@@ -165,7 +198,7 @@ async function recordBooking(
 async function releaseOrder(service: Service, orderId: string, reason: string): Promise<boolean> {
   const { data, error } = await service.rpc("release_order_after_pms_refusal", {
     p_order_id: orderId,
-    p_reason: reason.slice(0, 300),
+    p_reason: truncate(reason),
   });
   const ok = !error && (data as { ok?: boolean } | null)?.ok === true;
   if (!ok) {
@@ -174,13 +207,14 @@ async function releaseOrder(service: Service, orderId: string, reason: string): 
   return ok;
 }
 
-// Toute réponse d'échec porte `released` : c'est le seul champ que CheckoutForm lit pour choisir
-// son message (« fechas liberadas » vs « estamos liberando »).
+// Toute réponse d'échec porte `released` : c'est le champ que CheckoutForm lit pour choisir son
+// message (« fechas liberadas » vs « estamos liberando »).
 function failure(status: number, reason: string, released: boolean, extra: Record<string, unknown> = {}) {
   return Response.json({ ok: false, reason, released, ...extra }, { status });
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
   let body: { orderId?: unknown };
   try {
     body = await request.json();
@@ -209,6 +243,10 @@ export async function POST(request: Request) {
     switch (claim.reason) {
       case "order_not_found":
         return failure(404, "order_not_found", false);
+      case "order_not_active":
+        // Plus aucune ligne vivante : la commande a déjà été défaite (refus, expiration). Jamais un
+        // succès.
+        return failure(409, "order_not_active", true);
       case "order_paid":
         return failure(409, "order_paid", false);
       case "claim_in_progress":
@@ -226,13 +264,13 @@ export async function POST(request: Request) {
   }
 
   if (claim.claimed_at === null || claim.groups.length === 0) {
-    // Rien à réserver chez Lobby (aucune ligne PMS-backed sans booking) — pas une erreur.
+    // Commande vivante sans rien à réserver chez Lobby (aucune ligne PMS sans booking).
     return Response.json({ ok: true });
   }
 
   const claimedAt = claim.claimed_at;
   try {
-    return await reserveClaimedOrder(service, orderId, claimedAt, claim);
+    return await reserveClaimedOrder(service, orderId, claimedAt, claim, startedAt);
   } finally {
     const { error } = await service.rpc("release_pms_reserve_claim", {
       p_order_id: orderId,
@@ -245,32 +283,56 @@ export async function POST(request: Request) {
   }
 }
 
+function positiveEnv(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
 async function reserveClaimedOrder(
   service: Service,
   orderId: string,
   claimedAt: string,
-  claim: Extract<ClaimResult, { ok: true }>
+  claim: Extract<ClaimResult, { ok: true }>,
+  startedAt: number
 ): Promise<Response> {
   const baseUrl = process.env.LOBBY_API_BASE_URL || LOBBY_DEFAULT_BASE_URL;
   const relaySecret = process.env.LOBBY_RELAY_SECRET;
-  const timeoutMs = Number(process.env.LOBBY_RESERVE_TIMEOUT_MS) || 15_000;
+  // Les deux variables ne servent qu'aux tests (valeurs courtes) ; en production, les défauts.
+  const callTimeoutMs = positiveEnv("LOBBY_RESERVE_TIMEOUT_MS", DEFAULT_CALL_TIMEOUT_MS);
+  const deadline = startedAt + Math.min(positiveEnv("LOBBY_RESERVE_BUDGET_MS", MAX_BUDGET_MS), MAX_BUDGET_MS);
+  // Un appel part avec son délai COMPLET ou ne part pas : jamais raccourci pour tenir le budget. Un
+  // appel coupé par notre propre délai est une issue INCONNUE (booking peut-être créé) ; un appel
+  // jamais envoyé est un échec net.
+  const nextCallTimeout = (): number | null => (deadline - Date.now() >= callTimeoutMs ? callTimeoutMs : null);
 
-  // Les échecs de NUIT sont collectés, pas enregistrés au fil de l'eau : si la commande est
-  // relâchée juste après, insérer dans pms_reconciliation_entries déclencherait notify_all_admins
-  // (sans dédup) pour un incident déjà défait — sauf `needsHuman`, cf. plus bas.
-  const lodgingFailures: LodgingFailure[] = [];
+  let failed: LodgingFailure | null = null;
+  const fail = async (entry: LodgingFailure): Promise<LodgingFailure> => {
+    if (needsHuman(entry.kind)) {
+      // TOUT DE SUITE : si la plateforme coupait la fonction plus loin, cette trace resterait.
+      await recordFailure(service, entry.lineId, entry.detail);
+    } else if (entry.kind === "system") {
+      console.error(`reserve-nights[LOBBY_INDISPONIBLE] order ${orderId} — ${truncate(entry.detail)}`);
+    }
+    return entry;
+  };
 
-  for (const group of claim.groups) {
-    let primaryBookingId: number | null = null;
-
+  // ── Phase 1 : les nuits, arrêt au premier échec ──────────────────────────────────────────────
+  const primaryBookings = new Map<string, number>();
+  nights: for (const group of claim.groups) {
     for (const line of group.lodging_lines) {
       if (!line.end_date || line.lobby_category_id == null) {
-        lodgingFailures.push({
+        failed = await fail({
           lineId: line.id,
           detail: `ligne inexploitable : end_date=${line.end_date ?? "null"}, lobby_category_id=${line.lobby_category_id ?? "null"}`,
-          needsHuman: false,
+          kind: "refused",
         });
-        continue;
+        break nights;
+      }
+
+      const timeoutMs = nextCallTimeout();
+      if (timeoutMs === null) {
+        failed = await fail({ lineId: line.id, detail: "nuit non tentée : budget de temps épuisé", kind: "not_attempted" });
+        break nights;
       }
 
       let response: Awaited<ReturnType<typeof createLobbyBooking>>;
@@ -297,32 +359,47 @@ async function reserveClaimedOrder(
           timeoutMs
         );
       } catch (error) {
-        // Timeout ou coupure APRÈS l'envoi : Lobby a pu créer le booking. Jamais traité comme un
-        // simple refus — un humain doit vérifier dans Lobby, par la clé de la note (sans les
-        // coordonnées du client, qui n'ont rien à faire dans un e-mail admin).
-        lodgingFailures.push({
-          lineId: line.id,
-          detail: `POST /bookings sans réponse (${describeError(error)}) — booking PEUT-ÊTRE créé chez Lobby, à vérifier par la note « hifago order_line ${line.id} »`,
-          needsHuman: true,
-        });
-        continue;
+        const code = error instanceof Error ? (error.cause as { code?: string } | undefined)?.code : undefined;
+        if (code && CONNECT_ERROR_CODES.has(code)) {
+          failed = await fail({
+            lineId: line.id,
+            detail: `POST /bookings jamais envoyé (${describeError(error)})`,
+            kind: "system",
+          });
+        } else {
+          // La requête est partie : Lobby a pu créer le booking. Seule la clé de la note figure ici —
+          // la note complète porte les coordonnées du client.
+          failed = await fail({
+            lineId: line.id,
+            detail: `POST /bookings sans réponse (${describeError(error)}) — booking PEUT-ÊTRE créé chez Lobby, à vérifier par la note « hifago order_line ${line.id} »`,
+            kind: "unknown",
+          });
+        }
+        break nights;
       }
 
       const parsed = parseLobbyBookingResponse(response.body);
       if (!parsed) {
-        // LE cas du 422 : Lobby cote la catégorie comme disponible et refuse de la réserver.
-        lodgingFailures.push({
-          lineId: line.id,
-          detail: `POST /bookings sans booking_id exploitable — ${describeLobbyResponse(response.status, response.body)}`,
-          needsHuman: false,
-        });
-        continue;
+        const described = describeLobbyResponse(response.status, response.body);
+        if (response.status === 400 || response.status === 422) {
+          // LE cas du 422 : Lobby cote la catégorie comme disponible et refuse de la réserver.
+          failed = await fail({ lineId: line.id, detail: `POST /bookings refusé — ${described}`, kind: "refused" });
+        } else if (response.status >= 400 && response.status < 500) {
+          failed = await fail({ lineId: line.id, detail: `POST /bookings rejeté avant Lobby — ${described}`, kind: "system" });
+        } else {
+          failed = await fail({
+            lineId: line.id,
+            detail: `POST /bookings sans booking_id exploitable — ${described} — booking PEUT-ÊTRE créé chez Lobby, à vérifier par la note « hifago order_line ${line.id} »`,
+            kind: "unknown",
+          });
+        }
+        break nights;
       }
 
       const bookingId = String(parsed.bookingId);
       const outcome = await recordBooking(service, orderId, claimedAt, line.id, bookingId);
       if (outcome === "ok") {
-        primaryBookingId ??= parsed.bookingId;
+        if (!primaryBookings.has(group.establishment_id)) primaryBookings.set(group.establishment_id, parsed.bookingId);
         continue;
       }
       if (outcome === "claim_stale") {
@@ -338,96 +415,92 @@ async function reserveClaimedOrder(
       }
       if (outcome === "line_not_reserved") {
         // La ligne est morte entre-temps (expirée, annulée) ; le booking est en file d'annulation.
-        lodgingFailures.push({
+        failed = await fail({
           lineId: line.id,
           detail: `ligne plus réservée au retour de Lobby — booking ${bookingId} mis en annulation`,
-          needsHuman: false,
+          kind: "refused",
         });
-        continue;
+        break nights;
       }
-      // not_recorded : le booking existe chez Lobby et AUCUNE ligne ne le porte. Seul un humain peut
-      // l'annuler — l'entrée de réconciliation porte son id.
-      lodgingFailures.push({
+      // not_recorded : le booking existe chez Lobby et AUCUNE ligne ne le porte.
+      failed = await fail({
         lineId: line.id,
         detail: `booking ${bookingId} créé chez Lobby mais NON enregistré en base — à annuler à la main`,
-        needsHuman: true,
+        kind: "unrecorded",
       });
-    }
-
-    for (const line of group.activity_lines) {
-      if (primaryBookingId === null) {
-        // (a) aucune nuit dans la commande pour cet établissement : vendre un service Lobby seul est
-        //     structurellement impossible (add-product-service exige un vrai booking, piège
-        //     empirique confirmé v1) — pas un incident, une limite connue, donc aucune entrée
-        //     (notify_all_admins enverrait un e-mail à chaque admin à chaque vente) ;
-        // (b) il y avait des nuits mais aucune n'a son booking : la commande va être relâchée, et
-        //     c'est l'échec des NUITS qui le décide — rien à enregistrer ici.
-        if (group.lodging_lines.length === 0) {
-          console.warn(
-            `reserve-nights : service Lobby non reflété (order_line ${line.id}) — aucune nuit dans la commande pour cet établissement, Lobby n'accepte pas de vente de service isolée`
-          );
-        }
-        continue;
-      }
-      try {
-        const response = await addLobbyProductService(
-          baseUrl,
-          group.api_token,
-          primaryBookingId,
-          [{ productId: line.lobby_product_id, qty: line.qty }],
-          relaySecret,
-          timeoutMs
-        );
-        if (response.status !== 200) {
-          await recordFailure(
-            service,
-            line.id,
-            `add-product-service refusé — ${describeLobbyResponse(response.status, response.body)}`
-          );
-          continue;
-        }
-        const outcome = await recordBooking(service, orderId, claimedAt, line.id, String(primaryBookingId));
-        if (outcome !== "ok") {
-          await recordFailure(
-            service,
-            line.id,
-            `service ajouté au booking ${primaryBookingId} mais non enregistré sur la ligne (${outcome})`
-          );
-        }
-      } catch (error) {
-        await recordFailure(
-          service,
-          line.id,
-          `add-product-service sans réponse (${describeError(error)}) — service PEUT-ÊTRE ajouté au booking ${primaryBookingId}`
-        );
-      }
+      break nights;
     }
   }
 
-  if (lodgingFailures.length === 0) {
+  if (failed === null) {
+    // ── Phase 2 : les activités, seulement si toutes les nuits sont réservées ──────────────────
+    for (const group of claim.groups) {
+      const primaryBookingId = primaryBookings.get(group.establishment_id);
+      for (const line of group.activity_lines) {
+        if (primaryBookingId === undefined) {
+          // Aucune nuit dans la commande pour cet établissement : vendre un service Lobby seul est
+          // structurellement impossible (add-product-service exige un vrai booking) — pas un
+          // incident, une limite connue, donc aucune entrée (un e-mail à chaque admin par vente).
+          console.warn(
+            `reserve-nights : service Lobby non reflété (order_line ${line.id}) — aucune nuit dans la commande pour cet établissement, Lobby n'accepte pas de vente de service isolée`
+          );
+          continue;
+        }
+        const timeoutMs = nextCallTimeout();
+        if (timeoutMs === null) {
+          await recordFailure(service, line.id, `service non ajouté au booking ${primaryBookingId} : budget de temps épuisé`);
+          continue;
+        }
+        try {
+          const response = await addLobbyProductService(
+            baseUrl,
+            group.api_token,
+            primaryBookingId,
+            [{ productId: line.lobby_product_id, qty: line.qty }],
+            relaySecret,
+            timeoutMs
+          );
+          if (response.status !== 200) {
+            await recordFailure(
+              service,
+              line.id,
+              `add-product-service refusé — ${describeLobbyResponse(response.status, response.body)}`
+            );
+            continue;
+          }
+          const outcome = await recordBooking(service, orderId, claimedAt, line.id, String(primaryBookingId));
+          if (outcome !== "ok") {
+            await recordFailure(
+              service,
+              line.id,
+              `service ajouté au booking ${primaryBookingId} mais non enregistré sur la ligne (${outcome})`
+            );
+          }
+        } catch (error) {
+          await recordFailure(
+            service,
+            line.id,
+            `add-product-service sans réponse (${describeError(error)}) — service PEUT-ÊTRE ajouté au booking ${primaryBookingId}`
+          );
+        }
+      }
+    }
     return Response.json({ ok: true });
   }
 
   // ── ÉCHEC D'UNE NUIT : on défait, on n'encaisse pas ──────────────────────────────────────────
-  console.error(
-    `reserve-nights : ${lodgingFailures.length} nuit(s) sans booking (order ${orderId}) — relâchement`,
-    lodgingFailures.map((entry) => entry.detail)
-  );
-  const released = await releaseOrder(service, orderId, lodgingFailures[0].detail);
+  const failure0 = failed;
+  console.error(`reserve-nights : nuit sans booking (order ${orderId}) — relâchement — ${truncate(failure0.detail)}`);
+  const released = await releaseOrder(service, orderId, failure0.detail);
+  if (!released && !needsHuman(failure0.kind)) {
+    // Non relâchée (refus de la base, commande payée entre-temps…) : c'est le seul cas qui laisse
+    // une commande pendante, un humain doit le voir. Le filet reste expire_payment_order (30 min),
+    // qui annulera au passage les bookings déjà créés.
+    await recordFailure(service, failure0.lineId, `${failure0.detail} — relâchement impossible`);
+  }
 
-  // Relâchée : seules les issues qui ont besoin d'un humain sont enregistrées (un booking a pu
-  // survivre chez Lobby). Non relâchée (refus de la base, commande payée entre-temps…) : TOUT est
-  // enregistré — c'est le seul cas qui laisse une commande pendante, le filet restant
-  // expire_payment_order (30 minutes), qui annulera au passage les bookings frères déjà créés.
-  const toRecord = released ? lodgingFailures.filter((entry) => entry.needsHuman) : lodgingFailures;
-  await Promise.all(
-    toRecord.map((entry) =>
-      recordFailure(service, entry.lineId, released ? entry.detail : `${entry.detail} — relâchement impossible`)
-    )
-  );
-
-  // 409 et non 200 : c'est un refus ou une issue inconnue chez le prestataire, pas une panne de
-  // hifago, et il doit se voir dans la supervision comme dans le front.
-  const reason = lodgingFailures.some((entry) => entry.needsHuman) ? "pms_unreachable" : "pms_refused";
-  return failure(409, reason, released, { failedLines: lodgingFailures.length });
+  // 409 et non 200 : refus, panne ou issue inconnue chez le prestataire — jamais un succès. Seul un
+  // vrai refus est présenté comme une indisponibilité.
+  const reason = failure0.kind === "refused" ? "pms_refused" : "pms_unreachable";
+  return failure(409, reason, released);
 }

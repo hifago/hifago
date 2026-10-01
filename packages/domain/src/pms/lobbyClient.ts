@@ -44,7 +44,13 @@ async function lobbyCall<T = unknown>(
   baseUrl: string,
   path: string,
   apiToken: string,
-  options: { params?: Record<string, string | number>; data?: unknown; relaySecret?: string; timeoutMs?: number } = {}
+  options: {
+    params?: Record<string, string | number>;
+    data?: unknown;
+    relaySecret?: string;
+    timeoutMs?: number;
+    noRedirect?: boolean;
+  } = {}
 ): Promise<LobbyCallResult<T>> {
   const url = new URL(path, baseUrl);
   if (method === "GET") {
@@ -68,6 +74,9 @@ async function lobbyCall<T = unknown>(
     headers,
     body: method === "POST" ? JSON.stringify({ api_token: apiToken, ...(options.data as object) }) : undefined,
     signal: options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined,
+    // Une écriture ne suit jamais une redirection : `fetch` transformerait le POST en GET, et la
+    // réponse finale masquerait un booking peut-être déjà créé. Le 3xx reste visible à l'appelant.
+    redirect: options.noRedirect ? "manual" : "follow",
   });
 
   const text = await response.text();
@@ -195,6 +204,7 @@ export function createLobbyBooking(
     },
     relaySecret,
     timeoutMs,
+    noRedirect: true,
   });
 }
 
@@ -213,6 +223,7 @@ export function addLobbyProductService(
     },
     relaySecret,
     timeoutMs,
+    noRedirect: true,
   });
 }
 

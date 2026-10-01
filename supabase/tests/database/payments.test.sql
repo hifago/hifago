@@ -7,7 +7,7 @@
 -- `set local role authenticated` (le vrai rôle Postgres change, contrairement à test_login qui ne
 -- simule qu'un claim JWT), pas seulement l'un ou l'autre.
 begin;
-select plan(71);
+select plan(74);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -916,11 +916,71 @@ select is(
   jsonb_build_object('premier', 20000, 'second', 10000, 'nouveau_paiement', true, 'ancien', 'cancelled', 'pendings', 1),
   'cas 43 : montant changé entre deux intents → ancien payment annulé, nouveau créé, un seul pending'
 );
-select throws_ok(
-  $$insert into payments (order_id, amount_cop, payer_email)
-    values ('88970000-0000-4000-8000-000000000244', 10000, 'amount-payments@test.local')$$,
-  '23505', null,
-  'cas 44 : un second pending sur la même commande est refusé par l''index unique partiel'
+
+-- Cas 44 : PAS d'index unique sur les pending (décision de la revue de P4a) — un paiement `rejected`
+-- qui redevient `pending` par une retentative dans la même session Checkout Pro, pendant qu'un
+-- nouvel intent est déjà `pending`, doit être APPLIQUÉ par le webhook, pas finir en 23505.
+insert into orders (id, account_id, holder_name, holder_email, payment_status) values
+  ('88970000-0000-4000-8000-000000000246', '88970000-0000-4000-8000-000000000032', 'Holder Retry', 'retry-payments@test.local', 'pending');
+insert into order_lines (
+  id, order_id, account_id, product_id, date, qty, status, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+) values (
+  '88970000-0000-4000-8000-000000000257', '88970000-0000-4000-8000-000000000246', '88970000-0000-4000-8000-000000000032',
+  '88970000-0000-4000-8000-000000000021', '2029-03-10', 1, 'reserved', 'Holder Retry',
+  100000, 100000, 'direct', 0.1, 0, 0.1, 10000, 0, 10000
+);
+insert into payments (id, order_id, amount_cop, payer_email, status) values
+  ('88970000-0000-4000-8000-000000000266', '88970000-0000-4000-8000-000000000246', 10000, 'retry-payments@test.local', 'rejected'),
+  ('88970000-0000-4000-8000-000000000267', '88970000-0000-4000-8000-000000000246', 10000, 'retry-payments@test.local', 'pending');
+set local role service_role;
+select is(
+  (select apply_payment_webhook(
+     'mp-retry-1', '88970000-0000-4000-8000-000000000266'::uuid, 'pending',
+     jsonb_build_object('id', 'mp-retry-1', 'status', 'in_process')
+   ) ->> 'ok'),
+  'true',
+  'cas 44 : rejected → pending pendant qu''un autre pending existe → webhook appliqué, aucune 23505'
+);
+reset role;
+set local role authenticated;
+select test_login('88970000-0000-4000-8000-000000000032');
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000246') ->> 'ok'),
+  'true',
+  'cas 44b : avec deux pending, create_payment_intent répond sans erreur'
+);
+reset role;
+
+-- Cas 45 (revue adversariale) : un pending existe déjà ET une nuit PMS n'a pas son booking → le
+-- refus pms_booking_missing passe AVANT la réutilisation : jamais un `reused` sans booking.
+reset role;
+insert into orders (id, account_id, holder_name, holder_email, payment_status) values
+  ('88970000-0000-4000-8000-000000000245', '88970000-0000-4000-8000-000000000032', 'Holder PMS Pending', 'pms-pending@test.local', 'pending');
+insert into order_lines (
+  id, order_id, account_id, product_id, date, end_date, qty, status, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+) values (
+  '88970000-0000-4000-8000-000000000256', '88970000-0000-4000-8000-000000000245', '88970000-0000-4000-8000-000000000032',
+  '88970000-0000-4000-8000-000000000221', '2029-03-01', '2029-03-03', 1, 'reserved', 'Holder PMS Pending',
+  100000, 100000, 'direct', 0.1, 0, 0.1, 10000, 0, 10000
+);
+insert into payments (id, order_id, amount_cop, payer_email, status) values
+  ('88970000-0000-4000-8000-000000000265', '88970000-0000-4000-8000-000000000245', 10000, 'pms-pending@test.local', 'pending');
+set local role authenticated;
+select test_login('88970000-0000-4000-8000-000000000032');
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000245') ->> 'reason'),
+  'pms_booking_missing',
+  'cas 45 : pending existant + nuit PMS sans booking → pms_booking_missing, jamais reused'
+);
+reset role;
+select is(
+  (select status from payments where id = '88970000-0000-4000-8000-000000000265'),
+  'pending',
+  'cas 45b : le pending existant n''est pas touché par le refus'
 );
 
 select * from finish();

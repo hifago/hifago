@@ -328,3 +328,196 @@ describe("une ACTIVITÉ refusée ne relâche jamais la commande", () => {
     ]);
   });
 });
+
+// ── Cas ajoutés par la revue adversariale de P4a ────────────────────────────────────────────────
+// Un petit Lobby SCRIPTÉ : une réponse par appel (statut, corps, délai), et le journal des appels.
+// Le serveur partagé de packages/e2e-support renvoie toujours le même booking, sans délai.
+type Scripted = { status: number; body: unknown; delayMs?: number };
+let scripted: Server;
+let scriptedUrl: string;
+let script: Scripted[] = [];
+const scriptedCalls: string[] = [];
+
+const ligneNuit = (id: string, date: string) => ({ ...ligneLogement(), id, date, end_date: `${date.slice(0, 8)}${String(Number(date.slice(8)) + 1).padStart(2, "0")}` });
+const NUIT_2 = "44444444-4444-4444-8444-444444444444";
+
+describe("revue adversariale — motifs du claim, classement des réponses, ordre et budget", () => {
+  beforeAll(async () => {
+    scripted = createServer((req, res) => {
+      scriptedCalls.push(new URL(req.url ?? "/", "http://127.0.0.1").pathname);
+      const reponse = script.shift() ?? { status: 200, body: { booking: { booking_id: 1, room_id: 1 } } };
+      req.resume();
+      req.on("end", () => {
+        setTimeout(() => {
+          res.writeHead(reponse.status, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(reponse.body));
+        }, reponse.delayMs ?? 0);
+      });
+    });
+    await new Promise<void>((resolve) => scripted.listen(0, "127.0.0.1", resolve));
+    const address = scripted.address();
+    scriptedUrl = address && typeof address === "object" ? `http://127.0.0.1:${address.port}` : "";
+  });
+
+  afterAll(async () => {
+    scripted.closeAllConnections();
+    await new Promise<void>((resolve) => scripted.close(() => resolve()));
+  });
+
+  beforeEach(() => {
+    process.env.LOBBY_API_BASE_URL = scriptedUrl;
+    delete process.env.LOBBY_RESERVE_BUDGET_MS;
+    script = [];
+    scriptedCalls.length = 0;
+  });
+
+  afterEach(() => {
+    delete process.env.LOBBY_RESERVE_BUDGET_MS;
+  });
+
+  it("commande inconnue → 404 order_not_found, released:false", async () => {
+    claimResult = { data: { ok: false, reason: "order_not_found" }, error: null };
+    const response = await appeler();
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ ok: false, reason: "order_not_found", released: false });
+  });
+
+  it("commande déjà défaite (plus aucune ligne vivante) → 409 order_not_active, jamais un 200", async () => {
+    claimResult = { data: { ok: false, reason: "order_not_active" }, error: null };
+    const response = await appeler();
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ ok: false, reason: "order_not_active", released: true });
+  });
+
+  it("connecteur coupé ET relâchement impossible → released:false (jamais un « libéré » mensonger)", async () => {
+    claimResult = { data: { ok: false, reason: "pms_unavailable" }, error: null };
+    releaseOk = false;
+    const response = await appeler();
+    expect(await response.json()).toEqual({ ok: false, reason: "pms_unavailable", released: false });
+  });
+
+  it("5xx de Lobby → issue INCONNUE : entrée de réconciliation, pms_unreachable, jamais « no disponible »", async () => {
+    script = [{ status: 502, body: { message: "Bad Gateway" } }];
+    const response = await appeler();
+    expect(await response.json()).toMatchObject({ ok: false, reason: "pms_unreachable", released: true });
+    expect(reconciliations).toHaveLength(1);
+    expect(String(reconciliations[0].detail)).toContain(`hifago order_line ${LODGING_LINE}`);
+  });
+
+  it("2xx sans booking_id exploitable → issue INCONNUE, entrée de réconciliation", async () => {
+    script = [{ status: 200, body: { ok: true } }];
+    const response = await appeler();
+    expect(await response.json()).toMatchObject({ reason: "pms_unreachable", released: true });
+    expect(reconciliations).toHaveLength(1);
+  });
+
+  it("302 (jamais suivi : une écriture n'est pas redirigée) → issue INCONNUE, entrée de réconciliation", async () => {
+    script = [{ status: 302, body: {} }];
+    const response = await appeler();
+    expect(await response.json()).toMatchObject({ reason: "pms_unreachable", released: true });
+    expect(reconciliations).toHaveLength(1);
+  });
+
+  it.each([403, 404, 429])("%i (relais, quota, route) → panne SANS booking : pms_unreachable, aucune entrée", async (status) => {
+    script = [{ status, body: { message: "refusé avant Lobby" } }];
+    const response = await appeler();
+    expect(await response.json()).toMatchObject({ ok: false, reason: "pms_unreachable", released: true });
+    expect(reconciliations).toEqual([]);
+  });
+
+  it("connexion refusée (requête jamais partie) → pms_unreachable, aucune entrée « peut-être créé »", async () => {
+    const ferme = createServer();
+    await new Promise<void>((resolve) => ferme.listen(0, "127.0.0.1", resolve));
+    const address = ferme.address();
+    const port = address && typeof address === "object" ? address.port : 0;
+    await new Promise<void>((resolve) => ferme.close(() => resolve()));
+    process.env.LOBBY_API_BASE_URL = `http://127.0.0.1:${port}`;
+    const response = await appeler();
+    expect(await response.json()).toMatchObject({ ok: false, reason: "pms_unreachable", released: true });
+    expect(reconciliations).toEqual([]);
+  });
+
+  it("une issue inconnue est écrite AVANT le relâchement (une coupure ensuite ne l'efface pas)", async () => {
+    script = [{ status: 500, body: { message: "erreur" } }];
+    const ordre: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((message: unknown) => {
+      if (typeof message === "string" && message.includes("échec PMS")) ordre.push("réconciliation");
+      if (typeof message === "string" && message.includes("relâchement")) ordre.push("relâchement");
+    });
+    await appeler();
+    spy.mockRestore();
+    expect(ordre[0]).toBe("réconciliation");
+  });
+
+  it("deux nuits, la première refusée → la seconde n'est JAMAIS demandée à Lobby", async () => {
+    claimResult = claimOk([groupe({ lodging_lines: [ligneNuit(LODGING_LINE, "2028-09-01"), ligneNuit(NUIT_2, "2028-09-05")] })]);
+    script = [{ status: 422, body: { error_code: "INPUT_PARAMETERS" } }];
+    const response = await appeler();
+    expect(await response.json()).toMatchObject({ reason: "pms_refused", released: true });
+    expect(scriptedCalls.filter((path) => path === "/api/v1/bookings")).toHaveLength(1);
+  });
+
+  it("budget épuisé → la nuit suivante n'est pas envoyée, commande défaite, aucune entrée", async () => {
+    process.env.LOBBY_RESERVE_TIMEOUT_MS = "100";
+    process.env.LOBBY_RESERVE_BUDGET_MS = "150";
+    claimResult = claimOk([groupe({ lodging_lines: [ligneNuit(LODGING_LINE, "2028-09-01"), ligneNuit(NUIT_2, "2028-09-05")] })]);
+    script = [{ status: 200, body: { booking: { booking_id: 7001, room_id: 1 } }, delayMs: 70 }];
+    const response = await appeler();
+    expect(await response.json()).toMatchObject({ reason: "pms_unreachable", released: true });
+    expect(scriptedCalls.filter((path) => path === "/api/v1/bookings")).toHaveLength(1);
+    expect(reconciliations).toEqual([]);
+  });
+
+  it("deux nuits réservées → l'activité est rattachée au PREMIER booking de l'établissement", async () => {
+    claimResult = claimOk([
+      groupe({
+        lodging_lines: [ligneNuit(LODGING_LINE, "2028-09-01"), ligneNuit(NUIT_2, "2028-09-05")],
+        activity_lines: [{ id: ACTIVITY_LINE, product_id: "prod-activity", qty: 1, lobby_product_id: 494426 }],
+      }),
+    ]);
+    script = [
+      { status: 200, body: { booking: { booking_id: 7001, room_id: 1 } } },
+      { status: 200, body: { booking: { booking_id: 7002, room_id: 1 } } },
+      { status: 200, body: { sale: { id: 1, total: 0 } } },
+    ];
+    const response = await appeler();
+    expect(response.status).toBe(200);
+    expect(appelsNommes("record_pms_booking").map((appel) => [appel.args.p_order_line_id, appel.args.p_pms_booking_id])).toEqual([
+      [LODGING_LINE, "7001"],
+      [NUIT_2, "7002"],
+      [ACTIVITY_LINE, "7001"],
+    ]);
+  });
+
+  it("already_booked : la nuit est déjà réservée par un autre booking → ni relâchement ni échec", async () => {
+    script = [{ status: 200, body: { booking: { booking_id: 7001, room_id: 1 } } }];
+    recordResults = [{ data: { ok: false, reason: "already_booked" }, error: null }];
+    const response = await appeler();
+    expect(response.status).toBe(200);
+    expect(appelsNommes("release_order_after_pms_refusal")).toEqual([]);
+  });
+
+  it("line_not_reserved : la ligne est morte entre-temps → commande défaite, pms_refused, aucune entrée", async () => {
+    script = [{ status: 200, body: { booking: { booking_id: 7001, room_id: 1 } } }];
+    recordResults = [{ data: { ok: false, reason: "line_not_reserved" }, error: null }];
+    const response = await appeler();
+    expect(await response.json()).toMatchObject({ reason: "pms_refused", released: true });
+    expect(reconciliations).toEqual([]);
+  });
+
+  it("activité sans réponse → la commande reste confirmée, l'extra part en réconciliation", async () => {
+    process.env.LOBBY_RESERVE_TIMEOUT_MS = "100";
+    claimResult = claimOk([
+      groupe({ activity_lines: [{ id: ACTIVITY_LINE, product_id: "prod-activity", qty: 1, lobby_product_id: 494426 }] }),
+    ]);
+    script = [
+      { status: 200, body: { booking: { booking_id: 7001, room_id: 1 } } },
+      { status: 200, body: { sale: { id: 1, total: 0 } }, delayMs: 500 },
+    ];
+    const response = await appeler();
+    expect(response.status).toBe(200);
+    expect(reconciliations).toHaveLength(1);
+    expect(reconciliations[0]).toMatchObject({ order_line_id: ACTIVITY_LINE });
+    expect(String(reconciliations[0].detail)).toContain("PEUT-ÊTRE ajouté");
+  });
+});

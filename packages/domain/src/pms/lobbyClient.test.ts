@@ -45,6 +45,19 @@ beforeAll(async () => {
           res.end(JSON.stringify({ error_code: "INPUT_PARAMETERS", error: "The selected category id is invalid." }));
           return;
         }
+        // Catégorie « redirigée » : une écriture ne doit jamais suivre un 3xx.
+        if (parsed.category_id === 66666) {
+          res.writeHead(302, { Location: "/api/v1/rooms" });
+          res.end();
+          return;
+        }
+        // Catégorie « en-têtes vite, corps lent » : le timeout doit couvrir AUSSI la lecture du corps.
+        if (parsed.category_id === 77777) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.write('{"booking":');
+          setTimeout(() => res.end('{"booking_id":20863346,"room_id":488678}}'), 300);
+          return;
+        }
         // Catégorie « lente » : la réponse arrive après 300 ms (cas du timeout, ci-dessous).
         if (parsed.category_id === 88888) {
           setTimeout(() => {
@@ -160,6 +173,17 @@ describe("lobbyClient (vrai fetch contre un serveur de fixtures local)", () => {
     await expect(createLobbyBooking(baseUrl, "fake-token", slowBooking, undefined, 50)).rejects.toMatchObject({
       name: "TimeoutError",
     });
+  });
+
+  it("createLobbyBooking : en-têtes reçus mais corps lent → TimeoutError aussi (le délai couvre la lecture du corps)", async () => {
+    await expect(
+      createLobbyBooking(baseUrl, "fake-token", { ...slowBooking, categoryId: 77777 }, undefined, 100)
+    ).rejects.toMatchObject({ name: "TimeoutError" });
+  });
+
+  it("createLobbyBooking : un 302 n'est PAS suivi (jamais un POST changé en GET) — le statut reste visible", async () => {
+    const result = await createLobbyBooking(baseUrl, "fake-token", { ...slowBooking, categoryId: 66666 });
+    expect(result.status).toBe(302);
   });
 
   it("createLobbyBooking : sans timeoutMs, aucun délai imposé — les Edge Functions gardent leur comportement", async () => {
