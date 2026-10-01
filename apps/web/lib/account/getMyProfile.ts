@@ -34,11 +34,15 @@ export async function getPartnerAccountProfileFields(
   supabase: Awaited<ReturnType<typeof createClient>>,
   accountId: string
 ): Promise<{ fullName: string; phone: string }> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("partner_accounts")
     .select("full_name, phone")
     .eq("id", accountId)
     .maybeSingle();
+  // Un profil illisible n'est jamais un profil vide : sur `/cuenta/perfil`, des champs vides
+  // enregistrés écraseraient le vrai profil ; sur `/pago`, un nom vide y signifie « jamais édité »
+  // et ferait retomber sur une ancienne commande. L'erreur lève, l'écran d'erreur de la zone suit.
+  if (error) throw error;
   return { fullName: data?.full_name ?? "", phone: data?.phone ?? "" };
 }
 
@@ -49,10 +53,12 @@ export async function getMyProfile(): Promise<MyProfile | null> {
   }
 
   const supabase = await createClient();
-  const [{ fullName, phone }, { data: capacites }] = await Promise.all([
+  const [{ fullName, phone }, { data: capacites, error: erreurCapacites }] = await Promise.all([
     getPartnerAccountProfileFields(supabase, viewer.id),
     supabase.from("partner_capabilities").select("role").limit(1),
   ]);
+  // Même règle : sur une panne, « aucune capacité » réactiverait à tort le bouton de suppression.
+  if (erreurCapacites) throw erreurCapacites;
 
   return {
     email: viewer.email,
