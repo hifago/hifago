@@ -58,7 +58,7 @@ function recortarHora(hora: string | null): string | null {
 //
 // `establishment(...)` ne demande JAMAIS `photo_urls` : la colonne est hors du GRANT SELECT public
 // (20260819110000), et la demander ferait échouer la requête ENTIÈRE — pas seulement ce champ.
-const COLUMNAS_PRODUCTO = `id, slug, name, description, price_cop, price_tiers, min_qty, max_qty, unit, capacity, unit_count, lodging_kind, type, price_label, external_booking_url, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, duration_days, program, group_discount_threshold_qty, group_discount_pct, lobby_category_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, establishment:establishments(id, slug, name, description, address, lobby_last_synced_at)`;
+const COLUMNAS_PRODUCTO = `id, slug, name, description, price_cop, price_tiers, min_qty, max_qty, unit, capacity, unit_count, lodging_kind, type, price_label, external_booking_url, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, duration_days, program, group_discount_threshold_qty, group_discount_pct, lobby_category_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, establishment:establishments(id, slug, name, description, address, lobby_last_synced_at, lobby_connector_active, lobby_has_token)`;
 
 /**
  * ⚠️ Mémoïsé par `cache` de React, et ce n'est pas une optimisation : `generateMetadata` et le
@@ -113,6 +113,16 @@ export const getProductoPorSlug = cache(
     // ci-dessous) pour être testée sans mock de Supabase — même idiome que `resolverUrlContacto`.
     const miroirFresco = esMiroirFresco(producto.establishment?.lobby_last_synced_at ?? null, Date.now());
 
+    // Connecteur coupé ou sans jeton : `create_order` refuse la ligne (`pms_unavailable`, même
+    // condition que `lobby_connector_active and lobby_api_token is not null` — `lobby_has_token` en
+    // est le reflet public) et `night-availability` ne peut rien demander. Le logement n'est alors
+    // PAS réservable en ligne, et le miroir n'est jamais semé : un calendrier « frais » mènerait
+    // droit à ce refus. Les deux colonnes sont accordées à `anon` (20260819110000).
+    const conectorPmsActivo = Boolean(
+      producto.establishment?.lobby_connector_active && producto.establishment?.lobby_has_token
+    );
+    const reservableEnLinea = !esPmsBacked || conectorPmsActivo;
+
     // « Aujourd'hui » = le jour civil à GUATAPÉ, jamais celui d'UTC. Un serveur réglé en UTC fait
     // basculer la date à 19 h heure locale : les `gte("date", …)` retiraient alors du catalogue les
     // créneaux et tarifs de la soirée en cours (lot fuseau, 2026-08-28). Dérivé UNE fois, réutilisé
@@ -139,7 +149,7 @@ export const getProductoPorSlug = cache(
       esEvento
         ? { data: [] }
         : esPmsBacked
-          ? miroirFresco
+          ? miroirFresco && conectorPmsActivo
             ? await supabase
                 .from("pms_availability_mirror")
                 .select("date, available_units, min_stay, max_stay, lead_days")
@@ -336,6 +346,7 @@ export const getProductoPorSlug = cache(
             // réservable, borné à 20.
             maxQty,
             esPmsBacked,
+            reservableEnLinea,
             amenidades,
           }
         : null,

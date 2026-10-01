@@ -201,6 +201,7 @@ export const ALOJAMIENTO_GLAMPING: FichaProducto = {
     priceTiers: null,
     maxQty: 3,
     esPmsBacked: false,
+    reservableEnLinea: true,
     amenidades: [
       { categoria: "Baño", items: ["Baño privado", "Agua caliente", "Toallas"] },
       { categoria: "Exterior", items: ["Terraza", "Hamaca", "Vista a la Piedra del Peñol"] },
@@ -239,6 +240,7 @@ export const ALOJAMIENTO_DORM_PMS: FichaProducto = {
     ],
     maxQty: 6,
     esPmsBacked: true,
+    reservableEnLinea: true,
     amenidades: [{ categoria: "Dormitorio", items: ["Cortina de privacidad", "Locker", "Enchufe propio"] }],
   },
   disponibilidad: noches(6).map((noche) => ({ ...noche, booked: 0, capacity: noche.capacity - noche.booked })),
@@ -253,6 +255,17 @@ export const ALOJAMIENTO_DORM_SIN_ESPEJO: FichaProducto = {
   ...ALOJAMIENTO_DORM_PMS,
   id: "prod-dorm-sin-espejo",
   slug: "cama-en-dormitorio-sin-espejo",
+  disponibilidad: [],
+  restriccionesPms: [],
+};
+
+// Connecteur PMS coupé (ou sans jeton) : `create_order` refuserait la ligne. Le loader ne sème pas
+// le miroir et marque le logement non réservable en ligne.
+export const ALOJAMIENTO_DORM_CONECTOR_CORTADO: FichaProducto = {
+  ...ALOJAMIENTO_DORM_PMS,
+  id: "prod-dorm-conector-cortado",
+  slug: "cama-en-dormitorio-conector-cortado",
+  alojamiento: { ...ALOJAMIENTO_DORM_PMS.alojamiento!, reservableEnLinea: false },
   disponibilidad: [],
   restriccionesPms: [],
 };
@@ -377,6 +390,7 @@ export const FICHAS: FichaProducto[] = [
   ALOJAMIENTO_GLAMPING,
   ALOJAMIENTO_DORM_PMS,
   ALOJAMIENTO_DORM_SIN_ESPEJO,
+  ALOJAMIENTO_DORM_CONECTOR_CORTADO,
   TRANSPORTE_LANCHA,
   EVENTO_JAM,
   EVENTO_SIN_ENLACE,

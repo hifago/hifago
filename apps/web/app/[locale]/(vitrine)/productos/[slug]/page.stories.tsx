@@ -9,6 +9,7 @@ import {
   ACTIVIDAD_CAMINATA,
   ACTIVIDAD_CONSULTAR,
   ACTIVIDAD_KAYAK,
+  ALOJAMIENTO_DORM_CONECTOR_CORTADO,
   ALOJAMIENTO_DORM_PMS,
   ALOJAMIENTO_DORM_SIN_ESPEJO,
   ALOJAMIENTO_GLAMPING,
@@ -62,6 +63,16 @@ export const AlojamientoSinPms: StoryObj = { ...ficha(ALOJAMIENTO_GLAMPING.slug)
 export const AlojamientoPms: StoryObj = {
   ...ficha(ALOJAMIENTO_DORM_PMS.slug),
   name: "Hébergement PMS (dortoir), séjour minimum le week-end",
+};
+
+// Connecteur PMS coupé : aucune réservation en ligne possible. Le calendrier laisse place à un bloc
+// qui le dit et renvoie vers l'établissement (dont la page porte le contact).
+export const AlojamientoPmsConectorCortado: StoryObj = {
+  ...ficha(ALOJAMIENTO_DORM_CONECTOR_CORTADO.slug),
+  name: "Hébergement PMS, connecteur coupé",
+  play: async ({ canvasElement }) => {
+    await expect(await esperar(canvasElement, '[data-testid="pms-no-reservable"]')).toBeVisible();
+  },
 };
 
 export const Transporte: StoryObj = { ...ficha(TRANSPORTE_LANCHA.slug), name: "Transport (vitrine, trajet, carte)" };

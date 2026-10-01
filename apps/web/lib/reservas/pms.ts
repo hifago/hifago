@@ -19,7 +19,7 @@ export type MotivoPms = {
   /** Proposer le bouton « réessayer » ? Uniquement quand rejouer la requête peut réussir. */
   reintentable: boolean;
   /** Clé next-intl du namespace `ProductPage`. */
-  claveI18n: "pmsAvailabilityError" | "pmsAvailabilityRateLimited";
+  claveI18n: "pmsAvailabilityError" | "pmsAvailabilityRateLimited" | "pmsAvailabilityConnectorOff";
 };
 
 /**
@@ -52,7 +52,9 @@ export const MOTIVOS_PMS: Record<string, MotivoPms> = {
   pms_unreachable: { reintentable: true, claveI18n: "pmsAvailabilityError" },
   pms_rejected: { reintentable: true, claveI18n: "pmsAvailabilityError" },
   pms_unparseable: { reintentable: true, claveI18n: "pmsAvailabilityError" },
-  connector_inactive: { reintentable: false, claveI18n: "pmsAvailabilityError" },
+  // Texte propre : rien ne changera sans qu'un admin rallume le connecteur — inviter à réessayer
+  // serait faux (le message générique le fait).
+  connector_inactive: { reintentable: false, claveI18n: "pmsAvailabilityConnectorOff" },
   pms_category_not_quoted: { reintentable: false, claveI18n: "pmsAvailabilityError" },
   month_out_of_range: { reintentable: false, claveI18n: "pmsAvailabilityError" },
   invalid_params: { reintentable: false, claveI18n: "pmsAvailabilityError" },

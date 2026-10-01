@@ -258,6 +258,13 @@ export type DatosAlojamiento = {
   /** `type = 'lodging'` ET une catégorie Lobby : la disponibilité vient alors du PMS, pas de la base. */
   esPmsBacked: boolean;
   /**
+   * Faux pour un logement PMS dont l'établissement a son connecteur coupé ou pas de jeton —
+   * exactement la condition qui fait refuser la ligne par `create_order` (`pms_unavailable`,
+   * migration 20260929112240). La fiche n'offre alors aucun calendrier : elle renvoie vers
+   * l'établissement. Toujours vrai pour un logement qui n'est pas adossé au PMS.
+   */
+  reservableEnLinea: boolean;
+  /**
    * `product_amenity_assignments` (migration 20260917110000) — toujours `[]`, jamais `null` : pas
    * de garde supplémentaire côté composant. Référentiel fermé, peuplé par migration (décision
    * Jérôme du 2026-09-17), jamais de texte libre partenaire.
