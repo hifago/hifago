@@ -94,6 +94,13 @@ lancer "Navigation localisée (@/i18n/navigation)"    bash scripts/check-i18n-li
 # les commissions pendant une semaine.
 lancer "Lecture d'order_lines (jamais en session)"   bash scripts/check-order-lines-access.sh
 
+# Depuis le 2026-10-01 (migration 20261001194704) — vérifié PAR MUTATION (rouge sur 29 côté Deno, 27
+# côté SQL, une marge TS de 3, une migration plus récente qui redéfinit la fonction — en majuscules,
+# sans schéma ou entre guillemets ; code 2 sur une constante renommée, en double ou en secondes ; muet
+# sur un commentaire et sur un revoke/grant ultérieur). La limite de paiement (28 min) vit en
+# TypeScript, en Deno et en SQL : une copie qui bouge seule rouvre le booking Lobby impayable.
+lancer "Limite de paiement (TS, Deno, SQL)"          bash scripts/check-payment-deadline.sh
+
 # ⚠️ N'EST PAS redondant avec le job `functions` de la CI : `deno check` résout à la TypeScript et
 # passe au vert sur un import relatif sans extension, alors que le worker Edge, lui, ne boote pas
 # du tout (mesuré le 2026-09-17, BOOT_ERROR). Seul un boot réel — ou ce script — le révèle.

@@ -3155,6 +3155,10 @@ export type Database = {
         Args: { p_order: Database["public"]["Tables"]["orders"]["Row"] }
         Returns: Json
       }
+      order_payment_deadline: {
+        Args: { p_created_at: string }
+        Returns: string
+      }
       partner_agenda_order_lines: {
         Args: { p_date_from: string; p_date_to: string }
         Returns: {

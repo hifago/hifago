@@ -53,6 +53,9 @@ describe("reserveNightsErrorKey — un message juste pour chaque réponse de res
     ["connecteur coupé, commande défaite", { reason: "pms_unavailable", released: true }, "pms_unavailable"],
     ["commande déjà défaite (order_not_active)", { reason: "order_not_active", released: true }, "pms_unreachable"],
     ["corps sans `released` (400 invalid_body)", { reason: "invalid_body" }, "pms_unconfirmed_pending"],
+    // Migration 20261001194704 : inatteignable ici (la commande vient d'être créée, bien avant la limite
+    // de 23 min du claim) — épinglé pour qu'un repli reste fermé : commande non libérée, pas « réessaie ».
+    ["trop tard pour payer (inatteignable ici)", { reason: "order_expiring", released: false }, "pms_unconfirmed_pending"],
   ] as const)("%s → %s", (_cas, corps, attendu) => {
     expect(reserveNightsErrorKey(corps)).toBe(attendu);
   });

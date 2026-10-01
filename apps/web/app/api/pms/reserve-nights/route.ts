@@ -251,6 +251,12 @@ export async function POST(request: Request) {
         return failure(409, "order_paid", false);
       case "claim_in_progress":
         return failure(409, "pms_claim_in_progress", false);
+      case "order_expiring":
+        // Trop tard pour payer (migration 20261001194704 : limite de paiement − bail). Rien n'a été
+        // réservé, et la commande n'est PAS défaite ici : release_order_after_pms_refusal écrirait
+        // `cancelled_by_provider`, faux — le prestataire n'a rien refusé. L'expiration posera le
+        // vrai statut, `expired`.
+        return failure(409, "order_expiring", false);
       case "pms_unavailable": {
         // CLAUDE.md §4.4 : le connecteur de l'établissement a été coupé entre create_order et ici.
         // Aucun contrôle de capacité n'est possible pour ce logement → la commande est défaite.

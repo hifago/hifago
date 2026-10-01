@@ -324,6 +324,133 @@ describe("OrderResult — pms_booking_missing : reserve-nights, puis UN seul nou
   });
 });
 
+// Migration 20261001194704 : passé la limite de paiement (28 min ; 23 min pour un claim), le refus
+// `order_expiring` peut venir de l'intent, de payments/create ou de reserve-nights. Jamais l'état
+// « failed » (« Tu reserva sigue guardada. Puedes intentar el pago de nuevo ») : notice, plus de
+// bouton, écran relu.
+describe("OrderResult — trop tard pour payer (order_expiring)", () => {
+  function attendreArretExpire(container: HTMLElement) {
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('[data-testid="pms-notice"]')?.textContent).toBe(es.errors.order_expiring);
+    expect(container.querySelector('[data-testid="order-state-failed"]')).toBeNull();
+    expect(container.querySelector('[data-testid="payment-error"]')).toBeNull();
+    expect(container.querySelector('[data-testid="pay-button"]')).toBeNull();
+    expect(container.textContent).not.toContain(es.status.unpaidDetail);
+  }
+
+  it("refusé par l'intent : ni reserve-nights ni payments/create", async () => {
+    intentResponses = [{ data: { ok: false, reason: "order_expiring" }, error: null }];
+    const container = rendre();
+    await payer(container);
+
+    attendreArretExpire(container);
+    expect(appelsReserveNights()).toHaveLength(0);
+    expect(appelsPaymentsCreate()).toHaveLength(0);
+  });
+
+  // Seule fenêtre où payments/create dit `order_expiring` : l'intent a été accepté juste avant la
+  // limite, donc il a DÉJÀ passé la commande en `pending`. L'écran relu dit alors « confirmando »
+  // (limite connue, jusqu'à l'expiration) — ce test fixe ce comportement réel, sans le maquiller.
+  it("refusé par payments/create (409) : jamais une panne de Mercado Pago ; l'écran relu dit « confirmando »", async () => {
+    intentResponses = [{ data: { ok: true, payment_id: "paiement-1" }, error: null }];
+    fetchMock.mockImplementation((url: string) =>
+      url === "/api/payments/create"
+        ? Promise.resolve(json(409, { ok: false, reason: "order_expiring" }))
+        : Promise.reject(new Error(`appel inattendu : ${url}`))
+    );
+    const { container, rerender } = render(ecran(ORDER));
+    await payer(container);
+
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('[data-testid="order-state-failed"]')).toBeNull();
+    expect(container.querySelector('[data-testid="payment-error"]')).toBeNull();
+    expect(container.textContent).not.toContain(es.errors.mercadopago_unavailable);
+    await act(async () => {
+      rerender(ecran({ ...ORDER, paymentStatus: "pending" }));
+    });
+    expect(container.querySelector('[data-testid="order-state-awaiting"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="pms-notice"]')).toBeNull();
+  });
+
+  // Revue adversariale : un onglet resté ouvert sur une commande déjà expirée. Le refus arrive, l'écran
+  // relu dit « expirée, fechas liberadas » — la notice « se liberarán » le contredirait.
+  it("commande expirée entre-temps : l'écran relu parle seul, sans notice", async () => {
+    intentResponses = [{ data: { ok: false, reason: "order_expiring" }, error: null }];
+    const { container, rerender } = render(ecran(ORDER));
+    await payer(container);
+    await act(async () => {
+      rerender(ecran({ ...COMMANDE_DEFAITE, lines: ORDER.lines.map((l) => ({ ...l, status: "expired" })) }));
+    });
+    expect(container.querySelector('[data-testid="order-state-expired"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="pms-notice"]')).toBeNull();
+  });
+
+  // Toute notice d'arrêt se tait dès qu'un paiement a progressé (l'onglet qui tenait le claim a payé) :
+  // « vuelve a intentarlo » sous « confirmando » ou « Pago confirmado » inviterait à payer deux fois.
+  // Notice `pms_claim_in_progress` à dessein : celle de l'échéance est déjà tue hors `unpaid`, et ne
+  // prouverait rien sur cette liste-ci.
+  it.each([
+    ["paiement en cours", { paymentStatus: "pending" }, "order-state-awaiting"],
+    ["payée", { paymentStatus: "paid" }, "order-state-paid"],
+    ["remboursée", { paymentStatus: "refunded" }, "order-state-refunded"],
+    ["payée sans rien à honorer", { paymentReceivedNotHonored: true }, "order-state-paid_not_honored"],
+  ] as const)("claim tenu ailleurs, puis commande %s : la notice se tait", async (_cas, relue, etat) => {
+    intentResponses = [manquant];
+    reserveNightsResponse = async () =>
+      json(409, { ok: false, reason: "pms_claim_in_progress", released: false });
+    const { container, rerender } = render(ecran(ORDER));
+    await payer(container);
+    expect(container.querySelector('[data-testid="pms-notice"]')).not.toBeNull();
+    await act(async () => {
+      rerender(ecran({ ...ORDER, ...relue }));
+    });
+    expect(container.querySelector(`[data-testid="${etat}"]`)).not.toBeNull();
+    expect(container.querySelector('[data-testid="pms-notice"]')).toBeNull();
+  });
+
+  it("la notice n'arrive qu'avec l'écran relu, jamais au-dessus de l'ancien", async () => {
+    intentResponses = [{ data: { ok: false, reason: "order_expiring" }, error: null }];
+    let liberer: () => void = () => undefined;
+    const relecture = new Promise<void>((resolve) => {
+      liberer = resolve;
+    });
+    let suspendre: (p: Promise<void>) => void = () => undefined;
+    function Relecture({ attente }: { attente: Promise<void> | null }) {
+      if (attente) use(attente);
+      return null;
+    }
+    function Banc() {
+      const [attente, setAttente] = useState<Promise<void> | null>(null);
+      suspendre = setAttente;
+      return (
+        <Suspense fallback={null}>
+          <Relecture attente={attente} />
+          {ecran(ORDER)}
+        </Suspense>
+      );
+    }
+    refreshMock.mockImplementation(() => suspendre(relecture));
+    const { container } = render(<Banc />);
+    await payer(container);
+    expect(container.querySelector('[data-testid="pms-notice"]')).toBeNull();
+    await act(async () => {
+      liberer();
+      await relecture;
+    });
+    expect(container.querySelector('[data-testid="pms-notice"]')?.textContent).toBe(es.errors.order_expiring);
+  });
+
+  it("refusé par le claim pendant la reprise PMS : aucun second intent", async () => {
+    intentResponses = [manquant];
+    reserveNightsResponse = async () => json(409, { ok: false, reason: "order_expiring", released: false });
+    const container = rendre();
+    await payer(container);
+
+    attendreArretExpire(container);
+    expect(rpcMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("bookingRecovery — chaque réponse de reserve-nights", () => {
   const arret = (notice: string | null, blockPayment = false) => ({ kind: "stop", notice, blockPayment });
   it.each([
@@ -341,6 +468,7 @@ describe("bookingRecovery — chaque réponse de reserve-nights", () => {
     ["erreur de base", false, { reason: "db_error", released: false }, arret("pms_unconfirmed")],
     ["commande introuvable", false, { reason: "order_not_found", released: false }, arret("order_not_found")],
     ["released absent", false, { reason: "pms_refused" }, arret("pms_refused_pending", true)],
+    ["trop tard pour payer", false, { reason: "order_expiring", released: false }, arret("order_expiring", true)],
   ] as const)("%s", (_cas, httpOk, corps, attendu) => {
     expect(bookingRecovery(httpOk, corps)).toEqual(attendu);
   });
@@ -358,6 +486,7 @@ describe("bookingRecovery — chaque réponse de reserve-nights", () => {
       "pms_unknown_outcome",
       "pms_unconfirmed",
       "order_not_found",
+      "order_expiring",
       "nothing_to_pay",
       "already_paid",
       "unknown",
