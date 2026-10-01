@@ -103,17 +103,21 @@ function call(productId: string, month: string) {
 }
 
 let seq = 0;
+// Identifiants au format UUID : la route refuse (400) tout `productId` qui n'en est pas un, comme
+// reserve-nights. Le préfixe distingue établissements (e…) et produits (b…) à la lecture des logs.
+const uuidDeTest = (prefixe: "e" | "b", n: number) =>
+  `${prefixe}0000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 function freshEstablishment(token = "fake-token"): string {
   // Un établissement NEUF par test : le cache de la route est un module-level singleton, deux tests
   // qui partagent une clé se contamineraient — exactement le piège relevé dans le journal du
   // 2026-08-27 entre deux specs partageant un enregistrement seedé.
-  const id = `etab-${(seq += 1)}`;
+  const id = uuidDeTest("e", (seq += 1));
   establishments.set(id, { id, lobby_connector_active: true, lobby_api_token: token });
   return id;
 }
 
 function addProduct(establishmentId: string, overrides: Partial<FakeProduct> = {}): string {
-  const id = `prod-${(seq += 1)}`;
+  const id = uuidDeTest("b", (seq += 1));
   products.set(id, {
     id,
     type: "lodging",
@@ -313,6 +317,16 @@ describe("les paramètres sont validés avant toute lecture", () => {
       expect(await response.json()).toMatchObject({ reason: "month_out_of_range" });
     }
     expect(getPmsFixtureCalls("/api/v2/available-rooms")).toBe(0);
+  });
+
+  it("un productId malformé est un 400, jamais une « panne » réessayable", async () => {
+    const espion = vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = await call("pas-un-uuid%0Aligne-forgee", monthAhead(2));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ ok: false, reason: "invalid_params" });
+    expect(espion).not.toHaveBeenCalled();
+    expect(getPmsFixtureCalls("/api/v2/available-rooms")).toBe(0);
+    espion.mockRestore();
   });
 
   it("un produit non publié n'expose pas la disponibilité Lobby en direct", async () => {

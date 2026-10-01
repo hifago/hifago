@@ -118,6 +118,9 @@ export function EventoReservationForm({
 
   const selectedRow = selectedDate ? byDate.get(selectedDate) : undefined;
   const remaining = remainingFor(selectedRow);
+  // Borne haute du champ : la place restante, jamais au-delà du plafond par ligne du produit
+  // (`maxQty`). `remaining` reste la capacité réelle pour l'affichage des places.
+  const qtyTope = Math.min(remaining, maxQty);
   // Pas de test sur `capacityMode` : `remainingFor` rend déjà `maxQty` (> 0) hors mode 'metered',
   // donc « completo » y est inatteignable par construction. Le garder faisait croire à deux règles
   // là où il n'y en a qu'une.
@@ -214,10 +217,10 @@ export function EventoReservationForm({
         name="qty"
         value={String(qty)}
         isDisabled={!selectedDate}
-        onChange={(value) => setQty(limitarCantidad(Number(value), minQty, remaining))}
+        onChange={(value) => setQty(limitarCantidad(Number(value), minQty, qtyTope))}
       >
         <Label>{t("quantityLabel")}</Label>
-        <Input id="qty" type="number" min={pisoCantidad(minQty, remaining)} max={topeCantidad(remaining)} />
+        <Input id="qty" type="number" min={pisoCantidad(minQty, qtyTope)} max={topeCantidad(qtyTope)} />
       </TextField>
       {minQty > 1 ? (
         <p className="text-xs text-muted" data-testid="min-qty-hint">

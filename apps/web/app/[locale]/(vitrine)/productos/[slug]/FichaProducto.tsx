@@ -326,9 +326,7 @@ export function FichaProducto({
               className="flex flex-col gap-2 rounded-lg border border-default-200 p-4"
               data-testid="pms-no-reservable"
             >
-              <Title as="h2" size="md">
-                {t("pmsNoReservableTitle")}
-              </Title>
+              <Title as="h2">{t("pmsNoReservableTitle")}</Title>
               <p className="text-sm text-muted">{t("pmsNoReservableText")}</p>
               {ficha.establecimiento?.slug ? (
                 <Link href={`/establecimientos/${ficha.establecimiento.slug}`} className="text-sm underline">

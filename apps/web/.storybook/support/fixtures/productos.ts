@@ -265,7 +265,10 @@ export const ALOJAMIENTO_DORM_CONECTOR_CORTADO: FichaProducto = {
   ...ALOJAMIENTO_DORM_PMS,
   id: "prod-dorm-conector-cortado",
   slug: "cama-en-dormitorio-conector-cortado",
-  alojamiento: { ...ALOJAMIENTO_DORM_PMS.alojamiento!, reservableEnLinea: false },
+  alojamiento: ALOJAMIENTO_DORM_PMS.alojamiento && {
+    ...ALOJAMIENTO_DORM_PMS.alojamiento,
+    reservableEnLinea: false,
+  },
   disponibilidad: [],
   restriccionesPms: [],
 };
