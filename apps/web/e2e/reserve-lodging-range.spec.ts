@@ -77,6 +77,9 @@ async function limpiarAlojamientoDePrueba(id: string, holderName: string) {
   // payments_order_id_fkey), même helper partagé que resetAvailability.
   await deleteOrdersByHolderName(holderName);
   await withDb(async (client) => {
+    // `cart_items` d'abord : elle référence products sans cascade, et un run interrompu après
+    // l'ajout au panier en laisse une ligne qui bloquerait `delete from products`.
+    await client.query("delete from cart_items where product_id = $1", [id]);
     await client.query("delete from product_availability where product_id = $1", [id]);
     await client.query("delete from product_calendar where product_id = $1", [id]);
     await client.query("delete from products where id = $1", [id]);
