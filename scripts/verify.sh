@@ -87,6 +87,13 @@ lancer "Couche d'accès (pas de requête en route)"    bash scripts/check-data-l
 lancer "Panne ≠ absence (error lu, pas de loading)"  bash scripts/check-supabase-errors.sh
 lancer "Navigation localisée (@/i18n/navigation)"    bash scripts/check-i18n-links.sh
 
+# Bloquant depuis le 2026-09-30 — vérifié PAR MUTATION (rouge sur les quatre embeds d'avant le
+# correctif, sur un `.from('order_lines')` ajouté ; muet sur un commentaire ; code 2 sans filtre).
+# Une session n'a plus le SELECT d'`order_lines` depuis 20260922210000 : une lecture qui y revient,
+# directe ou par embed, échoue en silence derrière un `?? []` — c'est ce qui a vidé le ledger et
+# les commissions pendant une semaine.
+lancer "Lecture d'order_lines (jamais en session)"   bash scripts/check-order-lines-access.sh
+
 # ⚠️ N'EST PAS redondant avec le job `functions` de la CI : `deno check` résout à la TypeScript et
 # passe au vert sur un import relatif sans extension, alors que le worker Edge, lui, ne boote pas
 # du tout (mesuré le 2026-09-17, BOOT_ERROR). Seul un boot réel — ou ce script — le révèle.

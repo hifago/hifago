@@ -14,25 +14,18 @@ import { CommissionsTable, type CommissionRow, type CommissionTotals } from "./C
 // (holder_name/referrer_pct déjà des colonnes de order_lines, establishment via la même
 // double-jointure product→establishment que reservations/page.tsx) — rien de nouveau côté schéma,
 // seulement des colonnes déjà présentes jamais sélectionnées jusqu'ici.
-type LedgerEntryQueryRow = {
-  id: string;
-  amount_cop: number;
-  status: string;
-  order_line: {
-    date: string;
-    total_cop: number;
-    holder_name: string;
-    referrer_pct: number;
-    product: { name: unknown; establishment: { name: unknown } | null } | null;
-  } | null;
-};
-
+//
 // Filtres date/état + pagination/tri serveur (retour Jérôme, 2026-08-20), migré vers DataList
 // (spec 10) — même patron que admin/orders/page.tsx/reservations/page.tsx, y compris la fiche
 // détail `[id]/page.tsx` (le lien de ligne par défaut de DataList a besoin d'une vraie page à
-// pointer). `order_lines!inner` (pas un simple `order_lines`) : nécessaire pour que `.gte`/`.lte`
-// sur la colonne embarquée `order_line.date` fonctionne (PostgREST), même exigence que
-// product:products!inner(...) dans reservations/page.tsx.
+// pointer).
+//
+// Lectures par RPC (partner_commissions_list, partner_commission_totals — 20260930211348),
+// jamais par un embed `order_lines` : depuis le revoke du 2026-09-22, une session n'a plus le
+// droit de lire `order_lines`, et l'embed d'avant rendait une erreur avalée en liste vide et
+// totaux à 0 (scripts/check-order-lines-access.sh l'interdit désormais). Le périmètre (le
+// partenaire du compte connecté, entrées `referrer` seulement) est calculé DANS les RPC depuis
+// `auth.uid()` : la page ne le passe plus, elle ne peut donc plus le fausser.
 export default async function PartnerCommissionsPage({
   searchParams,
 }: PageProps<"/partner/commissions">) {
@@ -45,9 +38,6 @@ export default async function PartnerCommissionsPage({
     redirect("/login?next=/partner/commissions");
   }
 
-  // partner_id_for_account (même RPC que partner/products/page.tsx) — pas une jointure manuelle.
-  const { data: partnerId } = await supabase.rpc("partner_id_for_account", { uid: user.id });
-
   const resolvedSearchParams = await searchParams;
   const { page, pageSize, from, to, sort, filters, extraParams } = resolveListParams(
     resolvedSearchParams,
@@ -58,60 +48,51 @@ export default async function PartnerCommissionsPage({
     }
   );
 
-  // Filtre explicite sur referrer_partner_id ET beneficiary_type, au-delà de la RLS : cet écran ne
-  // montre jamais une entrée establishment_compensation (même si elle existait — ce compte n'en a
-  // structurellement pas, mais l'intention doit rester explicite, pas seulement implicite via RLS).
-  let query = supabase
-    .from("ledger_entries")
-    .select(
-      `id, amount_cop, status,
-       order_line:order_lines!inner(date, total_cop, holder_name, referrer_pct,
-         product:products(name, establishment:establishments(name)))`,
-      { count: "exact" }
-    )
-    .eq("beneficiary_type", "referrer")
-    .eq("referrer_partner_id", partnerId ?? "")
-    .order(sort.column, { ascending: sort.direction === "asc" })
-    .range(from, to);
-
-  if (filters.date_from) query = query.gte("order_line.date", filters.date_from);
-  if (filters.date_to) query = query.lte("order_line.date", filters.date_to);
-  if (filters.status) query = query.eq("status", filters.status);
-
   // Totaux agrégés sur TOUTES les entrées correspondant aux filtres actifs, pas seulement la page
-  // affichée (DataList pagine réellement côté serveur) — requête dédiée, mêmes filtres, sans
-  // pagination, 2 colonnes seulement (indépendante de la requête ci-dessus, donc parallélisée).
-  let totalsQuery = supabase
-    .from("ledger_entries")
-    .select("amount_cop, status, order_line:order_lines!inner(date)")
-    .eq("beneficiary_type", "referrer")
-    .eq("referrer_partner_id", partnerId ?? "");
-  if (filters.date_from) totalsQuery = totalsQuery.gte("order_line.date", filters.date_from);
-  if (filters.date_to) totalsQuery = totalsQuery.lte("order_line.date", filters.date_to);
-  if (filters.status) totalsQuery = totalsQuery.eq("status", filters.status);
-
-  const [{ data: entries, count }, { data: totalsRows }] = await Promise.all([
-    query.returns<LedgerEntryQueryRow[]>(),
-    totalsQuery.returns<{ amount_cop: number; status: string }[]>(),
+  // affichée (DataList pagine réellement côté serveur) — une ligne par statut, sommée en SQL :
+  // l'ancienne requête rendait une ligne par entrée, tronquée par `max_rows` au-delà de 1000.
+  // Mêmes filtres que la liste, indépendante d'elle, donc parallélisée.
+  const [listResult, totalsResult] = await Promise.all([
+    supabase.rpc("partner_commissions_list", {
+      p_date_from: filters.date_from ?? null,
+      p_date_to: filters.date_to ?? null,
+      p_status: filters.status ?? null,
+      p_sort_key: sort.column,
+      p_sort_desc: sort.direction === "desc",
+      p_limit: to - from + 1,
+      p_offset: from,
+    }),
+    supabase.rpc("partner_commission_totals", {
+      p_date_from: filters.date_from ?? null,
+      p_date_to: filters.date_to ?? null,
+      p_status: filters.status ?? null,
+    }),
   ]);
+  if (listResult.error) {
+    throw new Error(`Lecture des commissions impossible (partner_commissions_list) : ${listResult.error.message}`);
+  }
+  if (totalsResult.error) {
+    throw new Error(`Lecture des totaux impossible (partner_commission_totals) : ${totalsResult.error.message}`);
+  }
+  const entries = listResult.data;
+  const count = entries.length === 0 ? 0 : entries[0].total_count;
 
   // amount_cop = referrer_commission_cop snapshoté à la création (create_order), jamais recalculé
   // par les transitions ultérieures (seul status change) — la table montre donc toujours le
   // montant d'origine, y compris sur une ligne void/reversed (« ce qui aurait été dû »), pas 0.
-  const rows: CommissionRow[] = (entries ?? []).map((entry) => ({
+  const rows: CommissionRow[] = entries.map((entry) => ({
     id: entry.id,
-    date: entry.order_line?.date ?? "",
-    productName: resolveLocalizedField(asLocalizedField(entry.order_line?.product?.name), "es") ?? "—",
-    establishmentName:
-      resolveLocalizedField(asLocalizedField(entry.order_line?.product?.establishment?.name), "es") ?? "—",
-    holderName: entry.order_line?.holder_name ?? "—",
-    referrerPct: entry.order_line?.referrer_pct ?? 0,
-    totalCop: entry.order_line?.total_cop ?? 0,
+    date: entry.date,
+    productName: resolveLocalizedField(asLocalizedField(entry.product_name), "es") ?? "—",
+    establishmentName: resolveLocalizedField(asLocalizedField(entry.establishment_name), "es") ?? "—",
+    holderName: entry.holder_name,
+    referrerPct: entry.referrer_pct,
+    totalCop: entry.total_cop,
     referrerCommissionCop: entry.amount_cop,
     state: entry.status as CommissionRow["state"],
   }));
 
-  const totals: CommissionTotals = (totalsRows ?? []).reduce(
+  const totals: CommissionTotals = totalsResult.data.reduce(
     (acc, row) => {
       if (row.status === "estimated") acc.estimated += row.amount_cop;
       if (row.status === "due") acc.due += row.amount_cop;
@@ -129,7 +110,7 @@ export default async function PartnerCommissionsPage({
         rows={rows}
         page={page}
         pageSize={pageSize}
-        totalCount={count ?? 0}
+        totalCount={count}
         sort={sort}
         filterValues={filters}
         extraParams={extraParams}

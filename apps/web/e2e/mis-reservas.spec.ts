@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
-import { resetAvailability, getOrderLineStatuses, createSignedInClient, seedDate } from "@hifago/e2e-support";
+import { resetAvailability, getOrderLineStatuses, createSignedInClient, seedDate, withDb } from "@hifago/e2e-support";
 
 // Spec 34 — pilote réellement `/cuenta/reservas` avec une commande à DEUX prestations.
 //
@@ -48,13 +48,18 @@ test("un client voit ses prestations dépliées, en annule une, et l'autre reste
   }
   const orderId = created.order_id;
 
-  const { data: lines } = await setupClient
-    .from("order_lines")
-    .select("id, date")
-    .eq("order_id", orderId)
-    .order("date");
-  const ligne1 = (lines ?? []).find((l) => l.date === DATE_1);
-  const ligne2 = (lines ?? []).find((l) => l.date === DATE_2);
+  // Connexion directe (withDb), jamais le client de session : depuis le revoke du 2026-09-22
+  // (20260922210000), une session ne lit plus `order_lines`. `date::text` parce que `pg` rend une
+  // colonne `date` en objet Date, et la comparaison porte sur la chaîne.
+  const lines = await withDb(async (client) => {
+    const { rows } = await client.query<{ id: string; date: string }>(
+      "select id, date::text as date from order_lines where order_id = $1 order by date",
+      [orderId]
+    );
+    return rows;
+  });
+  const ligne1 = lines.find((l) => l.date === DATE_1);
+  const ligne2 = lines.find((l) => l.date === DATE_2);
   if (!ligne1 || !ligne2) throw new Error("e2e setup: les deux lignes attendues sont absentes");
 
   await loginAs(page.context(), SEEDED_ACCOUNTS.referentActif, SEEDED_PASSWORD);
