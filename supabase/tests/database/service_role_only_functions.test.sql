@@ -75,7 +75,12 @@ select is(
         -- Remboursements (20260922100000, D3) : exécutés par le job, jamais par un humain.
         'claim_payment_refunds',
         'finalize_payment_refund',
-        'fail_payment_refund'
+        'fail_payment_refund',
+        -- Lobby avant paiement (20260930221837) : appelées uniquement par /api/pms/reserve-nights.
+        -- Le claim renvoie le JETON LOBBY en clair ; record et release écrivent la commande.
+        'claim_order_for_pms_booking',
+        'record_pms_booking',
+        'release_pms_reserve_claim'
       )
       and (
         has_function_privilege('anon', p.oid, 'EXECUTE')

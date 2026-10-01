@@ -44,7 +44,7 @@ async function lobbyCall<T = unknown>(
   baseUrl: string,
   path: string,
   apiToken: string,
-  options: { params?: Record<string, string | number>; data?: unknown; relaySecret?: string } = {}
+  options: { params?: Record<string, string | number>; data?: unknown; relaySecret?: string; timeoutMs?: number } = {}
 ): Promise<LobbyCallResult<T>> {
   const url = new URL(path, baseUrl);
   if (method === "GET") {
@@ -59,10 +59,15 @@ async function lobbyCall<T = unknown>(
     headers["X-Relay-Secret"] = options.relaySecret;
   }
 
+  // `timeoutMs` est OPT-IN : seule la réservation du tunnel (/api/pms/reserve-nights) le pose
+  // aujourd'hui. Un dépassement lève une `TimeoutError` (DOMException) — pour un POST, l'issue est
+  // alors INCONNUE (Lobby a pu créer le booking), jamais un refus. Les Edge Functions, qui importent
+  // ce module tel quel sous Deno, gardent leur comportement tant qu'elles ne le passent pas.
   const response = await fetch(url.toString(), {
     method,
     headers,
     body: method === "POST" ? JSON.stringify({ api_token: apiToken, ...(options.data as object) }) : undefined,
+    signal: options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined,
   });
 
   const text = await response.text();
@@ -174,7 +179,8 @@ export function createLobbyBooking(
   baseUrl: string,
   apiToken: string,
   input: CreateLobbyBookingInput,
-  relaySecret?: string
+  relaySecret?: string,
+  timeoutMs?: number
 ) {
   return lobbyCall("POST", baseUrl, "/api/v1/bookings", apiToken, {
     data: {
@@ -188,6 +194,7 @@ export function createLobbyBooking(
       note: input.note,
     },
     relaySecret,
+    timeoutMs,
   });
 }
 
@@ -196,7 +203,8 @@ export function addLobbyProductService(
   apiToken: string,
   bookingId: number,
   items: { productId: number; qty: number }[],
-  relaySecret?: string
+  relaySecret?: string,
+  timeoutMs?: number
 ) {
   return lobbyCall("POST", baseUrl, "/api/v1/booking/add-product-service", apiToken, {
     data: {
@@ -204,6 +212,7 @@ export function addLobbyProductService(
       items: items.map((item) => ({ product_id: item.productId, cant: item.qty })),
     },
     relaySecret,
+    timeoutMs,
   });
 }
 

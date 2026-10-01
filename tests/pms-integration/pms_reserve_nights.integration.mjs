@@ -32,6 +32,9 @@ const LOBBY_CATEGORY_ID = 776001;
 
 let appels = { bookings: 0, addService: 0 };
 let refuserLeBooking = false;
+// Délai de réponse de `POST /bookings` : sans lui, deux POST concurrents ne se chevauchent jamais
+// côté Lobby et le scénario 3 ne prouverait rien.
+let delaiBookingMs = 0;
 
 function startFixtureServer() {
   const server = createServer((req, res) => {
@@ -53,6 +56,10 @@ function startFixtureServer() {
       }
       // Forme RÉELLE observée le 2026-08-27, jamais celle de la doc officielle
       // ({"data":[{"idBooking":…}]}), qui s'est révélée fausse.
+      if (delaiBookingMs > 0) {
+        setTimeout(() => send(200, { booking: { booking_id: 90000001, room_id: 90000002 } }), delaiBookingMs);
+        return;
+      }
       return send(200, { booking: { booking_id: 90000001, room_id: 90000002 } });
     }
 
@@ -85,6 +92,8 @@ const ids = {
   product: randomUUID(),
   acheteur: randomUUID(),
   acheteur2: randomUUID(),
+  acheteur3: randomUUID(),
+  acheteur4: randomUUID(),
 };
 
 async function poserFixtures(client) {
@@ -215,7 +224,8 @@ async function main() {
       `LE POINT DU LOT — reserve-nights invalide le mois du booking dans pms_sync_state (${JSON.stringify(syncState[0])})`
     );
 
-    // Idempotence : rappeler la route ne doit PAS recréer un booking (filtre `pms_booking_id is null`).
+    // Idempotence : rappeler la route ne doit PAS recréer un booking (le claim ne renvoie que les
+    // lignes sans booking — 20260930221837).
     const appelsAvant = appels.bookings;
     await fetch(`${WEB_URL}/api/pms/reserve-nights`, {
       method: "POST",
@@ -258,6 +268,64 @@ async function main() {
     );
     const { rows: paiement } = await client.query("select payment_status from orders where id = $1", [orderId2]);
     verifier(paiement[0]?.payment_status === "unpaid", `la commande reste 'unpaid' (${paiement[0]?.payment_status})`);
+
+    // ── 3. Dix POST simultanés sur la même commande → UN SEUL booking chez Lobby ────────────────
+    // Migration 20260930221837 : le claim sérialise les appels. Avant, chaque POST lisait les lignes
+    // sans booking et réservait : N POST = N bookings, dont N-1 jamais annulés (aucune ligne ne les
+    // portait). Mutation « Lobby avant le claim » → plus d'un booking ici.
+    refuserLeBooking = false;
+    delaiBookingMs = 400;
+    const { result: result3 } = await creerCommande(
+      ids.acheteur3,
+      `reserve-nights-concurrence-${ids.acheteur3.slice(0, 8)}@hifago.test`
+    );
+    const orderId3 = result3?.order_id;
+    verifier(Boolean(orderId3), "troisième commande créée pour le scénario de concurrence");
+    const bookingsAvant = appels.bookings;
+    const reponses3 = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        fetch(`${WEB_URL}/api/pms/reserve-nights`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId: orderId3 }),
+        }).then(async (r) => ({ status: r.status, corps: await r.json().catch(() => null) }))
+      )
+    );
+    delaiBookingMs = 0;
+    const oks3 = reponses3.filter((r) => r.status === 200 && r.corps?.ok === true).length;
+    const enCours3 = reponses3.filter((r) => r.status === 409 && r.corps?.reason === "pms_claim_in_progress").length;
+    verifier(
+      appels.bookings - bookingsAvant === 1,
+      `10 POST simultanés → UN SEUL booking demandé à Lobby (${appels.bookings - bookingsAvant})`
+    );
+    verifier(oks3 === 1 && enCours3 === 9, `1 réponse 200, 9 réponses 409 pms_claim_in_progress (${oks3} / ${enCours3})`);
+    const { rows: apres3 } = await client.query("select pms_booking_id from order_lines where order_id = $1", [orderId3]);
+    verifier(apres3[0]?.pms_booking_id === "90000001", `la ligne porte le booking (${apres3[0]?.pms_booking_id})`);
+
+    // ── 4. Connecteur coupé ENTRE create_order et la route ──────────────────────────────────────
+    // CLAUDE.md §4.4 : avant, la route écartait l'établissement et répondait ok:true — commande
+    // confirmée et encaissable sans aucun contrôle de capacité, jamais transmise au PMS.
+    const { result: result4 } = await creerCommande(
+      ids.acheteur4,
+      `reserve-nights-coupe-${ids.acheteur4.slice(0, 8)}@hifago.test`
+    );
+    const orderId4 = result4?.order_id;
+    verifier(Boolean(orderId4), "quatrième commande créée connecteur actif");
+    await client.query("update establishments set lobby_connector_active = false where id = $1", [ids.establishment]);
+    const bookingsAvant4 = appels.bookings;
+    const reponse4 = await fetch(`${WEB_URL}/api/pms/reserve-nights`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: orderId4 }),
+    });
+    const corps4 = await reponse4.json().catch(() => null);
+    verifier(
+      reponse4.status === 409 && corps4?.reason === "pms_unavailable" && corps4?.released === true,
+      `connecteur coupé → 409 pms_unavailable, commande relâchée (${reponse4.status} ${JSON.stringify(corps4)})`
+    );
+    verifier(appels.bookings === bookingsAvant4, "Lobby n'est jamais appelé pour un connecteur coupé");
+    const { rows: apres4 } = await client.query("select status from order_lines where order_id = $1", [orderId4]);
+    verifier(apres4[0]?.status === "cancelled_by_provider", `la ligne est défaite (${apres4[0]?.status})`);
   } finally {
     await nettoyer(client);
     await client.end();
@@ -272,7 +340,7 @@ async function main() {
 }
 
 async function nettoyer(client) {
-  const comptes = [ids.acheteur, ids.acheteur2];
+  const comptes = [ids.acheteur, ids.acheteur2, ids.acheteur3, ids.acheteur4];
   await client.query(`delete from cart_items where account_id = any($1::uuid[])`, [comptes]);
   await client.query(
     `delete from pms_cancellation_queue where pms_booking_id in (
