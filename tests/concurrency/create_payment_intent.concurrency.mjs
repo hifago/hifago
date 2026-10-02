@@ -3,9 +3,10 @@
 // paiement `pending`, et tous les appels reçoivent le même payment_id (`reused` pour les autres).
 //
 // Ce n'est pas une RPC critique au sens de CLAUDE.md §4.1 (aucune capacité décrémentée) : l'unicité
-// tient au seul `for update` sur orders (aucun index unique sur les pending, délibérément : un
-// paiement `rejected` peut redevenir `pending` par le webhook). C'est donc CE test qui la prouve
-// sous concurrence réelle. Un run de calibrage, pas la barre des 5 runs.
+// tient au `for update` sur orders, et l'index payments_one_pending_per_order la garantit en base
+// depuis la migration 20261002185102 (avec la garde du webhook : webhook_pending_vs_intent). CE test
+// prouve que la réutilisation tient sous concurrence réelle (un seul payment_id), sans s'appuyer sur
+// l'index. Un run de calibrage, pas la barre des 5 runs.
 //
 // ⚠️ Nettoyage AVANT et APRÈS (leçon du 2026-09-29). Préfixe d'identifiants dédié : 65000000-.
 // Contre la stack Supabase locale uniquement (127.0.0.1:54322).
