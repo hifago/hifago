@@ -68,7 +68,7 @@ export function SlotRulesEditor({
                 </Checkbox>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
               <TextField
                 value={rule.startTime}
                 onChange={(value) => updateRule(index, { ...rule, startTime: value })}

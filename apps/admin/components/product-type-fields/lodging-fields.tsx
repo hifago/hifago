@@ -40,7 +40,7 @@ export function LodgingFields({
           complète la 2e ligne avec capacité + cantidad (ajoutée le 2026-08-26). Une grille de 4
           colonnes serait illisible sur un écran étroit. */}
       {showDetails && hasCheckInOut ? (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <TextField fullWidth name="check-in" value={state.checkInTime} onChange={state.setCheckInTime}>
             <Label>Check-in — opcional</Label>
             <Input type="time" data-testid="check-in-input" />
