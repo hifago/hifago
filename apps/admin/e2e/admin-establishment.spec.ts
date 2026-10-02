@@ -9,7 +9,7 @@ const FIXTURE_PHOTO = path.join(__dirname, "fixtures/test-photo.jpg");
 // Authentification programmatique (cf. support/login.ts) : ni ce test ni la garde qu'il prouve ne
 // portent sur le formulaire de connexion lui-même (déjà couvert par login.spec.ts).
 
-test("un compte non-admin est redirigé hors de /admin (garde du layout)", async ({
+test("un compte non-admin est renvoyé de /admin vers sa propre page (garde du layout)", async ({
   page,
   context,
 }) => {
@@ -17,7 +17,9 @@ test("un compte non-admin est redirigé hors de /admin (garde du layout)", async
 
   await page.goto("/admin/establishments");
 
-  await expect(page).toHaveURL(/\/login/);
+  // Jamais /login (2026-10-01) : un compte déjà connecté y était renvoyé vers /admin, en boucle.
+  // La garde passe par l'aiguillage `/`, qui envoie ce référent pur sur ses commissions.
+  await expect(page).toHaveURL(/\/partner\/commissions$/);
 });
 
 test("un compte admin crée un établissement (identité, partner, présentation) et le voit dans la liste", async ({
