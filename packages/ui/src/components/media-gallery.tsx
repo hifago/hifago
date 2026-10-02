@@ -58,6 +58,9 @@ export function MediaGallery({
     setPendingImage(URL.createObjectURL(file));
   }
 
+  // Chaque action rattrape un rejet de son callback (2026-10-01) : sans `catch`, une exception
+  // fermait la modale sans un mot — ou, pour reclasser/supprimer, laissait la galerie bloquée en
+  // « occupée ». Un échec se dit toujours.
   async function handleCropConfirm(blob: Blob) {
     setIsBusy(true);
     try {
@@ -67,6 +70,8 @@ export function MediaGallery({
       } else {
         toast.danger(result.reason ?? "No se pudo subir la foto.");
       }
+    } catch {
+      toast.danger("No se pudo subir la foto.");
     } finally {
       if (pendingImage) URL.revokeObjectURL(pendingImage);
       setPendingImage(null);
@@ -86,24 +91,34 @@ export function MediaGallery({
     const [moved] = reordered.splice(index, 1);
     reordered.splice(target, 0, moved!);
     setIsBusy(true);
-    const result = await onReorder(reordered.map((p) => p.id));
-    setIsBusy(false);
-    if (result.ok) {
-      toast.success("Foto reordenada.");
-    } else {
-      toast.danger(result.reason ?? "No se pudo reordenar la galería.");
+    try {
+      const result = await onReorder(reordered.map((p) => p.id));
+      if (result.ok) {
+        toast.success("Foto reordenada.");
+      } else {
+        toast.danger(result.reason ?? "No se pudo reordenar la galería.");
+      }
+    } catch {
+      toast.danger("No se pudo reordenar la galería.");
+    } finally {
+      setIsBusy(false);
     }
   }
 
   async function handleDelete(id: string) {
     if (!onDelete) return;
     setIsBusy(true);
-    const result = await onDelete(id);
-    setIsBusy(false);
-    if (result.ok) {
-      toast.success("Foto eliminada.");
-    } else {
-      toast.danger(result.reason ?? "No se pudo eliminar la foto.");
+    try {
+      const result = await onDelete(id);
+      if (result.ok) {
+        toast.success("Foto eliminada.");
+      } else {
+        toast.danger(result.reason ?? "No se pudo eliminar la foto.");
+      }
+    } catch {
+      toast.danger("No se pudo eliminar la foto.");
+    } finally {
+      setIsBusy(false);
     }
   }
 
