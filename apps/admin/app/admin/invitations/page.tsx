@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { resolveListParams } from "@hifago/domain";
 import { buttonVariants } from "@hifago/ui";
 import { InvitationsList, type InvitationRow } from "./InvitationsList";
@@ -59,7 +60,12 @@ export default async function AdminInvitationsPage({
     query = query.eq("onboarding_path", filters.path);
   }
 
-  const { data: invitations, count } = await query.returns<InvitationQueryRow[]>();
+  // Une panne LÈVE (lib/supabase/checkedRead.ts) : lue comme une absence, elle affichait « aucune
+  // invitation ».
+  const { data: invitations, count } = checkedRead(
+    await query.returns<InvitationQueryRow[]>(),
+    "partner_invitations",
+  );
   const rows = invitations ?? [];
 
   const { missingEstablishmentByInvitation } = await resolveMissingEstablishmentPartners(supabase, rows);

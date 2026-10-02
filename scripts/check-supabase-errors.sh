@@ -7,17 +7,21 @@
 # défaut réel : une fiche en 404 (signal de désindexation), un panier « vacío » chez un client qui
 # avait réservé, un profil pré-rempli à vide qu'un enregistrement écrasait, « rien à réconcilier »
 # sur l'écran des exceptions de paiement. La règle : dans apps/{web,admin}/lib/ et dans les pages et
-# routes de la vitrine (apps/web/app/, depuis le 2026-10-01), tout résultat Supabase attendu lit
-# aussi son `error` (et lève, ou rend un échec explicite).
+# routes des deux apps (apps/web/app/ depuis le 2026-10-01, apps/admin/app/ depuis le 2026-10-02),
+# tout résultat Supabase attendu lit aussi son `error` (et lève, ou rend un échec explicite). Côté
+# admin, les pages passent par apps/admin/lib/supabase/checkedRead.ts.
 #
 # Trois motifs, ceux par lesquels les sites corrigés étaient passés :
 #   - `const { data } = await …`, `const { data: x } = await …`, `const { count } = await …` ;
 #   - `.then(({ data }) => …)`, la même chose écrite en promesse ;
 #   - `if (error || …) return [];` / `return null;` — `error` lu, puis noyé dans l'absence
 #     (getCartLines, getOrderByToken).
-# Ce que le script ne voit PAS : une destructuration sur plusieurs lignes, un résultat gardé entier
-# puis lu sans son `error`. Il ferme les écritures qui ont réellement produit les défauts, pas
-# toutes celles qui pourraient en produire.
+# Ce que le script ne voit PAS : une destructuration sur plusieurs lignes ; une destructuration EN
+# TABLEAU (`const [{ data: a }, { data: b }] = await Promise.all(…)`) ; un résultat gardé entier puis
+# lu sans son `error` (`(await supabase.rpc(…)).data`, `error ? [] : data`) ; `{ data: x, count }`.
+# Chacune de ces formes a produit le même défaut sur apps/admin/app (corrigées le 2026-10-02) : la
+# revue reste le seul garde-fou pour elles. Il ferme les écritures qui ont réellement produit les
+# défauts, pas toutes celles qui pourraient en produire.
 #
 # Et une règle de structure : aucun `loading.tsx` sous apps/web/app. Il envelopperait les pages dans
 # une <Suspense> : une erreur levée y serait STREAMÉE avec un statut 200, au lieu de 500 + noindex
@@ -44,8 +48,9 @@ fail=0
 # est volontairement best-effort, ou son échec est déjà signalé autrement) ; celles de DETTE VISIBLE
 # existent pour rendre le contrôle bloquant AUJOURD'HUI sur tout code neuf, et doivent RÉTRÉCIR. Une
 # exemption qui ne correspond plus à rien fait échouer le contrôle (plus bas) : la retirer d'ici.
-# ⚠️ Les exemptions d'apps/web/app sont nées AVEC l'extension du périmètre (2026-10-01), jamais après :
-# une exemption ajoutée plus tard pour faire passer du code neuf serait une régression.
+# ⚠️ Les exemptions d'apps/web/app sont nées AVEC l'extension du périmètre (2026-10-01), celle
+# d'apps/admin/app avec la sienne (2026-10-02), jamais après : une exemption ajoutée plus tard pour
+# faire passer du code neuf serait une régression.
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 est_exempte() {
   case "$1" in
@@ -76,6 +81,9 @@ est_exempte() {
     # Dette — lien/QR imprimé : sur une panne, le code est lu comme inconnu et la redirection perd
     # ?ref= (attribution perdue). Correctif : garder ?ref= sur erreur, create_order revérifie le code.
     "apps/web/app/[locale]/r/[code]/route.ts") return 0 ;;
+    # Dette — vérification 2FA : la liste des facteurs est relue sans son error (traitée avec le 2FA,
+    # qui reprend ce fichier).
+    "apps/admin/app/mfa/verify/page.tsx") return 0 ;;
   esac
   return 1
 }
@@ -91,6 +99,7 @@ EXEMPTIONS=(
   "apps/web/app/[locale]/r/[code]/route.ts"
   "apps/web/app/api/payments/mock-checkout/route.ts"
   "apps/web/app/api/payments/mock-confirm/route.ts"
+  "apps/admin/app/mfa/verify/page.tsx"
 )
 
 MOTIF='const \{ (data|count)(: [A-Za-z_]+)? \} = await|\.then\(\(\{ (data|count)(: [A-Za-z_]+)? \}(: [^)]*)?\)|if \((error|[A-Za-z]+Error) \|\| [^)]*\) return (\[\]|null)'
@@ -103,13 +112,13 @@ signale() { # fichier, lignes, explication
 }
 
 fichiers_lib() {
-  find apps/web/lib apps/admin/lib apps/web/app \
+  find apps/web/lib apps/admin/lib apps/web/app apps/admin/app \
     \( -name node_modules -o -name .next \) -prune -o \
     -type f \( -name '*.ts' -o -name '*.tsx' \) \
     ! -name '*.test.ts' ! -name '*.test.tsx' ! -name '*.stories.tsx' -print 2>/dev/null | sort
 }
 
-echo "== Résultat Supabase lu sans son error (apps/*/lib, apps/web/app) =="
+echo "== Résultat Supabase lu sans son error (apps/*/lib, apps/*/app) =="
 while IFS= read -r f; do
   est_exempte "$f" && continue
   hits="$(perl -0777 -p "$SANS_COMMENTAIRES" "$f" | grep -nE "$MOTIF" || true)"
@@ -140,7 +149,7 @@ done < <(find apps/web/app \( -name node_modules -o -name .next \) -prune -o -ty
 
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "✓ Aucune lecture Supabase de lib/ ni des pages de la vitrine ne confond panne et absence, aucun loading.tsx en vitrine."
+  echo "✓ Aucune lecture Supabase de lib/ ni des pages des deux apps ne confond panne et absence, aucun loading.tsx en vitrine."
 else
   echo "✗ Voir ci-dessus. La liste des exemptions doit RÉTRÉCIR, jamais grandir."
 fi

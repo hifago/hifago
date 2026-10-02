@@ -1,5 +1,6 @@
 import { asLocalizedField, resolveLocalizedField, resolveListParams } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { OrdersTable, type OrderLineRow } from "./OrdersTable";
 import { ORDERS_FILTER_DEFINITIONS } from "@/lib/lists/filters";
 import { ORDERS_DEFAULT_SORT, ORDERS_SORT_WHITELIST } from "@/lib/lists/sortable-columns";
@@ -28,18 +29,23 @@ export default async function AdminOrdersPage({
   // réservations de ce jour" du calendrier produit, jamais saisi par l'admin — sans lui, un
   // date_from/date_to seuls montreraient TOUTES les réservations de ce jour, tous produits
   // confondus, pas seulement celles du produit consulté.
-  const { data: lines, error: linesError } = await supabase.rpc("admin_orders_list", {
-    p_status: filters.status ?? null,
-    p_date_from: filters.date_from ?? null,
-    p_date_to: filters.date_to ?? null,
-    p_q: filters.q ?? null,
-    p_product_id: filters.product_id ?? null,
-    p_sort_key: sort.column,
-    p_sort_desc: sort.direction === "desc",
-    p_limit: to - from + 1,
-    p_offset: from,
-  });
-  const count = linesError || !lines || lines.length === 0 ? 0 : lines[0].total_count;
+  // Une panne LÈVE (lib/supabase/checkedRead.ts) : lue comme une absence, elle affichait « aucune
+  // réservation ».
+  const { data: lines } = checkedRead(
+    await supabase.rpc("admin_orders_list", {
+      p_status: filters.status ?? null,
+      p_date_from: filters.date_from ?? null,
+      p_date_to: filters.date_to ?? null,
+      p_q: filters.q ?? null,
+      p_product_id: filters.product_id ?? null,
+      p_sort_key: sort.column,
+      p_sort_desc: sort.direction === "desc",
+      p_limit: to - from + 1,
+      p_offset: from,
+    }),
+    "admin_orders_list",
+  );
+  const count = !lines || lines.length === 0 ? 0 : lines[0].total_count;
 
   const rows: OrderLineRow[] = (lines ?? []).map((line) => ({
     id: line.id,

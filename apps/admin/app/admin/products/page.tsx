@@ -108,7 +108,7 @@ export default async function AdminProductsPage({
     query = query.eq("product_tag_assignments.tag_id", filters.tag_id);
   }
 
-  const { data: products, count } = await query.returns<ProductQueryRow[]>();
+  const { data: products, count } = checkedRead(await query.returns<ProductQueryRow[]>(), "products");
 
   const rows: ProductRow[] = (products ?? []).map((product) => ({
     id: product.id,
