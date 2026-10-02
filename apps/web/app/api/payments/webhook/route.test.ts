@@ -102,6 +102,8 @@ function requete(options: {
   signature?: string | null;
   requestId?: string | null;
   body?: unknown;
+  /** Horodatage signé, en secondes (défaut : un instant fixe du passé). */
+  ts?: string;
 } = {}) {
   const type = options.type ?? "payment";
   const dataId = options.dataId === undefined ? DATA_ID : options.dataId;
@@ -110,7 +112,7 @@ function requete(options: {
   if (dataId) query.set("data.id", dataId);
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (options.signature !== null) {
-    const ts = "1789938000";
+    const ts = options.ts ?? "1789938000";
     headers["x-signature"] =
       options.signature ?? `ts=${ts},v1=${signer({ dataId, requestId: options.requestId ?? REQUEST_ID, ts })}`;
   }
@@ -217,6 +219,65 @@ describe("POST /api/payments/webhook", () => {
     expect(rpcCalls).toHaveLength(0);
     expect(inserts).toHaveLength(1);
     expect(inserts[0].kind).toBe("webhook_failure");
+  });
+
+  it("re-confirmation 2xx sans identifiant (corps tronqué rendu `{}`) → 502 et une entrée, jamais 200", async () => {
+    mpPayment = {};
+    const response = await POST(requete());
+
+    expect(response.status).toBe(502);
+    expect(rpcCalls).toHaveLength(0);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].failure_reason).toBe("réponse de re-confirmation Mercado Pago sans identifiant de paiement");
+  });
+
+  it("observe un horodatage signé hors tolérance SANS bloquer : la livraison s'applique, une ligne de journal", async () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const vieux = String(Math.floor(Date.now() / 1000) - 3600);
+    const response = await POST(requete({ ts: vieux }));
+    const lignes = consoleWarn.mock.calls.map((appel) => String(appel[0]));
+    consoleWarn.mockRestore();
+
+    expect(response.status).toBe(200);
+    expect(rpcCalls).toHaveLength(1);
+    expect(lignes).toHaveLength(1);
+    expect(JSON.parse(lignes[0])).toMatchObject({ event: "mp_webhook_ts_drift", threshold_seconds: 300 });
+  });
+
+  it("n'écrit rien dans le journal pour un horodatage frais", async () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const response = await POST(requete({ ts: String(Math.floor(Date.now() / 1000)) }));
+    const appels = consoleWarn.mock.calls.length;
+    consoleWarn.mockRestore();
+
+    expect(response.status).toBe(200);
+    expect(appels).toBe(0);
+  });
+
+  it("conserve un corps démesuré tronqué, jamais en entier", async () => {
+    const response = await POST(
+      requete({ signature: "ts=1789938000,v1=" + "0".repeat(64), body: { data: { id: DATA_ID }, pad: "x".repeat(100_000) } })
+    );
+
+    expect(response.status).toBe(401);
+    const body = (inserts[0].raw_event as { body: { truncated: boolean; chars: number; head: string } }).body;
+    expect(body.truncated).toBe(true);
+    expect(body.head.length).toBeLessThan(10_000);
+    expect(body.chars).toBeGreaterThan(100_000);
+  });
+
+  it("borne aussi le corps transmis à la base (webhook_body) et celui des autres entrées", async () => {
+    const enorme = { data: { id: DATA_ID }, pad: "x".repeat(100_000) };
+    const response = await POST(requete({ body: enorme }));
+    expect(response.status).toBe(200);
+    const webhookBody = (rpcCalls[0].args.p_raw_event as { webhook_body: { truncated: boolean } }).webhook_body;
+    expect(webhookBody.truncated).toBe(true);
+
+    mpPayment = null;
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    await POST(requete({ body: enorme }));
+    consoleError.mockRestore();
+    expect((inserts[0].raw_event as { body: { truncated: boolean } }).body.truncated).toBe(true);
   });
 
   it("external_reference absent → 200 (rien à corréler) et une entrée", async () => {

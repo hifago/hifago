@@ -2,6 +2,11 @@ import { InvalidWebhookSignatureError, WebhookSignatureValidator } from "mercado
 import { mapMercadoPagoPaymentStatus } from "@hifago/domain";
 import { createServiceRoleClient } from "@hifago/supabase/service";
 import { getMercadoPagoPayment } from "@/lib/mercadopago/client";
+import {
+  SIGNATURE_TS_OBSERVATION_SECONDS,
+  signatureTimestampDrift,
+  storedWebhookBody,
+} from "@/lib/mercadopago/webhookDelivery";
 
 export const runtime = "nodejs";
 
@@ -64,8 +69,9 @@ async function recordFailure(params: {
     payment_id: params.paymentId ?? null,
     mp_payment_id: params.mpPaymentId ?? null,
     external_reference: params.externalReference ?? null,
-    // Enveloppe { body, delivery } : `body` garde exactement ce que MP a POSTé (forme historique),
-    // `delivery` ajoute de quoi rejouer la vérification de signature plus tard.
+    // Enveloppe { body, delivery } : `body` garde ce que MP a POSTé (forme historique), borné par
+    // storedWebhookBody (un corps démesuré n'en garde que le début, marqué tronqué) ; `delivery`
+    // ajoute de quoi rejouer la vérification de signature plus tard.
     raw_event: { body: params.body, delivery: params.delivery },
     failure_reason: params.failureReason,
     kind: params.kind ?? "webhook_failure",
@@ -131,6 +137,8 @@ export async function POST(request: Request) {
     // Corps vide/non-JSON : pas bloquant en soi (certaines notifications n'ont qu'une query string),
     // la vérification de signature ci-dessous reste la vraie porte.
   }
+  // Ce qui est conservé du corps (raw_event) : borné, quel que soit ce qu'on a reçu.
+  const storedBody = storedWebhookBody(rawBody);
 
   // ⚠️ ORDRE VOULU : le tri par type passe AVANT la vérification de signature (inversé le
   // 2026-09-20). Mercado Pago envoie pour un même paiement des notifications `merchant_order` que
@@ -167,7 +175,7 @@ export async function POST(request: Request) {
     // réelles avec celui du compte qui ENCAISSE. Deux comptes = mismatch permanent.
     await recordFailure({
       mpPaymentId: dataId,
-      body: rawBody,
+      body: storedBody,
       delivery: deliveryEvidence(request, url),
       // ⚠️ Ce préfixe « signature invalide ( » est LU par le trigger
       // notify_admin_new_reconciliation_exception (migration 20261002125023) : c'est lui qui désigne
@@ -177,6 +185,20 @@ export async function POST(request: Request) {
     return new Response(null, { status: 401 });
   }
 
+  // Anti-rejeu en OBSERVATION seulement (SIGNATURE_TS_OBSERVATION_SECONDS) : jamais bloquant. Le
+  // compteur, ce sont ces lignes dans les journaux — on décidera d'appliquer la tolérance sur mesure.
+  const driftSeconds = signatureTimestampDrift({ xSignature, xRequestId, dataId, secret, nowMs: Date.now() });
+  if (driftSeconds !== null) {
+    console.warn(
+      JSON.stringify({
+        event: "mp_webhook_ts_drift",
+        drift_seconds: Math.round(driftSeconds),
+        threshold_seconds: SIGNATURE_TS_OBSERVATION_SECONDS,
+        request_id: xRequestId,
+      })
+    );
+  }
+
   let mpPayment;
   try {
     mpPayment = await getMercadoPagoPayment(dataId);
@@ -184,9 +206,23 @@ export async function POST(request: Request) {
     console.error("Re-confirmation GET /v1/payments/{id} a échoué", error);
     await recordFailure({
       mpPaymentId: dataId,
-      body: rawBody,
+      body: storedBody,
       delivery: deliveryEvidence(request, url),
       failureReason: "échec de la re-confirmation serveur-à-serveur GET /v1/payments/{id}",
+    });
+    return new Response(null, { status: 502 }); // Mercado Pago retentera.
+  }
+
+  // Une réponse 2xx inexploitable (corps tronqué ou vide, que le SDK rend `{}`) n'est PAS une
+  // re-confirmation : sans identifiant, rien ne prouve le paiement. 502, Mercado Pago retentera —
+  // avant, elle tombait dans « external_reference absent » → 200, et le paiement n'était jamais
+  // appliqué par cette livraison.
+  if (mpPayment?.id == null) {
+    await recordFailure({
+      mpPaymentId: dataId,
+      body: storedBody,
+      delivery: deliveryEvidence(request, url),
+      failureReason: "réponse de re-confirmation Mercado Pago sans identifiant de paiement",
     });
     return new Response(null, { status: 502 }); // Mercado Pago retentera.
   }
@@ -195,7 +231,7 @@ export async function POST(request: Request) {
   if (!externalReference) {
     await recordFailure({
       mpPaymentId: dataId,
-      body: rawBody,
+      body: storedBody,
       delivery: deliveryEvidence(request, url),
       failureReason: "external_reference absent de la réponse Mercado Pago re-confirmée",
     });
@@ -211,14 +247,14 @@ export async function POST(request: Request) {
     // Les types générés déclarent `number` : ils ignorent qu'un argument SQL accepte NULL, et NULL
     // est ici voulu (montant inexploitable → échec fermé dans la fonction).
     p_transaction_amount: amount as number,
-    p_raw_event: paymentEvent(mpPayment, amount, rawBody),
+    p_raw_event: paymentEvent(mpPayment, amount, storedBody),
   });
 
   if (rpcError || !(result as { ok: boolean } | null)?.ok) {
     await recordFailure({
       mpPaymentId: dataId,
       externalReference,
-      body: rawBody,
+      body: storedBody,
       delivery: deliveryEvidence(request, url),
       failureReason: rpcError?.message ?? JSON.stringify(result),
     });
