@@ -3,11 +3,14 @@ import { createClient } from "@hifago/supabase/server";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { ownerScope } from "@/lib/partnerOwnership";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 
 export default async function PartnerProductAvailabilityPage({
   params,
 }: PageProps<"/partner/products/[id]/availability">) {
-  const { id } = await params;
+  // Pas un UUID → 404 avant toute lecture : la lecture, qui lève sur erreur, afficherait sinon
+  // l'écran d'erreur pour une faute de frappe dans l'URL.
+  const id = requireUuidParam((await params).id);
   const supabase = await createClient();
 
   // Propriété (2026-10-01, lib/partnerOwnership.ts) : la RLS seule laissait passer toute fiche EN

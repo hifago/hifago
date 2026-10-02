@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { resolveListParams } from "@hifago/domain";
 import { buttonVariants } from "@hifago/ui";
 import { PartnersTable, type PartnerRow } from "./PartnersTable";
@@ -35,19 +36,23 @@ export default async function AdminPartnersPage({
   const p_lon = parsedLon !== undefined && Number.isFinite(parsedLon) ? parsedLon : undefined;
   const p_radius_km = parsedRadius !== undefined && Number.isFinite(parsedRadius) ? parsedRadius : undefined;
 
-  const { data: rpcRows, error } = await supabase.rpc("list_partners_admin", {
-    p_search: filters.q ?? null,
-    p_role: filters.role ?? null,
-    p_city: filters.city ?? null,
-    p_lat,
-    p_lon,
-    p_radius_km,
-    p_sort_key: sort.key,
-    p_sort_desc: sort.direction === "desc",
-    p_limit: pageSize,
-    p_offset: from,
-  });
-  const partners = error ? [] : (rpcRows ?? []);
+  const { data: rpcRows } = checkedRead(
+    await supabase.rpc("list_partners_admin", {
+      p_search: filters.q ?? null,
+      p_role: filters.role ?? null,
+      p_city: filters.city ?? null,
+      p_lat,
+      p_lon,
+      p_radius_km,
+      p_sort_key: sort.key,
+      p_sort_desc: sort.direction === "desc",
+      p_limit: pageSize,
+      p_offset: from,
+    }),
+    "list_partners_admin",
+  );
+  // Une panne LÈVE (lib/supabase/checkedRead.ts) : `error ? []` l'affichait comme une liste vide.
+  const partners = rpcRows ?? [];
   const count = partners[0]?.total_count ?? 0;
 
   const rows: PartnerRow[] = partners.map((partner) => ({

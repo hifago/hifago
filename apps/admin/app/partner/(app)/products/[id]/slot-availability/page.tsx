@@ -8,12 +8,15 @@ import {
   loadSlotAvailabilityPageData,
   SLOT_AVAILABILITY_WINDOW_DAYS,
 } from "@/lib/products/slotAvailabilityPage";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 
 export default async function PartnerProductSlotAvailabilityPage({
   params,
   searchParams,
 }: PageProps<"/partner/products/[id]/slot-availability">) {
-  const { id } = await params;
+  // Pas un UUID → 404 avant toute lecture : la lecture, qui lève sur erreur, afficherait sinon
+  // l'écran d'erreur pour une faute de frappe dans l'URL.
+  const id = requireUuidParam((await params).id);
   const { from: fromParam } = await searchParams;
 
   // products_select_own (feature 15) : ne renvoie cette fiche que si elle appartient au

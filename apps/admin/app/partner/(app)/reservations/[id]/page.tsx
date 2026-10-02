@@ -6,6 +6,7 @@ import { ContactClientButton } from "@/components/ContactClientButton";
 import { isRealClientEmail } from "@/lib/whatsapp";
 import { STATUS_LABELS, STATUS_CHIP_COLOR } from "@/app/admin/orders/statusLabels";
 import { ReservationActions } from "./ReservationActions";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 
 // Spec 20 §0/§5 — fiche de réservation individuelle, jamais construite avant côté socio (seul
 // /admin/orders/[id] existait, au niveau `orders`, admin-only). id = order_lines.id, pas orders.id.
@@ -20,7 +21,9 @@ import { ReservationActions } from "./ReservationActions";
 export default async function PartnerReservationDetailPage({
   params,
 }: PageProps<"/partner/reservations/[id]">) {
-  const { id } = await params;
+  // Pas un UUID → 404 avant toute lecture : la lecture, qui lève sur erreur, afficherait sinon
+  // l'écran d'erreur pour une faute de frappe dans l'URL.
+  const id = requireUuidParam((await params).id);
   const supabase = await createClient();
 
   // La page LÈVE sur une panne (app/error.tsx, 2026-10-01) : seul `[]` est « introuvable » — la

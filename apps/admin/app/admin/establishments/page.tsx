@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { asLocalizedField, resolveLocalizedField, resolveListParams } from "@hifago/domain";
 import { buttonVariants } from "@hifago/ui";
 import { EstablishmentsList, type EstablishmentRow } from "./EstablishmentsList";
@@ -30,29 +31,35 @@ export default async function AdminEstablishmentsPage({
   // operator active. Lecture cross-partenaires de toute façon RPC-only par nature
   // (hifago/CLAUDE.md §3 critère 1). sort.key (pas sort.column) : la RPC fait son propre mapping
   // clé→colonne en interne (CASE statique), cf. migration.
-  const { data: rpcRows, error } = await supabase.rpc("list_establishments_admin", {
-    p_search: filters.q ?? null,
-    p_status: filters.status ?? null,
-    p_sort_key: sort.key,
-    p_sort_desc: sort.direction === "desc",
-    p_limit: pageSize,
-    p_offset: from,
-  });
-  const establishments = error ? [] : (rpcRows ?? []);
+  const { data: rpcRows } = checkedRead(
+    await supabase.rpc("list_establishments_admin", {
+      p_search: filters.q ?? null,
+      p_status: filters.status ?? null,
+      p_sort_key: sort.key,
+      p_sort_desc: sort.direction === "desc",
+      p_limit: pageSize,
+      p_offset: from,
+    }),
+    "list_establishments_admin",
+  );
+  // Une panne LÈVE (lib/supabase/checkedRead.ts) : `error ? []` l'affichait comme une liste vide.
+  const establishments = rpcRows ?? [];
   const count = establishments[0]?.total_count ?? 0;
 
   // Spec 17 §0 Tranche 0 — deuxième vague dépendante des id de la page courante (même idiome
   // qu'ailleurs, ex. photos/propositions en attente) : quels établissements de CETTE page portent
   // au moins un camp/evento, pour conditionner le lien "Recurso compartido" (EstablishmentsList).
   const establishmentIds = establishments.map((e) => e.id);
-  const { data: sharedResourceProducts } =
+  const { data: sharedResourceProducts } = checkedRead(
     establishmentIds.length > 0
       ? await supabase
           .from("products")
           .select("establishment_id")
           .in("establishment_id", establishmentIds)
           .in("type", ["camp", "evento"])
-      : { data: [] as { establishment_id: string }[] };
+      : { data: [] as { establishment_id: string }[], error: null },
+    "products",
+  );
   const establishmentIdsWithSharedResource = new Set(
     (sharedResourceProducts ?? []).map((p) => p.establishment_id)
   );
