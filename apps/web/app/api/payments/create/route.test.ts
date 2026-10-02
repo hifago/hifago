@@ -26,6 +26,10 @@ function commandeRecente(): OrderRow {
 let orderRow: OrderRow | null = commandeRecente();
 /** Ce que la route écrit sur `payments` après la création de la préférence (spec 39). */
 let paymentUpdate: Record<string, unknown> | null = null;
+/** Les signaux d'annulation passés aux deux accès base (P5a : jamais un accès sans délai). */
+let signauxBase: AbortSignal[] = [];
+/** Erreur rendue par la lecture de `payments` (null = succès). */
+let lectureErreur: { message: string } | null = null;
 
 // Le Route Handler lit `payments` AVEC l'embed PostgREST `orders(access_token)` — une seule
 // requête, via la FK `payments.order_id → orders.id`. Le mock rend donc la commande imbriquée,
@@ -34,24 +38,35 @@ vi.mock("@hifago/supabase/service", () => ({
   createServiceRoleClient: () => ({
     from: () => ({
       update: (values: Record<string, unknown>) => ({
-        eq: async () => {
-          paymentUpdate = values;
-          return { error: null };
-        },
+        eq: () => ({
+          abortSignal: async (signal: AbortSignal) => {
+            signauxBase.push(signal);
+            paymentUpdate = values;
+            return { error: null };
+          },
+        }),
       }),
       select: () => ({
         eq: () => ({
-          maybeSingle: async () => ({
-            data: {
-              id: PAYMENT_ID,
-              order_id: ORDER_ID,
-              amount_cop: 17000,
-              payer_email: "cliente@test.local",
-              status: "pending",
-              orders: orderRow,
-            },
-            error: null,
-          }),
+          abortSignal: (signal: AbortSignal) => {
+            signauxBase.push(signal);
+            return {
+              maybeSingle: async () =>
+                lectureErreur
+                  ? { data: null, error: lectureErreur }
+                  : {
+                      data: {
+                        id: PAYMENT_ID,
+                        order_id: ORDER_ID,
+                        amount_cop: 17000,
+                        payer_email: "cliente@test.local",
+                        status: "pending",
+                        orders: orderRow,
+                      },
+                      error: null,
+                    },
+            };
+          },
         }),
       }),
     }),
@@ -287,9 +302,48 @@ describe("POST /api/payments/create — URL configurée (NEXT_PUBLIC_WEB_APP_URL
 });
 
 describe("POST /api/payments/create — plafond de durée", () => {
-  it("coupe Mercado Pago assez tôt pour répondre avant la plateforme", async () => {
+  it("tient lecture + Mercado Pago + écriture sous le plafond, avec de la marge pour répondre", async () => {
     const { PREFERENCE_DEADLINE_MS } =
       await vi.importActual<typeof import("@/lib/mercadopago/client")>("@/lib/mercadopago/client");
-    expect(maxDuration * 1000 - PREFERENCE_DEADLINE_MS).toBeGreaterThanOrEqual(5_000);
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    orderRow = commandeRecente();
+    await POST(requete());
+    const delaisBase = timeout.mock.calls.map(([ms]) => ms);
+    timeout.mockRestore();
+    expect(delaisBase).toHaveLength(2);
+    const pireCas = delaisBase[0] + PREFERENCE_DEADLINE_MS + delaisBase[1];
+    expect(maxDuration * 1000 - pireCas).toBeGreaterThanOrEqual(5_000);
+  });
+});
+
+// P5a : chaque accès base est borné (une base qui cale répond en erreur), et une panne de lecture
+// n'est jamais « paiement introuvable ».
+describe("POST /api/payments/create — accès base bornés", () => {
+  beforeEach(() => {
+    signauxBase = [];
+    lectureErreur = null;
+    preferenceInput = null;
+    orderRow = commandeRecente();
+  });
+
+  it("passe un délai de 5 s à la lecture ET à l'écriture de payments", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const response = await POST(requete());
+    const delais = timeout.mock.calls.map(([ms]) => ms);
+    timeout.mockRestore();
+    expect(response.status).toBe(200);
+    expect(signauxBase).toHaveLength(2);
+    expect(signauxBase.every((signal) => signal instanceof AbortSignal)).toBe(true);
+    expect(delais).toEqual([5_000, 5_000]);
+  });
+
+  it("lecture en panne (ou délai dépassé) → 503 db_unavailable, jamais payment_not_found", async () => {
+    lectureErreur = { message: "This operation was aborted" };
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = await POST(requete());
+    consoleError.mockRestore();
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ ok: false, reason: "db_unavailable" });
+    expect(preferenceInput).toBeNull();
   });
 });

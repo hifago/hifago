@@ -5,17 +5,26 @@ import { getMercadoPagoPayment } from "@/lib/mercadopago/client";
 
 export const runtime = "nodejs";
 
+// Plafond de la plateforme : le GET de re-confirmation Mercado Pago est coupé à 15 s
+// (`PAYMENT_LOOKUP_DEADLINE_MS`, lib/mercadopago/client.ts) — il reste de quoi écrire l'échec et
+// répondre 502 (Mercado Pago retentera) plutôt qu'une coupure sans réponse, tant que la base répond
+// (ses accès ne sont pas bornés ici : une base qui cale fait couper, et Mercado Pago retente).
+export const maxDuration = 30;
+
 // Miroir local du type Json généré par Supabase — même convention que
 // apps/admin/app/admin/establishments/new/NewEstablishmentForm.tsx.
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 
-// Spec 19 §0 Tranche 1 — webhook Mercado Pago. `apply_payment_webhook` (RPC) est grantée
-// UNIQUEMENT à service_role (migration 20260818220000) : ce Route Handler est le SEUL appelant
-// légitime, et seulement après (1) vérification HMAC de la signature x-signature ET (2) un GET
-// serveur-à-serveur de re-confirmation /v1/payments/{id} — jamais sur la seule foi du corps du
-// webhook (pattern anti-race-condition documenté par Mercado Pago). Toute étape qui échoue avant
-// d'appeler la RPC écrit dans payment_reconciliation_entries plutôt que de laisser l'échec
-// silencieux (même discipline que pms_reconciliation_entries).
+// Spec 19 §0 Tranche 1 — webhook Mercado Pago. Le paiement s'applique par
+// `apply_payment_webhook_checked` (service_role seulement), après (1) vérification HMAC de la
+// signature x-signature ET (2) un GET serveur-à-serveur de re-confirmation /v1/payments/{id} —
+// jamais sur la seule foi du corps du webhook (pattern anti-race-condition documenté par Mercado
+// Pago). Toute étape qui échoue avant d'appeler la RPC écrit dans payment_reconciliation_entries
+// plutôt que de laisser l'échec silencieux (même discipline que pms_reconciliation_entries).
+//
+// Le MONTANT se décide en base, dans la même fonction que le job de réconciliation (migration
+// 20261002021045) : une seule autorité, sous les verrous de la commande. Cette route ne fait que
+// lui transmettre un montant exploitable — ou null, que la fonction traite en échec fermé.
 
 /**
  * Matériel de rejeu d'une livraison, conservé DÉFINITIVEMENT dans `raw_event` (incident du
@@ -61,12 +70,51 @@ async function recordFailure(params: {
     failure_reason: params.failureReason,
     kind: params.kind ?? "webhook_failure",
   });
-  // 23505 = l'index unique partiel sur (mp_payment_id) where kind = 'refund_required' : Mercado
-  // Pago livre `created` puis `updated`, puis retente — une seule entrée (et une seule salve
-  // d'e-mails admin) par paiement MP, les livraisons suivantes sont un no-op silencieux.
+  // 23505 = l'index unique partiel (mp_payment_id, failure_reason) des `webhook_failure` ouverts :
+  // Mercado Pago retente une livraison en échec — une seule entrée (et une seule salve d'e-mails
+  // admin) par paiement et par cause, les livraisons suivantes sont un no-op silencieux.
   if (error && error.code !== "23505") {
     console.error("payment_reconciliation_entries : insertion échouée", error);
   }
+}
+
+/** La réponse de GET /v1/payments/{id}, pour les seuls champs lus ici. */
+type MercadoPagoPayment = Awaited<ReturnType<typeof getMercadoPagoPayment>>;
+
+/**
+ * Le montant que la base comparera à l'acompte — seulement s'il est exploitable : en COP (la seule
+ * devise du compte) et numérique fini. Sinon null, qu'apply_payment_webhook_checked traite en échec
+ * fermé pour un paiement approuvé (refund_required / amount_mismatch), jamais en approbation.
+ */
+function exploitableAmount(payment: MercadoPagoPayment): number | null {
+  const amount = payment.transaction_amount;
+  return payment.currency_id === "COP" && typeof amount === "number" && Number.isFinite(amount)
+    ? amount
+    : null;
+}
+
+/**
+ * L'événement conservé (payments.raw_last_event, raw_event des entrées de réconciliation) : la
+ * réponse de Mercado Pago APLATIE — jamais l'objet entier, qui porte les coordonnées du payeur
+ * (CLAUDE.md §8) — plus le corps du webhook. `transaction_amount` y est le montant exploitable :
+ * c'est lui que l'e-mail au client et la demande de remboursement affichent (le montant encaissé,
+ * pas l'acompte attendu) — s'il est null, ils retombent sur l'acompte attendu ;
+ * `mp_transaction_amount` garde la valeur brute (diagnostic).
+ */
+function paymentEvent(payment: MercadoPagoPayment, amount: number | null, webhookBody: Json): Json {
+  return {
+    mp_payment_id: payment.id == null ? null : String(payment.id),
+    status: payment.status ?? null,
+    status_detail: payment.status_detail ?? null,
+    transaction_amount: amount,
+    mp_transaction_amount: typeof payment.transaction_amount === "number" ? payment.transaction_amount : null,
+    currency_id: payment.currency_id ?? null,
+    date_created: payment.date_created ?? null,
+    date_approved: payment.date_approved ?? null,
+    external_reference: payment.external_reference ?? null,
+    collector_id: payment.collector_id == null ? null : String(payment.collector_id),
+    webhook_body: webhookBody,
+  };
 }
 
 export async function POST(request: Request) {
@@ -151,44 +199,15 @@ export async function POST(request: Request) {
   }
 
   const service = createServiceRoleClient();
-  const { data: knownPayment } = await service
-    .from("payments")
-    .select("id, amount_cop")
-    .eq("id", externalReference)
-    .maybeSingle();
-
-  // Défense en profondeur : le montant réellement payé chez Mercado Pago doit correspondre au
-  // montant que NOUS avons calculé à la création de l'intent (create_payment_intent) — jamais
-  // supposé, toujours revérifié ici. Un écart n'approuve JAMAIS le paiement automatiquement :
-  // atterrit en réconciliation manuelle, échec fermé plutôt qu'une approbation optimiste.
-  const mpAmount = mpPayment.transaction_amount;
-  const statusToApply = mapMercadoPagoPaymentStatus(mpPayment.status);
-  if (
-    statusToApply === "approved" &&
-    knownPayment &&
-    typeof mpAmount === "number" &&
-    Math.round(mpAmount) !== knownPayment.amount_cop
-  ) {
-    // L'argent EST encaissé (au mauvais montant) et le paiement reste `pending` jusqu'à ce que
-    // l'expiration le reprenne : c'est un remboursement à décider, pas un simple échec de
-    // webhook — `kind: refund_required`, comme la garde de apply_payment_webhook (20260920120000).
-    await recordFailure({
-      paymentId: knownPayment.id,
-      mpPaymentId: dataId,
-      externalReference,
-      body: rawBody,
-      delivery: deliveryEvidence(request, url),
-      failureReason: `montant Mercado Pago (${mpAmount}) ≠ amount_cop attendu (${knownPayment.amount_cop})`,
-      kind: "refund_required",
-    });
-    return new Response(null, { status: 200 }); // Corrélé mais suspect : jamais un retry MP en boucle.
-  }
-
-  const { data: result, error: rpcError } = await service.rpc("apply_payment_webhook", {
+  const amount = exploitableAmount(mpPayment);
+  const { data: result, error: rpcError } = await service.rpc("apply_payment_webhook_checked", {
     p_mp_payment_id: dataId,
     p_external_reference: externalReference,
-    p_status: statusToApply,
-    p_raw_event: rawBody ?? {},
+    p_status: mapMercadoPagoPaymentStatus(mpPayment.status),
+    // Les types générés déclarent `number` : ils ignorent qu'un argument SQL accepte NULL, et NULL
+    // est ici voulu (montant inexploitable → échec fermé dans la fonction).
+    p_transaction_amount: amount as number,
+    p_raw_event: paymentEvent(mpPayment, amount, rawBody),
   });
 
   if (rpcError || !(result as { ok: boolean } | null)?.ok) {

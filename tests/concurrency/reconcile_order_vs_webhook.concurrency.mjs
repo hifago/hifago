@@ -1,7 +1,8 @@
 // Spec 39 (Lot B, 20260921100000) — deux courses réelles autour de la réconciliation Mercado Pago.
 //
 //   1. LE MÊME PAIEMENT approuvé au même instant par le job (`reconcile_order` avec un `approved`
-//      renvoyé par /v1/payments/search) et par le webhook (`apply_payment_webhook`) : exactement UNE
+//      renvoyé par /v1/payments/search) et par le webhook (`apply_payment_webhook_checked`, comme
+//      la route depuis 20261002021045) : exactement UNE
 //      application (commande `paid`, UN e-mail de confirmation, zéro entrée refund_required), zéro
 //      `40P01`. Les deux chemins convergent sur apply_payment_webhook, qui verrouille `orders` puis
 //      `payments` — le second voit `approved` → `already_applied`.
@@ -135,8 +136,10 @@ async function runScenario1(run) {
     Promise.allSettled([
       ...webhooks.map(async (c, i) => {
         markReady(); await go;
-        const res = await c.query("select apply_payment_webhook($1, $2::uuid, 'approved', $3::jsonb) as r", [
-          `mp-rc-${run}-${i}`, paymentId(i), JSON.stringify({ source: "webhook" }),
+        // Comme la route depuis 20261002021045 : montant normalisé, événement aplati.
+        const res = await c.query("select apply_payment_webhook_checked($1, $2::uuid, 'approved', 17000, $3::jsonb) as r", [
+          `mp-rc-${run}-${i}`, paymentId(i),
+          JSON.stringify({ source: "webhook", mp_payment_id: `mp-rc-${run}-${i}`, status: "approved", transaction_amount: 17000, currency_id: "COP" }),
         ]);
         return { kind: "webhook", i, r: res.rows[0].r };
       }),

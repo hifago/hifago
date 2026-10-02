@@ -10,7 +10,7 @@ $$;
 create function test_logout() returns void language sql as $$
   reset request.jwt.claims;
 $$;
-select plan(129);
+select plan(148);
 
 -- Fixtures ------------------------------------------------------------------------------------
 insert into partners (id, display_name) values
@@ -482,6 +482,87 @@ select is((select finalize_payment_refund((select id from payment_refunds where 
 select is((select status from payment_reconciliation_entries where mp_payment_id = 'mp-b2'), 'open', 'J34 : l''entrée revient à l''admin (open)');
 select is((select order_for_client_jsonb(o) from orders o where o.id = '88980000-0000-4000-8000-0000000000a8') ->> 'refund_status', 'rejected',
   'J35 : refund_status rejected — le client reste sur « te contactamos »');
+
+-- ── Montant vérifié en base (migration 20261002021045) ──────────────────────────────────────────
+-- La route du webhook appelle désormais apply_payment_webhook_checked, avec un montant normalisé
+-- (null si absent ou hors COP) et un événement aplati qui porte transaction_amount. Un `approved`
+-- sans montant exploitable n'est JAMAIS appliqué : refund_required / amount_mismatch.
+select test_make_order('88980000-0000-4000-8000-00000000d5a1', '88980000-0000-4000-8000-00000000d5b1', 'pending', interval '5 minutes', 'reserved', '2028-12-01');
+select test_make_order('88980000-0000-4000-8000-00000000d5a2', '88980000-0000-4000-8000-00000000d5b2', 'pending', interval '5 minutes', 'reserved', '2028-12-02');
+select test_make_order('88980000-0000-4000-8000-00000000d5a3', '88980000-0000-4000-8000-00000000d5b3', 'pending', interval '5 minutes', 'reserved', '2028-12-03');
+select test_make_order('88980000-0000-4000-8000-00000000d5a4', '88980000-0000-4000-8000-00000000d5b4', 'pending', interval '5 minutes', 'reserved', '2028-12-04');
+select test_make_order('88980000-0000-4000-8000-00000000d5a5', '88980000-0000-4000-8000-00000000d5b5', 'pending', interval '5 minutes', 'reserved', '2028-12-05');
+insert into payments (id, order_id, status, amount_cop) values
+  ('88980000-0000-4000-8000-00000000d5c1', '88980000-0000-4000-8000-00000000d5a1', 'pending', 17000),
+  ('88980000-0000-4000-8000-00000000d5c2', '88980000-0000-4000-8000-00000000d5a2', 'pending', 17000),
+  ('88980000-0000-4000-8000-00000000d5c3', '88980000-0000-4000-8000-00000000d5a3', 'pending', 17000),
+  ('88980000-0000-4000-8000-00000000d5c4', '88980000-0000-4000-8000-00000000d5a4', 'pending', 17000),
+  ('88980000-0000-4000-8000-00000000d5c5', '88980000-0000-4000-8000-00000000d5a5', 'pending', 17000);
+
+-- K1 : approved SANS montant (absent, ou devise ≠ COP normalisée en null par la route).
+create temp table k1 as
+  select apply_payment_webhook_checked('mp-k1', '88980000-0000-4000-8000-00000000d5c1', 'approved', null,
+    jsonb_build_object('mp_payment_id', 'mp-k1', 'status', 'approved', 'transaction_amount', null, 'currency_id', 'USD')) as r;
+select is((select r ->> 'reason' from k1), 'amount_mismatch', 'K1a : approved sans montant → amount_mismatch, jamais appliqué');
+select is((select status from payments where id = '88980000-0000-4000-8000-00000000d5c1'), 'pending', 'K1b : le paiement reste pending');
+select isnt((select payment_status from orders where id = '88980000-0000-4000-8000-00000000d5a1'), 'paid', 'K1c : la commande n''est pas payée');
+select is((select reason_code from payment_reconciliation_entries where mp_payment_id = 'mp-k1'), 'amount_mismatch',
+  'K1d : entrée refund_required avec reason_code amount_mismatch');
+select ok((select failure_reason like 'montant Mercado Pago absent ou inexploitable%' from payment_reconciliation_entries where mp_payment_id = 'mp-k1'),
+  'K1e : failure_reason dit « absent ou inexploitable » (jamais NULL par concaténation)');
+select ok((select body_html like '%el monto recibido no coincide%' from notification_emails
+            where event_type = 'client_payment_received_not_honored' and related_table = 'payment_reconciliation_entries'
+              and related_id = (select id from payment_reconciliation_entries where mp_payment_id = 'mp-k1')),
+  'K1f : l''e-mail client dit « el monto recibido no coincide », jamais « expiró »');
+
+-- K2 : mauvais montant, événement aplati portant transaction_amount → l'e-mail dit le montant ENCAISSÉ.
+create temp table k2 as
+  select apply_payment_webhook_checked('mp-k2', '88980000-0000-4000-8000-00000000d5c2', 'approved', 15000,
+    jsonb_build_object('mp_payment_id', 'mp-k2', 'status', 'approved', 'transaction_amount', 15000, 'currency_id', 'COP')) as r;
+select ok((select body_html like '%$15000 COP%' from notification_emails
+            where event_type = 'client_payment_received_not_honored' and related_table = 'payment_reconciliation_entries'
+              and related_id = (select id from payment_reconciliation_entries where mp_payment_id = 'mp-k2')),
+  'K2 : montant mailé = montant encaissé (15000), pas l''acompte attendu (17000)');
+
+-- K3 : bon montant → appliqué, et l'événement aplati devient raw_last_event.
+create temp table k3 as
+  select apply_payment_webhook_checked('mp-k3', '88980000-0000-4000-8000-00000000d5c3', 'approved', 17000,
+    jsonb_build_object('mp_payment_id', 'mp-k3', 'status', 'approved', 'transaction_amount', 17000, 'currency_id', 'COP')) as r;
+select is((select payment_status from orders where id = '88980000-0000-4000-8000-00000000d5a3'), 'paid', 'K3a : bon montant → commande payée (délégation inchangée)');
+select is((select raw_last_event ->> 'transaction_amount' from payments where id = '88980000-0000-4000-8000-00000000d5c3'), '17000',
+  'K3b : l''événement aplati devient raw_last_event (montant compris)');
+
+-- K4 : montant absent mais statut NON approuvé → délégué tel quel (rien à rembourser).
+create temp table k4 as
+  select apply_payment_webhook_checked('mp-k4', '88980000-0000-4000-8000-00000000d5c4', 'rejected', null, jsonb_build_object('mp_payment_id', 'mp-k4')) as r;
+select is((select status from payments where id = '88980000-0000-4000-8000-00000000d5c4'), 'rejected', 'K4a : rejected sans montant → délégué tel quel (paiement rejected)');
+select is((select count(*)::int from payment_reconciliation_entries where mp_payment_id = 'mp-k4'), 0,
+  'K4b : rejected sans montant → aucune entrée (rien à rembourser)');
+
+-- K5 : le JOB aussi (décision du 2026-10-02) — un approved sans transaction_amount n'est pas appliqué.
+select reconcile_order('88980000-0000-4000-8000-00000000d5a5', jsonb_build_array(test_mp('88980000-0000-4000-8000-00000000d5c5', 'mp-k5', 'approved', null)), now(), 'coll-1');
+select is((select reason_code from payment_reconciliation_entries where mp_payment_id = 'mp-k5'), 'amount_mismatch',
+  'K5a : job de réconciliation, approved sans montant → amount_mismatch');
+select isnt((select status from payments where id = '88980000-0000-4000-8000-00000000d5c5'), 'approved', 'K5b : job — le paiement n''est jamais approuvé');
+select isnt((select payment_status from orders where id = '88980000-0000-4000-8000-00000000d5a5'), 'paid', 'K5c : job — la commande n''est jamais payée');
+
+-- K6 : un paiement DÉJÀ approuvé (K3) revoit passer une livraison sans montant exploitable — rejeu du
+-- même paiement MP, puis un SECOND paiement MP. Jamais un écart : la délégation les classe.
+create temp table k6_avant as
+  select (select count(*) from payment_reconciliation_entries) as entrees, (select count(*) from notification_emails) as emails;
+create temp table k6 as
+  select apply_payment_webhook_checked('mp-k3', '88980000-0000-4000-8000-00000000d5c3', 'approved', null, jsonb_build_object('mp_payment_id', 'mp-k3')) as r;
+select is((select r ->> 'reason' from k6), 'already_applied', 'K6a : rejeu sans montant sur un paiement approuvé → already_applied');
+select is((select count(*)::int from payment_reconciliation_entries where mp_payment_id = 'mp-k3'), 0,
+  'K6b : rejeu → aucune entrée de remboursement (la commande payée n''est jamais remise en cause)');
+select is((select count(*) from payment_reconciliation_entries), (select entrees from k6_avant),
+  'K6c : rejeu sur un paiement approuvé → aucune entrée de réconciliation, de quelque nature');
+select is((select count(*) from notification_emails), (select emails from k6_avant),
+  'K6d : rejeu sur un paiement approuvé → aucun e-mail (ni client, ni admin)');
+create temp table k7 as
+  select apply_payment_webhook_checked('mp-k7', '88980000-0000-4000-8000-00000000d5c3', 'approved', null, jsonb_build_object('mp_payment_id', 'mp-k7')) as r;
+select is((select reason_code from payment_reconciliation_entries where mp_payment_id = 'mp-k7'), 'double_payment',
+  'K7 : second paiement MP sans montant sur un paiement approuvé → double_payment, jamais amount_mismatch');
 
 select * from finish();
 rollback;
