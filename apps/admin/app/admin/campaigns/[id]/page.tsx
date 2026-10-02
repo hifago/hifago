@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { ProcessBatchButton } from "./ProcessBatchButton";
 
 const AUDIENCE_LABELS: Record<string, string> = {
@@ -34,24 +35,32 @@ const TARGET_STATUS_LABELS: Record<(typeof TARGET_STATUS_ORDER)[number], string>
 export default async function CampaignDetailPage({
   params,
 }: PageProps<"/admin/campaigns/[id]">) {
-  const { id } = await params;
+  const id = requireUuidParam((await params).id);
   const supabase = await createClient();
 
-  const { data: campaign } = await supabase
+  // Une panne LÈVE (app/error.tsx) : lue comme une absence, elle répondait « introuvable », ou des
+  // compteurs à zéro.
+  const { data: campaign, error: campaignError } = await supabase
     .from("comm_campaigns")
     .select("id, audience, channel, status, message_template, created_at")
     .eq("id", id)
     .maybeSingle();
+  if (campaignError) {
+    throw new Error(`Lecture de la campagne impossible (comm_campaigns) : ${campaignError.message}`);
+  }
 
   if (!campaign) {
     notFound();
   }
 
   // comm_campaign_targets_select_admin : lecture admin seule — pas de filtre supplémentaire ici.
-  const { data: targets } = await supabase
+  const { data: targets, error: targetsError } = await supabase
     .from("comm_campaign_targets")
     .select("status")
     .eq("campaign_id", id);
+  if (targetsError) {
+    throw new Error(`Lecture des destinataires impossible (comm_campaign_targets) : ${targetsError.message}`);
+  }
 
   const counts = Object.fromEntries(TARGET_STATUS_ORDER.map((status) => [status, 0])) as Record<
     (typeof TARGET_STATUS_ORDER)[number],

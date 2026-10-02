@@ -46,7 +46,11 @@ export default async function AdminCampaignsPage({
   if (filters.channel) {
     query = query.eq("channel", filters.channel);
   }
-  const { data: campaigns, count } = await query;
+  // Une panne LÈVE (app/error.tsx) : lue comme une absence, elle affichait « aucune campagne ».
+  const { data: campaigns, count, error: campaignsError } = await query;
+  if (campaignsError) {
+    throw new Error(`Lecture des campagnes impossible (comm_campaigns) : ${campaignsError.message}`);
+  }
 
   const campaignIds = (campaigns ?? []).map((campaign) => campaign.id);
   // Progression d'envoi par campagne : même donnée que campaigns/[id]/page.tsx (comptage des
@@ -54,10 +58,13 @@ export default async function AdminCampaignsPage({
   // plutôt qu'une requête par ligne.
   const targetCounts: Record<string, { total: number; sent: number }> = {};
   if (campaignIds.length > 0) {
-    const { data: targets } = await supabase
+    const { data: targets, error: targetsError } = await supabase
       .from("comm_campaign_targets")
       .select("campaign_id, status")
       .in("campaign_id", campaignIds);
+    if (targetsError) {
+      throw new Error(`Lecture des destinataires impossible (comm_campaign_targets) : ${targetsError.message}`);
+    }
     for (const target of targets ?? []) {
       if (!targetCounts[target.campaign_id]) {
         targetCounts[target.campaign_id] = { total: 0, sent: 0 };

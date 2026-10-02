@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { AvailabilityBlocksTable } from "./AvailabilityBlocksTable";
@@ -15,15 +17,16 @@ type BlockQueryRow = {
 export default async function EstablishmentResourcePage({
   params,
 }: PageProps<"/admin/establishments/[id]/resource">) {
-  const { id } = await params;
+  const id = requireUuidParam((await params).id);
   const supabase = await createClient();
 
   // RLS (establishments_select) : l'admin voit n'importe quel établissement.
-  const { data: establishment } = await supabase
-    .from("establishments")
-    .select("id, name")
-    .eq("id", id)
-    .maybeSingle();
+  // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
+  // répondait « introuvable », ou un calendrier sans cupos ni blocages.
+  const { data: establishment } = checkedRead(
+    await supabase.from("establishments").select("id, name").eq("id", id).maybeSingle(),
+    "establishments",
+  );
 
   if (!establishment) {
     notFound();
@@ -33,7 +36,7 @@ export default async function EstablishmentResourcePage({
   // aucun filtre admin nécessaire ici, RPC-only seulement en écriture.
   // availability_blocks_select_admin : lecture admin seule (« voir la cause du blocage », admin
   // §3c) — jamais publique, révélerait des données de commande.
-  const [{ data: availability }, { data: blocks }] = await Promise.all([
+  const [availabilityResult, blocksResult] = await Promise.all([
     supabase
       .from("provider_resource_calendar")
       .select("slot_date, capacity, booked")
@@ -45,14 +48,17 @@ export default async function EstablishmentResourcePage({
       .order("start_date", { ascending: false })
       .returns<BlockQueryRow[]>(),
   ]);
+  const { data: availability } = checkedRead(availabilityResult, "provider_resource_calendar");
+  const { data: blocks } = checkedRead(blocksResult, "availability_blocks");
 
   // Identité du produit/titulaire : jamais un embed PostgREST direct vers order_lines (fuite des
   // colonnes de commission, docs/backlog.md) — même RPC admin que la page réconciliation
   // (admin_order_line_summaries, 20260922140000).
   const blockLineIds = [...new Set((blocks ?? []).map((block) => block.source_order_line_id))];
-  const { data: blockSummaries } = await supabase.rpc("admin_order_line_summaries", {
-    p_order_line_ids: blockLineIds,
-  });
+  const { data: blockSummaries } = checkedRead(
+    await supabase.rpc("admin_order_line_summaries", { p_order_line_ids: blockLineIds }),
+    "admin_order_line_summaries",
+  );
   const blockSummaryByLineId = new Map(
     (blockSummaries ?? []).map((summary) => [summary.order_line_id, summary])
   );
