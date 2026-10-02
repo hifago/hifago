@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { Title } from "@/components/atoms/Title";
 
 // L'ÉCRAN D'ERREUR DE LA VITRINE — un seul, partagé par les frontières de zone `(vitrine)`,
 // `(tunnel)` et `(cuenta)`, et par `app/global-error.tsx` (spec 27 § « Cas limites »).
@@ -63,7 +64,7 @@ export function ErrorScreen({
       className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center gap-4 p-6 text-center sm:p-8"
       data-testid={testId}
     >
-      <h1 className="text-2xl font-semibold">{t("error.titulo")}</h1>
+      <Title as="h1">{t("error.titulo")}</Title>
       <p className="max-w-prose text-muted">{t("error.descripcion")}</p>
       <div className="flex flex-wrap items-center justify-center gap-4">
         <button

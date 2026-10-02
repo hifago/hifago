@@ -74,7 +74,7 @@ export function CartSummary({ lines, editable, locale }: CartSummaryProps) {
   const tripLabel = formatTripLabel(computeTripRange(lines), locale, tTrip);
 
   return (
-    <Card title={tripLabel} titleAs="h2" titleSize="md" contentGap="md" testId="trip-summary">
+    <Card title={tripLabel} titleAs="h2" titleSize="bloque" contentGap="md" testId="trip-summary">
       <ul className="flex flex-col gap-3">
         {lines.map((line, i) => (
           <li

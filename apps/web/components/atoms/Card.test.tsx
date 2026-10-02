@@ -65,6 +65,15 @@ describe("Card", () => {
     expect(grand.querySelector("h2")?.className).toContain("text-2xl");
   });
 
+  // Plan 41, F2 : le titre d'une carte de CONTENU prend le rôle `titre-bloc` de la charte, qui porte
+  // police, taille et graisse 400 — aucune classe de taille ni de graisse Tailwind à côté.
+  it("`titleSize=\"bloque\"` pose le rôle `titre-bloc`, sans taille ni graisse Tailwind", () => {
+    const bloc = carte(<Card title="T" titleAs="h2" titleSize="bloque"><p>x</p></Card>);
+    const classes = bloc.querySelector("h2")?.className ?? "";
+    expect(classes).toContain("titre-bloc");
+    expect(classes).not.toMatch(/\b(text-(xs|sm|base|lg|xl|2xl)|font-(medium|semibold|bold))\b/);
+  });
+
   it("centre le titre (et l'en-tête qui le contient) seulement quand `titleAlign` le demande", () => {
     const parDefaut = carte(<Card title="T" titleAs="h2"><p>x</p></Card>);
     const centre = carte(<Card title="T" titleAs="h2" titleAlign="center"><p>x</p></Card>);

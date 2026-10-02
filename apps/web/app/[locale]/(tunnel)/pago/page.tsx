@@ -9,6 +9,7 @@ import { CartSummary } from "@/components/organisms/CartSummary";
 import { CheckoutForm } from "./CheckoutForm";
 import { PendingOrdersNotice } from "../PendingOrdersNotice";
 import type { Locale } from "@/messages";
+import { Title } from "@/components/atoms/Title";
 
 export async function generateMetadata(
   props: Omit<PageProps<"/[locale]/pago">, "searchParams">
@@ -85,7 +86,7 @@ export default async function CheckoutPage({
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-8">
-      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <Title as="h1">{t("title")}</Title>
       <CartSummary lines={lines} editable={false} locale={locale as Locale} />
       {lines.length > 0 ? (
         <CheckoutForm

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import { useTranslations } from "next-intl";
+import { Title } from "@/components/atoms/Title";
 // Calendar/CalendarDayButton restent volontairement sur react-day-picker (pas le Calendar HeroUI
 // v3, encore "in progress" et d'API CalendarDate totalement différente) : logique de
 // modifiers/disabled/DayButton custom (dates pleines/dernière place, attribut data-date ciblé par
@@ -267,8 +268,10 @@ export function ReservationForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="mb-2 text-sm font-medium">{t("availabilityTitle")}</h2>
+      <div className="flex flex-col gap-2">
+        <Title as="h2" size="bloque">
+          {t("availabilityTitle")}
+        </Title>
         <Calendar
           mode="single"
           defaultMonth={defaultMonth}
@@ -295,7 +298,9 @@ export function ReservationForm({
 
       {afficherEditions ? (
         <div>
-          <h2 className="text-sm font-medium">{t("chooseEditionTitle")}</h2>
+          <Title as="h2" size="bloque">
+            {t("chooseEditionTitle")}
+          </Title>
           <p className="mb-2 text-xs text-muted">{t("chooseEditionSubtitle")}</p>
           <div className="flex flex-col gap-2" data-testid="edition-cards">
             {edicionesVisibles.map((row) => {

@@ -24,6 +24,7 @@ import {
   plazasRestantes,
 } from "@/lib/reservas/disponibilidad";
 import { usePrefillUltimosCriterios } from "@/lib/reservas/usePrefillUltimosCriterios";
+import { Title } from "@/components/atoms/Title";
 
 // Spec 18 §0 Tranche 1 : produit à créneaux horaires (product_slot_rules côté admin, ex. jetski —
 // cf. hifago/docs/journal/2026-08.md entrée 2026-08-18, motivé par un produit réel bloqué faute de
@@ -205,8 +206,10 @@ export function SlotReservationForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="mb-2 text-sm font-medium">{t("availabilityTitle")}</h2>
+      <div className="flex flex-col gap-2">
+        <Title as="h2" size="bloque">
+          {t("availabilityTitle")}
+        </Title>
         <Calendar
           mode="single"
           defaultMonth={defaultMonth}

@@ -349,7 +349,7 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
         </Button>
       ) : null}
 
-      <Card title={tripLabel} titleAs="h2" titleSize="md" contentGap="md" testId="trip-summary">
+      <Card title={tripLabel} titleAs="h2" titleSize="bloque" contentGap="md" testId="trip-summary">
         <ul className="flex flex-col gap-3">
           {order.lines.map((line) => {
             const isDead = isDeadLine(line.status);
@@ -458,7 +458,9 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
       </Card>
 
       <section className="flex flex-col gap-1 text-sm">
-        <Title as="h2">{t("holder")}</Title>
+        <Title as="h2" size="bloque">
+          {t("holder")}
+        </Title>
         <p>
           <span className="text-muted">{t("holderName")} : </span>
           {order.holderName}

@@ -24,6 +24,7 @@ import {
   plazasRestantes,
 } from "@/lib/reservas/disponibilidad";
 import { usePrefillUltimosCriterios } from "@/lib/reservas/usePrefillUltimosCriterios";
+import { Title } from "@/components/atoms/Title";
 
 // Evento réservable en ligne (2026-09-15) — colocalisé comme SlotReservationForm/
 // LodgingReservationForm (un seul consommateur, FichaProducto.tsx), jamais dans components/.
@@ -179,8 +180,10 @@ export function EventoReservationForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="mb-2 text-sm font-medium">{t("availabilityTitle")}</h2>
+      <div className="flex flex-col gap-2">
+        <Title as="h2" size="bloque">
+          {t("availabilityTitle")}
+        </Title>
         <Calendar
           mode="single"
           defaultMonth={defaultMonth}

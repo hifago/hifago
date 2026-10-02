@@ -47,7 +47,7 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
     <Card
       title={t("orderReference", { reference: order.reference })}
       titleAs="h3"
-      titleSize="sm"
+      titleSize="bloque"
       subtitle={tEtat(`status.${state}`)}
       testId={`order-card-${order.id}`}
       contentGap="md"

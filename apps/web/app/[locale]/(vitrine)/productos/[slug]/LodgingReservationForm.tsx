@@ -44,6 +44,7 @@ import { limitarCantidad, topeCantidad } from "@/lib/reservas/cantidad";
 import { plazasRestantes } from "@/lib/reservas/disponibilidad";
 import { motivoPms } from "@/lib/reservas/pms";
 import { usePrefillUltimosCriterios } from "@/lib/reservas/usePrefillUltimosCriterios";
+import { Title } from "@/components/atoms/Title";
 
 // Spec 17 §0 Tranche 2, §10 point 6 — react-day-picker mode="range", tranché sur prototype réel
 // (cf. docs/journal/2026-08.md). Une seule entité tarifée : le produit lui-même, via
@@ -540,10 +541,12 @@ export function LodgingReservationForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="mb-2 text-sm font-medium">{t("availabilityTitle")}</h2>
+      <div className="flex flex-col gap-2">
+        <Title as="h2" size="bloque">
+          {t("availabilityTitle")}
+        </Title>
         {monthState?.status === "error" ? (
-          <div className="mb-2 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm text-danger" role="alert" data-testid="pms-availability-error">
               {t(motivo?.claveI18n ?? "pmsAvailabilityError")}
             </p>
@@ -560,7 +563,7 @@ export function LodgingReservationForm({
           </div>
         ) : null}
         {cargando ? (
-          <p className="mb-2 text-sm text-muted" aria-live="polite" data-testid="pms-availability-loading">
+          <p className="text-sm text-muted" aria-live="polite" data-testid="pms-availability-loading">
             {t("pmsAvailabilityLoading")}
           </p>
         ) : null}

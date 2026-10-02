@@ -108,7 +108,9 @@ export function FichaEstablecimiento({
               absente si `amenidades` est vide, même discipline que les horaires juste au-dessus. */}
           {ficha.amenidades.length > 0 ? (
             <section className="flex flex-col gap-3" data-testid="establishment-amenities">
-              <Title as="h2">{tCommon("amenitiesTitle")}</Title>
+              <Title as="h2" size="bloque">
+                {tCommon("amenitiesTitle")}
+              </Title>
               <AmenidadesList grupos={ficha.amenidades} testId="establishment-amenities-list" />
             </section>
           ) : null}

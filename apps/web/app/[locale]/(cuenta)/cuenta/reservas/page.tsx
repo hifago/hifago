@@ -78,7 +78,7 @@ export default async function AccountOrdersPage({
               groupe vient de la base, ce fichier ne fait que le lire. */}
           {orders.upcoming.length > 0 ? (
             <section className="flex flex-col gap-4" data-testid="grupo-proximas">
-              <Title as="h2" size="sm">
+              <Title as="h2" size="bloque">
                 {t("groupUpcoming")}
               </Title>
               {orders.upcoming.map((order) => (
@@ -89,7 +89,7 @@ export default async function AccountOrdersPage({
 
           {orders.past.length > 0 ? (
             <section className="flex flex-col gap-4" data-testid="grupo-pasadas">
-              <Title as="h2" size="sm">
+              <Title as="h2" size="bloque">
                 {t("groupPast")}
               </Title>
               {orders.past.map((order) => (

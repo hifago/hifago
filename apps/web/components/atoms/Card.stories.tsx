@@ -308,15 +308,15 @@ export const EnLigne: Story = {
 };
 
 /**
- * Les trois tailles de titre, décorrélées du niveau. `sm` est le titre de HeroUI (celui d'une carte
- * de catalogue), `md` le `text-lg` de la fiche établissement, `lg` le `text-2xl` d'une fiche
- * produit. Les trois sont ici en `h2` : la taille est visuelle, le niveau est sémantique, et ce ne
- * sont pas la même décision.
+ * Les tailles de titre, décorrélées du niveau. `sm` est le titre de HeroUI (celui d'une tuile de
+ * listing), `md` le `text-lg` des tuiles photo, `lg` le `text-2xl`, et `bloque` le rôle `titre-bloc`
+ * de la charte, celui des cartes de contenu (plan 41, F2). Toutes sont ici en `h2` : la taille est
+ * visuelle, le niveau est sémantique, et ce ne sont pas la même décision.
  */
 export const TaillesDeTitre: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
-      {(["sm", "md", "lg"] as const).map((titleSize) => (
+      {(["sm", "md", "lg", "bloque"] as const).map((titleSize) => (
         <Card
           key={titleSize}
           title={`Titre en ${titleSize}`}

@@ -6,6 +6,7 @@ import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/atoms/Button";
 import { TextField, Input, Label } from "@hifago/ui";
 import { signOutAndGoHome } from "./signOutAndGoHome";
+import { Title } from "@/components/atoms/Title";
 
 // Spec 35 décisions ④/⑪ — confirmation forte et définitive, bloquée en amont pour un compte
 // professionnel. Même patron de confirmation-remplace-le-bouton que `CancelLineButton.tsx`
@@ -75,7 +76,9 @@ export function DeleteAccountSection({
   if (hasProfessionalCapability) {
     return (
       <section className="flex flex-col gap-2 rounded-lg border border-default-200 p-4" data-testid="delete-account-section">
-        <h2 className="text-sm font-medium">{t("deleteSectionTitle")}</h2>
+        <Title as="h2" size="bloque">
+          {t("deleteSectionTitle")}
+        </Title>
         <p className="text-sm text-muted" data-testid="delete-blocked-capability">
           {t("deleteBlockedByCapability")}
         </p>
@@ -85,7 +88,9 @@ export function DeleteAccountSection({
 
   return (
     <section className="flex flex-col gap-2 rounded-lg border border-default-200 p-4" data-testid="delete-account-section">
-      <h2 className="text-sm font-medium">{t("deleteSectionTitle")}</h2>
+      <Title as="h2" size="bloque">
+        {t("deleteSectionTitle")}
+      </Title>
       <p className="text-sm text-muted">{t("deleteSectionDescription")}</p>
 
       {!isConfirming ? (

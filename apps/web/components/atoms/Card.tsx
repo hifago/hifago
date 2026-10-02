@@ -83,7 +83,10 @@ import { Link } from "@/i18n/navigation";
 // n'en a besoin, et le README interdit d'anticiper. Ils s'ajouteront le jour où un écran les
 // demande.
 export type CardTitleLevel = "h2" | "h3" | "h4";
-export type CardTitleSize = "sm" | "md" | "lg";
+// `bloque` : le rôle `titre-bloc` de la charte (Anton 20 → 22 px, plan 41 F2), celui des cartes de
+// CONTENU — récapitulatif du voyage, commande. `sm`/`md`/`lg` restent pour les tuiles photo des
+// listings (`TarjetaOferta`), que l'item S4 du plan 41 remplace par la tuile de l'accueil.
+export type CardTitleSize = "sm" | "md" | "lg" | "bloque";
 export type CardContentGap = "sm" | "md" | "lg";
 export type CardLayout = "stack" | "row" | "overlay";
 
@@ -165,6 +168,9 @@ const TITLE_SIZE_CLASSES: Record<CardTitleSize, string> = {
   sm: "", // `.card__title` de HeroUI, inchangé.
   md: "text-lg",
   lg: "text-2xl",
+  // Classe de rôle de `packages/ui` (`@layer components`) : sa spécificité bat `.card__title` de
+  // HeroUI, même couche — police, taille, interligne ET graisse 400, donc plus de faux gras.
+  bloque: "titre-bloc",
 };
 
 // `.card__content` est déjà `gap-1` côté HeroUI ; ces classes vivent dans la couche `utilities` et

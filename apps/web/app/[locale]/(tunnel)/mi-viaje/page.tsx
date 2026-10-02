@@ -9,6 +9,7 @@ import {
 import { getPendingOrdersForViewer } from "@/lib/orders/getPendingOrdersForViewer";
 import { CartSummary } from "@/components/organisms/CartSummary";
 import { LinkButton } from "@/components/atoms/LinkButton";
+import { Title } from "@/components/atoms/Title";
 // Jamais `Button` du barrel `@hifago/ui` ici : ce fichier est un Server Component (apps.md) —
 // seul l'atome `"use client"` peut être importé sans faire planter `next build`.
 import { Button } from "@/components/atoms/Button";
@@ -63,7 +64,7 @@ export default async function CartPage({ params }: PageProps<"/[locale]/mi-viaje
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-8">
-      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <Title as="h1">{t("title")}</Title>
       <CartSummary lines={lines} editable locale={locale as Locale} />
       {lines.length > 0 ? (
         campSinAlojamiento ? (

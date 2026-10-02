@@ -246,7 +246,9 @@ export function FichaProducto({
               absente si `amenidades` est vide, même discipline que `faits` juste au-dessus. */}
           {alojamiento && alojamiento.amenidades.length > 0 ? (
             <section className="flex flex-col gap-3" data-testid="product-amenities">
-              <Title as="h2">{tCommon("amenitiesTitle")}</Title>
+              <Title as="h2" size="bloque">
+                {tCommon("amenitiesTitle")}
+              </Title>
               <AmenidadesList grupos={alojamiento.amenidades} testId="product-amenities-list" />
             </section>
           ) : null}
@@ -369,7 +371,10 @@ export function FichaProducto({
       {ficha.establecimiento ? (
         <Card data-testid="establishment-info">
           <Card.Header>
-            <Card.Title data-testid="establishment-name">
+            {/* `Title as="h2"`, et non `Card.Title` de HeroUI : celui-ci rend un `<h3>` en `text-sm
+                font-medium`, donc la police de titre à 14 px en faux gras (plan 41, F2). Un `<h2>` :
+                ce bloc est le frère de la carte du produit, sous le `<h1>`. */}
+            <Title as="h2" size="bloque" testId="establishment-name">
               {ficha.establecimiento.slug ? (
                 <Link
                   href={`/establecimientos/${ficha.establecimiento.slug}`}
@@ -380,7 +385,7 @@ export function FichaProducto({
               ) : (
                 ficha.establecimiento.nombre
               )}
-            </Card.Title>
+            </Title>
           </Card.Header>
           <Card.Content className="flex flex-col gap-4">
             <PhotoStrip

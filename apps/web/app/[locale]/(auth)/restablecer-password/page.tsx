@@ -3,6 +3,7 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getViewerAccount } from "@/lib/auth/viewer";
 import { ResetPasswordForm } from "./ResetPasswordForm";
+import { Title } from "@/components/atoms/Title";
 
 export async function generateMetadata(
   props: Omit<PageProps<"/[locale]/restablecer-password">, "searchParams">
@@ -31,7 +32,7 @@ export default async function ResetPasswordPage({
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <Title as="h1">{t("title")}</Title>
       {account ? (
         <ResetPasswordForm />
       ) : (

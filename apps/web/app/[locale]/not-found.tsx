@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { CoquillaVitrine } from "./(vitrine)/CoquillaVitrine";
+import { Title } from "@/components/atoms/Title";
 
 // La 404 de la vitrine (spec 28 §0). `apps/web` n'en avait AUCUNE : un slug inconnu rendait la page
 // nue de Next, ni traduite ni habillée — point ouvert relevé par la spec 26 §10.
@@ -24,7 +25,7 @@ export default async function NoEncontrado() {
   return (
     <CoquillaVitrine>
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center gap-4 p-8 text-center">
-      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <Title as="h1">{t("title")}</Title>
       <p className="text-muted">{t("body")}</p>
       <Link href="/" className="underline">
         {t("backHome")}
