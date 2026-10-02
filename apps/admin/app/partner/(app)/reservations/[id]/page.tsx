@@ -23,23 +23,38 @@ export default async function PartnerReservationDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: lines } = await supabase.rpc("partner_reservation_detail", {
+  // La page LÈVE sur une panne (app/error.tsx, 2026-10-01) : seul `[]` est « introuvable » — la
+  // RPC le rend pour une ligne inexistante comme pour une ligne hors de ses établissements, sans
+  // distinguer les deux, ce qui ne révèle rien.
+  const { data: lines, error: detailError } = await supabase.rpc("partner_reservation_detail", {
     p_order_line_id: id,
   });
+  if (detailError) {
+    throw new Error(`Lecture de la réservation impossible (partner_reservation_detail) : ${detailError.message}`);
+  }
   const line = lines?.[0];
 
   if (!line) {
     notFound();
   }
 
+  // Durée du créneau : un COMPLÉMENT, lu au mieux et explicitement. La RPC ne rend pas le produit
+  // de la ligne, si bien que cette lecture se fait sur la date et l'heure seules : deux produits au
+  // même créneau la rendent ambiguë (`maybeSingle()` répond alors une erreur PGRST116). Dans ce cas
+  // comme sur une panne, la fiche s'affiche sans durée — jamais un écran d'erreur pour un détail —,
+  // et seule une vraie panne est journalisée. Le correctif durable (la durée rendue par la RPC
+  // elle-même) relève de la base.
   let slotDurationMinutes: number | null = null;
   if (line.slot_start_time) {
-    const { data: slot } = await supabase
+    const { data: slot, error: slotError } = await supabase
       .from("product_slot_availability")
       .select("slot_duration_minutes")
       .eq("slot_date", line.date)
       .eq("slot_start_time", line.slot_start_time)
       .maybeSingle();
+    if (slotError && slotError.code !== "PGRST116") {
+      console.error(`Durée du créneau illisible (réservation ${line.id})`, slotError.message);
+    }
     slotDurationMinutes = slot?.slot_duration_minutes ?? null;
   }
 
