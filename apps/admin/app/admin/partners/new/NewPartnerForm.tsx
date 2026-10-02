@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@hifago/supabase/client";
-import { nowIsoInstant } from "@hifago/domain";
+import { nowIsoInstant, REF_CODE_MAX_LENGTH } from "@hifago/domain";
 import {
   Button,
   Checkbox,
@@ -160,6 +160,13 @@ export function NewPartnerForm() {
       toast.danger("Un código de atribución es obligatorio para enviar una invitación.");
       return;
     }
+    // Même borne que la vitrine (REF_CODE_MAX_LENGTH, @hifago/domain), qui ignore un code plus
+    // long : créé ici, il aurait perdu son attribution en silence. Refus explicite, jamais une
+    // troncature (un `maxLength` couperait un code collé sans le dire).
+    if (code.trim().length > REF_CODE_MAX_LENGTH) {
+      toast.danger(`El código no puede tener más de ${REF_CODE_MAX_LENGTH} caracteres.`);
+      return;
+    }
 
     setIsSubmitting(true);
     const supabase = createClient();
@@ -247,7 +254,7 @@ export function NewPartnerForm() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="identification-type">Tipo de identificación — opcional</Label>
             <Input
@@ -276,7 +283,7 @@ export function NewPartnerForm() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="email">Email — opcional</Label>
             <Input
@@ -361,7 +368,7 @@ export function NewPartnerForm() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="lat">Latitud — detectada o manual</Label>
             <Input id="lat" value={lat} onChange={(event) => setLat(event.target.value)} data-testid="lat-input" />
@@ -451,7 +458,7 @@ export function NewPartnerForm() {
         </Select>
 
         {bankMethod === "bancolombia" ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="bancolombia-numero">Número de cuenta</Label>
               <Input
