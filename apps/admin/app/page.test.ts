@@ -13,7 +13,7 @@ class Redirection extends Error {
 
 type Reponse = { data: unknown; error: { message: string } | null };
 
-let utilisateur: { id: string } | null = null;
+let utilisateur: { id: string; is_anonymous?: boolean } | null = null;
 let roles: Record<string, Reponse> = {};
 
 vi.mock("next/navigation", () => ({
@@ -54,6 +54,11 @@ describe("/ — aiguillage", () => {
 
   it("sans session, renvoie à /login", async () => {
     utilisateur = null;
+    expect(await destination()).toBe("/login");
+  });
+
+  it("session anonyme (panier de la vitrine) : renvoie à /login, jamais à l'espace socio", async () => {
+    utilisateur = { id: "anon", is_anonymous: true };
     expect(await destination()).toBe("/login");
   });
 

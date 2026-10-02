@@ -11,7 +11,7 @@ class Redirection extends Error {
   }
 }
 
-let utilisateur: { id: string } | null = null;
+let utilisateur: { id: string; is_anonymous?: boolean } | null = null;
 let partnerId: { data: unknown; error: { message: string } | null } = { data: "p-1", error: null };
 const capaciteLue = vi.fn(async (_supabase: unknown, _partnerId: string | null) => true);
 
@@ -53,6 +53,11 @@ describe("/partner — garde commune", () => {
 
   it("sans session, renvoie à /login avec retour sur /partner", async () => {
     utilisateur = null;
+    await expect(rendre()).rejects.toMatchObject({ url: "/login?next=/partner" });
+  });
+
+  it("session anonyme (panier de la vitrine) : renvoie à /login, sans coquille socio", async () => {
+    utilisateur = { id: "anon", is_anonymous: true };
     await expect(rendre()).rejects.toMatchObject({ url: "/login?next=/partner" });
   });
 

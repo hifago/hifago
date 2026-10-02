@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { isRealAccount } from "@hifago/supabase/identity";
 import { AdminNav } from "./AdminNav";
 
 // Premier écran de cette app (feature 1) — garde posée une fois ici, héritée automatiquement par
@@ -19,7 +20,10 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  // Une session ANONYME (posée par le panier de la vitrine — en local les deux apps partagent
+  // `localhost`, donc ses cookies) n'est pas un compte : elle va au login comme une absence de
+  // session, jamais vers l'espace socio (« sin rol »). `!user` reste écrit pour le typage.
+  if (!user || !isRealAccount(user)) {
     redirect("/login?next=/admin");
   }
 

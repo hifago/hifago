@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { isRealAccount } from "@hifago/supabase/identity";
 import { getOperatorCapability } from "@/lib/agenda/activeOperatorEstablishments";
 import { PartnerAppNav } from "./PartnerAppNav";
 
@@ -17,7 +18,10 @@ export default async function PartnerAppLayout({ children }: LayoutProps<"/partn
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  // Une session ANONYME (posée par le panier de la vitrine — en local les deux apps partagent
+  // `localhost`, donc ses cookies) n'est pas un compte : elle va au login comme une absence de
+  // session, jamais vers l'espace socio (« sin rol »). `!user` reste écrit pour le typage.
+  if (!user || !isRealAccount(user)) {
     redirect("/login?next=/partner");
   }
 
