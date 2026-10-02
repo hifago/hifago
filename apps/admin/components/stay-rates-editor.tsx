@@ -71,7 +71,7 @@ export function StayRatesEditor({
             </Checkbox>
           ))}
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           <TextField
             value={value.seasonSurchargePct}
             onChange={(next) => onChange({ ...value, seasonSurchargePct: next })}
@@ -124,7 +124,7 @@ export function StayRatesEditor({
         </TextField>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         <TextField value={value.depositCop} onChange={(next) => onChange({ ...value, depositCop: next })}>
           <Label>Depósito (COP) — opcional</Label>
           <Input type="number" min={0} data-testid={`${testIdPrefix}stay-rates-deposit-input`} />

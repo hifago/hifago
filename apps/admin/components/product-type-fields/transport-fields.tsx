@@ -97,7 +97,7 @@ export function TransportFields({ state }: { state: ProductTypeFieldsState }) {
           data-testid="departure-address-input"
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="departure-lat">Latitud de salida — detectada o manual</Label>
           <Input
@@ -132,7 +132,7 @@ export function TransportFields({ state }: { state: ProductTypeFieldsState }) {
           data-testid="arrival-address-input"
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="arrival-lat">Latitud de llegada — detectada o manual</Label>
           <Input
@@ -156,7 +156,7 @@ export function TransportFields({ state }: { state: ProductTypeFieldsState }) {
       {/* `first = last` est VALIDE, et c'est le cas normal d'un transfert à heure fixe — d'où le
           `>=` du CHECK products_transport_departure_order, divergence assumée avec
           product_slot_rules_time_order (qui exige, lui, un intervalle strict). */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <TextField
           fullWidth
           name="transport-first-departure"

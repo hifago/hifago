@@ -42,7 +42,7 @@ export function CampFields({
     <>
       {showPricing && hasGroupDiscount ? (
         <div className="flex flex-col gap-1.5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <TextField
               fullWidth
               name="group-discount-threshold-qty"

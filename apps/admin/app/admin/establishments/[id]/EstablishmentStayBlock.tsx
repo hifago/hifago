@@ -87,7 +87,7 @@ export function EstablishmentStayBlock({
         />
       ) : (
       <>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <TextField fullWidth name="establishment-check-in" value={checkIn} onChange={setCheckIn}>
           <Label>Check-in — opcional</Label>
           <Input type="time" data-testid="establishment-check-in-input" />
