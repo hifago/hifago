@@ -94,6 +94,13 @@ lancer "Navigation localisée (@/i18n/navigation)"    bash scripts/check-i18n-li
 # les commissions pendant une semaine.
 lancer "Lecture d'order_lines (jamais en session)"   bash scripts/check-order-lines-access.sh
 
+# Bloquant depuis le 2026-10-02 — vérifié PAR MUTATION (rouge sur les trois écritures directes
+# d'avant la RPC, dont une chaîne `.from(…)` / `.delete(` sur deux lignes ; muet sur les lectures et
+# les commentaires ; code 2 sans filtre). product_slot_rules est RPC-only en écriture : une écriture
+# directe échouerait en « permission denied », et replace_product_slot_rules est le seul chemin qui
+# remplace les règles en une transaction.
+lancer "Écriture de product_slot_rules (RPC seule)"  bash scripts/check-slot-rules-access.sh
+
 # Depuis le 2026-10-01 (migration 20261001194704) — vérifié PAR MUTATION (rouge sur 29 côté Deno, 27
 # côté SQL, une marge TS de 3, une migration plus récente qui redéfinit la fonction — en majuscules,
 # sans schéma ou entre guillemets ; code 2 sur une constante renommée, en double ou en secondes ; muet
