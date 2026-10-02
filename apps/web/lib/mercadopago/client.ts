@@ -5,8 +5,6 @@ import { MercadoPagoConfig, Payment, Preference } from "mercadopago";
 // même patron que `sharp` dans apps/admin/app/api/upload/[entity]/route.ts (bibliothèque à effets
 // de bord gardée dans l'app qui l'utilise, pas mutualisée dans un package partagé). Un seul compte
 // marchand (Hifago) — aucun split natif, aucun OAuth établissement/référent ici (spec §1/§3).
-let cachedConfig: MercadoPagoConfig | null = null;
-
 function getAccessToken(): string {
   const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!accessToken) {
@@ -15,12 +13,6 @@ function getAccessToken(): string {
   return accessToken;
 }
 
-function getConfig(): MercadoPagoConfig {
-  if (!cachedConfig) {
-    cachedConfig = new MercadoPagoConfig({ accessToken: getAccessToken() });
-  }
-  return cachedConfig;
-}
 
 /**
  * Bornes de la création de préférence. Le SDK 3.4.0 attend par défaut 60 s par tentative et retente
@@ -46,7 +38,7 @@ export const PREFERENCE_REQUEST_BOUNDS = {
  * l'arrivée des en-têtes (`clearTimeout` dès que `fetch` rend la main, `restClient/index.js:142`), la
  * lecture du corps n'est bornée par rien, et le SDK écrase tout `signal` qu'on lui passerait. Un
  * corps qui cale aurait donc encore fait couper la route par la plateforme. 20 s : au-delà du pire cas
- * des bornes ci-dessus (18 s), sous le `maxDuration` de 30 s de `/api/payments/create`.
+ * des bornes ci-dessus (18 s), sous le `maxDuration` de `/api/payments/create` (avec ses deux accès base).
  */
 export const PREFERENCE_DEADLINE_MS = 20_000;
 
@@ -115,10 +107,9 @@ export interface CheckoutPreferenceResult {
 export async function createCheckoutPreference(
   input: CreateCheckoutPreferenceInput
 ): Promise<CheckoutPreferenceResult> {
-  // Config PROPRE à cet appel, jamais `cachedConfig` : `Preference.create` fusionne ses
+  // Config PROPRE à cet appel, jamais une config partagée : `Preference.create` fusionne ses
   // `requestOptions` DANS `this.config.options` (SDK 3.4.0, `clients/preference/index.js:49`). Sur
-  // l'objet partagé, ces bornes et la clé d'idempotence resteraient collées aux appels suivants,
-  // dont `getMercadoPagoPayment` (webhook), qui n'a pas le même budget.
+  // un objet partagé, ces bornes et la clé d'idempotence resteraient collées aux appels suivants.
   const preference = new Preference(
     new MercadoPagoConfig({ accessToken: getAccessToken(), options: { ...PREFERENCE_REQUEST_BOUNDS } })
   );
@@ -182,9 +173,27 @@ export async function createCheckoutPreference(
   };
 }
 
+/**
+ * Bornes du GET de re-confirmation (webhook). Mêmes raisons que PREFERENCE_REQUEST_BOUNDS — le SDK
+ * attend sinon 60 s par tentative, 4 tentatives —, plus serrées : Mercado Pago n'attend pas
+ * longtemps la réponse d'un webhook, et un 502 rapide le fait retenter proprement. 6 s par
+ * tentative, une seule nouvelle tentative après 1 s au plus : 13 s tant que les en-têtes arrivent.
+ */
+export const PAYMENT_LOOKUP_BOUNDS = {
+  timeout: 6_000,
+  maxRetries: 1,
+  maxDelay: 1_000,
+} as const;
+
+/** Échéance globale du GET (le délai du SDK ne couvre pas le corps), sous le maxDuration du webhook. */
+export const PAYMENT_LOOKUP_DEADLINE_MS = 15_000;
+
 // Re-confirmation serveur-à-serveur GET /v1/payments/{id} — jamais sur la seule foi du corps du
-// webhook (spec §0 Tranche 1, pattern anti-race-condition recommandé par Mercado Pago).
+// webhook (spec §0 Tranche 1, pattern anti-race-condition recommandé par Mercado Pago). Config
+// propre à l'appel, comme createCheckoutPreference : rien ne fuit d'un appel à l'autre.
 export async function getMercadoPagoPayment(mpPaymentId: string) {
-  const payment = new Payment(getConfig());
-  return payment.get({ id: mpPaymentId });
+  const payment = new Payment(
+    new MercadoPagoConfig({ accessToken: getAccessToken(), options: { ...PAYMENT_LOOKUP_BOUNDS } })
+  );
+  return withDeadline(payment.get({ id: mpPaymentId }), PAYMENT_LOOKUP_DEADLINE_MS);
 }

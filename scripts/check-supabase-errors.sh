@@ -77,8 +77,6 @@ est_exempte() {
     # Dette — lien/QR imprimé : sur une panne, le code est lu comme inconnu et la redirection perd
     # ?ref= (attribution perdue). Correctif : garder ?ref= sur erreur, create_order revérifie le code.
     "apps/web/app/[locale]/r/[code]/route.ts") return 0 ;;
-    # Dette — webhook Mercado Pago : paiement connu relu sans son error (traité avec le webhook).
-    "apps/web/app/api/payments/webhook/route.ts") return 0 ;;
   esac
   return 1
 }
@@ -95,7 +93,6 @@ EXEMPTIONS=(
   "apps/web/app/[locale]/r/[code]/route.ts"
   "apps/web/app/api/payments/mock-checkout/route.ts"
   "apps/web/app/api/payments/mock-confirm/route.ts"
-  "apps/web/app/api/payments/webhook/route.ts"
 )
 
 MOTIF='const \{ (data|count)(: [A-Za-z_]+)? \} = await|\.then\(\(\{ (data|count)(: [A-Za-z_]+)? \}(: [^)]*)?\)|if \((error|[A-Za-z]+Error) \|\| [^)]*\) return (\[\]|null)'
