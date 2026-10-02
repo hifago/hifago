@@ -12,6 +12,7 @@ import {
 } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/server";
 import { createServiceRoleClient } from "@hifago/supabase/service";
+import { isUuid } from "@/lib/uuid";
 
 // Frontière d'accès aux données LobbyPMS d'un établissement, définie UNE fois (/simplify du
 // 2026-08-26). Les trois Route Handlers `api/pms/*` en portaient chacun leur copie : 38 lignes
@@ -90,7 +91,9 @@ export async function resolveLobbyEstablishment(
   establishmentId: string | null,
   options: { requireAdmin?: boolean } = {},
 ): Promise<LobbyEstablishmentAccess> {
-  if (!establishmentId) return deny("invalid_params", 400);
+  // Pas un UUID → 400 avant toute lecture : la lecture échouerait (22P02), et une lecture en échec
+  // répond ci-dessous 503 « autorisation indéterminable » — un faux 503 pour une faute de saisie.
+  if (!isUuid(establishmentId)) return deny("invalid_params", 400);
 
   const supabase = await createClient();
   const {

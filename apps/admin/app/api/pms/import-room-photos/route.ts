@@ -9,6 +9,7 @@ import {
   type LobbyFetchCredentials,
 } from "@/lib/pms/lobbyEstablishment";
 import { lobbyImportMode } from "@/lib/pms/lobbyImportMode";
+import { isUuid } from "@/lib/uuid";
 import {
   CATALOG_MEDIA_BUCKET,
   toCatalogWebp,
@@ -46,9 +47,6 @@ export const maxDuration = 60;
 
 type SkippedPhoto = { url: string; reason: string };
 
-// Un productId mal formé est refusé AVANT toute lecture : PostgREST rejetterait la requête en
-// erreur, que la route lirait (à raison) comme une panne — un 503 pour une simple faute de saisie.
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type ServiceClient = ReturnType<typeof createServiceRoleClient>;
 
 /**
@@ -182,7 +180,9 @@ function catalogUnavailable(productId: string, table: string, message: string) {
 
 async function handleAttach(input: { productId?: unknown }) {
   const { productId } = input;
-  if (typeof productId !== "string" || !UUID_PATTERN.test(productId)) {
+  // Un productId mal formé est refusé AVANT toute lecture (lib/uuid.ts) : un 503 pour une simple
+  // faute de saisie, sinon.
+  if (!isUuid(productId)) {
     return Response.json({ ok: false, reason: "invalid_body" }, { status: 400 });
   }
 
