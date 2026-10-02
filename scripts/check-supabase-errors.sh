@@ -62,9 +62,8 @@ est_exempte() {
     "apps/web/lib/orders/getPendingOrdersForViewer.ts") return 0 ;;
     # Dette — garde 2FA ouverte en cas d'erreur, traitée avec le 2FA.
     "apps/admin/lib/mfaGuard.ts") return 0 ;;
-    # Dette — lectures de rattachement d'invitations et de capacités operator, non traitées.
+    # Dette — lectures de rattachement d'invitations, non traitées.
     "apps/admin/lib/invitations/resolveMissingEstablishment.ts") return 0 ;;
-    "apps/admin/lib/agenda/activeOperatorEstablishments.ts") return 0 ;;
     # Permanente — transfert du panier anonyme à la connexion, best-effort écrit dans le fichier :
     # une erreur ne bloque jamais la connexion elle-même.
     "apps/web/app/[locale]/(auth)/entrar/LoginForm.tsx") return 0 ;;
@@ -89,7 +88,6 @@ EXEMPTIONS=(
   "apps/web/lib/orders/getPendingOrdersForViewer.ts"
   "apps/admin/lib/mfaGuard.ts"
   "apps/admin/lib/invitations/resolveMissingEstablishment.ts"
-  "apps/admin/lib/agenda/activeOperatorEstablishments.ts"
   "apps/web/app/[locale]/(auth)/entrar/LoginForm.tsx"
   "apps/web/app/[locale]/(tunnel)/pago/CheckoutForm.tsx"
   "apps/web/app/[locale]/r/[code]/route.ts"
