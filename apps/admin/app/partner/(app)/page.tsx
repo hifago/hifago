@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import {
   addDaysIso,
   asLocalizedField,
@@ -77,15 +78,23 @@ export default async function PartnerHomePage() {
     redirect("/login?next=/partner");
   }
 
-  const { data: partnerId } = await supabase.rpc("partner_id_for_account", { uid: user.id });
+  // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
+  // affichait « Aún no tienes ningún rol asignado », ou un agenda vide.
+  const { data: partnerId } = checkedRead(
+    await supabase.rpc("partner_id_for_account", { uid: user.id }),
+    "partner_id_for_account",
+  );
 
-  const { data: capabilities } = partnerId
-    ? await supabase
-        .from("partner_capabilities")
-        .select("id, role, status, establishment_id")
-        .eq("partner_id", partnerId)
-        .order("role")
-    : { data: null };
+  const { data: capabilities } = checkedRead(
+    partnerId
+      ? await supabase
+          .from("partner_capabilities")
+          .select("id, role, status, establishment_id")
+          .eq("partner_id", partnerId)
+          .order("role")
+      : { data: null, error: null },
+    "partner_capabilities",
+  );
 
   const rows = (capabilities ?? []) as CapabilityRow[];
   const allActive = rows.length > 0 && rows.every((row) => row.status === "active");
@@ -123,7 +132,7 @@ export default async function PartnerHomePage() {
     // cancelled_by_provider (une réservation annulée n'a plus sa place sur l'agenda, contrairement
     // à la liste "Mis reservas" qui garde tout avec un filtre statut explicite). no_show reste
     // visible (le créneau a réellement eu lieu) — statuts bakés dans la RPC, jamais un paramètre.
-    const [{ data: products }, { data: lines }] = await Promise.all([
+    const [productsResult, linesResult] = await Promise.all([
       supabase
         .from("products")
         .select("id, name, type, establishment_id, duration_days")
@@ -132,6 +141,8 @@ export default async function PartnerHomePage() {
         .returns<ProductRow[]>(),
       supabase.rpc("partner_agenda_order_lines", { p_date_from: from, p_date_to: to }),
     ]);
+    const { data: products } = checkedRead(productsResult, "products");
+    const { data: lines } = checkedRead(linesResult, "partner_agenda_order_lines");
 
     const productRows = products ?? [];
     const lineRows = lines ?? [];
@@ -144,10 +155,10 @@ export default async function PartnerHomePage() {
       new Set(linesWithSlot.map((l) => l.product_id).filter((id): id is string => Boolean(id)))
     );
 
-    const [{ data: slotRules }, { data: slotDurationRows }] = await Promise.all([
+    const [slotRulesResult, slotDurationResult] = await Promise.all([
       slotProductIds.length > 0
         ? supabase.from("product_slot_rules").select("product_id").in("product_id", slotProductIds)
-        : Promise.resolve({ data: [] as { product_id: string }[] }),
+        : Promise.resolve({ data: [] as { product_id: string }[], error: null }),
       slotAvailabilityProductIds.length > 0
         ? supabase
             .from("product_slot_availability")
@@ -155,8 +166,10 @@ export default async function PartnerHomePage() {
             .in("product_id", slotAvailabilityProductIds)
             .gte("slot_date", from)
             .lte("slot_date", to)
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [], error: null }),
     ]);
+    const { data: slotRules } = checkedRead(slotRulesResult, "product_slot_rules");
+    const { data: slotDurationRows } = checkedRead(slotDurationResult, "product_slot_availability");
     const productIdsWithSlots = new Set((slotRules ?? []).map((r) => r.product_id));
 
     const orderLinesForAgenda: OrderLineForAgenda[] = lineRows.map((line) => ({
