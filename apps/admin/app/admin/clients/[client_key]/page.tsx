@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { asLocalizedField, formatDateInBogota, resolveLocalizedField } from "@hifago/domain";
 import { ContactClientButton } from "@/components/ContactClientButton";
 import { ClientOrderCard, type ClientOrderLineRow } from "./ClientOrderCard";
@@ -29,14 +30,25 @@ export default async function AdminClientDetailPage({
   params,
 }: PageProps<"/admin/clients/[client_key]">) {
   const { client_key } = await params;
-  const decodedKey = decodeURIComponent(client_key);
+  // Un `%` mal formé dans l'URL fait lever decodeURIComponent : une adresse inconnue (404), jamais
+  // l'écran d'erreur pour une faute de saisie.
+  let decodedKey: string;
+  try {
+    decodedKey = decodeURIComponent(client_key);
+  } catch {
+    notFound();
+  }
 
   const supabase = await createClient();
 
-  const { data: orders, error } = await supabase.rpc("list_client_orders", {
-    p_client_key: decodedKey,
-  });
-  if (error || !orders || orders.length === 0) {
+  // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : la panne de
+  // list_client_orders répondait « introuvable », celles des lignes et des paiements une fiche vide.
+  // Seul « aucune commande » reste un 404.
+  const { data: orders } = checkedRead(
+    await supabase.rpc("list_client_orders", { p_client_key: decodedKey }),
+    "list_client_orders",
+  );
+  if (!orders || orders.length === 0) {
     notFound();
   }
 
@@ -47,7 +59,7 @@ export default async function AdminClientDetailPage({
   // display_name/email/phone.
   const identity = orders[0];
 
-  const [{ data: lines }, { data: payments }] = await Promise.all([
+  const [linesResult, paymentsResult] = await Promise.all([
     supabase.rpc("admin_client_order_lines", { p_order_ids: orderIds }),
     supabase
       .from("payments")
@@ -56,6 +68,8 @@ export default async function AdminClientDetailPage({
       .order("created_at", { ascending: false })
       .returns<PaymentQueryRow[]>(),
   ]);
+  const { data: lines } = checkedRead(linesResult, "admin_client_order_lines");
+  const { data: payments } = checkedRead(paymentsResult, "payments");
 
   const linesByOrder = new Map<string, ClientOrderLineRow[]>();
   for (const line of lines ?? []) {

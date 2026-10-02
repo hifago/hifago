@@ -5,11 +5,14 @@ import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { EditProposalForm } from "./EditProposalForm";
 import { PhotosSocioBlock } from "@/components/photos-socio-block";
 import { ownerScope } from "@/lib/partnerOwnership";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 
 export default async function EditProductProposalPage({
   params,
 }: PageProps<"/partner/products/[id]/edit">) {
-  const { id } = await params;
+  // Pas un UUID → 404 avant toute lecture : la lecture, qui lève sur erreur, afficherait sinon
+  // l'écran d'erreur pour une faute de frappe dans l'URL.
+  const id = requireUuidParam((await params).id);
   const supabase = await createClient();
 
   // Propriété (2026-10-01, lib/partnerOwnership.ts) : la RLS seule laissait passer toute fiche EN

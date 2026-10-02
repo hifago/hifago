@@ -1,4 +1,5 @@
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { resolveListParams } from "@hifago/domain";
 import { ClientsList, type ClientRow } from "./ClientsList";
 import { CLIENTS_FILTER_DEFINITIONS } from "@/lib/lists/filters";
@@ -24,15 +25,19 @@ export default async function AdminClientsPage({
 
   const supabase = await createClient();
 
-  const { data: rpcRows, error } = await supabase.rpc("list_clients", {
-    p_search: filters.q ?? null,
-    p_status: filters.status ?? null,
-    p_sort_key: sort.key,
-    p_sort_desc: sort.direction === "desc",
-    p_limit: pageSize,
-    p_offset: from,
-  });
-  const clients = error ? [] : (rpcRows ?? []);
+  const { data: rpcRows } = checkedRead(
+    await supabase.rpc("list_clients", {
+      p_search: filters.q ?? null,
+      p_status: filters.status ?? null,
+      p_sort_key: sort.key,
+      p_sort_desc: sort.direction === "desc",
+      p_limit: pageSize,
+      p_offset: from,
+    }),
+    "list_clients",
+  );
+  // Une panne LÈVE (lib/supabase/checkedRead.ts) : `error ? []` l'affichait comme une liste vide.
+  const clients = rpcRows ?? [];
   const totalCount = clients[0]?.total_count ?? 0;
 
   // encodeURIComponent : client_key n'est pas un uuid systématique (email en minuscule ou numéro

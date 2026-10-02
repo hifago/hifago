@@ -1,4 +1,5 @@
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import {
   addDaysIso,
   asLocalizedField,
@@ -38,7 +39,13 @@ export default async function PartnerReservationsPage({
     return null; // garde déjà posée par layout.tsx — jamais atteint en pratique.
   }
 
-  const { data: partnerId } = await supabase.rpc("partner_id_for_account", { uid: user.id });
+  // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
+  // affichait « aucune réservation » — `partner_id_for_account` en panne vidait même la liste des
+  // établissements opérés sans le dire.
+  const { data: partnerId } = checkedRead(
+    await supabase.rpc("partner_id_for_account", { uid: user.id }),
+    "partner_id_for_account",
+  );
 
   const resolvedSearchParams = await searchParams;
   const { page, pageSize, from, to, sort, filters, extraParams } = resolveListParams(
@@ -65,30 +72,35 @@ export default async function PartnerReservationsPage({
 
   // Scope établissement recalculé côté SQL (has_capability), jamais par establishmentIds ci-dessus
   // — cette liste ne sert plus qu'au combobox de filtre (productOptions) un peu plus bas.
-  const { data: lines, error: linesError } = await supabase.rpc("partner_reservations_list", {
-    p_date_from: dateFrom ?? null,
-    p_date_to: dateTo ?? null,
-    p_product_id: filters.product_id ?? null,
-    p_holder_q: filters.holder_q ?? null,
-    p_status: filters.status ?? null,
-    p_sort_key: sort.column,
-    p_sort_desc: sort.direction === "desc",
-    p_limit: to - from + 1,
-    p_offset: from,
-  });
-  const count = linesError || !lines || lines.length === 0 ? 0 : lines[0].total_count;
+  const { data: lines } = checkedRead(
+    await supabase.rpc("partner_reservations_list", {
+      p_date_from: dateFrom ?? null,
+      p_date_to: dateTo ?? null,
+      p_product_id: filters.product_id ?? null,
+      p_holder_q: filters.holder_q ?? null,
+      p_status: filters.status ?? null,
+      p_sort_key: sort.column,
+      p_sort_desc: sort.direction === "desc",
+      p_limit: to - from + 1,
+      p_offset: from,
+    }),
+    "partner_reservations_list",
+  );
+  const count = !lines || lines.length === 0 ? 0 : lines[0].total_count;
 
   // Activités du prestataire pour le combobox de filtre (retour Jérôme, 2026-08-20) — même
   // établissements que la requête principale, jamais reposé sur products.sellable (une réservation
   // existante peut porter sur une activité entre-temps dépubliée, elle doit rester filtrable).
-  const { data: productOptionsRaw } =
+  const { data: productOptionsRaw } = checkedRead(
     establishmentIds.length > 0
       ? await supabase
           .from("products")
           .select("id, name")
           .in("establishment_id", establishmentIds)
           .order("name->>es", { ascending: true })
-      : { data: [] as { id: string; name: unknown }[] };
+      : { data: [] as { id: string; name: unknown }[], error: null },
+    "products",
+  );
   const productOptions = (productOptionsRaw ?? []).map((product) => ({
     id: product.id,
     name: resolveLocalizedField(asLocalizedField(product.name), "es") ?? product.id,

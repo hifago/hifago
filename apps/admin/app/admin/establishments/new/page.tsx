@@ -1,4 +1,5 @@
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { NewEstablishmentForm } from "./NewEstablishmentForm";
 
@@ -8,20 +9,25 @@ export default async function NewEstablishmentPage({
   const supabase = await createClient();
 
   // RLS (partners_select) : l'admin voit tous les partenaires, nécessaire pour le sélecteur.
-  const { data: partners } = await supabase
-    .from("partners")
-    .select("id, display_name")
-    .order("display_name");
+  // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : une liste de partenaires
+  // vide rendrait le formulaire inutilisable sans dire pourquoi.
+  const { data: partners } = checkedRead(
+    await supabase.from("partners").select("id, display_name").order("display_name"),
+    "partners",
+  );
 
   // Équipements structurés (migration 20260917110000, décision Jérôme du 2026-09-17) — stagés à la
   // création comme le reste du formulaire (contrairement aux tags, qui n'ont aucun équivalent ici :
   // demande explicite, pas un réemploi du gating existant). Chargé inconditionnellement, un
   // établissement est TOUJOURS éligible (même raisonnement que EstablishmentAmenitiesBlock).
-  const { data: amenitiesRaw } = await supabase
-    .from("catalog_amenities")
-    .select("id, label, category_key")
-    .order("category_key")
-    .order("sort_order");
+  const { data: amenitiesRaw } = checkedRead(
+    await supabase
+      .from("catalog_amenities")
+      .select("id, label, category_key")
+      .order("category_key")
+      .order("sort_order"),
+    "catalog_amenities",
+  );
   const allAmenities = (amenitiesRaw ?? []).map((amenity) => ({
     id: amenity.id,
     label: resolveLocalizedField(asLocalizedField(amenity.label), "es") ?? amenity.id,

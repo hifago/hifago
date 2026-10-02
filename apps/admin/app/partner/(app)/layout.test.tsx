@@ -13,7 +13,9 @@ class Redirection extends Error {
 
 let utilisateur: { id: string; is_anonymous?: boolean } | null = null;
 let partnerId: { data: unknown; error: { message: string } | null } = { data: "p-1", error: null };
-const capaciteLue = vi.fn(async (_supabase: unknown, _partnerId: string | null) => true);
+const capaciteLue = vi.fn<(supabase: unknown, partnerId: string | null) => Promise<boolean>>(
+  async () => true
+);
 
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => {

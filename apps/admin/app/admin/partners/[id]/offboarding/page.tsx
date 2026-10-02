@@ -1,18 +1,21 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { OffboardingChecklist } from "./OffboardingChecklist";
 
 export default async function AdminPartnerOffboardingPage({
   params,
 }: PageProps<"/admin/partners/[id]/offboarding">) {
-  const { id } = await params;
+  const id = requireUuidParam((await params).id);
   const supabase = await createClient();
 
-  const { data: partner } = await supabase
-    .from("partners")
-    .select("id, display_name")
-    .eq("id", id)
-    .maybeSingle();
+  // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
+  // répondait « introuvable », ou une checklist d'offboarding vierge.
+  const { data: partner } = checkedRead(
+    await supabase.from("partners").select("id, display_name").eq("id", id).maybeSingle(),
+    "partners",
+  );
 
   if (!partner) {
     notFound();
@@ -28,7 +31,7 @@ export default async function AdminPartnerOffboardingPage({
   // suspendues — exactement ce que offboarding_revoke_capability affectera.
   // Les deux requêtes sont indépendantes (ni l'une ni l'autre ne dépend du résultat de l'autre) :
   // parallélisées via Promise.all.
-  const [{ data: offboarding }, { count: operatorCapabilitiesCount }] = await Promise.all([
+  const [offboardingResult, operatorCapabilitiesResult] = await Promise.all([
     supabase
       .from("partner_offboarding")
       .select(
@@ -45,6 +48,8 @@ export default async function AdminPartnerOffboardingPage({
       .eq("role", "operator")
       .neq("status", "suspended"),
   ]);
+  const { data: offboarding } = checkedRead(offboardingResult, "partner_offboarding");
+  const { count: operatorCapabilitiesCount } = checkedRead(operatorCapabilitiesResult, "partner_capabilities");
 
   return (
     <div className="flex flex-col gap-6">

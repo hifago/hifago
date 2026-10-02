@@ -1,4 +1,5 @@
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { asLocalizedField, resolveLocalizedField, resolveListParams } from "@hifago/domain";
 import { LEDGER_FILTER_DEFINITIONS } from "@/lib/lists/filters";
 import { LEDGER_DEFAULT_SORT, LEDGER_SORT_WHITELIST } from "@/lib/lists/sortable-columns";
@@ -59,12 +60,17 @@ export default async function AdminLedgerPage({
   // Options des combobox de filtre — listes complètes (pas de plafond), chargées en une seule
   // requête chacune, jamais paginées : retour Jérôme, plus correct qu'un <select> plafonné pour un
   // écran de réconciliation financière (cf. plan).
-  const { data: referrerCapabilities } = await supabase
-    .from("partner_capabilities")
-    .select("partner_id, partner:partners(display_name)")
-    .eq("role", "referrer")
-    .eq("status", "active")
-    .returns<{ partner_id: string; partner: { display_name: string } | null }[]>();
+  // Une panne LÈVE (lib/supabase/checkedRead.ts) : des listes de filtre vides cacheraient des
+  // référents et des établissements à réconcilier.
+  const { data: referrerCapabilities } = checkedRead(
+    await supabase
+      .from("partner_capabilities")
+      .select("partner_id, partner:partners(display_name)")
+      .eq("role", "referrer")
+      .eq("status", "active")
+      .returns<{ partner_id: string; partner: { display_name: string } | null }[]>(),
+    "partner_capabilities",
+  );
 
   const referrersById = new Map<string, string>();
   for (const capability of referrerCapabilities ?? []) {
@@ -76,10 +82,10 @@ export default async function AdminLedgerPage({
     (a, b) => a.name.localeCompare(b.name)
   );
 
-  const { data: establishmentsRaw } = await supabase
-    .from("establishments")
-    .select("id, name")
-    .returns<{ id: string; name: unknown }[]>();
+  const { data: establishmentsRaw } = checkedRead(
+    await supabase.from("establishments").select("id, name").returns<{ id: string; name: unknown }[]>(),
+    "establishments",
+  );
   const establishments: EstablishmentOption[] = (establishmentsRaw ?? [])
     .map((establishment) => ({
       id: establishment.id,

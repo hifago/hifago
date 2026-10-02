@@ -86,7 +86,7 @@ describe("JoinForm — une seule consommation de l'invitation", () => {
       password: "secret1234",
     });
 
-    expect(state.toastDanger).toHaveBeenCalledWith("Une erreur est survenue. Réessayez.");
+    expect(state.toastDanger).toHaveBeenCalledWith("Ocurrió un error. Inténtalo de nuevo.");
     expect(state.push).not.toHaveBeenCalled();
   });
 

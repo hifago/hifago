@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { buttonVariants } from "@hifago/ui";
 import { CapabilitiesSection } from "./CapabilitiesSection";
@@ -11,14 +13,15 @@ import { PartnerLocationBlock } from "./PartnerLocationBlock";
 export default async function AdminPartnerDetailPage({
   params,
 }: PageProps<"/admin/partners/[id]">) {
-  const { id } = await params;
+  const id = requireUuidParam((await params).id);
   const supabase = await createClient();
 
-  const { data: partner } = await supabase
-    .from("partners")
-    .select("id, display_name")
-    .eq("id", id)
-    .maybeSingle();
+  // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
+  // répondait « introuvable », ou une fiche sans capacités, établissements ni codes.
+  const { data: partner } = checkedRead(
+    await supabase.from("partners").select("id, display_name").eq("id", id).maybeSingle(),
+    "partners",
+  );
 
   if (!partner) {
     notFound();
@@ -31,12 +34,12 @@ export default async function AdminPartnerDetailPage({
   // transfer_establishment n'a qu'un seul chemin, premier rattachement et transfert depuis un
   // autre partenaire confondus.
   const [
-    { data: capabilities },
-    { data: agreements },
-    { data: ownEstablishments },
-    { data: allEstablishments },
-    { data: codes },
-    { data: crmProfile },
+    capabilitiesResult,
+    agreementsResult,
+    ownEstablishmentsResult,
+    allEstablishmentsResult,
+    codesResult,
+    crmProfileResult,
   ] = await Promise.all([
     supabase
       .from("partner_capabilities")
@@ -68,6 +71,13 @@ export default async function AdminPartnerDetailPage({
     // n'ont aujourd'hui aucune ligne (jamais géocodés), pas un cas d'erreur.
     supabase.from("partner_crm_profile").select("address, lat, lon").eq("partner_id", id).maybeSingle(),
   ]);
+  const { data: capabilities } = checkedRead(capabilitiesResult, "partner_capabilities");
+  const { data: agreements } = checkedRead(agreementsResult, "role_agreements");
+  const { data: ownEstablishments } = checkedRead(ownEstablishmentsResult, "establishments");
+  const { data: allEstablishments } = checkedRead(allEstablishmentsResult, "establishments");
+  const { data: codes } = checkedRead(codesResult, "partner_codes");
+  // partner_id est la clé primaire de partner_crm_profile : jamais plus d'une ligne.
+  const { data: crmProfile } = checkedRead(crmProfileResult, "partner_crm_profile");
 
   // Dernier accord par rôle (accepted_at desc ci-dessus, donc le premier trouvé par rôle est le
   // plus récent) — un partenaire peut avoir plusieurs accords au fil des versions de document.
