@@ -590,9 +590,13 @@ export function ProductForm({
       })(),
       (async () => {
         if (!isActivity || fields.slotRules.length === 0) return;
-        const rows = toSlotRuleRows(fields.slotRules).map((row) => ({ product_id: newProduct.id, ...row }));
-        const { error: slotRulesError } = await supabase.from("product_slot_rules").insert(rows);
-        if (slotRulesError) {
+        // Même RPC que l'édition (ProductSlotRulesBlock) : jamais d'écriture directe dans
+        // product_slot_rules depuis le navigateur.
+        const { data: slotRulesResult, error: slotRulesError } = await supabase.rpc("replace_product_slot_rules", {
+          p_product_id: newProduct.id,
+          p_rules: toSlotRuleRows(fields.slotRules),
+        });
+        if (slotRulesError || !(slotRulesResult as { ok?: boolean } | null)?.ok) {
           toast.danger("El producto se creó, pero los horarios no se pudieron guardar.");
         }
       })(),
