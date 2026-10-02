@@ -283,7 +283,9 @@ export function ModerateEstablishmentProposalForm({
           <Input id="address" name="address" />
         </TextField>
 
-        <div className="grid grid-cols-2 gap-4">
+        {/* Empilé sous md (.claude/rules/ui.md, responsive) : deux champs côte à côte à 390 px
+            rognaient leurs libellés. */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <TextField value={lat} onChange={setLat}>
             <Label>Latitud</Label>
             <Input id="lat" name="lat" />
