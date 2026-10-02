@@ -4,6 +4,7 @@ import { NewTagForm } from "./NewTagForm";
 import { TagsList, type TagRow } from "./TagsList";
 import { TAGS_FILTER_DEFINITIONS } from "@/lib/lists/filters";
 import { TAGS_DEFAULT_SORT, TAGS_SORT_WHITELIST } from "@/lib/lists/sortable-columns";
+import { quotePostgrestValue } from "@/lib/lists/postgrestFilterValue";
 
 // docs/specs/08-admin-gestion-activite.md §5 — catalogue de tags, remplace la catégorie fixe
 // (products.category) côté écran admin direct.
@@ -31,10 +32,17 @@ export default async function AdminTagsPage({ searchParams }: PageProps<"/admin/
     .range(from, to);
 
   if (filters.q) {
-    query = query.or(`label->>es.ilike.%${filters.q}%,slug.ilike.%${filters.q}%`);
+    // La saisie passe entre guillemets (lib/lists/postgrestFilterValue.ts) : insérée telle quelle,
+    // une virgule ou une parenthèse rendait le filtre invalide ou en changeait le sens.
+    const motif = quotePostgrestValue(`%${filters.q}%`);
+    query = query.or(`label->>es.ilike.${motif},slug.ilike.${motif}`);
   }
 
-  const { data: tags, count } = await query;
+  // Une panne LÈVE (app/error.tsx) : lue comme une absence, elle affichait un catalogue vide.
+  const { data: tags, count, error } = await query;
+  if (error) {
+    throw new Error(`Lecture des étiquettes impossible (catalog_tags) : ${error.message}`);
+  }
 
   const rows: TagRow[] = (tags ?? []).map((tag) => ({
     id: tag.id,

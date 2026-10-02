@@ -2,17 +2,18 @@
 // `?ref=<code>`, relu par `api/cart/attribution/route.ts` pour `carts.attribution_code`. Une seule
 // définition pour les deux : ce qui est accepté à l'écriture l'est à la lecture.
 
+import { REF_CODE_MAX_LENGTH } from "@hifago/domain";
+
 export const REF_COOKIE = "hifago_ref";
 
 /**
- * Longueur maximale acceptée. `partner_codes.code` n'impose aucun motif (codes saisis par l'admin,
- * `SEED-REFACTIVE` en local) : la borne est donc une longueur, jamais une forme inventée. ⚠️ Rien ne
- * la pose encore côté base ni dans les saisies admin : un code plus long y reste créable, et son
- * attribution serait alors ignorée ici. Défense en profondeur seulement — `create_order` ne retient
- * de toute façon qu'un `partner_codes` actif ; la borne empêche que la valeur recopiée telle quelle
+ * Longueur maximale acceptée : `REF_CODE_MAX_LENGTH`, la borne commune aux deux apps
+ * (packages/domain/src/attribution/refCode.ts) — l'admin refuse de créer un code plus long. Elle
+ * n'est pas encore posée en base. Défense en profondeur seulement — `create_order` ne retient de
+ * toute façon qu'un `partner_codes` actif ; la borne empêche que la valeur recopiée telle quelle
  * dans `carts` grossisse jusqu'à la limite d'un cookie.
  */
-export const REF_CODE_MAX_LENGTH = 64;
+export { REF_CODE_MAX_LENGTH };
 
 /** Le code nettoyé, ou `null` s'il est absent, vide ou trop long — jamais tronqué. */
 export function normalizeRefCode(raw: string | null | undefined): string | null {
