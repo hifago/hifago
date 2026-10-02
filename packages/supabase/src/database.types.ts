@@ -2488,6 +2488,14 @@ export type Database = {
         }
         Returns: string
       }
+      admin_campaign_target_counts: {
+        Args: { p_campaign_ids: string[] }
+        Returns: {
+          campaign_id: string
+          n: number
+          status: string
+        }[]
+      }
       admin_client_order_lines: {
         Args: { p_order_ids: string[] }
         Returns: {
