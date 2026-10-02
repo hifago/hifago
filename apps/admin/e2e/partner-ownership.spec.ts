@@ -14,30 +14,31 @@ const ETABLISSEMENT_D_AUTRUI = "b0000000-0000-4000-8000-000000000002";
 const PRODUIT_A_SOI = "b0000000-0000-4000-8000-000000000006";
 const ETABLISSEMENT_A_SOI = "b0000000-0000-4000-8000-000000000004";
 
-test("un socio n'ouvre que les fiches de son organisation, jamais celles d'un autre partenaire", async ({
-  page,
-  context,
-}) => {
-  await loginAs(context, SEEDED_ACCOUNTS.operadorPropuestas, SEEDED_PASSWORD);
-
-  for (const chemin of [
-    `/partner/products/${PRODUIT_D_AUTRUI}/edit`,
-    `/partner/products/${PRODUIT_D_AUTRUI}/availability`,
-    `/partner/establishment/${ETABLISSEMENT_D_AUTRUI}/edit`,
-  ]) {
+// Un test par écran : chacun compile sa route à froid sur le serveur de dev, six navigations dans
+// un seul test dépassaient son budget de temps.
+for (const chemin of [
+  `/partner/products/${PRODUIT_D_AUTRUI}/edit`,
+  `/partner/products/${PRODUIT_D_AUTRUI}/availability`,
+  `/partner/establishment/${ETABLISSEMENT_D_AUTRUI}/edit`,
+]) {
+  test(`fiche d'un autre partenaire : ${chemin} répond 404`, async ({ page, context }) => {
+    await loginAs(context, SEEDED_ACCOUNTS.operadorPropuestas, SEEDED_PASSWORD);
     const reponse = await page.goto(chemin);
-    expect(reponse?.status(), chemin).toBe(404);
+    expect(reponse?.status()).toBe(404);
     await expect(page.getByTestId("not-found-admin")).toBeVisible();
-  }
+  });
+}
 
-  for (const chemin of [
-    `/partner/products/${PRODUIT_A_SOI}/edit`,
-    `/partner/products/${PRODUIT_A_SOI}/availability`,
-    `/partner/establishment/${ETABLISSEMENT_A_SOI}/edit`,
-  ]) {
+for (const chemin of [
+  `/partner/products/${PRODUIT_A_SOI}/edit`,
+  `/partner/products/${PRODUIT_A_SOI}/availability`,
+  `/partner/establishment/${ETABLISSEMENT_A_SOI}/edit`,
+]) {
+  test(`fiche de sa propre organisation : ${chemin} s'ouvre`, async ({ page, context }) => {
+    await loginAs(context, SEEDED_ACCOUNTS.operadorPropuestas, SEEDED_PASSWORD);
     const reponse = await page.goto(chemin);
-    expect(reponse?.status(), chemin).toBe(200);
+    expect(reponse?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByTestId("not-found-admin")).toHaveCount(0);
-  }
-});
+  });
+}
