@@ -1965,7 +1965,7 @@ values
    90000, true, 'order-test-p3-camp-3d', null, null, 10, 3),
   ('88880000-0000-4000-8000-000000000338', '88880000-0000-4000-8000-000000000301',
    '88880000-0000-4000-8000-000000000311', 'camp',
-   jsonb_build_object('es', '<a href="https://x.test">clic</a> & co'),
+   jsonb_build_object('es', '<a href="https://x.test">clic</a> & co''s'),
    90000, true, 'order-test-p3-camp-html', null, null, 10, 1),
   ('88880000-0000-4000-8000-000000000339', '88880000-0000-4000-8000-000000000301',
    '88880000-0000-4000-8000-000000000311', 'lodging', jsonb_build_object('es', 'Alojamiento P3 Campamento'),
@@ -2372,13 +2372,13 @@ select is(
 );
 select ok(
   (select bool_and(strpos(n.body_html,
-            '&lt;a href=&quot;https://x.test&quot;&gt;clic&lt;/a&gt; &amp; co') > 0
+            '&lt;a href=&quot;https://x.test&quot;&gt;clic&lt;/a&gt; &amp; co&#39;s') > 0
           and strpos(n.body_html, '<a href') = 0)
      from notification_emails n
      join order_lines ol on ol.id = n.related_id
     where n.event_type = 'partner_camp_evento_blocked'
       and ol.product_id = '88880000-0000-4000-8000-000000000338'),
-  'cas 24k : nom du produit échappé dans le corps HTML (aucune balise brute)'
+  'cas 24k : nom du produit échappé dans le corps HTML (aucune balise brute, apostrophe comprise)'
 );
 
 select * from finish();
