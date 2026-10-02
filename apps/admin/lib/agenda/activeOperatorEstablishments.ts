@@ -68,7 +68,8 @@ export async function getActiveOperatorEstablishmentIds(
 ): Promise<string[]> {
   if (!partnerId) return [];
 
-  // Même règle : une panne lève, jamais « aucun établissement » (liste de réservations vide).
+  // Même règle : une panne de CETTE lecture lève, jamais « aucun établissement ». La page des
+  // réservations a encore d'autres lectures sans `error`, traitées avec les lectures de pages.
   const { data, error } = await supabase
     .from("partner_capabilities")
     .select("establishment_id")

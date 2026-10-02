@@ -2,9 +2,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Les trois layouts de garde operator (products, establishment, reservations). Ce fichier prouve
-// qu'une capacité ILLISIBLE remonte telle quelle — jusqu'à app/error.tsx, seule frontière d'erreur
-// de l'app — et n'est jamais convertie en redirection vers /partner, ce que fait une capacité
-// réellement absente.
+// qu'une capacité ILLISIBLE remonte telle quelle, sans try/catch qui la convertirait en
+// redirection vers /partner (ce que fait une capacité réellement absente). Qu'elle soit ensuite
+// rendue par app/error.tsx tient à la structure : c'est la seule frontière d'erreur de l'app, à la
+// racine, et elle enveloppe ces layouts — un test unitaire ne peut pas le montrer.
 
 class Redirection extends Error {
   constructor(readonly url: string) {
@@ -13,6 +14,7 @@ class Redirection extends Error {
 }
 
 let capacite: () => Promise<boolean> = async () => true;
+let garde = { partnerId: "p-1" as string | null, isAdmin: false };
 
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => {
@@ -27,7 +29,7 @@ vi.mock("@hifago/supabase/server", () => ({
 }));
 
 vi.mock("@/lib/partnerGuard", () => ({
-  requirePartnerOrAdmin: async () => ({ partnerId: "p-1", isAdmin: false }),
+  requirePartnerOrAdmin: async () => garde,
 }));
 
 vi.mock("@/lib/agenda/activeOperatorEstablishments", () => ({
@@ -54,6 +56,15 @@ describe.each([["products"], ["establishment"], ["reservations"]] as const)(
   (nom) => {
     beforeEach(() => {
       capacite = async () => true;
+      garde = { partnerId: "p-1", isAdmin: false };
+    });
+
+    it("admin (sans organisation) : rend l'écran sans lire la capacité", async () => {
+      garde = { partnerId: null, isAdmin: true };
+      capacite = async () => {
+        throw new Error("capacité lue pour un admin");
+      };
+      expect(await issue(nom)).toEqual({ rendu: true });
     });
 
     it("operator : rend l'écran", async () => {

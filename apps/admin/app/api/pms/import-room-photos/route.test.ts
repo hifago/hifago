@@ -105,7 +105,8 @@ describe("POST /api/pms/import-room-photos (attach) — une panne n'est jamais u
 
   it("non-admin → 403 not_authorized", async () => {
     isAdmin = { data: false, error: null };
-    expect((await attacher()).statut).toBe(403);
+    expect(await attacher()).toEqual({ statut: 403, corps: { ok: false, reason: "not_authorized" } });
+    expect(lectures).toEqual([]);
   });
 
   it("produit illisible → 503 catalog_unavailable, pas 404", async () => {
