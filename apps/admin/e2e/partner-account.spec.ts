@@ -29,14 +29,16 @@ test("un socio actualiza su nombre y WhatsApp, la persistencia se mantiene, lueg
   await expect(page.getByTestId("profile-phone-input")).toHaveValue("+57 300 1234567");
 
   // Cuenta de pago (spec 19 §10 point 7, self-service ajouté le 2026-08-25) : "referent.actif" a
-  // une capacité referrer, donc le bloc doit être visible. Bouton grisé tant qu'aucune saisie
-  // n'a été faite (même contrat que save-profile-button).
+  // une capacité referrer, donc le bloc doit être visible. Le champ sert à saisir un NOUVEAU
+  // compte : vide, bouton grisé tant qu'aucune saisie n'a été faite.
   const payoutInput = page.getByTestId("payout-mercadopago-account-input");
   await expect(payoutInput).toBeVisible();
+  await expect(payoutInput).toHaveValue("");
   const savePayoutButton = page.getByTestId("save-payout-account-button");
   await expect(savePayoutButton).toBeDisabled();
 
-  const mercadopagoAccount = `referente-${Date.now()}@mp.test`;
+  // Fin unique par exécution : c'est elle, et elle seule, qui doit réapparaître.
+  const mercadopagoAccount = `alias.referente.${Date.now()}`;
   await payoutInput.fill(mercadopagoAccount);
   await expect(savePayoutButton).toBeEnabled();
   await savePayoutButton.click();
@@ -45,9 +47,16 @@ test("un socio actualiza su nombre y WhatsApp, la persistencia se mantiene, lueg
     page.getByRole("alertdialog").filter({ hasText: "Cuenta de pago actualizada." })
   ).toBeVisible();
 
+  // Cahier socio, décision du 2026-08-11 : le compte enregistré n'est jamais réaffiché en entier —
+  // seuls ses derniers caractères, et la valeur complète ne figure nulle part dans le document
+  // (ni à l'écran, ni dans les données transmises au navigateur).
   await page.reload();
   await page.waitForLoadState("networkidle");
-  await expect(page.getByTestId("payout-mercadopago-account-input")).toHaveValue(mercadopagoAccount);
+  await expect(page.getByTestId("payout-account-registered")).toContainText(
+    `••••${mercadopagoAccount.slice(-4)}`
+  );
+  await expect(page.getByTestId("payout-mercadopago-account-input")).toHaveValue("");
+  expect(await page.content()).not.toContain(mercadopagoAccount);
 
   await page.getByTestId("logout-button-page").click();
   await expect(page).toHaveURL(/\/login/);

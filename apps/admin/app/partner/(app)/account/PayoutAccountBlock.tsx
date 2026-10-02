@@ -10,11 +10,15 @@ import { Button, Card, Input, Label, TextField, toast } from "@hifago/ui";
 // application immédiate (pas de circuit d'approbation, contrairement à
 // establishment_payout_accounts qui reste admin-only) — un seul champ, l'identifiant Mercado Pago,
 // jamais les coordonnées Bancolombia/Nequi de partner_crm_profile.bank (canal distinct).
-export function PayoutAccountBlock({ initialMercadopagoAccount }: { initialMercadopagoAccount: string }) {
+//
+// Le compte enregistré n'est JAMAIS réaffiché (cahier socio, décision du 2026-08-11) : le bloc ne
+// reçoit que ses derniers caractères (`registeredSuffix`, calculé côté serveur), et le champ sert
+// seulement à saisir un NOUVEAU compte qui remplace l'ancien.
+export function PayoutAccountBlock({ registeredSuffix }: { registeredSuffix: string | null }) {
   const router = useRouter();
-  const [mercadopagoAccount, setMercadopagoAccount] = useState(initialMercadopagoAccount);
+  const [mercadopagoAccount, setMercadopagoAccount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isDirty = mercadopagoAccount !== initialMercadopagoAccount;
+  const isDirty = mercadopagoAccount.trim() !== "";
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -37,6 +41,7 @@ export function PayoutAccountBlock({ initialMercadopagoAccount }: { initialMerca
     }
 
     toast.success("Cuenta de pago actualizada.");
+    setMercadopagoAccount("");
     router.refresh();
   }
 
@@ -51,13 +56,20 @@ export function PayoutAccountBlock({ initialMercadopagoAccount }: { initialMerca
             El correo, CVU o alias de Mercado Pago donde recibes el pago de tus comisiones. El giro
             lo hace un admin manualmente — esta cuenta es el destino que le indicas.
           </p>
+          {registeredSuffix !== null ? (
+            <p className="text-sm" data-testid="payout-account-registered">
+              Cuenta registrada: <span className="font-medium">••••{registeredSuffix}</span>
+            </p>
+          ) : null}
           <TextField
             name="mercadopago-account"
             value={mercadopagoAccount}
             onChange={setMercadopagoAccount}
             isRequired
           >
-            <Label>Cuenta de Mercado Pago</Label>
+            <Label>
+              {registeredSuffix !== null ? "Nueva cuenta de Mercado Pago" : "Cuenta de Mercado Pago"}
+            </Label>
             <Input data-testid="payout-mercadopago-account-input" />
           </TextField>
           <Button
