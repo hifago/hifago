@@ -111,7 +111,6 @@ export default async function EditProductProposalPage({
       <PhotosSocioBlock
         entityType="product"
         entityId={product.id}
-        uploadEndpoint="/api/upload/product"
         submitRpc="submit_photos_proposal"
         deleteTable="product_media"
         notFoundLabel="No se encontró la actividad."

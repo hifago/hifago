@@ -95,7 +95,6 @@ export default async function EditEstablishmentProposalPage({
       <PhotosSocioBlock
         entityType="establishment"
         entityId={establishment.id}
-        uploadEndpoint="/api/upload/establishment"
         submitRpc="submit_establishment_photos_proposal"
         deleteTable="establishment_media"
         notFoundLabel="No se encontró el establecimiento."
