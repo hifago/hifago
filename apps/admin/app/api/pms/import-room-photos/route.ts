@@ -45,6 +45,10 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 type SkippedPhoto = { url: string; reason: string };
+
+// Un productId mal formé est refusé AVANT toute lecture : PostgREST rejetterait la requête en
+// erreur, que la route lirait (à raison) comme une panne — un 503 pour une simple faute de saisie.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type ServiceClient = ReturnType<typeof createServiceRoleClient>;
 
 /**
@@ -171,9 +175,14 @@ async function handleStage(input: {
 }
 
 // ───────────────────────── Mode « attach » (rattachement, admin seul) ─────────────────────────
+function catalogUnavailable(productId: string, table: string, message: string) {
+  console.error(`import-room-photos : lecture ${table} impossible (produit ${productId})`, message);
+  return Response.json({ ok: false, reason: "catalog_unavailable" }, { status: 503 });
+}
+
 async function handleAttach(input: { productId?: unknown }) {
   const { productId } = input;
-  if (typeof productId !== "string" || productId.length === 0) {
+  if (typeof productId !== "string" || !UUID_PATTERN.test(productId)) {
     return Response.json({ ok: false, reason: "invalid_body" }, { status: 400 });
   }
 
@@ -185,38 +194,50 @@ async function handleAttach(input: { productId?: unknown }) {
 
   // Garde doublée : is_admin vérifié tôt pour une 403 propre, et add_catalog_media la re-vérifie
   // de toute façon côté base (elle est SECURITY DEFINER).
-  const { data: isAdmin } = await supabase.rpc("is_admin", { uid: user.id });
+  //
+  // Échec fermé (2026-10-01), motif de lib/pms/lobbyEstablishment.ts : « je n'ai pas pu le
+  // savoir » répond 503, jamais un faux refus, un faux « introuvable » ni une galerie crue vide.
+  const { data: isAdmin, error: isAdminError } = await supabase.rpc("is_admin", { uid: user.id });
+  if (isAdminError) {
+    console.error(`import-room-photos : rôle indéterminable (produit ${productId})`, isAdminError.message);
+    return Response.json({ ok: false, reason: "authorization_unavailable" }, { status: 503 });
+  }
   if (!isAdmin) return Response.json({ ok: false, reason: "not_authorized" }, { status: 403 });
 
   const service = createServiceRoleClient();
 
   // La catégorie Lobby et l'établissement sont relus en base à partir du seul productId — jamais
   // pris dans le corps de la requête, qui ne doit pouvoir désigner que la ressource, pas la cible.
-  const { data: product } = await service
+  const { data: product, error: productError } = await service
     .from("products")
     .select("id, type, lobby_category_id, establishment_id")
     .eq("id", productId)
     .maybeSingle();
+  if (productError) return catalogUnavailable(productId, "products", productError.message);
   if (!product) return Response.json({ ok: false, reason: "product_not_found" }, { status: 404 });
   if (product.type !== "lodging" || product.lobby_category_id == null) {
     return Response.json({ ok: false, reason: "not_pms_backed" }, { status: 409 });
   }
 
-  const { data: establishment } = await service
+  const { data: establishment, error: establishmentError } = await service
     .from("establishments")
     .select("lobby_api_token, lobby_connector_active, lobby_has_token")
     .eq("id", product.establishment_id)
     .maybeSingle();
+  if (establishmentError) {
+    return catalogUnavailable(productId, "establishments", establishmentError.message);
+  }
   const credentials = lobbyCredentials(establishment);
   if (!credentials.ok) return credentials.response;
 
   // Le plafond de 6 est appliqué par add_catalog_media, donc APRÈS téléchargement, décodage et
   // écriture Storage — il ne borne pas le travail sortant. On coupe donc ici, avant le premier
   // fetch : c'est tout l'intérêt de remainingPhotoSlots.
-  const { count } = await service
+  const { count, error: countError } = await service
     .from("product_media")
     .select("id", { count: "exact", head: true })
     .eq("product_id", product.id);
+  if (countError) return catalogUnavailable(productId, "product_media", countError.message);
   const slots = remainingPhotoSlots(count ?? 0);
   if (slots === 0) {
     return Response.json({ ok: true, imported: 0, skipped: [], reason: "gallery_full" });

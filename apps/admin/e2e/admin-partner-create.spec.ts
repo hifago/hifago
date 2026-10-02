@@ -3,7 +3,7 @@ import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
 import { toggleCheckbox } from "@hifago/e2e-support";
 
 // Feature 26 (docs/specs/01-admin-creation-partenaire.md) — la garde /admin/* (compte non-admin
-// redirigé vers /login) est déjà couverte une seule fois par admin-establishment.spec.ts, jamais
+// renvoyé vers sa propre page) est déjà couverte une seule fois par admin-establishment.spec.ts, jamais
 // redupliquée par écran (même convention suivie ici que pour les autres "new" existants).
 //
 // toggleCheckbox (cf. packages/e2e-support/src/dom.ts) : piège Checkbox HeroUI v3 constaté ici
