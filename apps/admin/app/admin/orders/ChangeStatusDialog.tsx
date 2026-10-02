@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@hifago/supabase/client";
+import { rpcErrorMessage } from "@/lib/errors/rpcErrorMessage";
 import {
   Button,
   Label,
@@ -74,7 +75,7 @@ export function ChangeStatusDialog({
     setIsSubmitting(false);
 
     if (rpcError || !(data as { ok: boolean } | null)?.ok) {
-      toast.danger(rpcError?.message ?? "No se pudo cambiar el estado.");
+      toast.danger(rpcErrorMessage(rpcError, "No se pudo cambiar el estado."));
       return;
     }
 

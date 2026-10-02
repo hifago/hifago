@@ -14,6 +14,7 @@ import {
   useOverlayState,
 } from "@hifago/ui";
 import { loadSlotOptions, type SlotOption } from "@/lib/agenda/slotOptions";
+import { rpcErrorMessage } from "@/lib/errors/rpcErrorMessage";
 
 export type ProductOption = {
   id: string;
@@ -133,7 +134,7 @@ export function AddReservationDialog({
 
     const result = data as { ok: boolean; reason?: string } | null;
     if (rpcError || !result?.ok) {
-      toast.danger(describeFailure(rpcError?.message, result?.reason));
+      toast.danger(describeFailure(rpcError, result?.reason));
       return;
     }
 
@@ -260,9 +261,14 @@ const FAILURE_MESSAGES: Record<string, string> = {
   price_missing: "Esta actividad no tiene un precio configurado.",
 };
 
-function describeFailure(rpcMessage: string | undefined, reason: string | undefined): string {
+// Un `reason` connu a son texte ; sinon, jamais le message brut de la RPC
+// (lib/errors/rpcErrorMessage.ts).
+function describeFailure(
+  rpcError: Parameters<typeof rpcErrorMessage>[0],
+  reason: string | undefined
+): string {
   if (reason && FAILURE_MESSAGES[reason]) {
     return FAILURE_MESSAGES[reason];
   }
-  return rpcMessage ?? "No se pudo crear la reserva.";
+  return rpcErrorMessage(rpcError, "No se pudo crear la reserva.");
 }
