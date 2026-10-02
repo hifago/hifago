@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 
 // L'affordance « il reste des cartes à gauche/droite » du carrusel de `SeccionOfertas.tsx`
 // (2026-09-15).
@@ -83,8 +83,11 @@ const DEGRADADO = {
   contenedor: { izquierda: "from-[var(--default)]", derecha: "from-[var(--default)]" },
 } as const;
 
-export function CarruselConSombra({ children, fondo = "pagina", testId }: CarruselConSombraProps) {
-  const ref = useRef<HTMLDivElement>(null);
+/**
+ * Reste-t-il du contenu à faire défiler à gauche / à droite de `ref` ? Exporté le 2026-10-02 pour
+ * les voiles flous de l'accueil (`FilaPortada.tsx`) : même mesure, un seul endroit.
+ */
+export function useBordesDesplazables(ref: RefObject<HTMLElement | null>) {
   // `false` par défaut : tant que l'effet n'a pas mesuré le DOM réel, on ne peint aucun dégradé
   // plutôt qu'un dégradé qui suppose à tort qu'il reste du contenu à faire défiler.
   const [puedeIzquierda, setPuedeIzquierda] = useState(false);
@@ -115,7 +118,14 @@ export function CarruselConSombra({ children, fondo = "pagina", testId }: Carrus
       el.removeEventListener("scroll", actualizar);
       observateur.disconnect();
     };
-  }, []);
+  }, [ref]);
+
+  return { puedeIzquierda, puedeDerecha };
+}
+
+export function CarruselConSombra({ children, fondo = "pagina", testId }: CarruselConSombraProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { puedeIzquierda, puedeDerecha } = useBordesDesplazables(ref);
 
   return (
     <div className="relative">

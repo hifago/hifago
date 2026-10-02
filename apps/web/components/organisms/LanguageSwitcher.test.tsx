@@ -195,6 +195,21 @@ describe("LanguageSwitcher", () => {
       expect(container.querySelector('[data-testid="lang-en"]')?.hasAttribute("aria-current")).toBe(false);
     });
 
+    // Vue mobile (Jérôme, 2026-10-02) : UN seul bouton sous `md`, vers l'autre langue. jsdom
+    // n'applique pas Tailwind : on vérifie que seule la langue COURANTE porte la classe qui la masque.
+    it("ne garde sous `md` que le lien vers l'autre langue", () => {
+      for (const [courante, autre] of [
+        ["es", "en"],
+        ["en", "es"],
+      ] as const) {
+        const container = enLigne(courante);
+        const item = (valeur: string) =>
+          container.querySelector(`[data-testid="lang-${valeur}"]`)?.closest("li") as HTMLElement;
+        expect(item(courante).className).toBe("hidden md:block");
+        expect(item(autre).className).toBe("");
+      }
+    });
+
     it("conserve la query string active, comme le menu", () => {
       window.history.pushState({}, "", "/es/productos/kayak?q=kayak");
       fireEvent.click(enLigne().querySelector('[data-testid="lang-en"]') as HTMLAnchorElement);

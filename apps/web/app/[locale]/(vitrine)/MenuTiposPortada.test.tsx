@@ -76,9 +76,16 @@ describe("MenuTiposPortada", () => {
     }
   });
 
-  it("garde 44 px de cible tactile sur chaque lien", () => {
+  // 44 px de cible tactile (`.claude/rules/ui.md`), sauf sous `md` : 34 px, exception décidée par
+  // Jérôme le 2026-10-02 pour rapprocher les deux lignes du menu — jamais sous le minimum WCAG 2.5.8
+  // (24 px). L'interligne du menu dépend de cette valeur : `PortadaInicio.test.tsx` refait le compte.
+  it("garde 44 px de cible tactile sur chaque lien, 34 px sous md — jamais sous 24", () => {
     for (const lien of rendu().querySelectorAll("a")) {
-      expect(lien.className).toContain("min-h-11");
+      const classes = lien.className.split(/\s+/);
+      expect(classes).toContain("md:min-h-11");
+      const mobile = classes.find((c) => c.startsWith("min-h-["));
+      expect(mobile).toBe("min-h-[34px]");
+      expect(Number(mobile?.match(/\d+/)?.[0])).toBeGreaterThanOrEqual(24);
     }
   });
 

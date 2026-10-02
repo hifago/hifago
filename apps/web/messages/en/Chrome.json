@@ -1,7 +1,8 @@
 {
   "homeLabel": "Hifago, go to home",
   "navLabel": "Account and trip",
-  "cartLabel": "{count, plural, =0 {My trip, empty} one {My trip, # item} other {My trip, # items}}",
+  "tripLabel": "My trip<lugar> in Guatapé</lugar>",
+  "tripCount": "{count, plural, =0 {, empty} one {, # item} other {, # items}}",
   "accountLabel": "My account",
   "loginLabel": "Log in",
   "menuOpenLabel": "Open the menu",

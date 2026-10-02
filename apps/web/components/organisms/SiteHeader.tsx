@@ -7,6 +7,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { empujarConservandoQuery } from "@/lib/navigation/conservarQuery";
 import { IconButton } from "@/components/atoms/IconButton";
 import { IconLink } from "@/components/atoms/IconLink";
+import { LinkButton } from "@/components/atoms/LinkButton";
 import { LogoHifago } from "@/components/atoms/LogoHifago";
 import { COLUMNA_PORTADA } from "@/components/atoms/PageShell";
 import { useCart } from "@/lib/cart/CartContext";
@@ -64,7 +65,8 @@ export type SiteHeaderProps = {
   /**
    * L'ACCUEIL (maquette fournie par Jérôme le 2026-10-01) : le header est posé PAR-DESSUS le héros,
    * sans fond tant que la page n'a pas défilé — l'illustration de la rue aux zócalos passe dessous.
-   * Pas de logo (le héros porte le grand), les deux langues en ligne à gauche (« ESP · ING »),
+   * Pas de logo (le héros porte le grand), les deux langues en ligne à gauche (« ESP · ING » ; sous
+   * `md`, un seul bouton vers l'autre langue),
    * Mi viaje et Mi cuenta à droite, visibles à toutes les largeurs : il n'y a plus rien à replier
    * derrière un bouton de menu. Choisi par la coquille (`CoquillaVitrine`), qui connaît la route.
    */
@@ -100,6 +102,29 @@ function useADefile(actif: boolean) {
     () => false
   );
 }
+
+// ⚠️ LE BOUTON « MI VIAJE » DE L'ACCUEIL, EN DESKTOP : de nouveau l'aplat bleu poudre (Jérôme,
+// 2026-10-02 : « on remet le bouton en bleu ciel pour le desktop », le mobile ne bouge pas). Le
+// « bleu ciel » est ici le bleu poudre `--default` (#b6cde8), celui qu'avait le bouton plein avant
+// d'être rendu plus discret — PAS le bleu ciel #619ccc de la charte : marine dessus, ce dernier
+// mesure 4.44:1, sous le seuil de 4.5:1 d'un texte, et il reste décoratif (globals.css, « LA
+// CHARTE »). Le bleu poudre : 8.02:1.
+//
+// Pourquoi pas deux boutons, un `outline` masqué au-dessus de `md` et un `solid` en dessous : deux
+// fois le même lien dans le DOM, exactement ce que l'en-tête de ce fichier refuse. Le bouton reste
+// donc `outline`, et ce `span` repose sur lui, à partir de `md`, les quatre variables que pose la
+// variante `solid` (`Button.tsx`, `VARIANT_CLASSES`) — plus la bordure, passée à la couleur du fond
+// pour garder exactement la même taille qu'en mobile. `[&>a]` (0,1,1) bat les utilitaires du bouton
+// (0,1,0). `contents` : le `span` n'a pas de boîte, le bouton reste l'élément `flex` du header.
+//
+// Angles un peu plus arrondis, desktop seulement lui aussi (Jérôme, même jour : « arrondir un peu
+// les angles du bouton ») : le DOUBLE du rayon du thème, 8 px au lieu de 4 — un multiple de
+// `--radius` et non une valeur en dur, pour suivre le thème comme `RADIUS_CLASS` (`Button.tsx`).
+//
+// ⚠️ Chaîne écrite en toutes lettres : Tailwind lit ce fichier comme du texte, une classe
+// construite n'existerait pas dans le CSS compilé.
+const BOUTON_VIAJE_DESKTOP =
+  "contents md:[&>a]:[--button-bg:var(--btn-fill)] md:[&>a]:[--button-bg-hover:var(--btn-fill-hover)] md:[&>a]:[--button-bg-pressed:var(--btn-fill-hover)] md:[&>a]:[--button-fg:var(--btn-on-fill)] md:[&>a]:[border-color:var(--btn-fill)] md:[&>a]:rounded-[calc(var(--radius)*2)]";
 
 // SVG inline : `lucide-react` est présent dans node_modules mais déclaré par `packages/ui`, PAS par
 // `apps/web` — l'importer créerait la dépendance fantôme qui a cassé le build Vercel le
@@ -171,25 +196,59 @@ export function SiteHeader({ isAuthenticated, transparente = false, testId }: Si
     return () => document.removeEventListener("keydown", surTouche);
   }, [menuOuvert]);
 
-  const lienPanier = (
-    <IconLink
+  // ⚠️ UN BOUTON À LIBELLÉ VISIBLE, plus une icône seule (demande de Jérôme, 2026-10-02 : « l'icône
+  // Mi viaje et le texte Mi Viaje en Guatapé dans un bouton bien visible »). `LinkButton` et non
+  // `IconLink` : c'est un lien (clic du milieu, favori), et il a désormais un texte à montrer.
+  //
+  // ⚠️ PLUS DISCRET qu'un aplat (Jérôme, même jour : « un peu plus discret ») — et pas la même
+  // variante sur les deux fonds, comparé en capture à 390 px :
+  //   - page claire : `soft` accent, une teinte d'or pâle, texte à 80 % marine. Le contour or serait
+  //     une bordure à 1.96:1 sur le clair, sous le seuil de 3:1 d'un composant (charte, point 1) ;
+  //   - accueil : `outline` neutre, contour bleu moyen et texte marine sur l'or. Le `soft` neutre
+  //     y est un bleu poudre à 50 % mêlé à l'or — un kaki terne. ⚠️ SOUS `md` seulement : au-dessus,
+  //     l'aplat bleu poudre revient (`BOUTON_VIAJE_DESKTOP`, en tête de fichier).
+  const couleurBouton = transparente ? "neutral" : "accent";
+  const boutonViaje = (
+    <LinkButton
       href={ROUTE_VIAJE}
-      icon={<IconeViaje />}
-      // ⚠️ Le compte est DANS le nom accessible, en toutes lettres et au pluriel de la langue : un
-      // « 3 » posé à côté du mot « panier » s'annonce n'importe comment. La pluralisation est celle
-      // de next-intl (ICU), pas une concaténation — « 1 artículo » / « 2 artículos ».
-      label={t("cartLabel", { count: nombreArticles })}
+      variant={transparente ? "outline" : "soft"}
+      color={couleurBouton}
+      iconBefore={<IconeViaje />}
       testId={testId ? `${testId}-cart` : undefined}
-    />
+    >
+      {/* ⚠️ Le libellé PEUT passer sur deux lignes, et ne le fait que faute de place : mesuré à
+          390 px sur l'accueil, langues + bouton sur une ligne + compte poussaient l'icône du compte
+          HORS de l'écran. `.button` de HeroUI pose `whitespace-nowrap` ; ce `span` le lève pour son
+          seul texte, ce qui rend au bouton une largeur minimale (celle du mot le plus long) et le
+          laisse rétrécir dans le `flex` du header. Deux lignes de 14 px tiennent dans ses 44 px. */}
+      {/* ⚠️ « Mi viaje » seul SOUS `md`, « Mi viaje en Guatapé » au-dessus (demande de Jérôme,
+          2026-10-02, vue mobile). Le lieu est BALISÉ dans le message (`<lugar>`) plutôt que porté
+          par une seconde clé : la phrase reste entière pour qui la traduit. `hidden` le sort aussi
+          du nom accessible — celui-ci reste donc égal au texte affiché à chaque largeur. */}
+      <span className="whitespace-normal text-left leading-tight">
+        {t.rich("tripLabel", {
+          lugar: (morceaux) => <span className="hidden md:inline">{morceaux}</span>,
+        })}
+      </span>
+      {/* ⚠️ Le compte est DANS le nom accessible, en toutes lettres et au pluriel de la langue : un
+          « 3 » posé dans une pastille s'annonce n'importe comment. La pluralisation est celle de
+          next-intl (ICU), pas une concaténation — « 1 servicio » / « 2 servicios ». En `sr-only`
+          À LA SUITE du libellé visible, et pas en `aria-label` : le nom annoncé commence ainsi par
+          le texte affiché, ce qu'exige la commande vocale (WCAG 2.5.3, « label in name »). */}
+      <span className="sr-only">{t("tripCount", { count: nombreArticles })}</span>
+    </LinkButton>
   );
+  const lienPanier = transparente ? <span className={BOUTON_VIAJE_DESKTOP}>{boutonViaje}</span> : boutonViaje;
 
   const panier =
     nombreArticles > 0 ? (
-      <Badge.Anchor>
+      // ⚠️ `min-w-0 shrink` : HeroUI pose `shrink-0` sur `.badge-anchor` (mesuré au rendu), ce qui
+      // interdisait au bouton de rétrécir — c'est l'icône du compte, à côté, qui s'écrasait à 16 px.
+      <Badge.Anchor className="min-w-0 shrink">
         {lienPanier}
-        {/* ⚠️ `default` (bleu poudre) sur le header transparent de l'accueil : la pastille `accent`
-            y serait de l'OR posé sur l'or de la page — un chiffre flottant sans pastille. */}
-        <Badge color={transparente ? "default" : "accent"} size="sm" placement="top-right">
+        {/* ⚠️ La pastille prend la couleur que le bouton N'A PAS : une pastille or sur un bouton or
+            (ou bleu poudre sur bleu poudre) ne serait qu'un chiffre flottant sans pastille. */}
+        <Badge color={couleurBouton === "accent" ? "default" : "accent"} size="sm" placement="top-right">
           {/* ⚠️ Au-delà de 99, on affiche « 99+ » : trois chiffres élargissent la pastille au point
               de déborder du bouton, et le compte exact n'apprend plus rien à ce stade. Le nom
               accessible du lien, lui, garde le nombre réel. */}
@@ -198,7 +257,7 @@ export function SiteHeader({ isAuthenticated, transparente = false, testId }: Si
       </Badge.Anchor>
     ) : (
       // Panier vide : pas de pastille « 0 ». Un zéro permanent est du bruit, et le nom accessible
-      // dit déjà « Mi viaje, vacío ».
+      // dit déjà « Mi viaje en Guatapé, vacío ».
       lienPanier
     );
 
@@ -226,12 +285,17 @@ export function SiteHeader({ isAuthenticated, transparente = false, testId }: Si
             {/* Le compte, hors du panneau `SiteMenu` : rien d'autre n'y serait rangé ici, et la
                 maquette ne prévoit aucun bouton de menu. Même route, même icône, même choix
                 compte / connexion — importés de `SiteMenu`, jamais recopiés. */}
-            <IconLink
-              href={isAuthenticated ? ROUTE_COMPTE : ROUTE_CONNEXION}
-              icon={<IconeCompte />}
-              label={isAuthenticated ? t("accountLabel") : t("loginLabel")}
-              testId={testId ? `${testId}-account` : undefined}
-            />
+            {/* ⚠️ `shrink-0` : sans lui, quand la place manque, le `flex` répartit le manque au
+                prorata et écrase l'icône (16 px mesurés à 390) avant que le bouton « Mi viaje »
+                ait fini de passer sur deux lignes. `IconLink` n'a pas de `className` (README). */}
+            <div className="shrink-0">
+              <IconLink
+                href={isAuthenticated ? ROUTE_COMPTE : ROUTE_CONNEXION}
+                icon={<IconeCompte />}
+                label={isAuthenticated ? t("accountLabel") : t("loginLabel")}
+                testId={testId ? `${testId}-account` : undefined}
+              />
+            </div>
           </nav>
         </div>
       </header>

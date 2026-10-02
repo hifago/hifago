@@ -36,10 +36,16 @@ export function MenuTiposPortada({ tipos, etiqueta, testId }: MenuTiposPortadaPr
             {indice > 0 ? (
               <span aria-hidden="true" className="size-[0.2em] shrink-0 rounded-full bg-current" />
             ) : null}
-            {/* `min-h-11` : 44 px de cible tactile, sans changer l'apparence d'une ligne de texte. */}
+            {/* `md:min-h-11` : 44 px de cible tactile, sans changer l'apparence d'une ligne de texte.
+                ⚠️ EXCEPTION SOUS `md` : 34 px (Jérôme, 2026-10-02 : « réduis l'espace entre les deux
+                lignes du menu », 15 px demandés, ramenés à 10 après rappel de la règle des 44 px de
+                `.claude/rules/ui.md`). La hauteur du lien EST l'interligne du menu : les deux lignes
+                sont collées, sans `gap-y`, donc les rapprocher, c'est réduire la cible. 34 px reste
+                au-dessus du minimum WCAG 2.5.8 (24 px). Compensé dans `PortadaInicio` (marges du
+                menu) pour que la recherche ne bouge pas. */}
             <Link
               href={href}
-              className="inline-flex min-h-11 items-center rounded-[var(--radius)] underline-offset-4 hover:underline focus-visible:status-focused"
+              className="inline-flex min-h-[34px] items-center md:min-h-11 rounded-[var(--radius)] underline-offset-4 hover:underline focus-visible:status-focused"
               data-testid={testId ? `${testId}-${tipo}` : undefined}
             >
               {label}

@@ -87,20 +87,26 @@ const SIZES_POR_VARIANTE: Record<TarjetaOfertaProps["variante"], string> = {
 };
 
 // Le RATIO de la photo, même raisonnement que `sizes` juste au-dessus : la carte est seule à savoir
-// quelle forme le conteneur attend d'elle. `1/1` en carrusel — les cartes carrées de la référence
-// fournie par Jérôme le 2026-10-01 ; `4/3` (le défaut de l'atome `Image`) partout ailleurs, donc
-// grille et liste sont inchangées. Record exhaustif pour la même raison : ajouter une variante doit
-// casser la compilation ici, pas retomber en silence sur une forme qui ne lui va pas.
+// quelle forme le conteneur attend d'elle. `1/1` en carrusel ET en grilla — les cartes carrées des
+// références de Jérôme (2026-10-01 pour le carrusel, étendue à toute carte avec photo le
+// 2026-10-02) ; `4/3` (le défaut de l'atome `Image`) pour la vignette de `lista`. Record exhaustif
+// pour la même raison : ajouter une variante doit casser la compilation ici, pas retomber en
+// silence sur une forme qui ne lui va pas.
 const RATIO_POR_VARIANTE: Record<TarjetaOfertaProps["variante"], "4/3" | "1/1"> = {
-  grilla: "4/3",
+  grilla: "1/1",
   lista: "4/3",
   carrusel: "1/1",
 };
 
 // Même raison que les deux tables ci-dessus : exhaustive, pour qu'une variante ajoutée casse la
 // compilation ici plutôt que de retomber en silence sur la carte empilée.
+//
+// `grilla` passe en `overlay` le 2026-10-02 (« je veux que mes cartes avec photo soient présentées
+// comme celle-ci ») : listings de catégorie (`ListadoInfinito`) et chambres d'une fiche
+// établissement prennent la même carte que le carrusel. `lista` reste une ligne : sa photo est une
+// vignette de 64 px, pas une carte photo.
 const LAYOUT_POR_VARIANTE: Record<TarjetaOfertaProps["variante"], "stack" | "row" | "overlay"> = {
-  grilla: "stack",
+  grilla: "overlay",
   lista: "row",
   carrusel: "overlay",
 };
@@ -123,6 +129,12 @@ export function TarjetaOferta({ oferta, variante, prioridad, locale }: TarjetaOf
   // Suite d'`if` plutôt qu'une chaîne de ternaires : les quatre formes du prix sont une règle
   // métier, elles se lisent mieux à plat. `undefined` (et non `null`) parce que c'est ce que `Card`
   // teste pour ne PAS ouvrir de `Card.Content` — un bloc vide laisserait un écart sous le titre.
+  const esOverlay = LAYOUT_POR_VARIANTE[variante] === "overlay";
+  // ⚠️ Pas de `font-medium` dans une bulle : la bulle est en gras par `Card`, et une classe de
+  // graisse posée sur l'enfant lui-même entrerait en conflit à spécificité égale avec
+  // `[&>*]:font-bold` — l'ordre du CSS compilé déciderait, pas ce fichier.
+  const claseValor = esOverlay ? undefined : "font-medium";
+
   const { precio } = oferta;
   let contenido: ReactNode = undefined;
 
@@ -134,7 +146,7 @@ export function TarjetaOferta({ oferta, variante, prioridad, locale }: TarjetaOf
     // Le libellé et le montant dans UN SEUL élément : c'est le prix complet, pas deux informations
     // voisines — un lecteur d'écran doit lire « Desde 180.000 COP » d'une traite.
     contenido = (
-      <span className="font-medium" data-testid={`${oferta.testId}-precio`}>
+      <span className={claseValor} data-testid={`${oferta.testId}-precio`}>
         {t("precioDesde")} <Price amountCop={precio.cop} locale={locale} />
       </span>
     );
@@ -142,17 +154,79 @@ export function TarjetaOferta({ oferta, variante, prioridad, locale }: TarjetaOf
     // ⚠️ Le label tel quel, JAMAIS `formatCop` : c'est un texte libre saisi par le partenaire
     // (« Entrada libre », « Consultar »), pas un nombre. Le passer à `Price` rendrait « 0 COP ».
     contenido = (
-      <span className="font-medium" data-testid={`${oferta.testId}-precio`}>
+      <span className={claseValor} data-testid={`${oferta.testId}-precio`}>
         {precio.label}
       </span>
     );
   }
 
+  // ⚠️ LE DÉCOMPTE PREND LA PLACE DU SOUS-TITRE, et les deux ne peuvent pas se disputer : une
+  // carte GROUPÉE représente l'établissement lui-même, donc `search_catalog` lui pose
+  // `establecimiento = null` (branche `es_establecimiento`), et c'est la seule qui porte
+  // `nAlojamientos`. Toute autre carte a l'inverse. Mutuellement exclusifs par construction,
+  // pas par convention.
+  //
+  // Le rendu reproduit littéralement ce que le front d'août affichait — « Casa Kayam ·
+  // 6 alojamientos » (journal du 2026-08-15) — que la refonte avait perdu : sans lui, une
+  // carte unique qui représente six chambres ne dit pas qu'elle en représente six.
+  const subtitulo =
+    oferta.establecimiento ??
+    (oferta.nAlojamientos !== null
+      ? t("conteoAlojamientos", { count: oferta.nAlojamientos })
+      : undefined);
+
+  // Rendue même sans photo : `PhotoStrip` pose alors le substitut de l'atome `Image`, au même
+  // ratio — la carte garde sa forme au lieu de se tasser (spec 28 §0, « Offre sans photo »).
+  const media = (
+    <PhotoStrip
+      photos={fotos}
+      loading={prioridad ? "priority" : "lazy"}
+      sizes={SIZES_POR_VARIANTE[variante]}
+      ratio={RATIO_POR_VARIANTE[variante]}
+      testId={`${oferta.testId}-fotos`}
+    />
+  );
+
   // La CAPACITÉ, sur les seules cartes qui la portent — les chambres d'une fiche établissement
   // (« photo · nom · capacité · prix », entretien du 2026-09-07). `search_catalog` ne la rend pas,
-  // donc elle est `null` sur l'accueil et les listings et la ligne n'y apparaît jamais.
+  // donc elle est `null` sur l'accueil et les listings et n'y apparaît jamais.
+  const capacidad =
+    oferta.capacidad !== null ? (
+      <span data-testid={`${oferta.testId}-capacidad`}>
+        {t("capacidadPersonas", { count: oferta.capacidad })}
+      </span>
+    ) : null;
+
+  // ── LES BULLES de la carte photo (`overlay`, référence de Jérôme du 2026-10-02) ──────────────
+  // Une bulle PAR information réellement présente, jamais une bulle vide ni un tiret : une offre
+  // sans prix ni capacité n'en a aucune, et le cartouche reste seul. Chaque enfant direct devient
+  // une pastille (`OVERLAY_BULLES_CLASS` de `Card`) — d'où le Fragment plat, sans enveloppe.
   //
-  // Sous le prix et non à sa place : les deux se lisent ensemble pour choisir une chambre.
+  // Elles ne portent que ce que la carte REÇOIT déjà (prix, capacité). Une durée, une prochaine
+  // date d'evento ou une catégorie exigeraient que `search_catalog` les rende : un autre lot.
+  if (esOverlay) {
+    return (
+      <Card
+        href={oferta.href}
+        title={oferta.nombre}
+        titleAs="h3"
+        subtitle={subtitulo}
+        layout="overlay"
+        titleSize="md"
+        testId={oferta.testId}
+        media={media}
+      >
+        {contenido || capacidad ? (
+          <>
+            {contenido}
+            {capacidad}
+          </>
+        ) : undefined}
+      </Card>
+    );
+  }
+
+  // Ligne (`lista`) : la capacité SOUS le prix et non à sa place — les deux se lisent ensemble.
   const contenidoCompleto =
     oferta.capacidad !== null ? (
       <span className="flex flex-col gap-0.5">
@@ -166,14 +240,13 @@ export function TarjetaOferta({ oferta, variante, prioridad, locale }: TarjetaOf
       // cours réservé par WhatsApp) laisse `contenido` à `undefined` — `Card` n'ouvre alors AUCUN
       // `Card.Content`, et sa carte devient plus basse qu'une carte voisine qui affiche un prix,
       // dans la même ligne de grille. Un placeholder invisible réserve la même hauteur qu'une
-      // ligne de prix réelle, sans rien annoncer à l'assistance.
-      // En `carrusel` la carte est CARRÉE (`layout="overlay"`) : sa hauteur ne dépend plus de son
-      // texte, et ce placeholder y peindrait une pastille de prix vide sur la photo.
-      (contenido ?? (variante === "carrusel" ? undefined : (
+      // ligne de prix réelle, sans rien annoncer à l'assistance. (La carte `overlay` n'en a pas
+      // besoin : elle est CARRÉE, sa hauteur ne dépend pas de son texte.)
+      (contenido ?? (
         <span className="invisible" aria-hidden="true">
           &nbsp;
         </span>
-      )))
+      ))
     );
 
   return (
@@ -181,37 +254,10 @@ export function TarjetaOferta({ oferta, variante, prioridad, locale }: TarjetaOf
       href={oferta.href}
       title={oferta.nombre}
       titleAs="h3"
-      // ⚠️ LE DÉCOMPTE PREND LA PLACE DU SOUS-TITRE, et les deux ne peuvent pas se disputer : une
-      // carte GROUPÉE représente l'établissement lui-même, donc `search_catalog` lui pose
-      // `establecimiento = null` (branche `es_establecimiento`), et c'est la seule qui porte
-      // `nAlojamientos`. Toute autre carte a l'inverse. Mutuellement exclusifs par construction,
-      // pas par convention.
-      //
-      // Le rendu reproduit littéralement ce que le front d'août affichait — « Casa Kayam ·
-      // 6 alojamientos » (journal du 2026-08-15) — que la refonte avait perdu : sans lui, une
-      // carte unique qui représente six chambres ne dit pas qu'elle en représente six.
-      subtitle={
-        oferta.establecimiento ??
-        (oferta.nAlojamientos !== null
-          ? t("conteoAlojamientos", { count: oferta.nAlojamientos })
-          : undefined)
-      }
-      // `overlay` en carrusel : la carte carrée de la référence de Jérôme (2026-10-01) — la photo
-      // remplit la carte, nom et établissement dans un cartouche par-dessus, prix en pastille.
+      subtitle={subtitulo}
       layout={LAYOUT_POR_VARIANTE[variante]}
-      titleSize={variante === "carrusel" ? "md" : undefined}
       testId={oferta.testId}
-      media={
-        // Rendue même sans photo : `PhotoStrip` pose alors le substitut de l'atome `Image`, au même
-        // ratio — la carte garde sa forme au lieu de se tasser (spec 28 §0, « Offre sans photo »).
-        <PhotoStrip
-          photos={fotos}
-          loading={prioridad ? "priority" : "lazy"}
-          sizes={SIZES_POR_VARIANTE[variante]}
-          ratio={RATIO_POR_VARIANTE[variante]}
-          testId={`${oferta.testId}-fotos`}
-        />
-      }
+      media={media}
     >
       {contenidoCompleto}
     </Card>

@@ -103,8 +103,9 @@ type CardCommun = {
   /**
    * `row` = vignette à gauche, texte à droite — la ligne produit d'une fiche établissement.
    * `overlay` = carte CARRÉE, le visuel la remplit entièrement et le texte est posé PAR-DESSUS, dans
-   * un cartouche clair en bas ; `children` (le prix) devient une pastille juste au-dessus, à droite.
-   * C'est la carte du carrusel de l'accueil, d'après la référence de Jérôme du 2026-10-01.
+   * un cartouche bleuté en bas ; chaque enfant DIRECT de `children` devient une bulle blanche
+   * cerclée juste au-dessus, à droite (`OVERLAY_BULLES_CLASS`). Références de Jérôme du 2026-10-01
+   * puis du 2026-10-02 (« La Comète Argentique »).
    */
   layout?: CardLayout;
   /**
@@ -251,13 +252,31 @@ const ENFANTS_INTERACTIFS_CLASS =
 //     `ENFANTS_INTERACTIFS_CLASS`, comme dans les deux autres dispositions.
 //   · `p-0 gap-0` : annulent le `p-4` et l'écart de `.card` — le visuel va à fleur de carte.
 //
-// Le cartouche est `--surface` (blanc) avec le texte de la carte dessus : la photo ne porte JAMAIS
-// de texte directement, son contraste serait celui de l'image, donc inconnu. La pastille de prix
-// est marine plein, pour la même raison.
+// Le cartouche est `--background` — le blanc TRÈS légèrement bleuté de la charte (oklch 97 % 0.01
+// 247), demandé par Jérôme le 2026-10-02 d'après sa référence « La Comète Argentique » — avec le
+// marine du texte courant dessus (12.39:1). La photo ne porte JAMAIS de texte nu : son contraste
+// serait celui de l'image, donc inconnu.
 const OVERLAY_CARTE_CLASS =
-  "grid aspect-square grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden p-0";
+  "grid aspect-square grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden rounded-2xl p-0";
 const OVERLAY_CARTOUCHE_CLASS =
   "z-[1] col-start-1 row-start-1 flex min-w-0 flex-col items-end gap-2 self-end p-3";
+
+// LES BULLES — chaque enfant DIRECT de `children` devient une pastille blanche cerclée, alignée à
+// droite au-dessus du cartouche (même référence). Le style est posé par sélecteur d'enfant plutôt
+// que par une prop : l'appelant décide QUELLES informations (prix, capacité…), la carte décide de
+// leur ALLURE — `TarjetaOferta` ne connaît aucune classe de pastille.
+//
+// ⚠️ Blanc et noir NUS, pas des jetons — et c'est voulu : la bulle est posée sur une PHOTO, pas sur
+// une surface du thème. Son couple de couleurs ne dépend ni du thème ni du mode sombre, il dépend
+// de l'image ; un jeton qui basculerait en sombre la rendrait illisible sur une photo claire.
+//
+// ⚠️ Le voile `bg-black/55` n'est PAS décoratif. La référence montre un texte blanc directement sur
+// la photo ; sur une photo claire (ciel, mur blanc, neige), ce texte disparaît. Calcul au pire cas,
+// photo blanche pure : noir à 55 % donne un fond ≈ #737373, blanc dessus 4.74:1 (seuil 4.5:1 du
+// texte de 14 px en gras). À 40 % on tombait à 2.85:1. Le flou d'arrière-plan garde l'effet
+// « verre » de la référence sans baisser ce plancher.
+const OVERLAY_BULLES_CLASS =
+  "flex-row flex-wrap justify-end gap-2 [&>*]:rounded-full [&>*]:border-2 [&>*]:border-white [&>*]:bg-black/55 [&>*]:px-3.5 [&>*]:py-1 [&>*]:text-sm [&>*]:font-bold [&>*]:uppercase [&>*]:text-white [&>*]:backdrop-blur-sm";
 
 export function Card({
   children,
@@ -303,7 +322,7 @@ export function Card({
       <HeroUICard.Header
         className={
           estOverlay
-            ? "w-full rounded-xl bg-[var(--surface)] px-3 py-2 text-center text-[var(--surface-foreground)]"
+            ? "w-full rounded-xl bg-[var(--background)] px-4 py-2.5 text-center text-[var(--foreground)]"
             : titleAlign === "center"
               ? "text-center"
               : undefined
@@ -339,7 +358,19 @@ export function Card({
         ) : null}
         {/* `line-clamp-2` sur subtitle ET description, même raison que le titre ci-dessus : une
             carte de grille doit garder une hauteur fixe quelle que soit la longueur du texte. */}
-        {subtitle ? <p className="line-clamp-2 text-xs text-muted">{subtitle}</p> : null}
+        {/* En overlay le sous-titre passe au marine, en `text-sm font-medium` : sur la référence
+            c'est la ligne d'accroche du cartouche, pas une mention discrète. */}
+        {subtitle ? (
+          <p
+            className={
+              estOverlay
+                ? "line-clamp-2 text-sm font-medium"
+                : "line-clamp-2 text-xs text-muted"
+            }
+          >
+            {subtitle}
+          </p>
+        ) : null}
         {description ? (
           <HeroUICard.Description className="line-clamp-2">{description}</HeroUICard.Description>
         ) : null}
@@ -349,9 +380,7 @@ export function Card({
   const corps = children ? (
     <HeroUICard.Content
       className={
-        estOverlay
-          ? "rounded-full bg-accent-foreground px-3 py-1 text-sm text-accent"
-          : CONTENT_GAP_CLASSES[contentGap]
+        estOverlay ? OVERLAY_BULLES_CLASS : CONTENT_GAP_CLASSES[contentGap]
       }
     >
       {children}

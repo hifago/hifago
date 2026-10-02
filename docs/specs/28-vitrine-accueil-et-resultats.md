@@ -285,6 +285,9 @@ faute d'accessibilité comme de référencement. Masquer **visuellement** n'est 
 md:block` interdit, qui retire le contenu de l'index mobile.
 **État de transition** : Jérôme a indiqué qu'un **bloc titré** viendra plus tard au-dessus du bloc
 de recherche ; le jour où il existe, la seule chose à retirer est la classe de masquage.
+**Levé le 2026-10-02** (seconde maquette de l'accueil) : le bloc titré existe — « Guatapé merece
+más de un día. » est le `<h1>` VISIBLE de `PortadaInicio`, suivi d'un sous-titre (`HomePage.lema`) ;
+le logo du héros est redevenu un décor. Journal `docs/journal/2026-10.md`, même date.
 
 **`BuscadorInicio` — l'hôte client.** ⚠️ Sans lui, l'écran ne compile pas : toutes les props de
 `SearchPanel` (`onSubmit`, `onCriteriaChange`, `onSuggestionSelect`) sont des fonctions, et un

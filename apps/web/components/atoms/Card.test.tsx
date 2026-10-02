@@ -317,6 +317,16 @@ describe("Card", () => {
     // Le prix AVANT le titre dans le cartouche : il se lit en pastille au-dessus du nom.
     expect(cartouche.firstElementChild?.getAttribute("data-slot")).toBe("card-content");
     expect(el.querySelector("h3")?.className).toContain("uppercase");
+    // Le cartouche au blanc bleuté de la charte (`--background`), pas le blanc pur de `--surface`
+    // (référence de Jérôme du 2026-10-02).
+    expect((el.querySelector("[data-slot='card-header']") as HTMLElement).className).toContain(
+      "bg-[var(--background)]"
+    );
+    // Les bulles : le style vise les enfants DIRECTS, et le voile qui garantit le contraste du
+    // texte blanc sur une photo claire est présent (voir `OVERLAY_BULLES_CLASS`).
+    const contenu = el.querySelector("[data-slot='card-content']") as HTMLElement;
+    expect(contenu.className).toContain("[&>*]:rounded-full");
+    expect(contenu.className).toContain("[&>*]:bg-black/55");
   });
 
   it("rend le sous-titre entre le titre et la description", () => {

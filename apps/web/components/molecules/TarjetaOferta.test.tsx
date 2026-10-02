@@ -172,18 +172,40 @@ describe("TarjetaOferta", () => {
     expect(carte.querySelector("p")?.textContent).toBe("Casa Kayam Guatapé");
   });
 
-  it("sans prix : aucun bloc de prix visible, mais un espace réservé invisible (hauteur de carte fixe)", () => {
+  it("sans prix, en liste : aucun bloc de prix visible, mais un espace réservé invisible", () => {
     // ⚠️ Constaté en réel (carte "Mezcla", produit vitrina sans price_cop ni price_label) : une
     // offre sans prix était plus basse qu'une offre voisine avec prix, dans la même ligne de
     // grille — `Card` n'ouvrait alors AUCUN `Card.Content`, faute d'enfants. Un `<span>` invisible
-    // (pas vide) réserve désormais la même hauteur qu'une ligne de prix réelle, sans rien annoncer
-    // à l'assistance (`aria-hidden`). Cas limite « Offre sans prix chiffré » de la spec 28 §0,
-    // révisé pour la hauteur fixe des cartes.
-    const { carte, precio } = rendre({ precio: null, fotos: fotos("sin-precio", 1) });
+    // (pas vide) réserve la même hauteur qu'une ligne de prix réelle, sans rien annoncer à
+    // l'assistance (`aria-hidden`). Depuis le 2026-10-02 seule la `lista` en a besoin : les cartes
+    // photo sont carrées, leur hauteur ne dépend plus de leur texte.
+    const { carte, precio } = rendre(
+      { precio: null, fotos: fotos("sin-precio", 1) },
+      { variante: "lista" }
+    );
     expect(precio).toBeNull();
     const contenu = carte.querySelector("[data-slot='card-content']");
     expect(contenu).not.toBeNull();
     expect(contenu?.querySelector(".invisible")?.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  // ── LES BULLES de la carte photo (référence de Jérôme du 2026-10-02) ──────────────────────────
+  // Chaque enfant DIRECT du `Card.Content` devient une pastille (`[&>*]:…` dans `Card`) : c'est
+  // donc la STRUCTURE qu'il faut verrouiller — une enveloppe intercalée ferait une seule bulle de
+  // deux informations, sans qu'aucun autre test ne rougisse.
+  it("carte photo : une bulle par information présente — prix et capacité, enfants directs", () => {
+    const { carte, datos } = rendre({ capacidad: 4, fotos: fotos("bulles", 1) });
+    const contenu = carte.querySelector("[data-slot='card-content']") as HTMLElement;
+    const bulles = Array.from(contenu.children).map((n) => n.getAttribute("data-testid"));
+    expect(bulles).toEqual([`${datos.testId}-precio`, `${datos.testId}-capacidad`]);
+    expect(contenu.children[1].textContent).toBe("Hasta 4 personas");
+  });
+
+  it("carte photo sans prix ni capacité : aucune bulle, pas même vide", () => {
+    for (const variante of ["grilla", "carrusel"] as const) {
+      const { carte } = rendre({ precio: null, fotos: fotos(`sans-bulle-${variante}`, 1) }, { variante });
+      expect(carte.querySelector("[data-slot='card-content']")).toBeNull();
+    }
   });
 
   it('prix "desde" : le libellé traduit ET le montant, dans un seul élément', () => {
@@ -275,16 +297,19 @@ describe("TarjetaOferta", () => {
   // `Image` le peint — et rien d'autre ne le vérifie : en jsdom aucune largeur n'est calculée, donc
   // seule la CLASSE posée peut être observée. Sans ce test, un ratio perdu en route redonnerait
   // des cartes en 4/3 sans qu'aucune suite ne rougisse.
-  it("rend la photo CARRÉE en carrusel, et en 4/3 partout ailleurs", () => {
+  // Étendu à la grille le 2026-10-02 (« mes cartes avec photo ») : seule la vignette de `lista`
+  // reste en 4/3.
+  it("rend la photo CARRÉE en carrusel et en grilla, et en 4/3 en lista", () => {
     const boite = (r: ReturnType<typeof rendre>) =>
       r.images[0].closest("[class*='aspect-']") as HTMLElement;
 
-    const carrusel = rendre({ fotos: fotos("ratio-carrusel", 1) }, { variante: "carrusel" });
-    expect(boite(carrusel).className).toContain("aspect-[1/1]");
-
-    for (const variante of ["grilla", "lista"] as const) {
-      const autre = rendre({ fotos: fotos(`ratio-${variante}`, 1) }, { variante });
-      expect(boite(autre).className).toContain("aspect-[4/3]");
+    for (const variante of ["carrusel", "grilla"] as const) {
+      const carree = rendre({ fotos: fotos(`ratio-${variante}`, 1) }, { variante });
+      expect(boite(carree).className).toContain("aspect-[1/1]");
+      expect(carree.carte.className).toContain("aspect-square");
     }
+
+    const liste = rendre({ fotos: fotos("ratio-lista", 1) }, { variante: "lista" });
+    expect(boite(liste).className).toContain("aspect-[4/3]");
   });
 });

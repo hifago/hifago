@@ -43,7 +43,8 @@ import type { Locale } from "@/messages";
 //    décrit ci-dessus. `banderas` est la rangée de la maquette de l'accueil — « 🇪🇸 ESP  🇬🇧 ING »,
 //    les deux langues en liens directs, sans menu : le header transparent de l'accueil n'a pas de
 //    panneau où ranger un déroulant. Les liens y sont les MÊMES (vrais `<a href>`, `locale`, query
-//    conservée au clic) : seul l'habillage change.
+//    conservée au clic) : seul l'habillage change. Sous `md`, la rangée se réduit à UN bouton, la
+//    langue vers laquelle basculer (2026-10-02).
 export type LanguageSwitcherProps = {
   /** `menu` (défaut) : déclencheur + panneau. `banderas` : les langues en ligne, drapeau + abréviation. */
   apariencia?: "menu" | "banderas";
@@ -133,7 +134,12 @@ export function LanguageSwitcher({ apariencia = "menu", testId }: LanguageSwitch
             const Drapeau = DRAPEAUX[valeur];
             const courante = valeur === locale;
             return (
-              <li key={valeur}>
+              // ⚠️ UN SEUL BOUTON SOUS `md` (demande de Jérôme, 2026-10-02, vue mobile) : la langue
+              // COURANTE y est masquée, il ne reste que l'autre — un bouton qui bascule. Masquée et
+              // non retirée du rendu : on cache un lien vers la page même, jamais un `/en/…` (seule
+              // cible que le maillage doit garder pour Googlebot, voir le point 2 de l'en-tête). Au-
+              // dessus de `md`, la rangée « ESP · ING » de la maquette, inchangée.
+              <li key={valeur} className={courante ? "hidden md:block" : undefined}>
                 <Link
                   href={chemin}
                   locale={valeur}

@@ -29,6 +29,18 @@ vi.mock("next/image", () => ({
   ),
 }));
 
+// La rangée (`FilaPortada`, client) observe sa taille pour ses voiles de bord : jsdom n'a pas de
+// `ResizeObserver`. Doublure inerte, comme `CarruselConSombra.test.tsx` — les voiles ont leur test.
+class ObservateurInerte {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
+window.ResizeObserver ??= ObservateurInerte as unknown as typeof window.ResizeObserver;
+
 function carte(n: number, fotos: string[] = [`/mock/foto-${n}-a.jpg`, `/mock/foto-${n}-b.jpg`]): TarjetaOferta {
   return {
     clave: `clave-${n}`,
@@ -54,6 +66,8 @@ function rendu(props: Partial<SeccionPortadaProps> = {}) {
       labelVerMas="Más actividades"
       mostrarVerMas
       tarjetas={OCHO}
+      locale="es"
+      labelDesde="Desde"
       testId="seccion-activity"
       {...props}
     />
@@ -101,6 +115,8 @@ describe("SeccionPortada", () => {
         labelVerMas="Más actividades"
         mostrarVerMas
         tarjetas={OCHO}
+        locale="es"
+        labelDesde="Desde"
         testId="seccion-activity"
       />
     );
@@ -122,15 +138,59 @@ describe("SeccionPortada", () => {
     expect(container.querySelectorAll('[data-testid="tarjeta-oferta-3"] img').length).toBe(1);
   });
 
-  // Sans photo, le nom n'attend pas le survol : sinon la tuile serait un carré muet.
-  it("montre le nom en permanence sur une offre sans photo", () => {
-    const container = rendu({ tarjetas: [carte(1), carte(2, [])] });
-    const avecPhoto = container.querySelector('[data-testid="tarjeta-oferta-1-link"] span') as HTMLElement;
-    const sansPhoto = container.querySelector('[data-testid="tarjeta-oferta-2-link"] span') as HTMLElement;
-    expect(avecPhoto.className).toContain("opacity-0");
-    expect(sansPhoto.className).not.toContain("opacity-0");
-    expect(sansPhoto.textContent).toBe("Oferta 2");
+  // ⚠️ La référence de Jérôme du 2026-10-02 : le nom n'attend PLUS le survol, avec ou sans photo —
+  // il est dans le cartouche, toujours visible. Le défaut à craindre est silencieux : une légende
+  // qui resterait en `opacity-0` passerait tous les tests de structure.
+  it("montre le nom en permanence dans le cartouche, avec ou sans photo, et l'établissement dessous", () => {
+    const container = rendu({
+      tarjetas: [{ ...carte(1), establecimiento: "Casa Kayam" }, carte(2, [])],
+    });
+    for (const n of [1, 2]) {
+      const lien = container.querySelector(`[data-testid="tarjeta-oferta-${n}-link"]`) as HTMLElement;
+      expect(lien.className).not.toContain("opacity-0");
+      expect(lien.parentElement?.className).toContain("bg-[var(--background)]");
+    }
+    const tuile1 = container.querySelector('[data-testid="tarjeta-oferta-1"]') as HTMLElement;
+    expect(tuile1.querySelector("p")?.textContent).toBe("Casa Kayam");
     expect(container.querySelector('[data-testid="tarjeta-oferta-2"] img')).toBeNull();
+  });
+
+  // Le lien est le TITRE étiré : ni l'établissement ni le prix n'entrent dans son nom accessible,
+  // et aucun de ses ancêtres sous la tuile n'est positionné — sinon son `::after` ne couvrirait
+  // plus la photo, et un clic sur l'image ne mènerait nulle part.
+  it("garde le lien nommé par le seul nom de l'offre, étiré sur toute la tuile", () => {
+    const container = rendu({
+      tarjetas: [{ ...carte(1), establecimiento: "Casa Kayam", precio: { tipo: "monto", cop: 95000 } }],
+    });
+    const tuile = container.querySelector('[data-testid="tarjeta-oferta-1"]') as HTMLElement;
+    const lien = container.querySelector('[data-testid="tarjeta-oferta-1-link"]') as HTMLElement;
+    expect(lien.textContent).toBe("Oferta 1");
+    expect(lien.className).toContain("after:inset-0");
+    expect(tuile.className).toMatch(/(^|\s)relative(\s|$)/);
+    let noeud = lien.parentElement;
+    while (noeud && noeud !== tuile) {
+      expect(noeud.className).not.toMatch(/(^|\s)(absolute|relative|fixed|sticky)(\s|$)/);
+      noeud = noeud.parentElement;
+    }
+  });
+
+  // Les quatre formes du prix, même règle que `TarjetaOferta` : `texto` jamais formaté en COP,
+  // `null` sans aucune bulle — jamais « 0 COP ».
+  it("pose le prix dans une bulle selon sa forme, et aucune bulle sans prix", () => {
+    const container = rendu({
+      tarjetas: [
+        { ...carte(1), precio: { tipo: "monto", cop: 95000 } },
+        { ...carte(2), precio: { tipo: "desde", cop: 180000 } },
+        { ...carte(3), precio: { tipo: "texto", label: "Entrada libre" } },
+        carte(4),
+      ],
+    });
+    const bulle = (n: number) => container.querySelector(`[data-testid="tarjeta-oferta-${n}-precio"]`);
+    expect(bulle(1)?.textContent).toContain("95.000");
+    expect(bulle(1)?.className).toContain("rounded-full");
+    expect(bulle(2)?.textContent).toMatch(/^Desde .*180\.000/);
+    expect(bulle(3)?.textContent).toBe("Entrada libre");
+    expect(bulle(4)).toBeNull();
   });
 
   // « GO → » : le nom accessible contient « GO », le texte qu'on voit (WCAG 2.5.3), puis le libellé
@@ -156,14 +216,55 @@ describe("SeccionPortada", () => {
   it("ajuste le conteneur à ses photos, et place le motif par un padding — jamais une marge", () => {
     const container = rendu({ tarjetas: [carte(1), carte(2)] });
     const liste = container.querySelector("ul") as HTMLElement;
-    const boite = liste.parentElement?.parentElement as HTMLElement;
+    // ul → enveloppe des voiles (`FilaPortada`) → conteneur marine → bloc ajusté.
+    const boite = liste.parentElement?.parentElement?.parentElement as HTMLElement;
     expect(boite.className).toContain("w-fit");
+    // Liseré marine divisé par deux le 2026-10-02 : conteneur à sa taille d'origine, photos
+    // agrandies de tout l'espace libéré.
     expect(boite.className).toContain("max-w-[92.5cqw]");
+    expect(liste.parentElement?.parentElement?.className).toContain("p-[1.3cqw]");
     const bloc = boite.parentElement as HTMLElement;
     expect(bloc.className).toContain("pt-[6.3cqw]");
     expect(boite.className).not.toMatch(/\bmt-/);
     for (const li of liste.querySelectorAll("li")) {
-      expect(li.className).toContain("w-[27.83cqw]");
+      expect(li.className).toContain("md:w-[28.69cqw]");
+    }
+  });
+
+  // ⚠️ Accueil mobile du 2026-10-02 (Jérôme : « juste une seule carte », puis « centrée, sans la
+  // bouger ») : sous `md`, une photo seule remplit le conteneur, et sa marge droite égale sa marge
+  // gauche. Quatre nombres répartis sur deux éléments doivent rester d'accord — le calcul est refait
+  // ici sur les classes elles-mêmes, pour qu'un réglage de l'un sans les autres casse ce test.
+  // Son intérieur (arrondi, cartouche, bulles, texte) est en `cqw` DE LA TUILE — sans `@container`
+  // sur le `<li>`, ces valeurs se résoudraient sur la section et tout serait 3,5 fois trop grand.
+  it("montre une seule photo sous md, centrée, trois au-dessus, et garde les proportions de la tuile", () => {
+    const container = rendu();
+    const liste = container.querySelector("ul") as HTMLElement;
+    // ul → enveloppe des voiles (`FilaPortada`) → conteneur marine → bloc décalé.
+    const marine = liste.parentElement?.parentElement as HTMLElement;
+    const bloc = marine.parentElement as HTMLElement;
+    // La valeur d'une classe de BASE (la variante mobile, sans `md:`) en cqw : `ml-[7.5cqw]` → 7.5.
+    const cqw = (el: Element, prefixe: string) => {
+      const classe = el.className
+        .split(/\s+/)
+        .find((c) => c.startsWith(`${prefixe}-[`) && c.endsWith("cqw]"));
+      expect(classe, `${prefixe}-[…cqw] absent de « ${el.className} »`).toBeDefined();
+      return Number(classe!.slice(prefixe.length + 2, -4));
+    };
+    const margeInterieure = cqw(marine, "p");
+    const bordGauche = cqw(bloc, "ml") + margeInterieure;
+    const interieur = cqw(bloc, "max-w") - 2 * margeInterieure;
+    for (const li of liste.querySelectorAll("li")) {
+      const classes = li.className.split(/\s+/);
+      expect(classes).toContain("md:w-[28.69cqw]");
+      expect(classes).toContain("@container");
+      const largeur = cqw(li, "w");
+      // Centrée : autant de marge à droite qu'à gauche, au centième près (arrondi à la baisse).
+      expect(100 - bordGauche - largeur).toBeGreaterThanOrEqual(bordGauche);
+      expect(100 - bordGauche - largeur).toBeLessThan(bordGauche + 0.02);
+      // Une photo pile dans le conteneur : aucune amorce de la suivante.
+      expect(interieur - largeur).toBeGreaterThanOrEqual(0);
+      expect(interieur - largeur).toBeLessThan(0.02);
     }
   });
 

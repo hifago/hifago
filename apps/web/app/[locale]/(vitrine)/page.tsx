@@ -115,12 +115,12 @@ export default async function HomePage({ params, searchParams }: PageProps<"/[lo
           réponse, et il n'exige aucune colonne de base de données. */}
       <JsonLd data={buildWebSiteJsonLd(getSiteUrl(), locale, t("title"), t("description"))} />
 
-      {/* Le <h1> est le GRAND LOGO du héros, son texte reste dans le DOM (`sr-only`) — voir
-          `PortadaInicio`. Il n'est plus caché tout seul dans un bloc à part : la maquette donne
-          enfin à ce titre la place que l'ancien commentaire attendait (« Jérôme a annoncé un bloc
-          titré à cet endroit »). */}
+      {/* Le <h1> est le TITRE VISIBLE du héros (« Guatapé merece más de un día. », seconde
+          maquette du 2026-10-02) — le « bloc titré » que la spec 28 attendait pour lever son
+          masquage provisoire. Le sous-titre suit. Voir `PortadaInicio`. */}
       <PortadaInicio
         titulo={t("h1")}
+        lema={t("lema")}
         navegacion={
           // ⚠️ La navigation PRINCIPALE de la page, qui remplace `SelectorTipo` (2026-10-01) : les
           // cinq types en ligne, passant à la ligne plutôt que de se replier. `testId` inchangé —
@@ -188,6 +188,8 @@ export default async function HomePage({ params, searchParams }: PageProps<"/[lo
                   seccion.total > seccion.tarjetas.length
                 }
                 tarjetas={seccion.tarjetas}
+                locale={locale as Locale}
+                labelDesde={t("precioDesde")}
                 testId={`seccion-${seccion.tipo}`}
               />
             ))

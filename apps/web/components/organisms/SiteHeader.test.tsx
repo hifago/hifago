@@ -181,22 +181,44 @@ describe("SiteHeader", () => {
       expect(pastille.textContent).toBe("3");
     });
 
-    // ⚠️ Un nombre affiché ne suffit pas à un lecteur d'écran : « 3 » à côté de « panier » peut
+    // Demande de Jérôme (2026-10-02) : un bouton bien visible, l'icône ET le texte. Le libellé est
+    // vérifié VISIBLE — hors du `sr-only` qui porte le compte.
+    it("affiche « Mi viaje en Guatapé » en toutes lettres, dans un bouton", async () => {
+      const panier = (await rendu()).querySelector('[data-testid="header-cart"]') as HTMLElement;
+      const visible = Array.from(panier.childNodes)
+        .filter((noeud) => !(noeud instanceof HTMLElement && noeud.classList.contains("sr-only")))
+        .map((noeud) => noeud.textContent)
+        .join("");
+      expect(visible).toBe("Mi viaje en Guatapé");
+      expect(panier.querySelector("svg")).not.toBeNull();
+      // Pas d'`aria-label` : il écraserait le texte visible (WCAG 2.5.3).
+      expect(panier.hasAttribute("aria-label")).toBe(false);
+    });
+
+    // Vue mobile (Jérôme, 2026-10-02) : « Mi viaje » seul sous `md`. jsdom n'applique pas Tailwind :
+    // ce qui est vérifié, c'est que « en Guatapé », et lui seul, porte la classe qui le masque.
+    it("réserve « en Guatapé » aux écrans `md` et plus", async () => {
+      const panier = (await rendu()).querySelector('[data-testid="header-cart"]') as HTMLElement;
+      const lieu = panier.querySelector(".hidden.md\\:inline") as HTMLElement;
+      expect(lieu.textContent).toBe(" en Guatapé");
+    });
+
+    // ⚠️ Un nombre affiché ne suffit pas à un lecteur d'écran : « 3 » dans une pastille peut
     // s'annoncer n'importe comment. Le compte est donc DANS le nom accessible, au pluriel de la
     // langue (ICU de next-intl), jamais concaténé.
     it("annonce le compte en toutes lettres, avec le bon pluriel", async () => {
       const vide = (await rendu()).querySelector('[data-testid="header-cart"]') as HTMLElement;
-      expect(vide.getAttribute("aria-label")).toBe("Mi viaje, vacío");
+      expect(vide.textContent).toBe("Mi viaje en Guatapé, vacío");
 
       const un = (await rendu({ lignes: [ligne("a")] })).querySelector(
         '[data-testid="header-cart"]'
       ) as HTMLElement;
-      expect(un.getAttribute("aria-label")).toBe("Mi viaje, 1 servicio");
+      expect(un.textContent).toBe("Mi viaje en Guatapé, 1 servicio");
 
       const deux = (await rendu({ lignes: [ligne("a"), ligne("b")] })).querySelector(
         '[data-testid="header-cart"]'
       ) as HTMLElement;
-      expect(deux.getAttribute("aria-label")).toBe("Mi viaje, 2 servicios");
+      expect(deux.textContent).toBe("Mi viaje en Guatapé, 2 servicios");
     });
 
     it("n'affiche aucune pastille quand le panier est vide", async () => {
@@ -208,9 +230,9 @@ describe("SiteHeader", () => {
       const cent = Array.from({ length: 100 }, (_, i) => ligne(String(i)));
       const container = await rendu({ lignes: cent });
       expect((container.querySelector(".badge__label") as HTMLElement).textContent).toBe("99+");
-      expect(
-        (container.querySelector('[data-testid="header-cart"]') as HTMLElement).getAttribute("aria-label")
-      ).toBe("Mi viaje, 100 servicios");
+      expect((container.querySelector('[data-testid="header-cart"]') as HTMLElement).textContent).toBe(
+        "Mi viaje en Guatapé, 100 servicios"
+      );
     });
 
     // Un lien, pas un bouton : le panier s'ouvre au clic du milieu, se copie, se met en favori.
@@ -294,8 +316,8 @@ describe("SiteHeader", () => {
 
   it("traduit tout ce qu'il affiche, dans les deux langues", async () => {
     const en = await rendu({ locale: "en", lignes: [ligne("a")] });
-    expect((en.querySelector('[data-testid="header-cart"]') as HTMLElement).getAttribute("aria-label")).toBe(
-      "My trip, 1 item"
+    expect((en.querySelector('[data-testid="header-cart"]') as HTMLElement).textContent).toBe(
+      "My trip in Guatapé, 1 item"
     );
     expect((en.querySelector('[data-testid="header-home"]') as HTMLElement).getAttribute("aria-label")).toBe(
       "Hifago, go to home"
@@ -315,12 +337,12 @@ describe("SiteHeader", () => {
       </NextIntlClientProvider>
     );
     const client = await rendu();
-    const panierServeur = serveur.match(/aria-label="([^"]*Mi viaje[^"]*)"/)?.[1];
-    const panierClient = (client.querySelector('[data-testid="header-cart"]') as HTMLElement).getAttribute(
-      "aria-label"
-    );
+    const panierServeur = new DOMParser()
+      .parseFromString(serveur, "text/html")
+      .querySelector('[data-testid="header-cart"]')?.textContent;
+    const panierClient = (client.querySelector('[data-testid="header-cart"]') as HTMLElement).textContent;
     expect(panierServeur).toBe(panierClient);
-    expect(panierServeur).toBe("Mi viaje, vacío");
+    expect(panierServeur).toBe("Mi viaje en Guatapé, vacío");
   });
 
   // ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -406,7 +428,7 @@ describe("SiteHeader", () => {
     it("garde la pastille du panier, avec le compte exact dans le nom accessible", async () => {
       const container = await rendu({ transparente: true, lignes: [ligne("a"), ligne("b")] });
       const panier = container.querySelector('[data-testid="header-cart"]') as HTMLElement;
-      expect(panier.getAttribute("aria-label")).toBe("Mi viaje, 2 servicios");
+      expect(panier.textContent).toBe("Mi viaje en Guatapé, 2 servicios");
       expect(container.querySelector("header")?.textContent).toContain("2");
     });
   });

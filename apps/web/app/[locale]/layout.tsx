@@ -25,10 +25,12 @@ import "../globals.css";
 //     titres se replient donc sur **Anton**, qui est elle-même dans la charte (sous-titres) et tient
 //     le même registre — condensée, très grasse, bâton. C'est un REPLI ASSUMÉ, pas la charte : pour
 //     l'appliquer vraiment, il faut le `.woff2` de Sugo Display (et sa licence web).
+// `800` : le titre du héros de l'accueil (`PortadaInicio`), composé en Poppins ExtraBold sur la
+// maquette du 2026-10-02 — sans cette graisse, le navigateur rendrait la 700 sans prévenir.
 const poppins = Poppins({
   variable: "--font-poppins",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600", "700", "800"],
   display: "swap",
 });
 
