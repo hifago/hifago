@@ -10,7 +10,10 @@ import { requirePartnerOrAdmin } from "./partnerGuard";
 // `establishments_select_public`, établissement actif) laissent lire toute fiche publiée : un
 // socio ouvrait donc l'écran d'édition d'une fiche d'un autre partenaire. Aucune écriture ne
 // passait (les RPC revérifient la propriété), mais l'écran s'affichait. Le filtre reprend le
-// prédicat des policies « own » : `partner_id = partner_id_for_account(uid)`.
+// prédicat des RPC d'écriture de ces écrans : l'établissement de la fiche appartient à
+// l'organisation de l'appelant (`establishments.partner_id = partner_id_for_account(uid)`). Pour un
+// produit, c'est l'organisation de SON ÉTABLISSEMENT qui compte, jamais `products.partner_id` : ce
+// dernier ne suit pas un transfert d'établissement.
 //
 // L'admin n'a jamais d'organisation et passe les gardes socio (`requirePartnerOrAdmin`) : il n'est
 // pas restreint. La portée est un type EXPLICITE — jamais un `null` qui se lirait « sans filtre ».

@@ -72,9 +72,9 @@ describe("/partner/products/[id]/edit", () => {
     };
   });
 
-  it("partenaire : la fiche est lue restreinte à son organisation", async () => {
+  it("partenaire : la fiche est lue restreinte aux établissements de son organisation (prédicat des RPC d'écriture)", async () => {
     await ouvrir();
-    expect(filtres.products).toEqual([`eq:id=${PRODUCT_ID}`, "eq:partner_id=p-1"]);
+    expect(filtres.products).toEqual([`eq:id=${PRODUCT_ID}`, "eq:establishment.partner_id=p-1"]);
   });
 
   it("admin : la fiche est lue sans restriction d'organisation", async () => {

@@ -11,18 +11,21 @@ export default async function PartnerProductAvailabilityPage({
   const supabase = await createClient();
 
   // Propriété (2026-10-01, lib/partnerOwnership.ts) : la RLS seule laissait passer toute fiche EN
-  // VENTE d'un autre partenaire (products_select_public). Le filtre `partner_id` reprend le
-  // prédicat de products_select_own ; une fiche hors de l'organisation ressort « introuvable »,
-  // jamais un refus explicite qui en révèlerait l'existence. L'admin n'est pas restreint. La vraie
+  // VENTE d'un autre partenaire (products_select_public). Le filtre porte sur l'organisation de
+  // l'ÉTABLISSEMENT de la fiche — le prédicat même de set_product_availability et set_date_rate —
+  // et non sur `products.partner_id`, qui ne suit pas un transfert d'établissement. Une fiche hors
+  // de l'organisation ressort « introuvable », jamais un refus explicite qui en révèlerait
+  // l'existence. L'admin n'est pas restreint (`!inner` ne retire rien : establishment_id est not
+  // null). La vraie
   // barrière d'écriture reste set_product_availability elle-même (feature 17, garde-fous
   // identité/propriété/capacité côté serveur), pas cette lecture.
   const scope = await ownerScope(supabase);
   let productQuery = supabase
     .from("products")
-    .select("id, name, calendar_default_open, default_capacity")
+    .select("id, name, calendar_default_open, default_capacity, establishment:establishments!inner(partner_id)")
     .eq("id", id);
   if (scope.kind === "partner") {
-    productQuery = productQuery.eq("partner_id", scope.partnerId);
+    productQuery = productQuery.eq("establishment.partner_id", scope.partnerId);
   }
   // Une panne LÈVE (app/error.tsx) : lue comme une absence, elle répondait « introuvable ».
   const { data: product, error: productError } = await productQuery.maybeSingle();

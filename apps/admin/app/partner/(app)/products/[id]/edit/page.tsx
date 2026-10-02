@@ -13,9 +13,12 @@ export default async function EditProductProposalPage({
   const supabase = await createClient();
 
   // Propriété (2026-10-01, lib/partnerOwnership.ts) : la RLS seule laissait passer toute fiche EN
-  // VENTE d'un autre partenaire (products_select_public). Le filtre `partner_id` reprend le
-  // prédicat de products_select_own ; une fiche hors de l'organisation ressort « introuvable »,
-  // jamais un refus explicite qui en révèlerait l'existence. L'admin n'est pas restreint.
+  // VENTE d'un autre partenaire (products_select_public). Le filtre porte sur l'organisation de
+  // l'ÉTABLISSEMENT de la fiche — le prédicat même des RPC d'écriture de cet écran — et non sur
+  // `products.partner_id`, qui ne suit pas un transfert d'établissement. Une fiche hors de
+  // l'organisation ressort « introuvable », jamais un refus explicite qui en révèlerait
+  // l'existence. L'admin n'est pas restreint (`!inner` ne retire rien : establishment_id est
+  // not null).
   // Colonnes étendues (spec 15 bis, 2026-08-17) : parité de champs avec ProductForm en mode
   // édition — address/lat/lon/price_tiers/min_qty/max_qty/check_in_time/check_out_time/capacity/
   // stay_rates, plus `type` pour le gating (ProductTypeFields).
@@ -23,11 +26,11 @@ export default async function EditProductProposalPage({
   let productQuery = supabase
     .from("products")
     .select(
-      "id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, establishment_id, lobby_category_id, lobby_product_id, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, establishment:establishments(lobby_connector_active, lobby_has_token)"
+      "id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, establishment_id, lobby_category_id, lobby_product_id, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, establishment:establishments!inner(partner_id, lobby_connector_active, lobby_has_token)"
     )
     .eq("id", id);
   if (scope.kind === "partner") {
-    productQuery = productQuery.eq("partner_id", scope.partnerId);
+    productQuery = productQuery.eq("establishment.partner_id", scope.partnerId);
   }
   // Une panne LÈVE (app/error.tsx) : lue comme une absence, elle répondait « introuvable ».
   const { data: product, error: productError } = await productQuery.maybeSingle();
