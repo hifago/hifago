@@ -12,16 +12,13 @@
   silence — c'est la version Storybook du piège qui a laissé la vitrine en pile système pendant des
   mois (cf. `packages/ui/src/styles/globals.css`, section « LES POLICES DE LA CHARTE »).
 
-  ⚠️ Sugo Pro Display (les titres, dans la charte) n'est pas sur Google Fonts. Sa VERSION D'ESSAI
-  (licence CC BY-NC : non commerciale, distribution interdite) est servie par `main.ts` depuis le
-  dossier de la charte, HORS DÉPÔT, sous `/police-sugo-essai/` — seulement là où ce dossier existe
-  (la machine de Jérôme). Ailleurs la requête échoue et les titres retombent sur Anton, comme en
-  production, qui attend la licence commerciale.
-
-  La graisse Bold est déclarée pour TOUTES les graisses (`font-weight: 1 1000`) : les titres de la
-  vitrine sont en 400 (`globals.css`, réglé pour Anton qui n'a qu'une graisse), et c'est la Bold que
-  la charte montre. `--font-titre` est surchargée ici et non dans `globals.css` : la production n'a
-  pas le droit de la charger.
+  ANTON CONFIRMÉE POUR LES TITRES (Jérôme, 2026-10-02, arbitrage D5 du plan
+  `docs/specs/41-charte-hifago-toute-la-vitrine.md`) : la Sugo Pro Display que la charte demande ne
+  sera pas licenciée. Sa VERSION D'ESSAI, que ce fichier chargeait depuis le 2026-10-01 sur la seule
+  machine de Jérôme, n'est donc plus chargée : elle faisait juger les titres dans une police que le
+  site n'affichera jamais, et remplaçait les chiffres par des glyphes de filigrane (« Reserva
+  HFG-▓▓▓ »). Le playground affiche désormais exactement la police de production — ne pas réintroduire
+  de surcharge de `--font-titre` ici.
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -30,18 +27,8 @@
   rel="stylesheet"
 />
 <style>
-  @font-face {
-    font-family: "Sugo Pro Display Essai";
-    src: url("/police-sugo-essai/Sugo-Pro-Display-Bold-trial.ttf") format("truetype");
-    font-weight: 1 1000;
-    font-display: swap;
-  }
   :root {
     --font-poppins: "Poppins";
     --font-anton: "Anton";
-  }
-  :root[data-theme="vitrine"] {
-    --font-titre: "Sugo Pro Display Essai", var(--font-anton), var(--font-poppins), ui-sans-serif,
-      system-ui, sans-serif;
   }
 </style>

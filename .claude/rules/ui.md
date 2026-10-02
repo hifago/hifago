@@ -66,16 +66,16 @@ mesurés sont dans `globals.css`, section « LA CHARTE ». Les trois qui se reti
    autres thèmes — conséquence directe du point 1.
 
 Polices : Poppins (corps) et Anton (titres, `--font-titre`), chargées par `app/[locale]/layout.tsx`
-et par `.storybook/preview-head.html` pour le playground. ⚠️ La charte demande **Sugo Pro Display**
-pour les titres : seule sa version d'ESSAI existe (licence CC BY-NC, non commerciale, distribution
-interdite) — Storybook la lit hors dépôt sur la machine de Jérôme, jamais copiée dans le dépôt ni
-dans `public/` ; partout ailleurs Anton sert de repli jusqu'à la licence commerciale. ⚠️ Les noms de
+et par `.storybook/preview-head.html` pour le playground. La charte demande **Sugo Pro Display**
+pour les titres ; Jérôme a **confirmé Anton** le 2026-10-02 (pas de licence). Sa version d'essai
+(CC BY-NC) n'est plus chargée nulle part, Storybook compris : jamais copiée dans le dépôt ni dans
+`public/`, jamais de surcharge de `--font-titre` dans le playground. ⚠️ Les noms de
 variables doivent rester identiques des deux côtés, sinon playground et production divergent en
 silence — c'est le piège qui a laissé la vitrine en pile système pendant un mois.
 
 **Espacement de la police de titre** (Jérôme, 2026-10-01) : tout texte en `--font-titre` prend
-l'interlettrage du jeton `--tracking-titre` (0.0667em, proportionnel : 3 pt sur un titre de 60 px,
-`globals.css`) et aucun autre — porté par la règle des `<h1>`–`<h3>`, ou par
+l'interlettrage du jeton `--tracking-titre` (0.04em, proportionnel : 2,4 px sur un titre de 60 px,
+choisi par Jérôme en Anton le 2026-10-02, `globals.css`) et aucun autre — porté par la règle des `<h1>`–`<h3>`, ou par
 `tracking-[var(--tracking-titre)]` hors titre HTML. Jamais de `tracking-…` à côté de `font-titre` ni
 sur un `<h1>`–`<h3>` : la valeur se règle au jeton (`check-tokens.sh`).
 

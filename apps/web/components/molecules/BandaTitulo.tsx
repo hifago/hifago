@@ -81,15 +81,16 @@ function FlechaAbajo() {
   );
 }
 
-// `font-[family-name:var(--font-titre)]` : la police de TITRE de la charte (Anton, repli assumé de
-// Sugo Display — cf. `.claude/rules/ui.md`), celle dans laquelle le PDF compose ce genre de bande.
+// `font-[family-name:var(--font-titre)]` : la police de TITRE de la charte (Anton, confirmée le
+// 2026-10-02 à la place de Sugo Display — cf. `.claude/rules/ui.md`), celle dans laquelle le PDF
+// compose ce genre de bande.
 // Les tailles montent jusqu'à `text-6xl` : « beaucoup plus gros » (Jérôme), puis réduites d'un cran
 // à sa demande le 2026-10-01 (étaient `text-5xl sm:text-6xl lg:text-7xl`).
 // `normal-case` (Jérôme, 2026-10-01, avec Sugo Pro Display) : le titre s'affiche dans la casse de
 // ses messages — majuscule initiale seulement, « Actividades » — après `uppercase` puis
 // `lowercase`. Aucune transformation : c'est le texte servi, tel que l'écrivent les messages.
 // `tracking-[var(--tracking-titre)]` : l'interlettrage de la police de titre, défini UNE fois dans
-// `globals.css` (règle d'usage du 2026-10-01, 0.0667em = 3 pt à 60 px) — jamais une valeur ici. Les doublures sont des
+// `globals.css` (règle d'usage du 2026-10-01 ; 0.04em en Anton depuis le 2026-10-02) — jamais une valeur ici. Les doublures sont des
 // `<span>` et non des `<h2>` : sans cette classe, elles n'hériteraient pas de la règle des titres.
 // Écrite en toutes lettres, jamais construite : Tailwind v4 scanne ce fichier comme du texte.
 const CLASES_COPIA =

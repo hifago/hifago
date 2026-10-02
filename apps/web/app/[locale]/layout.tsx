@@ -21,10 +21,10 @@ import "../globals.css";
 // ⚠️ DEUX DES QUATRE POLICES DE LA CHARTE MANQUENT, et ce n'est pas un oubli :
 //   - **Garet** (le logo) n'est sur aucun service de polices Google. Elle n'est PAS nécessaire ici :
 //     le logo est servi en image (`/brand/logo-*.png`), donc son dessin est déjà celui de Garet.
-//   - **Sugo Display** (les titres) n'y est pas non plus, et aucun fichier n'a été fourni. Les
-//     titres se replient donc sur **Anton**, qui est elle-même dans la charte (sous-titres) et tient
-//     le même registre — condensée, très grasse, bâton. C'est un REPLI ASSUMÉ, pas la charte : pour
-//     l'appliquer vraiment, il faut le `.woff2` de Sugo Display (et sa licence web).
+//   - **Sugo Display** (les titres) n'y est pas non plus, et seule sa version d'essai existe. Les
+//     titres sont en **Anton**, qui est elle-même dans la charte (sous-titres) et tient le même
+//     registre — condensée, très grasse, bâton. **Confirmée par Jérôme le 2026-10-02** (arbitrage D5
+//     de `docs/specs/41-charte-hifago-toute-la-vitrine.md`) : Sugo ne sera pas licenciée.
 // `800` : le titre du héros de l'accueil (`PortadaInicio`), composé en Poppins ExtraBold sur la
 // maquette du 2026-10-02 — sans cette graisse, le navigateur rendrait la 700 sans prévenir.
 const poppins = Poppins({

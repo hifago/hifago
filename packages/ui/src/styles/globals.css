@@ -1142,17 +1142,18 @@
     --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
     --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-    /* Titres et sous-titres. ⚠️ La charte demande **Sugo Display** pour les titres, qui n'est ni
-       sur Google Fonts ni fournie en fichier : Anton (elle-même dans la charte, pour les
-       sous-titres) sert de repli dans le même registre. Le jour où le `.woff2` de Sugo Display
-       arrive, c'est cette seule ligne qui change. Voir `app/[locale]/layout.tsx`. */
+    /* Titres et sous-titres. La charte demande **Sugo Display** pour les titres ; Jérôme a
+       confirmé **Anton** à sa place le 2026-10-02 (arbitrage D5 de
+       `docs/specs/41-charte-hifago-toute-la-vitrine.md` : pas de licence Sugo). Anton est
+       elle-même dans la charte, pour les sous-titres, et tient le même registre. Voir
+       `app/[locale]/layout.tsx`. */
     --font-titre: var(--font-anton), var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
 
     /* SOUS-TITRES — Anton, la police que la charte réserve aux sous-titres (2026-10-01, maquette de
        l'accueil fournie par Jérôme : le sélecteur de langue « ESP · ING » et le texte de la barre de
        recherche y sont composés en Anton, pas dans la police de titre). Distincte de `--font-titre`
-       et c'est voulu : dans Storybook, sur la machine de Jérôme, `--font-titre` devient Sugo Pro
-       Display (version d'essai, `preview-head.html`) — un sous-titre doit rester en Anton partout.
+       et c'est voulu, même si les deux valent Anton depuis le 2026-10-02 : un sous-titre n'est pas
+       un titre, et ne prend pas son interlettrage.
        ⚠️ Pas d'interlettrage imposé ici : la règle `--tracking-titre` ne vise que `--font-titre`. */
     --font-sous-titre: var(--font-anton), var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
 
@@ -1160,12 +1161,27 @@
        en `--font-titre` prend CET interlettrage, et aucun autre. Un seul endroit où le changer. Il
        est porté par la règle des `<h1>`–`<h3>` ci-dessus et, hors d'un titre HTML, par
        `tracking-[var(--tracking-titre)]` à côté de `font-[family-name:var(--font-titre)]`.
-       PROPORTIONNEL (em), choix de Jérôme : réglé à l'œil à 3 pt (4 px) sur les bandes de l'accueil
-       en Sugo Pro Display à 60 px, d'où 4 / 60 = 0.0667em. Une valeur fixe donnait le même 4 px à
+       PROPORTIONNEL (em), choix de Jérôme : d'abord réglé à l'œil à 3 pt (4 px) sur les bandes de
+       l'accueil en Sugo Pro Display à 60 px (0.0667em) ; Anton confirmée, Jérôme a choisi 0.04em le
+       2026-10-02 (2,4 px à 60 px) sur une planche comparant 0.0667, 0.04, 0.02 et 0 (plan 41, item
+       F1) : en Anton, dessinée plus serrée, 0.0667em détachait les lettres. Une valeur fixe donnait le même 4 px à
        un titre de carte de 18 px — écartelé et tronqué plus tôt, constaté au rendu. L'`em` d'une
        variable se résout sur l'élément qui l'UTILISE, donc chaque titre à sa propre taille.
        Vérifié par `scripts/check-tokens.sh` (« Espacement de la police de titre »). */
-    --tracking-titre: 0.0667em;
+    --tracking-titre: 0.04em;
+
+    /* L'ÉCHELLE DES TAILLES PAR RÔLE (plan 41, item F1 ; tableau du §3.3). Chaque valeur glisse
+       linéairement d'une vue de 390 px à une vue de 1 280 px, puis se bloque : titre de page 32 →
+       52 px, titre de section 26 → 40, titre de bloc 20 → 22, chapô 18 → 22, prix 24 → 28. La part en
+       `rem` garde le zoom du navigateur effectif (une taille en `vw` seul ne grossit pas au zoom).
+       Consommées par les classes de rôle (`.titre-page`… plus bas, `@layer components`), jamais
+       recopiées dans un composant. Les titres de section de l'ACCUEIL n'en dépendent pas : ils
+       suivent leur colonne en `cqw` (28 → 60 px), réglage validé par Jérôme le 2026-10-01. */
+    --taille-titre-page: clamp(2rem, 1.45rem + 2.25vw, 3.25rem);
+    --taille-titre-section: clamp(1.625rem, 1.24rem + 1.57vw, 2.5rem);
+    --taille-titre-bloc: clamp(1.25rem, 1.2rem + 0.22vw, 1.375rem);
+    --taille-chapo: clamp(1.125rem, 1.02rem + 0.45vw, 1.375rem);
+    --taille-prix: clamp(1.5rem, 1.39rem + 0.45vw, 1.75rem);
 
     /* Les cinq couleurs de charte, brutes, pour ce qui n'est pas un jeton HeroUI — le motif
        décoratif, les aplats de section, un dégradé de héros. ⚠️ Le bleu ciel n'existe QUE ici :
@@ -1278,10 +1294,86 @@
 }
 
 /* ==============================================================================================
+ * La typographie PAR RÔLE — une classe par emploi (plan 41, item F1 ; tableau du §3.3)
+ * ==============================================================================================
+ *
+ * La charte attribue les polices par EMPLOI ; la règle de base `:is(h1, h2, h3)` plus haut les
+ * attribue par BALISE. Elle reste, comme défaut sûr ; ces classes décident de l'apparence, quel que
+ * soit le niveau du titre (`Title as=… size=…`, item F2). Tailles : jetons `--taille-…` du bloc de
+ * la charte.
+ *
+ * Pourquoi `@layer components` et pas `@utility` :
+ *   - une classe de `@layer components` est toujours émise, même avant qu'un composant ne l'emploie
+ *     (un `@utility` n'est généré que si le scan de Tailwind trouve son nom) ;
+ *   - elle bat la règle de base des titres (l'ordre des couches prime sur la spécificité), donc
+ *     `etiquette` sur un `<h3>` rend bien du Poppins, sans l'interlettrage de la police de titre ;
+ *   - elle perd contre tout utilitaire Tailwind (couche `utilities`) : une exception locale (une
+ *     taille en `cqw`, une couleur) s'écrit en classe à côté du rôle, sans lutter.
+ *
+ * ⚠️ Jamais de graisse au-dessus de 400 sur la police de titre ni sur Anton, qui n'existe qu'en
+ * 400 : le navigateur synthétiserait un faux gras. Jamais la police de titre sous 20 px : en
+ * dessous, c'est `titre-bloc` ou `etiquette`.
+ * ⚠️ L'interlettrage de la police de titre est le jeton `--tracking-titre`, et aucun autre
+ * (`check-tokens.sh`). `titre-bloc` est en Anton « sous-titre » : interlettrage normal, posé ICI et
+ * pas en classe `tracking-…` sur la balise, que le contrôle refuserait.
+ * ============================================================================================== */
+@layer components {
+  [data-theme="vitrine"] .titre-page {
+    font-family: var(--font-titre);
+    font-size: var(--taille-titre-page);
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: var(--tracking-titre);
+  }
+
+  [data-theme="vitrine"] .titre-section {
+    font-family: var(--font-titre);
+    font-size: var(--taille-titre-section);
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: var(--tracking-titre);
+  }
+
+  [data-theme="vitrine"] .titre-bloc {
+    font-family: var(--font-sous-titre);
+    font-size: var(--taille-titre-bloc);
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: normal;
+  }
+
+  /* 14 → 15 px : trop peu d'écart pour un jeton à part, la valeur ne sert qu'ici. */
+  [data-theme="vitrine"] .etiquette {
+    font-family: var(--font-sans);
+    font-size: clamp(0.875rem, 0.848rem + 0.112vw, 0.9375rem);
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: normal;
+  }
+
+  [data-theme="vitrine"] .chapo {
+    font-family: var(--font-sans);
+    font-size: var(--taille-chapo);
+    font-weight: 400;
+    line-height: 1.4;
+    letter-spacing: normal;
+  }
+
+  [data-theme="vitrine"] .prix-fort {
+    font-family: var(--font-sans);
+    font-size: var(--taille-prix);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: normal;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ==============================================================================================
  * Le trait noir de la piste Chiva — la LARGEUR, et pourquoi elle est HORS COUCHE
  * ==============================================================================================
  *
- * ⚠️ C'est le seul endroit de ce fichier qui sort de `@layer base`, et ce n'est pas un oubli.
+ * ⚠️ C'est le seul endroit de ce fichier qui sort de toute couche, et ce n'est pas un oubli.
  *
  * Constat mesuré le 2026-09-02, dans un navigateur, sur le CSS compilé :
  *
