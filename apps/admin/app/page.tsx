@@ -21,15 +21,24 @@ export default async function RootPage() {
   // Feature 31 (docs/specs/07-connexion-inscription-complete.md §8) : 2FA rendu optionnel le
   // 2026-08-15 (décision Jérôme) — plus de redirection forcée vers /mfa/enroll ou /mfa/verify.
 
-  const { data: isAdmin } = await supabase.rpc("is_admin", { uid: user.id });
+  // Échec fermé (2026-10-01) : chaque lecture de rôle en panne LÈVE (app/error.tsx propose de
+  // réessayer). Lue comme « pas ce rôle », elle aiguillait ailleurs : un admin en panne de base
+  // atterrissait sur /partner, devant « Aún no tienes ningún rol asignado ».
+  const { data: isAdmin, error: isAdminError } = await supabase.rpc("is_admin", { uid: user.id });
+  if (isAdminError) {
+    throw new Error(`Aiguillage impossible (is_admin) : ${isAdminError.message}`);
+  }
   if (isAdmin) {
     redirect("/admin");
   }
 
-  const { data: isOperator } = await supabase.rpc("has_capability", {
+  const { data: isOperator, error: isOperatorError } = await supabase.rpc("has_capability", {
     uid: user.id,
     p_role: "operator",
   });
+  if (isOperatorError) {
+    throw new Error(`Aiguillage impossible (has_capability operator) : ${isOperatorError.message}`);
+  }
   if (isOperator) {
     // Refonte vue prestataire (2026-08-19) : "Mis actividades" fusionnée dans
     // "/partner/establishment" — évite un double redirect (/partner/products lui-même redirige
@@ -37,10 +46,13 @@ export default async function RootPage() {
     redirect("/partner/establishment");
   }
 
-  const { data: isReferrer } = await supabase.rpc("has_capability", {
+  const { data: isReferrer, error: isReferrerError } = await supabase.rpc("has_capability", {
     uid: user.id,
     p_role: "referrer",
   });
+  if (isReferrerError) {
+    throw new Error(`Aiguillage impossible (has_capability referrer) : ${isReferrerError.message}`);
+  }
   if (isReferrer) {
     redirect("/partner/commissions");
   }
