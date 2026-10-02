@@ -38,6 +38,17 @@ describe("borne de longueur d'un code de parrainage", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("création de partenaire SANS invitation : un code trop long est refusé aussi", async () => {
+    render(<NewPartnerForm />);
+    fireEvent.change(screen.getByTestId("display-name-input"), { target: { value: "Socio" } });
+    fireEvent.click(screen.getByTestId("send-invitation-checkbox").querySelector("input")!);
+    expect(screen.getByTestId("send-invitation-checkbox").querySelector("input")).toHaveProperty("checked", false);
+    fireEvent.change(screen.getByTestId("code-input"), { target: { value: TROP_LONG } });
+    fireEvent.click(screen.getByTestId("create-partner-button"));
+    await waitFor(() => expect(toast.danger).toHaveBeenCalledWith(MESSAGE));
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("création de partenaire : un code à la borne passe la validation", async () => {
     render(<NewPartnerForm />);
     fireEvent.change(screen.getByTestId("display-name-input"), { target: { value: "Socio" } });

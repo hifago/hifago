@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // logique d'attribution ?ref= (concern vitrine uniquement) — seul le refresh de session Supabase
 // est nécessaire ici.
 //
-// Motif documenté par @supabase/ssr (2026-10-02) : la réponse est RECRÉÉE à partir de la requête
+// Motif du guide Supabase pour Next.js (2026-10-02) : la réponse est RECRÉÉE à partir de la requête
 // à chaque écriture de cookies (`NextResponse.next({ request })`). C'est ainsi que le jeton
 // rafraîchi atteint aussi les Server Components de CETTE requête ; avant, seule la réponse au
 // navigateur le recevait, et les pages relisaient l'ancien jeton, déjà remplacé, sur la requête
