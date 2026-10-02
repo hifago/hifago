@@ -4,6 +4,7 @@ import { createClient } from "@hifago/supabase/server";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { EditProposalForm } from "./EditProposalForm";
 import { PhotosSocioBlock } from "@/components/photos-socio-block";
+import { ownerScope } from "@/lib/partnerOwnership";
 
 export default async function EditProductProposalPage({
   params,
@@ -11,20 +12,28 @@ export default async function EditProductProposalPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  // products_select_own (feature 15) : la RLS ne renvoie cette fiche que si elle appartient au
-  // partenaire connecté (ou si elle est publiée) — un produit d'un autre partenaire ressort donc
-  // ici comme "introuvable", jamais un refus explicite qui en révèlerait l'existence.
+  // Propriété (2026-10-01, lib/partnerOwnership.ts) : la RLS seule laissait passer toute fiche EN
+  // VENTE d'un autre partenaire (products_select_public). Le filtre `partner_id` reprend le
+  // prédicat de products_select_own ; une fiche hors de l'organisation ressort « introuvable »,
+  // jamais un refus explicite qui en révèlerait l'existence. L'admin n'est pas restreint.
   // Colonnes étendues (spec 15 bis, 2026-08-17) : parité de champs avec ProductForm en mode
   // édition — address/lat/lon/price_tiers/min_qty/max_qty/check_in_time/check_out_time/capacity/
   // stay_rates, plus `type` pour le gating (ProductTypeFields).
-  const { data: product } = await supabase
+  const scope = await ownerScope(supabase);
+  let productQuery = supabase
     .from("products")
     .select(
       "id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, establishment_id, lobby_category_id, lobby_product_id, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, establishment:establishments(lobby_connector_active, lobby_has_token)"
     )
-    .eq("id", id)
-    .maybeSingle();
-
+    .eq("id", id);
+  if (scope.kind === "partner") {
+    productQuery = productQuery.eq("partner_id", scope.partnerId);
+  }
+  // Une panne LÈVE (app/error.tsx) : lue comme une absence, elle répondait « introuvable ».
+  const { data: product, error: productError } = await productQuery.maybeSingle();
+  if (productError) {
+    throw new Error(`Lecture du produit impossible (products) : ${productError.message}`);
+  }
   if (!product) {
     notFound();
   }
@@ -32,12 +41,12 @@ export default async function EditProductProposalPage({
   // 3 lectures indépendantes (aucune ne dépend du résultat d'une autre, seulement de `id` déjà
   // connu) — lancées en parallèle plutôt qu'en séquence, même raisonnement documenté dans le
   // admin/products/[id]/edit/page.tsx voisin (5 lectures indépendantes, Promise.all).
-  const [{ data: pendingProposal }, { data: media }, { data: pendingPhotosProposal }] =
+  //
+  // `.limit(1)` sur les propositions : rien en base n'empêche deux propositions en attente pour le
+  // même produit, et `maybeSingle()` sur deux lignes est une ERREUR — qui, lue maintenant, ferait
+  // échouer la page. On affiche la plus récente, ce que le tri voulait déjà dire.
+  const [pendingResult, mediaResult, pendingPhotosResult] =
     await Promise.all([
-      // Au plus une proposition pending par produit/partenaire à la fois côté écran (le plafond de
-      // 10 est un plafond global par partenaire, pas par produit — mais rien n'empêche plusieurs
-      // pending sur des produits différents ; ici on n'affiche que celle de CE produit, s'il y en a
-      // une).
       supabase
         .from("product_proposals")
         .select("id, payload, created_at")
@@ -45,6 +54,7 @@ export default async function EditProductProposalPage({
         .eq("status", "pending")
         .eq("kind", "content")
         .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle(),
       supabase
         .from("product_media")
@@ -57,8 +67,22 @@ export default async function EditProductProposalPage({
         .eq("product_id", id)
         .eq("status", "pending")
         .eq("kind", "photos")
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle(),
     ]);
+  for (const [table, result] of [
+    ["product_proposals", pendingResult],
+    ["product_media", mediaResult],
+    ["product_proposals", pendingPhotosResult],
+  ] as const) {
+    if (result.error) {
+      throw new Error(`Lecture de la fiche impossible (${table}) : ${result.error.message}`);
+    }
+  }
+  const pendingProposal = pendingResult.data;
+  const media = mediaResult.data;
+  const pendingPhotosProposal = pendingPhotosResult.data;
 
   const photos = (media ?? []).map((m) => ({
     id: m.id,
