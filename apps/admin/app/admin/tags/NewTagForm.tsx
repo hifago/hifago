@@ -51,7 +51,7 @@ export function NewTagForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex items-end gap-4">
+    <form onSubmit={handleSubmit} noValidate className="flex flex-wrap items-end gap-4">
       <TextField fullWidth name="label-es" value={labelEs} onChange={setLabelEs} isRequired>
         <Label>Nueva etiqueta</Label>
         <Input id="label-es" data-testid="new-tag-input" />

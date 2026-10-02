@@ -36,9 +36,9 @@ export function LodgingFields({
 
   return (
     <>
-      {/* 2 colonnes dans tous les cas : un hôtel n'a que check-in/check-out, un alojamiento
-          complète la 2e ligne avec capacité + cantidad (ajoutée le 2026-08-26). Une grille de 4
-          colonnes serait illisible sur un écran étroit. */}
+      {/* 2 colonnes à partir de md, empilées en dessous (responsive, 2026-10-02) : un hôtel n'a
+          que check-in/check-out, un alojamiento complète la 2e ligne avec capacité + cantidad
+          (ajoutée le 2026-08-26). Une grille de 4 colonnes serait illisible sur un écran étroit. */}
       {showDetails && hasCheckInOut ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <TextField fullWidth name="check-in" value={state.checkInTime} onChange={state.setCheckInTime}>
