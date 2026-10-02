@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@hifago/supabase/client";
 import { Button, Input, Label, Modal, TextArea, TextField, toast, useOverlayState } from "@hifago/ui";
+import { rpcErrorMessage } from "@/lib/errors/rpcErrorMessage";
 
 // Même patron que ResolveEntryDialog (admin/reconciliation) : dialogue contrôlé, motif obligatoire
 // vérifié côté client ET côté serveur (mark_ledger_entry_paid, spec 19 §0 Tranche 0),
@@ -58,7 +59,7 @@ export function MarkPaidDialog({
     setIsSubmitting(false);
 
     if (rpcError || !(data as { ok: boolean } | null)?.ok) {
-      toast.danger(rpcError?.message ?? "No se pudo marcar la entrada como pagada.");
+      toast.danger(rpcErrorMessage(rpcError, "No se pudo marcar la entrada como pagada."));
       return;
     }
 

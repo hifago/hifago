@@ -17,6 +17,10 @@ const REASON_LABELS: Record<string, string> = {
   lobby_rejected: "LobbyPMS rechazó la consulta.",
   lobby_unreachable: "No se pudo contactar con LobbyPMS.",
   not_authorized: "Solo un administrador puede importar fotos.",
+  // Réponses 503 de la route (échec fermé, 2026-10-01) : « je n'ai pas pu le savoir », pas un
+  // refus — même texte que lobby-option-picker pour l'autorisation, pour que l'admin retente.
+  authorization_unavailable: "No se pudo verificar tu acceso en este momento. Vuelve a intentarlo.",
+  catalog_unavailable: "No se pudo leer la actividad en este momento. Vuelve a intentarlo.",
 };
 
 export function ImportLobbyPhotosBlock({ productId }: { productId: string }) {
