@@ -10,26 +10,26 @@ import { PartnerTermsModal } from "./PartnerTermsModal";
 // Messages en français en dur : cette app, hors next-intl (cf. hifago/CLAUDE.md — l'i18n ne
 // vise qu'apps/web), pas une violation de la règle i18n.
 const ERROR_MESSAGES: Record<string, string> = {
-  invitation_not_found: "Ce lien d'invitation est introuvable.",
-  already_consumed: "Cette invitation a déjà été utilisée.",
-  already_revoked: "Cette invitation a été révoquée.",
-  already_expired: "Cette invitation a expiré.",
-  expired: "Cette invitation a expiré.",
-  account_already_has_partner: "Ce compte est déjà rattaché à un partenaire.",
-  not_authenticated: "La session n'a pas pu être établie. Réessayez.",
+  invitation_not_found: "Este enlace de invitación no existe.",
+  already_consumed: "Esta invitación ya fue utilizada.",
+  already_revoked: "Esta invitación fue revocada.",
+  already_expired: "Esta invitación expiró.",
+  expired: "Esta invitación expiró.",
+  account_already_has_partner: "Esta cuenta ya está vinculada a un socio.",
+  not_authenticated: "No se pudo iniciar la sesión. Inténtalo de nuevo.",
   // Liste blanche des sessions anonymes (migration 20260909200000) : devenir partenaire
   // exige un compte réel. Un visiteur qui a seulement rempli un panier sur la vitrine et
   // ouvre un lien d'invitation tombe ici — le message doit lui dire quoi faire, pas juste
   // que c'est refusé.
   anonymous_not_allowed:
-    "Créez un compte ou connectez-vous avant d'utiliser ce lien d'invitation.",
+    "Crea una cuenta o inicia sesión antes de usar este enlace de invitación.",
   // Feature 31 (docs/specs/07-connexion-inscription-complete.md §7) : raisons propres à
   // POST /api/auth/invitation-signup — qui relaie aussi, telles quelles, celles de
   // consume_partner_invitation ci-dessus, puisqu'il consomme l'invitation lui-même.
-  email_already_used: "Cet email est déjà utilisé par un autre compte.",
-  session_failed: "La session n'a pas pu être établie. Réessayez.",
-  consume_failed: "Une erreur est survenue. Réessayez.",
-  invalid_request: "Renseignez votre nom, votre email et un mot de passe.",
+  email_already_used: "Este correo ya lo usa otra cuenta.",
+  session_failed: "No se pudo iniciar la sesión. Inténtalo de nuevo.",
+  consume_failed: "Ocurrió un error. Inténtalo de nuevo.",
+  invalid_request: "Indica tu nombre, tu correo y una contraseña.",
 };
 
 type ConsumeResult = { ok: boolean; reason?: string; roles?: string[]; partner_id?: string };
@@ -83,7 +83,7 @@ export function JoinForm({
       if (!signupResult.ok) {
         toast.danger(
           ERROR_MESSAGES[signupResult.reason ?? ""] ??
-            "Impossible de créer le compte. Vérifiez vos informations ou connectez-vous si vous avez déjà un compte."
+            "No se pudo crear la cuenta. Revisa tus datos o inicia sesión si ya tienes una cuenta."
         );
         setIsSubmitting(false);
         return;
@@ -107,13 +107,13 @@ export function JoinForm({
       setIsSubmitting(false);
 
       if (rpcError) {
-        toast.danger("Une erreur est survenue. Réessayez.");
+        toast.danger("Ocurrió un error. Inténtalo de nuevo.");
         return;
       }
 
       const result = data as ConsumeResult;
       if (!result.ok) {
-        toast.danger(ERROR_MESSAGES[result.reason ?? ""] ?? "Une erreur est survenue. Réessayez.");
+        toast.danger(ERROR_MESSAGES[result.reason ?? ""] ?? "Ocurrió un error. Inténtalo de nuevo.");
         return;
       }
     }
@@ -121,7 +121,7 @@ export function JoinForm({
     // Redirection immédiate vers le dashboard (spec §5.2) plutôt qu'un message inline : l'état
     // (rôle obtenu, établissement en attente éventuel) est recalculé à la volée par cette page,
     // pas transmis ici — robuste à un refresh, jamais un state éphémère perdu.
-    toast.success("Bienvenue !");
+    toast.success("¡Te damos la bienvenida!");
     router.push("/partner");
   }
 
@@ -142,17 +142,17 @@ export function JoinForm({
         ) : null}
 
         <TextField fullWidth name="name" value={name} onChange={setName} isRequired>
-          <Label>Nom complet</Label>
+          <Label>Nombre completo</Label>
           <Input />
         </TextField>
         {!initialUser ? (
           <>
             <TextField fullWidth name="email" value={email} onChange={setEmail} isRequired>
-              <Label>Email</Label>
+              <Label>Correo electrónico</Label>
               <Input type="email" autoComplete="email" />
             </TextField>
             <TextField fullWidth name="password" value={password} onChange={setPassword} isRequired>
-              <Label>Mot de passe</Label>
+              <Label>Contraseña</Label>
               <Input type="password" autoComplete="new-password" />
             </TextField>
           </>
@@ -163,7 +163,7 @@ export function JoinForm({
               <Checkbox.Control>
                 <Checkbox.Indicator />
               </Checkbox.Control>
-              J&apos;accepte les conditions du rôle partenaire.
+              Acepto las condiciones del rol de socio.
             </Checkbox.Content>
           </Checkbox>
           {/* Hors de Checkbox.Content (CheckboxButton react-aria, toute la zone est pressable) —
@@ -175,12 +175,12 @@ export function JoinForm({
             data-testid="view-terms-button"
             className="self-start text-xs text-muted underline"
           >
-            Voir les conditions
+            Ver las condiciones
           </button>
         </div>
         <PartnerTermsModal open={termsOpen} onOpenChange={setTermsOpen} />
         <Button type="submit" isDisabled={isSubmitting || !consent} data-testid="join-submit-button">
-          {isSubmitting ? "Création…" : "Rejoindre"}
+          {isSubmitting ? "Creando…" : "Unirme"}
         </Button>
       </form>
     </div>
