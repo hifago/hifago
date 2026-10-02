@@ -27,10 +27,21 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   // rendu optionnel le 2026-08-15 (décision Jérôme) suite à un bug d'enrôlement bloquant l'accès
   // admin réel — is_admin() ne requiert plus l'AAL2 (migration 20260815270000_admin_2fa_optional.sql).
   // Les écrans /mfa/enroll et /mfa/verify restent utilisables volontairement, plus forcés ici.
-  const { data: isAdmin } = await supabase.rpc("is_admin", { uid: user.id });
+  //
+  // Échec fermé (2026-10-01) : une panne n'est jamais lue comme « pas admin ». Avant, `error` était
+  // ignoré et un admin en panne de base partait sur /login, comme déconnecté ; la page lève
+  // désormais, et app/error.tsx propose de réessayer.
+  //
+  // Un compte connecté SANS rôle admin (socio, référent) est renvoyé à l'aiguillage `/`, qui
+  // l'envoie sur sa propre page. L'ancien `/login?next=/admin` bouclait : le login rend le
+  // formulaire à un compte déjà connecté, qui, une fois reconnecté, repartait vers /admin.
+  const { data: isAdmin, error: isAdminError } = await supabase.rpc("is_admin", { uid: user.id });
+  if (isAdminError) {
+    throw new Error(`Lecture du rôle impossible (is_admin) : ${isAdminError.message}`);
+  }
 
   if (!isAdmin) {
-    redirect("/login?next=/admin");
+    redirect("/");
   }
 
   // Revue admin (Jérôme, 2026-08-20) — pastille "à faire" sur le lien "Propuestas" de la sidebar,
@@ -38,12 +49,21 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   // status='pending'), mais en count-only (head: true, jamais les lignes) — chargé sur CHAQUE page
   // admin (ce layout les enveloppe toutes), même posture que AdminAlerts.tsx : "chargées seulement
   // au rendu de la page, sans polling/Realtime" (spec §10), pas un état à part à synchroniser.
-  const [{ count: productProposalsPending }, { count: establishmentProposalsPending }] =
-    await Promise.all([
-      supabase.from("product_proposals").select("id", { count: "exact", head: true }).eq("status", "pending"),
-      supabase.from("establishment_proposals").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    ]);
-  const pendingProposalsCount = (productProposalsPending ?? 0) + (establishmentProposalsPending ?? 0);
+  // Un compte en échec lève (décision du 2026-10-01) : une pastille absente dirait « rien à
+  // modérer », ce qui est faux.
+  const [productProposalsPending, establishmentProposalsPending] = await Promise.all(
+    (["product_proposals", "establishment_proposals"] as const).map(async (table) => {
+      const { count, error } = await supabase
+        .from(table)
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending");
+      if (error) {
+        throw new Error(`Lecture des propositions en attente impossible (${table}) : ${error.message}`);
+      }
+      return count ?? 0;
+    })
+  );
+  const pendingProposalsCount = productProposalsPending + establishmentProposalsPending;
 
   return (
     <div className="flex min-h-screen w-full flex-col md:flex-row">
