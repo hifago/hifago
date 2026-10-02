@@ -54,7 +54,12 @@ async function libelles(tipo: TipoOferta, locale: Locale) {
   const tCommon = await getTranslations({ locale, namespace: "Common" });
   return {
     seccion: tHome(`secciones.${tipo}`),
-    verMas: tHome("verMas"),
+    // ⚠️ `masPorTipo` et non `verMas` depuis le 2026-10-01 : le bouton du carrusel nomme le type.
+    // Il est nommé par le TYPE de la page et non par la catégorie de la section — « Más
+    // actividades » sous la catégorie « Agua » — parce que c'est bien vers plus d'activités que le
+    // lien mène, et qu'un « Más agua » ne se dit pas. Même clé que l'accueil, jamais une seconde au
+    // même texte : elles divergeraient à la première retouche.
+    masDelTipo: tHome(`masPorTipo.${tipo}`),
     inicio: tCommon("breadcrumbHome"),
   };
 }
@@ -69,7 +74,7 @@ export async function IndiceCategoriasConOfertas({
   searchParams: ParamsBrutos;
 }) {
   const t = await getTranslations({ locale, namespace: "ListadoPage" });
-  const { seccion, verMas, inicio } = await libelles(tipo, locale);
+  const { seccion, masDelTipo, inicio } = await libelles(tipo, locale);
 
   const criterios = leerCriterios(searchParams);
   const sufijoCriterios = escribirCriterios(criterios);
@@ -172,7 +177,7 @@ export async function IndiceCategoriasConOfertas({
             titulo={categoria.nombre}
             tituloAs="h2"
             hrefVerMas={hrefCategoria(tipo, categoria.slug, sufijoCriterios)}
-            labelVerMas={verMas}
+            labelVerMas={masDelTipo}
             // ⚠️ Toutes les catégories dans la même carte (photo pleine largeur, 2026-09-14, retour
             // explicite de Jérôme) — cf. `page.tsx` pour le raisonnement complet : les activités
             // utilisaient `variante="lista"` par choix esthétique de Jérôme (spec 28 §5), jamais une

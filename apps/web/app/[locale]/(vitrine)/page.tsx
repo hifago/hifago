@@ -2,11 +2,8 @@ import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { todayInBogota } from "@hifago/domain";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { PageShell } from "@/components/atoms/PageShell";
-import { Title } from "@/components/atoms/Title";
+import { COLUMNA_PORTADA, PageShell } from "@/components/atoms/PageShell";
 import { EstadoVacio } from "@/components/molecules/EstadoVacio";
-import { SelectorTipo } from "@/components/organisms/SelectorTipo";
-import { SeccionOfertas } from "@/components/organisms/SeccionOfertas";
 import { buscarSecciones, hrefSeccion } from "@/lib/catalog/buscar";
 import { escribirCriterios, leerCriterios, leerDesdeCarrito } from "@/lib/catalog/criterios";
 import { esTipoOferta, type TipoOferta } from "@/lib/catalog/tipos";
@@ -17,6 +14,9 @@ import { getSiteUrl } from "@/lib/seo/siteUrl";
 import type { Locale } from "@/messages";
 import { BuscadorInicio } from "./BuscadorInicio";
 import { labelsBuscador } from "./labelsBuscador";
+import { MenuTiposPortada } from "./MenuTiposPortada";
+import { PortadaInicio } from "./PortadaInicio";
+import { SeccionPortada } from "./SeccionPortada";
 import { tiposDeBarra } from "./tiposDeBarra";
 
 // L'ACCUEIL, QUI EST AUSSI L'ÉCRAN DE RÉSULTATS (spec 28, Tranche 1 — 2026-09-08).
@@ -30,7 +30,8 @@ import { tiposDeBarra } from "./tiposDeBarra";
 // supprimé avec ce lot). Deux règles de la spec 27 en sont nées et sont vérifiées par la CI
 // (`scripts/check-data-layer.sh`) : aucune requête Supabase dans un fichier de route, et aucun
 // import de `@hifago/ui` — tout passe par `lib/catalog/`, et tout le HeroUI vit derrière une
-// frontière `"use client"` (`TarjetaOferta` → `Card`/`PhotoStrip`).
+// frontière `"use client"` (`BuscadorInicio` → `SearchPanel`). Les sections de la maquette du
+// 2026-10-01 (`SeccionPortada`) n'en ont plus besoin du tout : elles sont servies sans JavaScript.
 
 /** Plafond par section, cahier §2a. Il vaut AUSSI sous recherche — sinon l'accueil filtrée
  *  devient une page à rallonge et se confond avec les pages de listing (spec 28 §8). */
@@ -100,102 +101,99 @@ export default async function HomePage({ params, searchParams }: PageProps<"/[lo
   const tiposBarra = await tiposDeBarra(locale as Locale, sufijoCriterios);
 
   return (
-    <PageShell variant="large">
+    // LA MAQUETTE DE L'ACCUEIL fournie par Jérôme le 2026-10-01 (« page d'accueil 1 » du parcours
+    // « réserver une activité »), reproduite à l'identique : sur l'or de la charte, un héros (la rue
+    // aux zócalos, le grand logo, la navigation par type, la recherche) puis une section par type —
+    // titre, trait, motif, conteneur marine de trois photos, « GO → ».
+    //
+    // `variant="portada"` : la coquille ne pose ni padding ni grille — le héros commence tout en
+    // haut, SOUS le header transparent (`SiteHeader`, variante choisie par `CoquillaVitrine`), et
+    // chaque bloc s'aligne sur `COLUMNA_PORTADA`. `fondo="acento"` : toute la page sur l'or, <body>
+    // compris (`globals.css`, section « Fond or »).
+    <PageShell variant="portada" fondo="acento">
       {/* Nœud d'identité du site : c'est le plus rentable pour être cité par un moteur de
           réponse, et il n'exige aucune colonne de base de données. */}
       <JsonLd data={buildWebSiteJsonLd(getSiteUrl(), locale, t("title"), t("description"))} />
 
-      {/* ⚠️ Masqué VISUELLEMENT, jamais retiré du DOM (spec 28 §5). Le cahier §2a ne veut rien
-          au-dessus du bloc de recherche, mais une page sans `<h1>` est une faute d'accessibilité
-          comme de référencement. `sr-only` n'est pas le `hidden md:block` interdit par
-          `.claude/rules/ui.md` : le contenu reste indexé et lu par un lecteur d'écran.
-          Jérôme a annoncé un bloc titré à cet endroit ; le jour où il existe, la seule chose à
-          retirer est cette classe. */}
-      <div className="sr-only">
-        <Title as="h1">{t("h1")}</Title>
-      </div>
-
-      {/* SelectorTipo REMPLACE le fil d'Ariane ici (2026-09-15, retour de Jérôme — annule
-          l'itération précédente qui le plaçait sous `BuscadorInicio`) : la home n'affichait qu'un
-          "Inicio" seul via `Migas`, sans lien réel, donc aucune valeur de navigation perdue à le
-          retirer. `SelectorTipo` devient ici la navigation PRINCIPALE de la page — plus une simple
-          rangée sous des filtres — d'où sa place à l'ancien emplacement du fil, juste avant
-          `BuscadorInicio`. Aucun `tipoActivo` : la home n'est le sujet d'aucun type précis. Sur les
-          4 autres écrans qui montraient ce même sélecteur (index de catégories, listings, fiches),
-          c'est l'inverse : `SelectorTipo` a disparu, `Migas` (le vrai fil, "Inicio > X") reste seul
-          — voir ces fichiers, `BarraNavegacion.tsx` qui les combinait a été supprimé avec ce lot. */}
-      <SelectorTipo
-        tipos={tiposBarra}
-        etiqueta={tCommon("selectorTipoEtiqueta")}
-        masEtiqueta={tCommon("selectorMasEtiqueta")}
-        menosEtiqueta={tCommon("selectorMenosEtiqueta")}
-        testId="selector-tipos"
-      />
-
-      {/* ⚠️ Hôte CLIENT obligatoire : toutes les props de `SearchPanel` sont des fonctions, qu'un
-          Server Component ne sait pas sérialiser. `aujourdIso` est calculé à Guatapé — jamais dans
-          le fuseau du serveur (règle §11.20, vérifiée par scripts/check-timezone.sh). */}
-      <BuscadorInicio
-        criteriosIniciales={criterios}
-        aujourdIso={todayInBogota()}
-        localeCodigo={locale as Locale}
-        labels={labels}
-        // Les raccourcis proposés avant la première frappe. Ils sortent des sections déjà
-        // calculées : aucune requête de plus, et ils décrivent le catalogue RÉELLEMENT servi —
-        // un type absent des résultats n'apparaît pas comme raccourci vers une page vide.
-        atajosTipo={secciones.map((seccion) => ({ tipo: seccion.tipo, total: seccion.total }))}
-      />
-
-      {secciones.length === 0 ? (
-        // Un seul état vide global, jamais un « Aucune activité » répété cinq fois : sur une
-        // recherche pointue, ce serait cinq lignes de bruit. La barre reste utilisable au-dessus.
-        <EstadoVacio
-          titulo={t("emptyState.titulo")}
-          descripcion={t("emptyState.descripcion")}
-          testId="estado-vacio"
-        />
-      ) : (
-        secciones.map((seccion, indice) => (
-          <SeccionOfertas
-            key={seccion.tipo}
-            titulo={t(`secciones.${seccion.tipo}`)}
-            hrefVerMas={hrefSeccion(seccion.tipo, sufijoCriterios)}
-            // ⚠️ Le « Ver más » des activités ne mène PAS à une liste d'offres mais à un index de
-            // sous-catégories (`/es/actividades`, spec 29) : son libellé doit le dire, sinon le
-            // lien promet une chose et en donne une autre.
-            labelVerMas={seccion.tipo === "activity" ? t("verMasTags") : t("verMas")}
-            // ⚠️ Toutes les sections dans la même carte (photo pleine largeur) depuis le 2026-09-14
-            // (retour explicite de Jérôme) : les activités utilisaient `Card layout="row"`
-            // (`variante="lista"`) depuis la spec 28 §5, mais c'était un choix esthétique de Jérôme
-            // lui-même, jamais une contrainte fonctionnelle (même contenu de carte dans les deux
-            // variantes) — et il portait un défaut non résolu (carrousel PHOTO écrasé dans la
-            // vignette de 64px, spec 28 §10bis, sans rapport avec la ligne scrollable ci-dessous).
-            // Il avait déjà inversé ce même choix pour les chambres d'établissement le 2026-09-08
-            // (spec 30 §3.9 : « la photo est ce qui décide », cf. journal) ; ce changement aligne
-            // les activités sur cette même logique déjà actée ailleurs.
-            //
-            // `variante="carrusel"` (et non plus "grilla") : ligne scrollable horizontalement au
-            // lieu d'une grille empilée sur mobile — écart accueil vs prototype mobile v2 objectivé
-            // dans `com-dev/grille-beta-test-hifago/index.html` (acc-4/syn-3).
-            variante="carrusel"
-            tarjetas={seccion.tarjetas}
-            locale={locale as Locale}
-            // ⚠️ « L'accueil a toujours plus d'offres du type qu'il n'en montre » n'est vrai QUE
-            // sans filtre actif (le catalogue dépasse 8 par type) — signalé par Jérôme le
-            // 2026-09-14 : sous une recherche qui ne laisse que ≤8 résultats d'un type, « Ver más »
-            // se rendait quand même et menait à une page montrant EXACTEMENT les mêmes cartes.
-            // Exception : les activités, dont le lien ne promet pas « plus d'offres » mais « Ver
-            // todas las categorías » (labelVerMas ci-dessus) — une vue par catégorie reste utile
-            // quel que soit le compte, donc pas soumise à cette condition.
-            mostrarVerMas={seccion.tipo === "activity" || seccion.total > seccion.tarjetas.length}
-            // Une seule image de toute la page est prioritaire : la première carte de la première
-            // section, c'est-à-dire le LCP. Toutes les autres restent en `lazy` — cinq sections de
-            // huit cartes précharger ensemble, ce sont des dizaines de requêtes inutiles.
-            prioridad={indice === 0}
-            testId={`seccion-${seccion.tipo}`}
+      {/* Le <h1> est le GRAND LOGO du héros, son texte reste dans le DOM (`sr-only`) — voir
+          `PortadaInicio`. Il n'est plus caché tout seul dans un bloc à part : la maquette donne
+          enfin à ce titre la place que l'ancien commentaire attendait (« Jérôme a annoncé un bloc
+          titré à cet endroit »). */}
+      <PortadaInicio
+        titulo={t("h1")}
+        navegacion={
+          // ⚠️ La navigation PRINCIPALE de la page, qui remplace `SelectorTipo` (2026-10-01) : les
+          // cinq types en ligne, passant à la ligne plutôt que de se replier. `testId` inchangé —
+          // `e2e/home.spec.ts` clique `selector-tipos-activity`.
+          <MenuTiposPortada
+            tipos={tiposBarra}
+            etiqueta={tCommon("selectorTipoEtiqueta")}
+            testId="selector-tipos"
           />
-        ))
-      )}
+        }
+        busqueda={
+          // ⚠️ Hôte CLIENT obligatoire : toutes les props de `SearchPanel` sont des fonctions,
+          // qu'un Server Component ne sait pas sérialiser. `aujourdIso` est calculé à Guatapé —
+          // jamais dans le fuseau du serveur (règle §11.20, vérifiée par scripts/check-timezone.sh).
+          <BuscadorInicio
+            criteriosIniciales={criterios}
+            aujourdIso={todayInBogota()}
+            localeCodigo={locale as Locale}
+            labels={labels}
+            // Les raccourcis proposés avant la première frappe. Ils sortent des sections déjà
+            // calculées : aucune requête de plus, et ils décrivent le catalogue RÉELLEMENT servi —
+            // un type absent des résultats n'apparaît pas comme raccourci vers une page vide.
+            atajosTipo={secciones.map((seccion) => ({ tipo: seccion.tipo, total: seccion.total }))}
+          />
+        }
+        testId="portada"
+      />
+
+      {/* La colonne des sections : la même que le héros et le header (`COLUMNA_PORTADA`). L'écart
+          entre deux sections est celui de la maquette (52 px pour une colonne de 572, mesuré —
+          6 % une fois retranchée la boîte de 44 px du lien « GO → »). */}
+      <div className={`${COLUMNA_PORTADA} @container pb-[clamp(3rem,12cqw,7rem)]`}>
+        <div className="flex flex-col gap-y-[clamp(2rem,6cqw,4.5rem)]">
+          {secciones.length === 0 ? (
+            // Un seul état vide global, jamais un « Aucune activité » répété cinq fois : sur une
+            // recherche pointue, ce serait cinq lignes de bruit. La barre reste utilisable au-dessus.
+            <EstadoVacio
+              titulo={t("emptyState.titulo")}
+              descripcion={t("emptyState.descripcion")}
+              testId="estado-vacio"
+            />
+          ) : (
+            secciones.map((seccion) => (
+              <SeccionPortada
+                key={seccion.tipo}
+                // Le titre dit la même chose que le menu du héros (« Alojamiento », « Retiros »…) :
+                // même clé, `tiposPortada` — voir `tiposDeBarra.ts`.
+                titulo={t(`tiposPortada.${seccion.tipo}`)}
+                hrefVerMas={hrefSeccion(seccion.tipo, sufijoCriterios)}
+                // Le nom accessible du « GO → » nomme le TYPE (« Más actividades ») — demande de
+                // Jérôme du 2026-10-01, conservée : c'est aussi le texte d'ancre qu'un moteur lit.
+                labelVerMas={t(`masPorTipo.${seccion.tipo}`)}
+                // ⚠️ « L'accueil a toujours plus d'offres du type qu'il n'en montre » n'est vrai QUE
+                // sans filtre actif — signalé par Jérôme le 2026-09-14 : sous une recherche qui ne
+                // laisse que ≤8 résultats d'un type, le lien menait à une page montrant EXACTEMENT
+                // les mêmes cartes. Exception : les activités, dont le lien mène à un index de
+                // catégories (spec 29), utile quel que soit le compte.
+                //
+                // ⚠️ SANS RECHERCHE ACTIVE, chaque section porte son lien (demande de Jérôme du
+                // 2026-10-01) : c'est la porte d'entrée de la page du type, pas une promesse de
+                // cartes supplémentaires — et la maquette en montre un sous chaque section.
+                mostrarVerMas={
+                  sufijoCriterios === "" ||
+                  seccion.tipo === "activity" ||
+                  seccion.total > seccion.tarjetas.length
+                }
+                tarjetas={seccion.tarjetas}
+                testId={`seccion-${seccion.tipo}`}
+              />
+            ))
+          )}
+        </div>
+      </div>
     </PageShell>
   );
 }

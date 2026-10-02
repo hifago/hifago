@@ -260,10 +260,31 @@ describe("TarjetaOferta", () => {
     // carte qui resterait en `stack` passerait tous les autres tests au vert.
     expect(liste.carte.className).toContain("flex-row");
 
-    // Carrusel : largeur FIXE (256px), pas une fraction du viewport — et le même layout `stack`
-    // que la grille (photo pleine largeur de carte), pas la vignette 64px de `lista`.
+    // Carrusel : depuis la refonte du 2026-10-01, ce n'est PLUS une largeur fixe (`256px`) mais
+    // une fraction du viewport — la rangée montre exactement trois cartes à partir de `md`, donc
+    // un tiers chacune, et une carte presque pleine en dessous. Ces deux valeurs doivent rester
+    // synchronisées avec `CLASE_CARTA_CARRUSEL` de `SeccionOfertas.tsx` (`82%` / un tiers).
     const carrusel = rendre({ fotos: fotos("sizes-carrusel", 1) }, { variante: "carrusel" });
-    expect(carrusel.images[0].getAttribute("sizes")).toBe("256px");
+    expect(carrusel.images[0].getAttribute("sizes")).toBe("(min-width: 768px) 32vw, 82vw");
+    // Le même layout `stack` que la grille (photo pleine largeur de carte), pas la vignette de 64 px.
     expect(carrusel.carte.className).not.toContain("flex-row");
+  });
+
+  // ⚠️ LA CARTE CARRÉE (demande de Jérôme, 2026-10-01, d'après sa capture de référence). Le ratio
+  // est un contrat entre trois fichiers — la carte le décide, `PhotoStrip` le relaie, l'atome
+  // `Image` le peint — et rien d'autre ne le vérifie : en jsdom aucune largeur n'est calculée, donc
+  // seule la CLASSE posée peut être observée. Sans ce test, un ratio perdu en route redonnerait
+  // des cartes en 4/3 sans qu'aucune suite ne rougisse.
+  it("rend la photo CARRÉE en carrusel, et en 4/3 partout ailleurs", () => {
+    const boite = (r: ReturnType<typeof rendre>) =>
+      r.images[0].closest("[class*='aspect-']") as HTMLElement;
+
+    const carrusel = rendre({ fotos: fotos("ratio-carrusel", 1) }, { variante: "carrusel" });
+    expect(boite(carrusel).className).toContain("aspect-[1/1]");
+
+    for (const variante of ["grilla", "lista"] as const) {
+      const autre = rendre({ fotos: fotos(`ratio-${variante}`, 1) }, { variante });
+      expect(boite(autre).className).toContain("aspect-[4/3]");
+    }
   });
 });

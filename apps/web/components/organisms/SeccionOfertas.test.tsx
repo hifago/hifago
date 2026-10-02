@@ -53,6 +53,30 @@ vi.mock("@/components/molecules/TarjetaOferta", () => ({
 // (mesure de `scrollWidth`/`clientWidth`, `ResizeObserver`) — le garder ici coupleraient ces tests
 // de SECTION à son comportement interne, sans rien vérifier de plus sur `SeccionOfertas` elle-même.
 // La doublure se contente de rendre ses enfants dans un conteneur identifiable par `testId`.
+// ⚠️ Même raison que pour `TarjetaOferta` et `CarruselConSombra` : `BandaTitulo` a son propre
+// fichier de test (le nombre de copies, le rendu serveur, la réaction au scroll), et son
+// `useEffect` ferait dépendre CES tests-ci de `matchMedia` et `ResizeObserver`, que jsdom n'a pas.
+// La doublure rend le titre au NIVEAU demandé — c'est ce que la section lui transmet, et donc la
+// seule chose qu'on ait à observer d'ici.
+vi.mock("@/components/molecules/BandaTitulo", () => ({
+  BandaTitulo: ({
+    titulo,
+    tituloAs,
+    testId,
+  }: {
+    titulo: string;
+    tituloAs?: "h2" | "h3";
+    testId?: string;
+  }) => {
+    const Etiqueta = tituloAs ?? "h2";
+    return (
+      <div data-testid={testId}>
+        <Etiqueta data-testid={testId ? `${testId}-titulo` : undefined}>{titulo}</Etiqueta>
+      </div>
+    );
+  },
+}));
+
 vi.mock("@/components/molecules/CarruselConSombra", () => ({
   CarruselConSombra: ({ children, testId }: { children: React.ReactNode; testId?: string }) => (
     <div data-testid={testId}>{children}</div>
@@ -191,51 +215,150 @@ describe("SeccionOfertas", () => {
     expect(lista.className).toContain("flex-col");
   });
 
-  it("en variante « carrusel », délègue le défilement à CarruselConSombra et pose une rangée flex, chaque carte à largeur fixe", () => {
+  it("en variante « carrusel », délègue le défilement à CarruselConSombra et montre EXACTEMENT trois cartes à partir de md", () => {
     const { lista, container } = rendu({ variante: "carrusel" });
     // Le défilement (`overflow-x-auto`, `snap-*`) vit dans `CarruselConSombra` (testé à part), pas
     // sur le `<ul>` — cette section vérifie seulement qu'elle délègue bien à ce composant.
     expect(container.querySelector('[data-testid="seccion-carrusel"]')).not.toBeNull();
     expect(lista.className).not.toContain("grid");
     expect(lista.className).toContain("flex");
+    // ⚠️ AUCUNE largeur sur ce `<ul>` depuis que le conteneur bleu ÉPOUSE les cartes (second
+    // retour de Jérôme, 2026-10-01) : la rangée vaut la somme de ses cartes, et c'est cette
+    // largeur naturelle que le conteneur `w-fit` enveloppe. Un `w-full` remis ici rendrait le
+    // conteneur rectangulaire à nouveau — une section de deux cartes laisserait un tiers de bleu vide.
+    expect(lista.className).toContain("shrink-0");
+    expect(lista.className).not.toContain("w-full");
+
+    // Le conteneur bleu épouse ses cartes, et les `cqw` des cartes lisent l'enveloppe au-dessus.
+    const carrusel = container.querySelector('[data-testid="seccion-carrusel"]') as HTMLElement;
+    const conteneur = carrusel.closest(".w-fit") as HTMLElement;
+    expect(conteneur.className).toContain("w-fit");
+    expect((conteneur.parentElement as HTMLElement).className).toContain("@container");
+
     const items = lista.querySelectorAll("li");
-    // Une carte par tarjeta, PLUS la carte « voir más » en dernière position (mostrarVerMas par défaut).
-    expect(items.length).toBe(TARJETAS.length + 1);
+    // Exactement une carte par tarjeta : la carte « voir más » de fin de rangée a été remplacée
+    // par un bouton sous le conteneur le 2026-10-01 (référence de Jérôme).
+    expect(items.length).toBe(TARJETAS.length);
     for (const item of items) {
-      expect(item.className).toContain("w-64");
+      // Un tiers de l'ENVELOPPE (`cqw`), paddings et gouttières déduits — jamais un `%` du
+      // conteneur, qui serait circulaire maintenant qu'il prend la largeur de ses cartes. Sous
+      // `md`, 82 % : une carte pleine plus l'amorce de la suivante. Rendu mesuré le 2026-10-01 à
+      // 1280×900 : trois cartes remplissent l'enveloppe, deux cartes donnent un conteneur centré.
+      expect(item.className).toContain("md:w-[calc((100cqw-4.5rem)/3)]");
+      expect(item.className).toContain("w-[calc((100cqw-2rem)*0.82)]");
       expect(item.className).toContain("shrink-0");
+      // Plus aucune largeur en pixels : la dérogation à `.claude/rules/ui.md` est levée.
+      expect(item.className).not.toContain("w-64");
     }
   });
 
-  it("en carrusel, la carte « voir más » est la DERNIÈRE de la ligne, prend tout le volume d'une carte et le lien historique après la liste disparaît", () => {
+  // L'affordance « voir plus » a changé DEUX fois : lien après la liste (2026-09-08) → carte en
+  // fin de rangée (2026-09-15) → bouton sous le conteneur (2026-10-01, la référence de Jérôme).
+  // Ce test tient les trois états à la fois : il affirme le dernier ET l'absence des deux autres,
+  // parce que le défaut à craindre n'est pas qu'il manque une affordance mais qu'il y en ait deux.
+  it("en carrusel, l'affordance « voir plus » est UN bouton sous le conteneur, et rien d'autre", () => {
     const { lista, container } = rendu({ variante: "carrusel" });
-    const items = lista.querySelectorAll("li");
-    const derniere = items[items.length - 1] as HTMLElement;
-    // Les cartes d'offre sont des doublures `<article>` (mock ci-dessus) : la dernière `<li>` n'en
-    // contient PAS, c'est la carte « voir más ».
-    expect(derniere.querySelector("article")).toBeNull();
-    const lien = derniere.querySelector('[data-testid="seccion-ver-mas-link"]') as HTMLAnchorElement;
-    expect(lien).not.toBeNull();
-    expect(lien.tagName).toBe("A");
-    expect(lien.getAttribute("href")).toBe("/actividades?personas=2");
-    expect(lien.textContent).toBe("Ver todas las actividades");
-    // Titre centré (retour de Jérôme) : hérité de `text-center` posé sur l'en-tête de la carte.
-    const carte = container.querySelector('[data-testid="seccion-ver-mas"]') as HTMLElement;
-    expect(carte.querySelector('[data-slot="card-header"]')?.className).toContain("text-center");
-    // `fullHeight` : la carte s'étire à la hauteur de ses voisines (`align-items: stretch` du
-    // `<ul>` flex) au lieu de s'arrêter à son propre contenu, plus court sans sous-titre.
-    expect(carte.className).toContain("h-full");
-    // Une icône remplace la photo, sans fond ni ratio imposé (juste un `+` fait main).
-    expect(carte.querySelector("svg")).not.toBeNull();
-    // Pas de double affordance : le lien après la liste (motif grilla/lista) ne se rend pas ici.
-    expect(container.querySelector('a[data-testid="seccion-ver-mas"]')).toBeNull();
+
+    const bouton = container.querySelector('[data-testid="seccion-ver-mas"]') as HTMLAnchorElement;
+    expect(bouton).not.toBeNull();
+    expect(bouton.tagName).toBe("A");
+    expect(bouton.getAttribute("href")).toBe("/actividades?personas=2");
+    expect(bouton.textContent).toContain("Ver todas las actividades");
+    // Le `Link` localisé, jamais un `<a href>` nu : le préfixe de langue est ce qui fait de ce
+    // lien un vrai maillage interne. La doublure de `@/i18n/navigation` pose ce marqueur.
+    expect(bouton.getAttribute("data-localized")).toBe("true");
+
+    // Le bouton est dans la LANGUETTE qui sort du bas du conteneur bleu (2026-10-01) — ni dans
+    // la rangée qui défile, ni dans le rectangle des cartes : c'est ce qui donne au conteneur sa
+    // forme non rectangulaire. La languette est la sœur suivante du conteneur.
+    const carrusel = container.querySelector('[data-testid="seccion-carrusel"]') as HTMLElement;
+    const conteneur = carrusel.closest(".w-fit") as HTMLElement;
+    expect(conteneur.contains(bouton)).toBe(false);
+    const languette = conteneur.nextElementSibling as HTMLElement;
+    expect(languette.contains(bouton)).toBe(true);
+    expect(languette.className).toContain("rounded-b-3xl");
+
+    // Aucune `<li>` sans carte d'offre : plus de carte « voir más » en fin de rangée.
+    for (const item of lista.querySelectorAll("li")) {
+      expect(item.querySelector("article")).not.toBeNull();
+    }
   });
 
-  it("en carrusel, `mostrarVerMas` à faux retire la carte « voir más » — exactement une carte par tarjeta", () => {
-    const { lista } = rendu({ variante: "carrusel", mostrarVerMas: false });
-    const items = lista.querySelectorAll("li");
-    expect(items.length).toBe(TARJETAS.length);
-    expect(lista.querySelector('[data-testid="seccion-ver-mas"]')).toBeNull();
+  // ⚠️ LE GARDE-FOU DU FOND PERDU (décision de Jérôme, 2026-10-01). Sans lui, « les cartes vont
+  // d'un bord à l'autre » resterait un souhait (CLAUDE.md §11.20) : rien dans le rendu de cette
+  // section ne trahirait sa disparition, puisque la mécanique vit dans `PageShell` et que jsdom ne
+  // calcule aucune largeur. `data-bleed` EST le contrat entre les deux fichiers — c'est lui qui
+  // sort la rangée de la colonne de lecture — et il ne doit exister QUE sur le carrusel : une
+  // grille ou une liste à fond perdu décollerait du reste de la page sans raison.
+  it("en carrusel SEULEMENT, la section prend les trois colonnes de la coquille", () => {
+    const { seccion } = rendu({ variante: "carrusel" });
+    expect(seccion.hasAttribute("data-bleed")).toBe(true);
+    expect(seccion.className).toContain("col-span-full");
+    // Le subgrid REPREND les pistes de `PageShell` au lieu d'en redéfinir d'équivalentes : c'est
+    // ce qui garantit que le titre reste aligné sur le reste de la page sans que la largeur de la
+    // colonne de lecture soit écrite à deux endroits.
+    expect(seccion.className).toContain("grid-cols-subgrid");
+
+    // ⚠️ LES DEUX COULEURS DE LA CHARTE, et le sens dans lequel elles vont. L'or EST le fond et le
+    // marine est le texte — jamais l'inverse : « l'or ne porte jamais de texte sur fond clair »
+    // (1.96:1) est l'un des trois interdits mesurés de `.claude/rules/ui.md`. Les JETONS, jamais
+    // les hex : `#ddae09` écrit en dur ici ne suivrait ni le mode sombre ni une retouche de charte.
+    expect(seccion.className).toContain("bg-accent");
+    expect(seccion.className).toContain("text-accent-foreground");
+    expect(seccion.className).not.toContain("text-accent ");
+    expect(seccion.className).not.toMatch(/#[0-9a-f]{3,8}/i); // aucun hex en dur, quel qu'il soit
+
+    for (const variante of ["grilla", "lista"] as const) {
+      const autre = rendu({ variante }).seccion;
+      expect(autre.hasAttribute("data-bleed")).toBe(false);
+      expect(autre.className).not.toContain("col-span-full");
+      // Ni l'or ni la bande : les deux autres variantes n'ont pas bougé d'un caractère.
+      expect(autre.className).not.toContain("bg-accent");
+    }
+  });
+
+  // ⚠️ LE TITRE PASSE PAR LA BANDE, ET SON NIVEAU NE S'Y PERD PAS. C'est le risque propre à la
+  // refonte du 2026-10-01 : le titre de section n'est plus un `Title` posé par ce fichier mais un
+  // composant client qui le reçoit en prop. Une section qui oublierait de transmettre `tituloAs`
+  // rendrait un `<h2>` par défaut — juste par chance, et faux le jour où une page demande autre chose.
+  it("en carrusel, le titre est porté par la bande défilante, au niveau demandé par la page", () => {
+    const { seccion } = rendu({ variante: "carrusel" });
+
+    const banda = seccion.querySelector('[data-testid="seccion-banda"]') as HTMLElement;
+    expect(banda).not.toBeNull();
+    const titre = banda.querySelector('[data-testid="seccion-banda-titulo"]') as HTMLElement;
+    expect(titre.textContent).toBe("Actividades");
+    expect(titre.tagName).toBe("H2");
+
+    // Un seul titre de section dans tout le rendu : la bande ne doit pas s'ajouter au `Title` des
+    // deux autres variantes, ni l'inverse.
+    expect(seccion.querySelectorAll("h2").length).toBe(1);
+    expect(seccion.querySelector('[data-testid="seccion-titulo"]')).toBeNull();
+  });
+
+  // Le conteneur bleu poudre longe les BORDS DE L'ÉCRAN, il ne revient pas dans la colonne de
+  // lecture : c'est ce retrait constant qui laisse voir l'or tout autour, comme sur la référence.
+  // Un `col-start-2` oublié ici le ramènerait à 704 px de large, encadré de 256 px d'or.
+  it("en carrusel, le conteneur des cartes porte le bleu poudre et longe les bords de l'écran", () => {
+    const { container } = rendu({ variante: "carrusel" });
+
+    const conteneur = (container.querySelector('[data-testid="seccion-carrusel"]') as HTMLElement)
+      .parentElement as HTMLElement;
+    // Le jeton `--default` (le bleu poudre #b6cde8 de la charte), jamais l'hex en dur.
+    expect(conteneur.className).toContain("bg-[var(--default)]");
+    expect(conteneur.className).not.toMatch(/#[0-9a-f]{3,8}/i);
+    expect(conteneur.className).toContain("rounded-3xl");
+
+    const enveloppe = conteneur.parentElement as HTMLElement;
+    expect(enveloppe.className).toContain("col-span-full");
+    expect(enveloppe.className).toContain("px-3");
+    expect(enveloppe.className).not.toContain("col-start-2");
+  });
+
+  it("en carrusel, `mostrarVerMas` à faux retire le bouton sans toucher aux cartes", () => {
+    const { lista, container } = rendu({ variante: "carrusel", mostrarVerMas: false });
+    expect(lista.querySelectorAll("li").length).toBe(TARJETAS.length);
+    expect(container.querySelector('[data-testid="seccion-ver-mas"]')).toBeNull();
   });
 
   it("transmet la variante et la locale à chacune de ses cartes", () => {

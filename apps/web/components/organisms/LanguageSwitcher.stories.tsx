@@ -55,3 +55,16 @@ export const AlignementADroite: Story = {
     </div>
   ),
 };
+
+// L'apparence `banderas` — « 🇪🇸 ESP  🇬🇧 ING », la rangée du header transparent de l'accueil
+// (maquette de Jérôme, 2026-10-01). Les deux langues en liens directs, sur l'or où elle vit.
+// Basculer la langue dans la barre d'outils : « ING » devient « ENG », l'abréviation est un libellé
+// d'interface, traduit — contrairement aux endonymes du menu.
+export const Banderas: Story = {
+  args: { apariencia: "banderas", testId: "lang" },
+  render: (args) => (
+    <div className="bg-accent p-4 text-accent-foreground">
+      <LanguageSwitcher {...args} />
+    </div>
+  ),
+};

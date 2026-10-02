@@ -41,10 +41,14 @@ export type SiteMenuProps = {
 // constante à changer ce jour-là. ⚠️ CHANGÉ le 2026-09-11 (spec 35, décision ⑧) : `/cuenta/perfil`
 // est désormais l'accueil de la zone compte, pas `/cuenta/reservas` — qui reste atteignable depuis
 // un lien sur cet écran.
-const ROUTE_COMPTE = "/cuenta/perfil";
-const ROUTE_CONNEXION = "/entrar";
+//
+// EXPORTÉES depuis le 2026-10-01 : le header TRANSPARENT de l'accueil (`SiteHeader`) rend le même
+// lien de compte hors de ce panneau. Une seule définition de la route, de l'icône et du choix
+// compte/connexion — deux copies divergeraient au prochain déménagement de la zone compte.
+export const ROUTE_COMPTE = "/cuenta/perfil";
+export const ROUTE_CONNEXION = "/entrar";
 
-function IconeCompte() {
+export function IconeCompte() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="size-5 shrink-0">
       <circle cx="12" cy="8" r="3.6" />

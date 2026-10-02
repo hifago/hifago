@@ -75,12 +75,12 @@ const PISTES = [
     // de Jérôme : bouton en or franc, bleu promu en deuxième couleur principale (lien/focus ET
     // bouton secondaire), cartes sans ombre à bordure marine.
     cle: "penol",
-    titre: "Peñol",
-    sous_titre: "le nouveau logo hifaGO",
+    titre: "Peñol → LA CHARTE (adoptée)",
+    sous_titre: "la charte graphique Hifago 2026",
     parti:
-      "Bouton en or franc du logo (texte marine dessus, comme sur le logo), bleu en deuxième couleur principale (lien, focus, bouton secondaire), cartes sans ombre à bordure bleu marine — repris du logo hifaGO envoyé par Jérôme (2026-09-14).",
+      "ADOPTÉE le 2026-10-01 : c’est la production. Née comme piste le 2026-09-14 avec des couleurs estimées à l’œil, puis RECALÉE sur les hex exacts de la charte fournie par Jérôme (or, bleu poudre, bleu ciel, bleu moyen, marine — valeurs dans globals.css, section « LA CHARTE »). Bouton en or franc à texte marine, bleu en deuxième couleur principale, cartes sans ombre à bordure marine, titres en Anton.",
     sacrifice:
-      "Couleurs estimées à l’œil depuis une capture collée dans une conversation, pas des hex de charte — à recaler si Jérôme fournit un export fidèle. `--link`/`--focus` sont ici DÉCOUPLÉS de `--accent` (contrairement aux cinq autres pistes) pour que le bouton reste en or franc sans hériter une couleur trop claire pour du texte de lien — une piste qui compare mal terme à terme avec les autres sur ce point précis.",
+      "Trois contraintes mesurées, pas des préférences : l’or ne peut JAMAIS porter de texte sur fond clair (1.96:1) ni recevoir du blanc (2.07:1), et le bleu ciel ne peut identifier aucun composant (2.79:1, sous 3:1) — il reste décoratif. D’où `--link`/`--focus` DÉCOUPLÉS de `--accent`, contrairement aux cinq autres pistes : elles ne se comparent donc pas terme à terme avec celle-ci sur ce point. La colonne ci-contre n’ayant plus de `data-piste` propre, elle rend le thème par défaut — c’est voulu, c’est le même CSS.",
   },
 ] as const;
 
@@ -428,18 +428,23 @@ export const Contrastes: Story = {
   ),
 };
 
-// ⚠️ Ce que la vitrine utilise VRAIMENT comme police, et ce qui était prévu. Aucune piste ne touche
-// aux polices : le défaut est réel et il est ailleurs (app/[locale]/layout.tsx définit
-// `--font-geist-sans`, HeroUI et Tailwind lisent `--font-sans` — les deux noms ne se rejoignent
-// nulle part). Le correctif est proposé dans le rapport, pas appliqué : il change la typographie de
-// tout le site d'un coup.
+// Ce que la vitrine utilise VRAIMENT comme police. ⚠️ Ce panneau documentait un DÉFAUT jusqu'au
+// 2026-10-01 : `layout.tsx` posait `--font-geist-sans` pendant que HeroUI et Tailwind lisaient
+// `--font-sans`, deux noms que rien ne reliait — la vitrine rendait en pile système en chargeant
+// deux polices pour rien. Le correctif est appliqué (charte graphique Hifago 2026) ; le panneau
+// reste, comme VÉRIFICATION : si un jour `--font-sans` réaffiche un repli système, c'est que le
+// raccord a été défait.
 function lirePolices(): Record<string, string> {
   const style = getComputedStyle(document.documentElement);
   return {
     "--font-sans (lu par HeroUI et Tailwind)": style.getPropertyValue("--font-sans").trim(),
+    "--font-titre (titres de la charte)": style.getPropertyValue("--font-titre").trim(),
     "--font-mono (lu par HeroUI et Tailwind)": style.getPropertyValue("--font-mono").trim(),
-    "--font-geist-sans (posé par layout.tsx)": style.getPropertyValue("--font-geist-sans").trim(),
     "font-family effective du corps": getComputedStyle(document.body).fontFamily,
+    "font-family effective d’un titre":
+      document.querySelector("h1, h2, h3") instanceof HTMLElement
+        ? getComputedStyle(document.querySelector("h1, h2, h3") as HTMLElement).fontFamily
+        : "(aucun titre dans cette story)",
   };
 }
 
@@ -451,9 +456,10 @@ function Polices() {
   return (
     <div className="flex max-w-[75ch] flex-col gap-4">
       <p className="text-sm">
-        Le correctif proposé, à poser dans <code>app/[locale]/layout.tsx</code> ou dans le thème :
-        faire pointer <code>--font-sans</code> sur la variable que <code>next/font</code> produit
-        déjà, au lieu de laisser les deux noms côte à côte sans lien.
+        Le raccord, <strong>appliqué depuis le 2026-10-01</strong> dans le thème : faire pointer{" "}
+        <code>--font-sans</code> sur la variable que <code>next/font</code> produit déjà, au lieu de
+        laisser les deux noms côte à côte sans lien. Les valeurs ci-dessous doivent montrer Poppins
+        et Anton — un repli système y serait le signe que le raccord a été défait.
       </p>
       {/* `tabIndex`/`role`/`aria-label` : un conteneur qui défile horizontalement doit être
           atteignable au clavier, sinon son contenu est inaccessible à qui n'a pas de souris.
@@ -464,7 +470,8 @@ function Polices() {
         aria-label="Correctif proposé pour les polices"
         className="overflow-x-auto rounded border border-border bg-surface p-3 text-xs"
       >
-        {`--font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+        {`--font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+--font-titre: var(--font-anton), var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
 --font-mono: var(--font-geist-mono), ui-monospace, monospace;`}
       </pre>
       <dl className="text-xs">

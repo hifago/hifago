@@ -49,6 +49,8 @@ export type SearchPanelLabels = {
     /** Libellé du bouton pendant une recherche en cours, déjà traduit — cf. `SearchBar.pendingLabel`. */
     pendingLabel?: string;
     emptyLabel: string;
+    /** Nom du bouton qui vide le champ, déjà traduit — cf. `SearchBar.clearLabel`. */
+    clearLabel?: string;
   };
   dates: {
     placeholderLabel: string;
@@ -102,7 +104,7 @@ export function SearchPanel({
   const modifier = (partiel: Partial<SearchCriteria>) => onCriteriaChange({ ...criteria, ...partiel });
 
   return (
-    <div className="flex w-full flex-col gap-3" data-testid={testId}>
+    <div className="flex w-full flex-col gap-2" data-testid={testId}>
       <SearchBar
         value={criteria.query}
         onValueChange={(query) => modifier({ query })}
@@ -118,6 +120,7 @@ export function SearchPanel({
         submitLabel={labels.search.submitLabel}
         pendingLabel={labels.search.pendingLabel}
         emptyLabel={labels.search.emptyLabel}
+        clearLabel={labels.search.clearLabel}
         testId={sousId("bar")}
       />
 
@@ -125,7 +128,10 @@ export function SearchPanel({
           avec des libellés courts, et passent à la ligne d'eux-mêmes dès qu'un libellé long les y
           oblige — l'espagnol fait 20 à 25 % de plus que l'anglais. Rien n'est masqué selon la
           largeur : ce sont des contrôles. */}
-      <div className="flex flex-wrap items-center gap-2" data-testid={sousId("filters")}>
+      {/* `-ml-4` : un bouton `ghost` garde son padding (16 px) sans fond pour le montrer — la
+          pastille de « Fechas » tomberait 16 px à droite du bord de la barre. La maquette les aligne.
+          Le fond de survol, lui, déborde de 16 px à gauche : c'est le comportement voulu. */}
+      <div className="-ml-4 flex flex-wrap items-center gap-2" data-testid={sousId("filters")}>
         <DateRangeField
           value={criteria.dates}
           onChange={(dates) => modifier({ dates })}

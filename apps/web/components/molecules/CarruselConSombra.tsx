@@ -19,6 +19,14 @@ import type { ReactNode } from "react";
 // qu'entourer ce `<ul>` d'un conteneur qui défile et d'un dégradé, il ne le recompose pas.
 export type CarruselConSombraProps = {
   children: ReactNode;
+  /**
+   * Sur QUELLE couleur le dégradé de bord s'éteint. Un dégradé qui part d'une couleur que le
+   * conteneur ne porte pas ne fond pas : il peint une bande franche d'une AUTRE couleur sur les
+   * cartes — exactement ce qui arrivait quand ce carrusel a déménagé sur le conteneur bleu poudre
+   * du 2026-10-01 en gardant `from-background`. Défaut `"pagina"` : le fond de page, l'usage
+   * d'origine. `"contenedor"` = le bleu poudre de la charte (`--default`).
+   */
+  fondo?: "pagina" | "contenedor";
   testId?: string;
 };
 
@@ -67,7 +75,15 @@ export type CarruselConSombraProps = {
 const CLASES_CONTENEDOR =
   "flex snap-x snap-proximity gap-4 overflow-x-auto p-2 scroll-px-2 scrollbar [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--scrollbar-thumb)]";
 
-export function CarruselConSombra({ children, testId }: CarruselConSombraProps) {
+// Chaînes littérales complètes, jamais construites par interpolation : Tailwind v4 scanne ce
+// fichier comme du texte, et une classe fabriquée à la volée n'existerait pas dans le CSS compilé —
+// le dégradé ne peindrait alors RIEN, en silence.
+const DEGRADADO = {
+  pagina: { izquierda: "from-background", derecha: "from-background" },
+  contenedor: { izquierda: "from-[var(--default)]", derecha: "from-[var(--default)]" },
+} as const;
+
+export function CarruselConSombra({ children, fondo = "pagina", testId }: CarruselConSombraProps) {
   const ref = useRef<HTMLDivElement>(null);
   // `false` par défaut : tant que l'effet n'a pas mesuré le DOM réel, on ne peint aucun dégradé
   // plutôt qu'un dégradé qui suppose à tort qu'il reste du contenu à faire défiler.
@@ -112,14 +128,18 @@ export function CarruselConSombra({ children, testId }: CarruselConSombraProps) 
           elles-mêmes). */}
       <div
         aria-hidden="true"
-        className={`pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-background to-transparent transition-opacity duration-200 ${
+        className={`pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r ${
+          DEGRADADO[fondo].izquierda
+        } to-transparent transition-opacity duration-200 ${
           puedeIzquierda ? "opacity-100" : "opacity-0"
         }`}
         data-testid={testId ? `${testId}-sombra-izquierda` : undefined}
       />
       <div
         aria-hidden="true"
-        className={`pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-background to-transparent transition-opacity duration-200 ${
+        className={`pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l ${
+          DEGRADADO[fondo].derecha
+        } to-transparent transition-opacity duration-200 ${
           puedeDerecha ? "opacity-100" : "opacity-0"
         }`}
         data-testid={testId ? `${testId}-sombra-derecha` : undefined}

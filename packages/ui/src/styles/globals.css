@@ -185,46 +185,37 @@
 }
 
 /* ============================================================================================
- * Thème `vitrine` (apps/web) — six pistes à comparer, en clair et en sombre
+ * Thème `vitrine` (apps/web) — la charte adoptée, et cinq pistes conservées pour mémoire
  * ============================================================================================
  *
- * Écrit le 2026-09-01. Jusqu'ici le thème `vitrine` ne définissait AUCUN jeton : le commentaire en
- * tête de ce fichier annonce « valeurs par défaut de HeroUI conservées », mais c'était un choix par
- * omission — jamais une décision. La vitrine tournait donc sur la palette bleu-violet de HeroUI,
- * que personne n'avait examinée, et il n'existait aucun mode sombre nulle part dans le dépôt.
+ * Écrit le 2026-09-01, quand le thème `vitrine` ne définissait AUCUN jeton : la vitrine tournait
+ * sur la palette bleu-violet de HeroUI, que personne n'avait examinée, et il n'existait aucun mode
+ * sombre nulle part dans le dépôt. Six pistes ont alors été montées pour être comparées à l'œil
+ * dans un rendu réel (`Playground/Palette`) — même démarche que pour l'admin le 2026-08-15
+ * (docs/specs/09-design-system-admin.md §10).
  *
- * ⚠️ CE BLOC NE CHANGE RIEN À LA PRODUCTION AUJOURD'HUI. Chaque piste est enfermée derrière un
- * `[data-piste="…"]` que personne ne pose : `app/[locale]/layout.tsx` n'écrit que
- * `data-theme="vitrine"`. Tant que Jérôme n'a pas tranché, la vitrine reste exactement telle
- * qu'elle est. C'est délibéré — même démarche que pour l'admin le 2026-08-15
- * (docs/specs/09-design-system-admin.md §10) : des pistes montées, comparées à l'œil dans un rendu
- * réel, une seule retenue. Ici le rendu réel est la story `Playground/Palette`.
+ * ⚠️ CETTE SECTION CHANGE DÉSORMAIS LA PRODUCTION, et c'est l'inverse de ce qu'elle promettait.
+ * Le 2026-10-01 Jérôme a fourni la CHARTE GRAPHIQUE Hifago 2026 (PDF : logo, typographie, cinq
+ * couleurs avec leurs hex) et demandé qu'elle soit appliquée à toutes les pages du front. La
+ * comparaison de pistes est donc close : la piste `penol`, qui dérivait déjà du logo hifaGO, a été
+ * RECALÉE sur les hex exacts de la charte et PROMUE en thème `vitrine` par défaut (son bloc est
+ * plus bas, titré « LA CHARTE »). Elle n'a plus de `data-piste`.
  *
- * ⚠️ IL Y A SIX PISTES (la cinquième, `chiva`, ajoutée le 2026-09-02 ; la sixième, `penol`, le
- * 2026-09-14), et la quatrième — `hifago` — est la plus importante. La spec de ce lot
- * partait du principe que « Jérôme n'a pas donné de direction » pour la vitrine. Vérification faite,
- * c'est faux : le portail legacy /guatape, en production, porte une marque complète et versionnée —
- * orange #e63f0a, vert forêt #074242, papier #fffdf8, polices Anton/Allura/Akshar/DM Mono — et il a
- * déjà tranché la question du mode sombre, qui est SON DÉFAUT. Trois pistes inventées à côté d'une
- * marque existante auraient été trois propositions hors sujet. La piste « Hifago » porte donc cette
- * palette telle quelle ; les trois autres restent des alternatives, pas des concurrentes à égalité.
+ * ⚠️ LES CINQ AUTRES PISTES SONT CONSERVÉES, volontairement, et ne sont plus des candidates. Elles
+ * gardent leur `[data-piste="…"]`, que seule la barre d'outils de Storybook pose, et leur
+ * spécificité (0,3,0) l'emporte sur celle de la charte (0,2,0) : poser une piste montre encore
+ * l'alternative, ne rien poser montre la production. Les supprimer aurait fait perdre les mesures
+ * de contraste et les sacrifices documentés de chacune, qui sont le dossier de la décision — et
+ * aurait cassé `Playground/Palette`. Parmi elles, `hifago` porte la marque du portail legacy
+ * /guatape (orange #e63f0a, vert forêt #074242, papier #fffdf8) : c'est la marque que la charte
+ * 2026 REMPLACE, pas une proposition inventée, d'où l'intérêt de pouvoir encore la regarder.
  *
- * ⚠️ `penol` N'EST PAS une variante de `hifago` : c'est une DEUXIÈME référence de marque, pas une
- * alternative inventée. Jérôme a envoyé le 2026-09-14 un nouveau logo « hifaGO • Guatapé » — quatre
- * fonds testés sur le même mot-marque (or, bleu ciel, bleu poudre, marine) — qui ne reprend AUCUNE
- * couleur du legacy Kayam (zéro orange, zéro vert forêt). Les deux références de marque coexistent
- * donc côte à côte le temps que Jérôme choisisse laquelle (ou aucune) devient la vitrine. Couleurs
- * estimées À L'ŒIL depuis la capture collée dans la conversation — aucun fichier source dans le
- * dépôt, donc aucune extraction programmatique possible ; à recaler si Jérôme fournit un export
- * fidèle (Figma/Decli/PNG haute résolution).
- *
- * ADOPTER UNE PISTE — la recette complète, trois gestes :
- *   1. Remplacer son sélecteur `[data-theme="vitrine"][data-piste="<nom>"]` par
- *      `[data-theme="vitrine"]` (le `color-scheme` voyage avec, il est DANS le bloc).
- *   2. Supprimer les deux blocs des pistes écartées, et cette section de leur documentation.
- *   3. Dans les deux règles de forçage en fin de section, remplacer `[data-piste]` par rien :
- *      `[data-theme="vitrine"][data-mode="clair"]`, idem pour `sombre`.
- * À partir de là, la vitrine suit la préférence système du visiteur, sans toucher `layout.tsx`.
+ * REVENIR EN ARRIÈRE, ou adopter une autre piste — la recette, trois gestes :
+ *   1. Donner à son bloc le sélecteur `[data-theme="vitrine"]` (le `color-scheme` voyage avec, il
+ *      est DANS le bloc), et rendre à la charte un `[data-piste="charte"]`.
+ *   2. Vérifier qu'aucun des deux ne déclare un jeton que l'autre attendait.
+ *   3. Les sélecteurs de service (formules dérivées, fond de page, `data-radius`, `data-mode`)
+ *      portent `[data-theme="vitrine"]` et n'ont PAS à bouger : ils suivent le thème, pas la piste.
  *
  * ----------------------------------------------------------------------------------------------
  * MÉCANISME CLAIR/SOMBRE : `color-scheme` + `light-dark()`, et pas autre chose
@@ -345,13 +336,13 @@
    * avec celui-ci — on échange donc un peu de marge de contraste contre une couleur juste, ce qui
    * est le bon sens de l'échange à ce niveau de marge.
    *
-   * ⚠️ Ce bloc porte `[data-piste]` — la PRÉSENCE de l'attribut — et pas seulement
-   * `[data-theme="vitrine"]`. Première version écrite sans, puis corrigée : il redéfinit les trois
-   * jetons d'ombre, donc il modifiait déjà le rendu de la production alors que la section entière
-   * annonce ne rien changer tant qu'aucune piste n'est adoptée. Sans piste, plus une seule
-   * déclaration de cette section ne s'applique — c'est vérifiable, pas seulement écrit.
+   * ⚠️ Ce bloc portait `[data-piste]` tant qu'aucune palette n'était adoptée, pour que la section
+   * tienne sa promesse de ne rien changer à la production. La charte ayant été adoptée le
+   * 2026-10-01, il porte `[data-theme="vitrine"]` : ces formules s'appliquent à la vitrine réelle.
+   * Les trois jetons d'ombre qu'il redéfinit sont d'ailleurs neutralisés par la charte elle-même
+   * (`--surface-shadow: none`, cartes à bordure), qui est déclarée PLUS BAS à spécificité égale.
    * ------------------------------------------------------------------------------------------ */
-  [data-theme="vitrine"][data-piste] {
+  [data-theme="vitrine"] {
     /* ⚠️ Miroirs, posés UNE fois (2026-09-02). Ces sept jetons recopiaient caractère pour
        caractère la valeur de `--foreground` / `--radius` / `--border-width` dans CHACUNE des cinq
        pistes — 35 déclarations, vérifiées identiques une par une avant d'être retirées. Changer la
@@ -479,11 +470,98 @@
    * imbriqué (story de comparaison), la même règle peint le panneau. Un seul geste couvre les deux.
    *
    * ⚠️ C'est la SEULE règle de cette section qui déclare autre chose que des custom properties.
-   * Elle reste conditionnée à `[data-piste]`, donc elle ne touche pas la production actuelle.
+   * Conditionnée à `[data-piste]` tant qu'aucune palette n'était adoptée, elle peint depuis le
+   * 2026-10-01 le fond de la vitrine réelle — c'est elle qui rend le mode sombre effectif.
    * ------------------------------------------------------------------------------------------ */
-  [data-theme="vitrine"][data-piste] {
+  [data-theme="vitrine"] {
     background-color: var(--background);
     color: var(--foreground);
+    /* ⚠️ Posée ici parce que PERSONNE d'autre ne la pose : vérifié dans `heroui.min.css`, la règle
+       `body` de HeroUI ne déclare que `font-size`/`line-height`, jamais `font-family`. Sans cette
+       ligne, `--font-sans` serait correctement défini et malgré tout jamais appliqué — exactement
+       le défaut qu'on vient de corriger, déplacé d'un cran. */
+    font-family: var(--font-sans);
+  }
+
+  /* ------------------------------------------------------------------------------------------
+   * Les titres de la charte
+   * ------------------------------------------------------------------------------------------
+   * La charte distingue quatre polices par EMPLOI (logo / titre / sous-titre / corps de texte),
+   * pas par élément HTML. Le raccord le plus fidèle qu'on puisse faire sans retoucher chaque
+   * composant : les titres de section prennent la police de titre, le reste prend Poppins.
+   *
+   * ⚠️ Posé en couche `base`, donc tout `font-*` utilitaire de Tailwind le bat — c'est voulu : un
+   * composant qui a une raison de rendre un `<h3>` en Poppins (une carte dense, un libellé de
+   * formulaire promu en titre pour la sémantique) garde la main sans avoir à lutter.
+   *
+   * ⚠️ Anton n'existe qu'en une seule graisse (400), déjà très grasse. `font-weight: 400` évite que
+   * le navigateur SYNTHÉTISE un faux gras sur un `<h1>` que le préflight Tailwind met à `bold` —
+   * un faux gras sur une condensée épaissit les fûts sans rien gagner et ferme les contrepoinçons.
+   * ------------------------------------------------------------------------------------------ */
+  [data-theme="vitrine"] :is(h1, h2, h3) {
+    font-family: var(--font-titre);
+    font-weight: 400;
+    letter-spacing: var(--tracking-titre);
+  }
+
+  /* ------------------------------------------------------------------------------------------
+   * Les deux déclinaisons du logo
+   * ------------------------------------------------------------------------------------------
+   * Le logo de la charte est POLYCHROME : il ne peut pas être teint par `currentColor` comme
+   * l'était le tracé provisoire. Sa lisibilité sur fond sombre passe donc par un CHANGEMENT DE
+   * DÉCLINAISON — marine+or sur fond clair, or+bleu poudre sur fond sombre (le marine mesure
+   * 1.3:1 sur la page sombre : le servir partout effacerait le logo).
+   *
+   * ⚠️ Une première version utilisait `<picture media="(prefers-color-scheme: dark)">`, et c'était
+   * un défaut VU AU RENDU, pas supposé : `<picture>` ne connaît que la préférence système, alors
+   * que tout le reste du thème suit `color-scheme` + le forçage `data-mode`. En mode sombre forcé
+   * sur une machine en clair — exactement ce que fait la barre d'outils Storybook — la page passait
+   * au marine en gardant le logo marine dessus. Les trois règles ci-dessous rejouent la même
+   * cascade que le thème : défaut système, puis `data-mode` qui tranche.
+   *
+   * Les deux images sont dans le DOM et `aria-hidden` ; le nom accessible est porté par le lien qui
+   * les enveloppe (`aria-label`), donc en masquer une ne retire aucun contenu — c'est du décoratif,
+   * le seul cas où `display: none` est permis (cf. `.claude/rules/ui.md`).
+   * ------------------------------------------------------------------------------------------ */
+  [data-theme="vitrine"] .logo-sombre {
+    display: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    [data-theme="vitrine"]:not([data-mode="clair"]) .logo-clair {
+      display: none;
+    }
+    [data-theme="vitrine"]:not([data-mode="clair"]) .logo-sombre {
+      display: block;
+    }
+  }
+
+  [data-theme="vitrine"][data-mode="sombre"] .logo-clair {
+    display: none;
+  }
+  [data-theme="vitrine"][data-mode="sombre"] .logo-sombre {
+    display: block;
+  }
+
+  /* ------------------------------------------------------------------------------------------
+   * FOND OR — une page entière posée sur l'or de la charte, header compris (2026-10-01)
+   * ------------------------------------------------------------------------------------------
+   * Demande de Jérôme pour l'accueil : « tout le fond de la page doit être jaune, sans espace clair
+   * entre les sections, la partie du header avec la barre de recherche aussi ». La page le DÉCLARE
+   * (`<PageShell fondo="acento">` pose `data-fondo="acento"` sur son <main>) et c'est `:has()` qui
+   * le propage au <body>, rendu par le layout racine, qui ne sait pas sur quelle page il est.
+   *
+   * Marine dessus (`--accent-foreground`, 6.31:1) : l'or reste un APLAT, jamais une couleur de
+   * texte — premier interdit de la charte.
+   *
+   * ⚠️ Depuis la maquette de l'accueil (2026-10-01, seconde version), le header de cette page est
+   * TRANSPARENT et ne porte plus de logo : c'est le grand logo du héros qui tient ce rôle (variante
+   * `transparente` de `SiteHeader`). La déclinaison « logo sur or » du petit logo, qui n'avait servi
+   * qu'au header or de la version précédente, a donc été retirée avec ses règles d'affichage.
+   * ------------------------------------------------------------------------------------------ */
+  [data-theme="vitrine"] body:has(main[data-fondo="acento"]) {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
   }
 
   /* ------------------------------------------------------------------------------------------
@@ -900,99 +978,140 @@
 
 
   /* ------------------------------------------------------------------------------------------
-   * Piste « Peñol » — le nouveau logo hifaGO
+   * LA CHARTE — thème `vitrine` par défaut (adoptée le 2026-10-01)
    * ------------------------------------------------------------------------------------------
-   * Ajoutée le 2026-09-14, à partir d'un logo « hifaGO • Guatapé » envoyé par Jérôme (quatre fonds
-   * testés sur le même mot-marque : or, bleu ciel, bleu poudre, marine). Nom : la Piedra del Peñol,
-   * le rocher qui domine Guatapé — même registre que `embalse` (le lac) et `zocalo` (les frises
-   * peintes des maisons). Retouchée le même jour (retour de Jérôme après la première version) :
-   * bouton en or franc, bleu promu en deuxième couleur principale, cartes sans ombre à bordure
-   * marine — voir les trois points ci-dessous.
+   * ⚠️ CE BLOC EST LA PRODUCTION. Il n'est plus enfermé derrière un `data-piste` : son sélecteur
+   * est `[data-theme="vitrine"]`, que `app/[locale]/layout.tsx` pose déjà. Toute la vitrine prend
+   * donc ces couleurs. Les cinq autres pistes conservent leur `data-piste` et restent des
+   * surcharges de comparaison dans Storybook (spécificité supérieure : elles gagnent quand la
+   * barre d'outils en pose une) — elles ne sont plus des candidates.
    *
-   * ⚠️ Couleurs ESTIMÉES À L'ŒIL depuis une capture collée dans une conversation, pas des hex de
-   * charte : aucun fichier n'existe dans ce dépôt pour ce logo (vérifié — aucune image, aucun
-   * `docs/design/`), donc aucune extraction programmatique n'était possible. Point de départ visuel
-   * (avant tout ajustement de contraste ci-dessous) : marine `#1a2740`, or `#d9a62b`, bleu ciel
-   * `#5b93c6`, bleu poudre `#bfd6ec`. À RECALER si Jérôme fournit un export fidèle.
+   * Née le 2026-09-14 comme piste « Peñol » (la Piedra del Peñol, le rocher qui domine Guatapé),
+   * à partir d'un logo envoyé par Jérôme, avec des couleurs ESTIMÉES À L'ŒIL depuis une capture —
+   * le commentaire d'alors disait « à RECALER si Jérôme fournit un export fidèle ».
    *
-   * ⚠️ TROIS CHOIX FAITS EN RÉPONSE AU RETOUR DE JÉRÔME, chacun mesuré :
-   *  1. **Le bouton retrouve l'or franc du logo** (`--accent`, 74 % de clarté en clair, ~`#d6a21e`)
-   *     — la version assombrie (54 %) de la première passe ne servait qu'à faire tenir l'or comme
-   *     COULEUR DE LIEN, ce qui n'était pas la demande. `--link`/`--focus` sont donc DÉCOUPLÉS de
-   *     `--accent` ici (contrairement à toutes les autres pistes, qui posent `--link: var(--accent)`)
-   *     et portent leur propre bleu (point 2) : le bouton peut être franchement or SANS que le texte
-   *     de lien hérite d'une couleur trop claire pour rester lisible. `--accent-foreground` passe au
-   *     marine (`#0a152a` clair, 7,78:1 sur l'or) plutôt qu'un blanc cassé générique — c'est le
-   *     COUPLE du logo lui-même (or + marine, cf. Q1/Q3 du fond envoyé par Jérôme), pas une couleur
-   *     de texte neutre.
-   *  2. **Le bleu devient une deuxième couleur PRINCIPALE**, pas seulement un ton discret : `--link`/
-   *     `--focus` (`#155c91` clair, 6,51:1 sur la page) et surtout `--default` — le bouton
-   *     secondaire — passent d'un gris à peine teinté (90,5 % de clarté, quasi blanc) à un bleu
-   *     franchement visible (`#a5c9ea` clair, 82 % de clarté ; `#364868` en sombre, un bleu marine
-   *     moyen). Les deux couleurs du logo sont donc VUES sur les boutons : or en primaire, bleu en
-   *     secondaire — `--muted`/`--field-border`/`--field-placeholder` gardent le bleu ciel plus
-   *     discret du premier jet.
-   *  3. **Cartes sans ombre, bordure bleu marine** : `--surface-shadow` neutralisé (`none`) — sans
-   *     cette piste, HeroUI applique une ombre douce partagée par les cinq autres (grise, ~4 %
-   *     d'opacité) sur `.card`. Une carte HeroUI n'a AUCUNE bordure par défaut (`card.css` : aucune
-   *     classe `border-*` sur `.card--default/secondary/tertiary`, seule l'ombre la détache de la
-   *     page) — il a donc fallu en ADOUTER une, pas seulement changer sa couleur : règle dédiée plus
-   *     bas (même technique que le trait noir de `chiva`), `border-color: var(--border)`. `--border`
-   *     passe du bleu ciel clair (78 %, à peine visible) à un marine réellement foncé en clair
-   *     (37 %, `#2e3f60`, 9,6:1 sur la page) — littéralement « bleu foncé ». ⚠️ En SOMBRE, un marine
-   *     aussi foncé se fondrait dans une carte déjà marine (27,5 % de clarté) : `--border` y remonte
-   *     à 66 % (`#6f97bb`) pour rester une bordure VISIBLE (5,5:1) — la fonction demandée (une
-   *     bordure qui se voit) prime sur la valeur littérale « foncé », qui ne fait sens qu'en clair.
+   * ⚠️ C'est fait : le 2026-10-01 Jérôme a fourni la charte graphique Hifago 2026 (PDF, logo +
+   * typo + couleurs). Les cinq couleurs ci-dessous ne sont plus des estimations mais LES HEX DE
+   * LA CHARTE, convertis en OKLCH (sRGB → linéaire → XYZ → OKLab, même chaîne que
+   * `Contrastes.stories.tsx`) :
    *
-   * Teintes de statut toujours écartées de l'or (84°), inchangé depuis la première version : `danger`
-   * à 15°, `success` à 150°, `warning` au milieu à 50° (34°/35° d'écart, plus large que l'écart le
-   * plus serré de `hifago`, 21°).
+   *     or          #ddae09  →  oklch(77.2% 0.156 88.9)   accent, bouton primaire
+   *     bleu poudre #b6cde8  →  oklch(84.0% 0.045 252.5)  bouton secondaire
+   *     bleu ciel   #619ccc  →  oklch(67.2% 0.095 244.4)  DÉCORATIF seulement (cf. ⚠️ ci-dessous)
+   *     bleu moyen  #2a618e  →  oklch(47.7% 0.093 246.2)  lien, focus, bordure de champ
+   *     marine      #132f61  →  oklch(31.5% 0.095 260.9)  texte courant, bordure de carte
+   *
+   * L'écart avec les estimations de septembre était réel et visible : l'or passe de 0.118 à 0.156
+   * de chroma (il était sensiblement délavé), le marine de la teinte 262 à 260.9 mais surtout de
+   * 20 % à 31.5 % de clarté — l'estimation était BEAUCOUP trop foncée.
+   *
+   * ⚠️ TROIS INTERDITS, mesurés et non supposés, qui expliquent pourquoi la charte n'est pas
+   * recopiée telle quelle partout où l'œil l'attendrait :
+   *  - **L'or ne porte JAMAIS de texte sur fond clair** : 1.96:1 sur la page. Il est un APLAT, avec
+   *    du marine dessus. C'est pour ça que `--link`/`--focus` restent DÉCOUPLÉS de `--accent` ici
+   *    (contrairement aux cinq pistes, qui posent `--link: var(--accent)`) et portent le bleu moyen.
+   *  - **Jamais de blanc sur l'or** : 2.07:1. `--accent-foreground` est le marine (6.31:1) — c'est
+   *    le COUPLE du logo lui-même (or + marine), pas une couleur de texte neutre choisie par défaut.
+   *  - **Le bleu ciel ne peut pas identifier un composant** : 2.79:1 sur la page, sous le seuil de
+   *    3:1 (WCAG 1.4.11). Il ne peut donc pas être `--field-border`, qui prend le bleu moyen
+   *    (6.22:1). Le bleu ciel reste la couleur du MOTIF décoratif (`/brand/motif-*.png`), où il ne
+   *    porte aucune information. C'est le piège que l'admin avait déjà payé (spec 09 §10, « champs
+   *    invisibles sur plusieurs écrans réels »).
+   *
+   * Contrastes des couleurs brutes, en clair : texte courant 12.39:1 · lien 6.22:1 · marine sur or
+   * 6.31:1 · marine sur bleu poudre 8.02:1. Écart de teinte entre l'or (88.9°) et les statuts :
+   * danger 74°, success 61°, warning 39° — tous au-dessus des 30° qui évitent qu'un bouton primaire
+   * se lise comme une alerte.
+   *
+   * ⚠️ Ces chiffres-là sont ceux des couleurs BRUTES, calculés hors navigateur. Ce qui fait foi,
+   * c'est `Playground/Palette` → `Contrastes`, qui mesure les 24 couples RÉELLEMENT COMPOSÉS (les
+   * aplats translucides sur leur vrai fond) dans le navigateur. Les deux ne se recouvrent pas :
+   * la bordure de champ vaut 6.22:1 en couleur brute mais **3.97:1 une fois composée**, et c'est
+   * cette story — pas le calcul — qui a attrapé le seul vrai défaut du lot (le badge accent
+   * translucide, 3.10:1, corrigé plus bas). Les 24 couples passent, marge la plus serrée 3.97:1.
+   *
+   * TROIS PARTIS PRIS, hérités du retour de Jérôme du 2026-09-14 et conservés au recalage :
+   *  1. **Le bouton primaire porte l'or franc de la charte** — exactement `#ddae09`, plus aucune
+   *     version assombrie. Le découplage `--link`/`--focus` décrit ci-dessus est ce qui le rend
+   *     possible : le bouton peut être franchement or sans qu'un texte de lien hérite d'une
+   *     couleur illisible.
+   *  2. **Le bleu est une deuxième couleur PRINCIPALE**, pas un ton discret : `--link`/`--focus`
+   *     portent le bleu moyen, et `--default` — le bouton secondaire — le bleu poudre `#b6cde8`
+   *     plutôt qu'un gris à peine teinté. Les deux couleurs de la charte sont donc VUES sur les
+   *     boutons : or en primaire, bleu en secondaire.
+   *  3. **Cartes sans ombre, bordure marine** : `--surface-shadow` neutralisé (`none`). Une carte
+   *     HeroUI n'a AUCUNE bordure par défaut (`card.css` : aucune classe `border-*` sur
+   *     `.card--default/secondary/tertiary`, seule l'ombre la détache de la page) — il a donc fallu
+   *     en AJOUTER une, pas seulement changer sa couleur : règle dédiée plus bas, même technique
+   *     que le trait noir de `chiva`. ⚠️ En SOMBRE, le marine de la charte se fondrait dans une
+   *     carte déjà marine : `--border` y remonte à 66 % de clarté (4.81:1) pour rester une bordure
+   *     VISIBLE — la fonction demandée (une bordure qui se voit) prime sur la valeur littérale de
+   *     la charte, qui ne fait sens que sur fond clair.
+   *
+   * ⚠️ LE MODE SOMBRE N'EST PAS DANS LA CHARTE — le PDF ne montre que des fonds clairs, or et bleu.
+   * Il est DÉRIVÉ : la page sombre prend la teinte du marine (260.9°) à 23 % de clarté, et chaque
+   * couleur de charte y est remontée en clarté jusqu'à repasser son seuil (or à 83 %, lien à 80 %,
+   * bordure à 66 %). Ce n'est donc pas une couleur de charte, c'est la charte TRANSPOSÉE — à
+   * soumettre à Jérôme si le sombre devient un livrable et non un repli système.
    *
    * ⚠️ Contrastes vérifiés par un script OKLCH→sRGB hors navigateur (même formule WCAG que
-   * `Contrastes.stories.tsx`, pas relue dans un vrai navigateur, badges translucides approximés à la
-   * main puisque `color-mix` n'est pas simulé) : tous les couples testés par cette story passent leur
-   * seuil (4.5:1 texte, 3:1 élément identifiant), bordure de carte comprise bien qu'elle n'y soit pas
-   * mesurée (décorative pour les cinq autres pistes, mais un choix délibéré ici). À reconfirmer dans
-   * la story elle-même — c'est elle qui fait foi, jamais un chiffre recopié.
+   * `Contrastes.stories.tsx`, badges translucides approximés à la main puisque `color-mix` n'est pas
+   * simulé). À reconfirmer dans la story elle-même — c'est elle qui fait foi, jamais un chiffre
+   * recopié ici.
    * ------------------------------------------------------------------------------------------ */
-  [data-theme="vitrine"][data-piste="penol"] {
+  [data-theme="vitrine"] {
     color-scheme: light dark;
 
     --radius: 0.25rem;
     --border-width: 1px;
 
-    /* Base */
-    --background: light-dark(oklch(97% 0.01 247), oklch(23% 0.035 262));
-    --foreground: light-dark(oklch(0% 0 0), oklch(92% 0.012 247));
+    /* Base — le texte courant est le MARINE DE LA CHARTE (#132f61), pas un noir neutre : 12.39:1
+       sur la page, et c'est la couleur dans laquelle le PDF compose lui-même tous ses textes. */
+    --background: light-dark(oklch(97% 0.01 247), oklch(23% 0.045 260.9));
+    --foreground: light-dark(oklch(31.5% 0.095 260.9), oklch(92% 0.015 260.9));
 
-    /* Surfaces — pas d'ombre sur cette piste (cf. commentaire ci-dessus), l'étagement + la bordure
-       dédiée aux cartes portent la profondeur */
-    --surface: light-dark(oklch(100% 0 0), oklch(27.5% 0.038 262));
-    --surface-secondary: light-dark(oklch(94% 0.016 247), oklch(32.5% 0.04 262));
-    --surface-tertiary: light-dark(oklch(89% 0.022 247), oklch(38% 0.042 262));
-    --overlay: light-dark(oklch(100% 0 0), oklch(29% 0.038 262));
+    /* Surfaces — pas d'ombre (cf. §3), l'étagement + la bordure de carte portent la profondeur.
+       Étagement mesuré en CLARTÉ oklch (écart ≥ 4.5 points), pas en ratio WCAG. */
+    --surface: light-dark(oklch(100% 0 0), oklch(27.5% 0.05 260.9));
+    --surface-secondary: light-dark(oklch(94% 0.016 252.5), oklch(32.5% 0.05 260.9));
+    --surface-tertiary: light-dark(oklch(89% 0.028 252.5), oklch(38% 0.05 260.9));
+    --overlay: light-dark(oklch(100% 0 0), oklch(29% 0.05 260.9));
     --surface-shadow: none;
 
-    /* Texte discret — teinte bleu ciel du logo, pas un gris neutre */
-    --muted: light-dark(oklch(46% 0.075 247), oklch(75% 0.045 247));
+    /* Texte discret — le bleu moyen de la charte, pas un gris neutre (6.22:1, reste du TEXTE) */
+    --muted: light-dark(oklch(47.7% 0.093 246.2), oklch(78% 0.05 252.5));
 
-    /* Neutre / bouton secondaire — bleu FRANCHEMENT visible, pas un gris à peine teinté (cf. §2) */
-    --default: light-dark(oklch(82% 0.06 247), oklch(40% 0.06 262));
+    /* Neutre / bouton secondaire — le BLEU POUDRE de la charte #b6cde8 (cf. §2), marine dessus */
+    --default: light-dark(oklch(84% 0.045 252.5), oklch(40% 0.06 260.9));
 
-    /* Accent / bouton primaire — l'or franc du logo (cf. §1), texte marine du logo dessus */
-    --accent: light-dark(oklch(74% 0.145 84), oklch(83% 0.135 86));
-    --accent-foreground: light-dark(oklch(20% 0.045 262), oklch(18% 0.04 262));
+    /* Accent / bouton primaire — l'OR DE LA CHARTE #ddae09 exactement (cf. §1). Texte marine
+       dessus : 6.31:1. ⚠️ Jamais de blanc ici (2.07:1), jamais cet or en texte (1.96:1). */
+    --accent: light-dark(oklch(77.2% 0.156 88.9), oklch(83% 0.135 88.9));
+    --accent-foreground: light-dark(oklch(31.5% 0.095 260.9), oklch(18% 0.04 260.9));
 
-    /* Lien / focus — DÉCOUPLÉS de l'accent ici, portent le bleu du logo (cf. §1-2) */
-    --link: light-dark(oklch(46% 0.11 247), oklch(76% 0.09 247));
+    /* ⚠️ RECALCULÉ pour la charte, et c'est la story `Playground/Palette` → `Contrastes` qui l'a
+       imposé, pas un calcul de tête : la formule de HeroUI pour le texte d'un badge translucide
+       (`mix(accent 70%, foreground 30%)` en clair) garde 70 % d'un or à 77 % de clarté, et mesurait
+       **3.10:1 sur carte — sous le seuil de 4.5:1**. C'est le même interdit que plus haut, qui
+       ressurgit par une couleur DÉRIVÉE : l'or de la charte ne porte pas de texte. Le rapport est
+       donc inversé — le texte d'un badge or est à dominante MARINE, juste teinté d'or.
+       Le mode sombre garde la formule de HeroUI : l'or y est clarifié à 83 % et passe déjà. */
+    --accent-soft-foreground: light-dark(
+      color-mix(in oklab, var(--accent) 20%, var(--foreground) 80%),
+      color-mix(in oklab, var(--accent) 92%, var(--foreground) 8%)
+    );
+
+    /* Lien / focus — DÉCOUPLÉS de l'accent, portent le BLEU MOYEN de la charte #2a618e (6.22:1) */
+    --link: light-dark(oklch(47.7% 0.093 246.2), oklch(80% 0.09 246.2));
     --focus: var(--link);
 
-    /* Champs de formulaire */
-    --field-background: light-dark(oklch(100% 0 0), oklch(20.5% 0.033 262));
-    --field-placeholder: light-dark(oklch(46% 0.075 247), oklch(70% 0.04 247));
-    --field-border: light-dark(oklch(58% 0.07 247), oklch(56% 0.045 247));
+    /* Champs — ⚠️ `--field-border` prend le bleu MOYEN, jamais le bleu ciel #619ccc de la charte
+       (2.79:1, sous le seuil de 3:1 qui identifie un composant). */
+    --field-background: light-dark(oklch(100% 0 0), oklch(20.5% 0.04 260.9));
+    --field-placeholder: light-dark(oklch(47.7% 0.093 246.2), oklch(72% 0.045 252.5));
+    --field-border: light-dark(oklch(47.7% 0.093 246.2), oklch(58% 0.05 252.5));
 
-    /* Statuts — écartés de l'accent (84°), inchangé */
+    /* Statuts — écartés de l'or de charte (88.9°) : 74° / 61° / 39° */
     --success: light-dark(oklch(45% 0.12 150), oklch(78% 0.14 150));
     --success-foreground: light-dark(oklch(99% 0.007 88.6), oklch(15.7% 0.03 150));
     --warning: light-dark(oklch(54% 0.16 50), oklch(84% 0.14 50));
@@ -1000,13 +1119,62 @@
     --danger: light-dark(oklch(46% 0.19 15), oklch(84% 0.12 15));
     --danger-foreground: light-dark(oklch(99% 0.007 88.6), oklch(15.7% 0.03 15));
 
-    /* Divers — bordure de carte en bleu marine FONCÉ en clair, remontée en sombre pour rester
+    /* Divers — bordure de carte au marine de la charte en clair, remontée en sombre pour rester
        visible sur une carte déjà marine (cf. §3) */
-    --segment: light-dark(oklch(99% 0.006 247), oklch(31% 0.038 262));
-    --border: light-dark(oklch(37% 0.06 262), oklch(66% 0.07 247));
-    --separator: light-dark(oklch(89% 0.018 247), oklch(35% 0.04 262));
+    --segment: light-dark(oklch(99% 0.006 252.5), oklch(31% 0.05 260.9));
+    --border: light-dark(oklch(31.5% 0.095 260.9), oklch(66% 0.07 252.5));
+    --separator: light-dark(oklch(89% 0.022 252.5), oklch(35% 0.05 260.9));
     --surface-secondary-foreground: var(--surface-foreground);
     --surface-tertiary-foreground: var(--surface-foreground);
+
+    /* ------------------------------------------------------------------------------------------
+       LES POLICES DE LA CHARTE — le raccord qui manquait
+       ------------------------------------------------------------------------------------------
+       ⚠️ C'est ICI que se ferme le défaut documenté depuis le 2026-09-01 : `layout.tsx` chargeait
+       des polices sous les noms `--font-geist-sans`/`--font-geist-mono`, pendant que HeroUI et
+       Tailwind lisent `--font-sans`/`--font-mono`. Les deux familles de noms ne se rejoignaient
+       nulle part — la vitrine rendait donc en pile SYSTÈME, en chargeant deux polices pour rien.
+       Les trois lignes ci-dessous sont tout le correctif.
+
+       Le repli derrière chaque variable n'est pas décoratif : `next/font` ne définit la variable
+       que lorsque sa feuille est chargée, et Storybook ne monte pas `layout.tsx` du tout. Sans
+       repli, le playground rendrait sans aucune famille déclarée. */
+    --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+    --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+    /* Titres et sous-titres. ⚠️ La charte demande **Sugo Display** pour les titres, qui n'est ni
+       sur Google Fonts ni fournie en fichier : Anton (elle-même dans la charte, pour les
+       sous-titres) sert de repli dans le même registre. Le jour où le `.woff2` de Sugo Display
+       arrive, c'est cette seule ligne qui change. Voir `app/[locale]/layout.tsx`. */
+    --font-titre: var(--font-anton), var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+
+    /* SOUS-TITRES — Anton, la police que la charte réserve aux sous-titres (2026-10-01, maquette de
+       l'accueil fournie par Jérôme : le sélecteur de langue « ESP · ING » et le texte de la barre de
+       recherche y sont composés en Anton, pas dans la police de titre). Distincte de `--font-titre`
+       et c'est voulu : dans Storybook, sur la machine de Jérôme, `--font-titre` devient Sugo Pro
+       Display (version d'essai, `preview-head.html`) — un sous-titre doit rester en Anton partout.
+       ⚠️ Pas d'interlettrage imposé ici : la règle `--tracking-titre` ne vise que `--font-titre`. */
+    --font-sous-titre: var(--font-anton), var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+
+    /* RÈGLE D'USAGE DE LA POLICE DE TITRE — L'ESPACEMENT (Jérôme, 2026-10-01). Tout texte composé
+       en `--font-titre` prend CET interlettrage, et aucun autre. Un seul endroit où le changer. Il
+       est porté par la règle des `<h1>`–`<h3>` ci-dessus et, hors d'un titre HTML, par
+       `tracking-[var(--tracking-titre)]` à côté de `font-[family-name:var(--font-titre)]`.
+       PROPORTIONNEL (em), choix de Jérôme : réglé à l'œil à 3 pt (4 px) sur les bandes de l'accueil
+       en Sugo Pro Display à 60 px, d'où 4 / 60 = 0.0667em. Une valeur fixe donnait le même 4 px à
+       un titre de carte de 18 px — écartelé et tronqué plus tôt, constaté au rendu. L'`em` d'une
+       variable se résout sur l'élément qui l'UTILISE, donc chaque titre à sa propre taille.
+       Vérifié par `scripts/check-tokens.sh` (« Espacement de la police de titre »). */
+    --tracking-titre: 0.0667em;
+
+    /* Les cinq couleurs de charte, brutes, pour ce qui n'est pas un jeton HeroUI — le motif
+       décoratif, les aplats de section, un dégradé de héros. ⚠️ Le bleu ciel n'existe QUE ici :
+       il est décoratif, il ne doit jamais porter de texte ni identifier un composant. */
+    --charte-or: oklch(77.2% 0.156 88.9);
+    --charte-bleu-poudre: oklch(84% 0.045 252.5);
+    --charte-bleu-ciel: oklch(67.2% 0.095 244.4);
+    --charte-bleu-moyen: oklch(47.7% 0.093 246.2);
+    --charte-marine: oklch(31.5% 0.095 260.9);
   }
 
   /* Les cartes HeroUI n'ont AUCUNE bordure par défaut (card.css : seule l'ombre les détache de la
@@ -1014,7 +1182,7 @@
      explicitement, même technique que le trait noir de `chiva` plus bas. `:not(.card--transparent)`
      pour la même raison que chiva : une carte transparente n'a ni fond ni ombre, elle ne doit pas
      avoir de trait non plus. */
-  [data-theme="vitrine"][data-piste="penol"] [data-slot="card"]:not(.card--transparent) {
+  [data-theme="vitrine"] [data-slot="card"]:not(.card--transparent) {
     border: var(--border-width) solid var(--border);
   }
 
@@ -1027,8 +1195,9 @@
    * Storybook le bascule, et le rayon change PARTOUT à la fois — boutons, cartes, champs, badges —
    * ce qui est la seule façon de juger un rayon. Absent, chaque piste garde le sien.
    *
-   * Porte `[data-piste]` (la présence, pas une valeur) donc s'applique aux CINQ pistes : comparer
-   * un rayon n'a de sens que sur la palette qu'on est en train de regarder.
+   * Porte `[data-theme="vitrine"]` depuis l'adoption de la charte (2026-10-01) : le rayon se teste
+   * donc sur la vitrine réelle, et toujours aussi sur une piste de comparaison si la barre d'outils
+   * en pose une (elles ont la spécificité supérieure, mais ne déclarent pas `--radius` ici).
    *
    * ⚠️ Ce que ces quatre valeurs donnent VRAIMENT — mesuré au rendu, parce que ce n'est
    * proportionnel NULLE PART et que les trois familles divergent :
@@ -1050,16 +1219,16 @@
    *     d'un bouton réel, regarder `Atoms/Button`.
    *   • Champ : `--field-radius`, aligné ici sur `--radius`.
    * ------------------------------------------------------------------------------------------ */
-  [data-theme="vitrine"][data-piste][data-radius="6"] {
+  [data-theme="vitrine"][data-radius="6"] {
     --radius: 0.375rem;
   }
-  [data-theme="vitrine"][data-piste][data-radius="8"] {
+  [data-theme="vitrine"][data-radius="8"] {
     --radius: 0.5rem;
   }
-  [data-theme="vitrine"][data-piste][data-radius="12"] {
+  [data-theme="vitrine"][data-radius="12"] {
     --radius: 0.75rem;
   }
-  [data-theme="vitrine"][data-piste][data-radius="18"] {
+  [data-theme="vitrine"][data-radius="18"] {
     --radius: 1.125rem;
   }
 
@@ -1095,15 +1264,15 @@
    * posé dans chaque bloc de piste). Ces deux règles la forcent, pour pouvoir COMPARER les deux
    * modes côte à côte au lieu d'avoir à changer les réglages du système d'exploitation.
    *
-   * ⚠️ Elles portent `[data-piste]` — la simple PRÉSENCE de l'attribut, pas une valeur : sans lui,
-   * elles forceraient un `color-scheme` sur une vitrine qui n'a encore aucune palette (production
-   * actuelle), et le navigateur peindrait un fond sombre derrière des jetons clairs. À retirer en
-   * même temps que le reste au moment d'adopter une piste (voir la recette en tête de section).
+   * ⚠️ Elles portaient `[data-piste]` tant qu'aucune palette n'était adoptée : sans lui, elles
+   * auraient forcé un `color-scheme` sur une vitrine sans palette, et le navigateur aurait peint un
+   * fond sombre derrière des jetons clairs. La charte étant adoptée (2026-10-01) et portant ses
+   * deux modes, ce garde-fou n'a plus d'objet : le forçage vise directement le thème.
    * ------------------------------------------------------------------------------------------ */
-  [data-theme="vitrine"][data-piste][data-mode="clair"] {
+  [data-theme="vitrine"][data-mode="clair"] {
     color-scheme: only light;
   }
-  [data-theme="vitrine"][data-piste][data-mode="sombre"] {
+  [data-theme="vitrine"][data-mode="sombre"] {
     color-scheme: only dark;
   }
 }

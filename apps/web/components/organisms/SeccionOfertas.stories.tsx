@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import type { Locale } from "@/messages";
 import type { TarjetaOferta as OfertaTarjeta } from "@/lib/catalog/tipos";
+import { PageShell } from "@/components/atoms/PageShell";
 import { SeccionOfertas } from "./SeccionOfertas";
 
 // Une section de l'accueil (spec 28 §5). Ce qui se juge ici ne se juge QUE dans le playground :
@@ -121,4 +122,27 @@ export const TituloLargo: Story = {
     labelVerMas: "Ver todas las actividades acuáticas y de aventura del Embalse de Guatapé",
     tarjetas: tarjetas(3),
   },
+};
+
+// ⚠️ LA VARIANTE REFONDUE LE 2026-10-01, et la seule qui exige un décorateur. Elle ne se suffit
+// pas à elle-même : son fond perdu passe par `data-bleed`, une marque que seule la grille de
+// `PageShell` sait lire (cf. son en-tête). Rendue nue, la section s'afficherait sans ses trois
+// colonnes et le conteneur bleu ne longerait plus les bords — une story qui mentirait.
+//
+// À regarder à 1280 (trois cartes pile dans le conteneur) PUIS à 390 (une carte et l'amorce de la
+// suivante). La bande, elle, ne bouge qu'au scroll de la PAGE : dans ce cadre court elle reste
+// immobile, c'est normal — `Molécules/BandaTitulo` est la story faite pour ça.
+export const Carrusel: Story = {
+  parameters: { layout: "fullscreen" },
+  args: {
+    variante: "carrusel",
+    labelVerMas: "Más actividades",
+  },
+  decorators: [
+    (Story) => (
+      <PageShell variant="large">
+        <Story />
+      </PageShell>
+    ),
+  ],
 };

@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Carousel, type CarouselSlide } from "@hifago/ui";
-import { Image } from "@/components/atoms/Image";
+import { Image, type ImageProps } from "@/components/atoms/Image";
 
 // La galerie de photos d'une fiche — produit ou établissement (2026-09-02, vague 4).
 //
@@ -63,10 +63,18 @@ export type PhotoStripProps = {
    * `"(max-width: 640px) 100vw, 640px"`.
    */
   sizes: string;
+  /**
+   * Le ratio de chaque photo, relayé tel quel à l'atome `Image` — qui le porte déjà, avec ses
+   * trois valeurs. Même raisonnement que `sizes` ci-dessus : une bande ne connaît pas la forme que
+   * le conteneur attend d'elle, la carte si. Défaut `"4/3"` (celui de l'atome) : les deux usages
+   * antérieurs — galerie de fiche produit, carte de grille — sont inchangés. `"1/1"` sert les
+   * cartes carrées du carrusel de `SeccionOfertas` (référence de Jérôme, 2026-10-01).
+   */
+  ratio?: ImageProps["ratio"];
   testId?: string;
 };
 
-export function PhotoStrip({ photos, sizes, loading, testId }: PhotoStripProps) {
+export function PhotoStrip({ photos, sizes, loading, ratio, testId }: PhotoStripProps) {
   // ⚠️ Les trois libellés d'accessibilité du carrousel étaient en ESPAGNOL EN DUR dans
   // `packages/ui` — correct pour `apps/admin`, qui n'est pas localisé, mais une fuite ici : un
   // visiteur anglophone au lecteur d'écran entendait « Foto siguiente » sur l'élément principal
@@ -90,6 +98,7 @@ export function PhotoStrip({ photos, sizes, loading, testId }: PhotoStripProps) 
             alt=""
             sizes={sizes}
             loading={loading}
+            ratio={ratio}
             testId={testId ? `${testId}-photo-0` : undefined}
           />
           {/* Même réservation de hauteur que la rangée de points du Carousel (invisible quand une
@@ -115,6 +124,7 @@ export function PhotoStrip({ photos, sizes, loading, testId }: PhotoStripProps) 
               src={photo.url}
               alt={photo.alt}
               sizes={sizes}
+              ratio={ratio}
               // Le premier slide n'est prioritaire QUE si la bande l'est : `index === 0` seul
               // ferait de chaque carte d'une grille un préchargement.
               loading={index === 0 && loading === "priority" ? "priority" : "lazy"}

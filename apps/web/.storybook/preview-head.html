@@ -1,0 +1,47 @@
+<!--
+  Les polices de la charte, POUR LE PLAYGROUND SEULEMENT.
+
+  En production c'est `app/[locale]/layout.tsx` qui les charge, via `next/font/google`, et qui pose
+  `--font-poppins` / `--font-anton` sur <html>. Storybook ne monte pas ce layout — et `next/font`
+  est une transformation du compilateur Next, qui n'existe pas sous Vite : sans ce fichier, le
+  playground rendrait toute la vitrine en pile système, et la typographie de la charte serait
+  invisible exactement là où on vient la regarder.
+
+  ⚠️ Les noms de variables doivent correspondre EXACTEMENT à ceux que `next/font` produit en
+  production (`--font-poppins`, `--font-anton`), sinon le playground et le site divergent en
+  silence — c'est la version Storybook du piège qui a laissé la vitrine en pile système pendant des
+  mois (cf. `packages/ui/src/styles/globals.css`, section « LES POLICES DE LA CHARTE »).
+
+  ⚠️ Sugo Pro Display (les titres, dans la charte) n'est pas sur Google Fonts. Sa VERSION D'ESSAI
+  (licence CC BY-NC : non commerciale, distribution interdite) est servie par `main.ts` depuis le
+  dossier de la charte, HORS DÉPÔT, sous `/police-sugo-essai/` — seulement là où ce dossier existe
+  (la machine de Jérôme). Ailleurs la requête échoue et les titres retombent sur Anton, comme en
+  production, qui attend la licence commerciale.
+
+  La graisse Bold est déclarée pour TOUTES les graisses (`font-weight: 1 1000`) : les titres de la
+  vitrine sont en 400 (`globals.css`, réglé pour Anton qui n'a qu'une graisse), et c'est la Bold que
+  la charte montre. `--font-titre` est surchargée ici et non dans `globals.css` : la production n'a
+  pas le droit de la charger.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@300;400;500;600;700&display=swap"
+  rel="stylesheet"
+/>
+<style>
+  @font-face {
+    font-family: "Sugo Pro Display Essai";
+    src: url("/police-sugo-essai/Sugo-Pro-Display-Bold-trial.ttf") format("truetype");
+    font-weight: 1 1000;
+    font-display: swap;
+  }
+  :root {
+    --font-poppins: "Poppins";
+    --font-anton: "Anton";
+  }
+  :root[data-theme="vitrine"] {
+    --font-titre: "Sugo Pro Display Essai", var(--font-anton), var(--font-poppins), ui-sans-serif,
+      system-ui, sans-serif;
+  }
+</style>

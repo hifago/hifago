@@ -106,7 +106,9 @@ const ligne = (id: string): AddToCartInput => ({
 // (marge au-dessus des quatre nécessaires) avant que le container ne soit rendu à l'appelant —
 // suffisant même pour les N appels concurrents de `RemplitLePanier` (aucun n'est chaîné à un
 // autre, donc N ne rallonge pas la profondeur, seulement la largeur de chaque palier).
-async function rendu(props: { isAuthenticated?: boolean; lignes?: AddToCartInput[]; locale?: Locale } = {}) {
+async function rendu(
+  props: { isAuthenticated?: boolean; lignes?: AddToCartInput[]; locale?: Locale; transparente?: boolean } = {}
+) {
   // Chaque appel isole son propre panier : sans ce reset, les lignes ajoutées par un test
   // précédent (table en mémoire du mock, cf. tête de fichier) fausseraient le compte du suivant.
   cartRows = [];
@@ -114,7 +116,11 @@ async function rendu(props: { isAuthenticated?: boolean; lignes?: AddToCartInput
   await act(async () => {
     ({ container } = render(
       <Entoure locale={props.locale} lignes={props.lignes}>
-        <SiteHeader isAuthenticated={props.isAuthenticated ?? false} testId="header" />
+        <SiteHeader
+          isAuthenticated={props.isAuthenticated ?? false}
+          transparente={props.transparente}
+          testId="header"
+        />
       </Entoure>
     ));
     for (let i = 0; i < 6; i += 1) {
@@ -132,6 +138,9 @@ describe("SiteHeader", () => {
   });
   afterEach(() => {
     window.history.pushState({}, "", "/");
+    // La variante transparente lit `scrollY` : un test qui fait défiler ne doit pas laisser la page
+    // défilée au suivant.
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
   });
 
   it("introduit les landmarks que l'app n'avait pas", async () => {
@@ -312,5 +321,93 @@ describe("SiteHeader", () => {
     );
     expect(panierServeur).toBe(panierClient);
     expect(panierServeur).toBe("Mi viaje, vacío");
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────────────────────
+  // LA VARIANTE TRANSPARENTE — l'accueil de la maquette de Jérôme (2026-10-01)
+  // ─────────────────────────────────────────────────────────────────────────────────────────────
+  describe("variante transparente (l'accueil)", () => {
+    async function defiler(jusqua: number) {
+      await act(async () => {
+        Object.defineProperty(window, "scrollY", { configurable: true, value: jusqua });
+        window.dispatchEvent(new Event("scroll"));
+      });
+    }
+
+    // La demande de Jérôme, mot pour mot : « que le header soit transparent et comporte bien
+    // l'accès à mi viaje ainsi que mon compte ». Les deux liens sont vérifiés PAR LEUR CIBLE, pas
+    // seulement par leur présence : un lien de compte qui mènerait au panier passerait sinon.
+    it("porte Mi viaje, Mi cuenta et les deux langues en ligne — sans logo ni bouton de menu", async () => {
+      const container = await rendu({ transparente: true });
+      const header = container.querySelector("header") as HTMLElement;
+
+      expect(header.querySelector('[data-testid="header-cart"]')?.getAttribute("href")).toBe("/mi-viaje");
+      const compte = header.querySelector('[data-testid="header-account"]') as HTMLAnchorElement;
+      expect(compte.getAttribute("href")).toBe("/entrar");
+      expect(compte.getAttribute("aria-label")).toBe(messages.Chrome.loginLabel);
+
+      // Les langues : deux vrais liens, posés dans le header, sans panneau à ouvrir.
+      expect(header.querySelector('[data-testid="header-language-es"]')?.getAttribute("href")).toBe(
+        "/es/productos/kayak"
+      );
+      expect(header.querySelector('[data-testid="header-language-en"]')?.getAttribute("href")).toBe(
+        "/en/productos/kayak"
+      );
+
+      // Le grand logo du héros tient le rôle du logo : pas de second logo dans le header. Et rien
+      // à replier : aucun bouton de menu, à aucune largeur.
+      expect(header.querySelector('[data-testid="header-home"]')).toBeNull();
+      expect(header.querySelector("button[aria-expanded]")).toBeNull();
+    });
+
+    it("mène à « Mi cuenta » une fois connecté", async () => {
+      const container = await rendu({ transparente: true, isAuthenticated: true });
+      const compte = container.querySelector('[data-testid="header-account"]') as HTMLAnchorElement;
+      expect(compte.getAttribute("href")).toBe("/cuenta/perfil");
+      expect(compte.getAttribute("aria-label")).toBe(messages.Chrome.accountLabel);
+    });
+
+    // ⚠️ Transparent ET collant, le header ferait défiler les sections SOUS ses icônes, sans rien
+    // entre les deux. Il ne l'est donc qu'en haut de page — et le redevient en y revenant.
+    it("est transparent en haut de page, prend l'or une fois défilé, et le rend en remontant", async () => {
+      const container = await rendu({ transparente: true });
+      const header = container.querySelector("header") as HTMLElement;
+      expect(header.className).toContain("bg-transparent");
+      expect(header.hasAttribute("data-defile")).toBe(false);
+
+      await defiler(120);
+      expect(header.className).toContain("bg-accent");
+      expect(header.className).not.toContain("bg-transparent");
+      expect(header.hasAttribute("data-defile")).toBe(true);
+
+      await defiler(0);
+      expect(header.className).toContain("bg-transparent");
+      expect(header.hasAttribute("data-defile")).toBe(false);
+    });
+
+    // Le HTML SERVI est celui du haut de page : transparent, et avec ses liens. Même raison que le
+    // test du menu plus haut — c'est ce HTML que Googlebot reçoit, et les liens `/en/…` y font
+    // découvrir la version anglaise.
+    it("sert le haut de page : transparent, langues et compte dans le HTML", () => {
+      const html = renderToStaticMarkup(
+        <NextIntlClientProvider locale="es" messages={messages}>
+          <CartProvider>
+            <SiteHeader isAuthenticated={false} transparente testId="header" />
+          </CartProvider>
+        </NextIntlClientProvider>
+      );
+      expect(html).toContain("bg-transparent");
+      expect(html).toContain('href="/es/productos/kayak"');
+      expect(html).toContain('href="/en/productos/kayak"');
+      expect(html).toContain('href="/entrar"');
+      expect(html).toContain('href="/mi-viaje"');
+    });
+
+    it("garde la pastille du panier, avec le compte exact dans le nom accessible", async () => {
+      const container = await rendu({ transparente: true, lignes: [ligne("a"), ligne("b")] });
+      const panier = container.querySelector('[data-testid="header-cart"]') as HTMLElement;
+      expect(panier.getAttribute("aria-label")).toBe("Mi viaje, 2 servicios");
+      expect(container.querySelector("header")?.textContent).toContain("2");
+    });
   });
 });

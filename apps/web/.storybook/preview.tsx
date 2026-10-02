@@ -11,16 +11,16 @@ import { simularFetch } from "./support/fetch";
 import { instalarDatosPorDefecto } from "./support/datos";
 import { reiniciarSupabaseFalso } from "./support/supabaseFalso";
 
-// ⚠️ Les polices Geist ne sont VOLONTAIREMENT pas appliquées ici, et ce n'est pas un oubli :
-// elles ne le sont pas non plus en production. `app/[locale]/layout.tsx` définit
-// `--font-geist-sans`/`--font-geist-mono`, mais HeroUI et Tailwind v4 consomment `--font-sans` et
-// `--font-mono` — des noms différents, que rien ne relie. La vitrine tourne donc sur la pile de
-// polices système. Les appliquer ici ferait mentir le playground sur ce que voit un visiteur.
-// Constaté le 2026-09-01 en montant ce playground ; signalé, non corrigé (hors périmètre), et
-// toujours pas corrigé par le lot des pistes de couleur du même jour : le correctif tient en deux
-// lignes dans `app/[locale]/layout.tsx`, mais il change la typographie de tout le site d'un coup,
-// donc il est proposé à Jérôme plutôt qu'appliqué en passant. Voir `Playground/Palette`, section
-// « Polices », qui affiche la pile réellement en vigueur à côté de celle qui était prévue.
+// ⚠️ Les polices sont chargées par `preview-head.html`, pas ici, et surtout pas par `next/font` :
+// c'est une transformation du compilateur Next, qui n'existe pas sous Vite. Ce fichier-là pose
+// `--font-poppins`/`--font-anton` sous LES MÊMES NOMS que `app/[locale]/layout.tsx` en production,
+// parce que c'est la seule façon que le playground ne mente pas sur ce que voit un visiteur.
+//
+// Jusqu'au 2026-10-01, ce commentaire disait l'inverse — aucune police n'était appliquée, parce
+// qu'aucune ne l'était non plus en production (`--font-geist-sans` posé d'un côté, `--font-sans` lu
+// de l'autre, deux noms que rien ne reliait). La charte graphique Hifago 2026 a fermé ce défaut.
+// `Playground/Palette`, section « Polices », affiche la pile réellement en vigueur et sert de
+// vérification : un repli système y signalerait que le raccord a été défait.
 
 // Modules de DONNÉES remplacés pour les stories d'écran (2026-10-01) — avec les alias de paquets de
 // `main.ts`, c'est ce qui permet de rendre le vrai `page.tsx` SANS Docker, sans Supabase et sans
@@ -104,7 +104,13 @@ const preview: Preview = {
     // par Jérôme, 2026-09-01). Un défaut qui rend inerte le sélecteur d'à côté est un mauvais
     // défaut, même s'il est le plus honnête sur le papier. « Aucune piste » reste à un clic, et
     // son libellé dit maintenant pourquoi le mode n'y fait rien.
-    palette: "hifago",
+    //
+    // ⚠️ RETOUR À « aucune » le 2026-10-01 : la raison ci-dessus est tombée. Depuis l'adoption de
+    // la charte, « aucune piste » EST la production, ET elle a son mode sombre. Garder `hifago`
+    // ouvrait chaque story sur l'orange du portail legacy — la marque que la charte remplace —
+    // et faisait juger à Jérôme un rendu qui n'est pas le site (constaté en capturant l'accueil).
+    // ⚠️ Un navigateur qui a MÉMORISÉ `hifago` le garde : le choisir une fois dans la barre.
+    palette: "aucune",
     mode: "clair",
     radius: "piste",
   },
@@ -115,7 +121,11 @@ const preview: Preview = {
     // `Playground/Palette` affiche les quatre pistes côte à côte par elle-même, sans dépendre de ce
     // sélecteur.
     palette: {
-      description: "Piste visuelle de la vitrine (comparaison — aucune n'est encore adoptée)",
+      // ⚠️ La barre d'outils MÉMORISE le dernier choix : si une piste reste sélectionnée, elle
+      // surcharge la charte (spécificité supérieure) et on juge un rendu qui n'est pas la
+      // production — constaté en capturant l'accueil après l'adoption, le rendu sortait en orange
+      // legacy. Revenir à « Aucune piste » pour voir le site réel.
+      description: "Piste de comparaison — la production est « Aucune piste » (la charte)",
       // `title` explicite : sans lui, `dynamicTitle` affiche le libellé de l'item sélectionné, et
       // « Aucune piste (défauts HeroUI = production) » déborde de la barre d'outils.
       // Relevé par la contre-vérification de l'inventaire Storybook, pas constaté à l'œil.
@@ -125,8 +135,8 @@ const preview: Preview = {
         // (dist/manager.js:56), les deux boutons seraient indiscernables dans la barre.
         icon: "photo",
         items: [
-          { value: "aucune", title: "Aucune piste — production actuelle, pas de mode sombre" },
-          { value: "hifago", title: "Hifago — la marque du portail legacy" },
+          { value: "aucune", title: "La charte Hifago 2026 — la production" },
+          { value: "hifago", title: "Hifago — la marque du portail legacy (remplacée)" },
           { value: "embalse", title: "Embalse — l'eau du barrage" },
           { value: "zocalo", title: "Zócalo — les frises peintes" },
           { value: "cal", title: "Cal — encre et papier" },
@@ -197,11 +207,9 @@ const preview: Preview = {
       );
     },
     // Le thème est posé sur <html> en production par le layout ; ici c'est cet addon qui le pose.
-    // ⚠️ Le thème `vitrine` ne définit toujours AUCUN jeton PAR DÉFAUT (le thème `admin` en définit
-    // ~37) : basculer entre les deux montre exactement ce que la vitrine n'a pas. Ce qui a changé
-    // le 2026-09-01, c'est qu'il existe désormais trois pistes candidates, chacune enfermée
-    // derrière un `data-piste` que le sélecteur ci-dessus pose — et qu'aucune n'est adoptée. Tant
-    // que le sélecteur est sur « Aucune piste », ce playground montre la production telle quelle.
+    // Depuis le 2026-10-01 le thème `vitrine` porte la charte graphique Hifago 2026 — il ne tourne
+    // plus sur les défauts HeroUI, et il a ses deux modes. Tant que le sélecteur de piste est sur
+    // « Aucune piste », ce playground montre donc la production telle quelle.
     withThemeByDataAttribute({
       themes: { vitrine: "vitrine", admin: "admin" },
       defaultTheme: "vitrine",

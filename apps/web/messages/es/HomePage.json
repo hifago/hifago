@@ -13,6 +13,13 @@
     "camp": "Camps",
     "evento": "Eventos"
   },
+  "tiposPortada": {
+    "activity": "Actividades",
+    "lodging": "Alojamiento",
+    "transport": "Transporte",
+    "camp": "Retiros",
+    "evento": "Eventos"
+  },
   "tiposSingular": {
     "activity": "Actividad",
     "lodging": "Alojamiento",
@@ -22,13 +29,21 @@
   },
   "verMas": "Ver más",
   "verMasTags": "Ver todas las categorías",
+  "masPorTipo": {
+    "activity": "Más actividades",
+    "lodging": "Más alojamientos",
+    "transport": "Más transportes",
+    "camp": "Más camps",
+    "evento": "Más eventos"
+  },
   "precioDesde": "Desde",
   "fotoAlt": "{nombre}, foto {indice} de {total}",
   "buscar": {
     "label": "Buscar actividades y alojamientos",
     "placeholder": "¿Qué buscas en Guatapé?",
     "submitLabel": "Buscar",
-    "emptyLabel": "No hay sugerencias"
+    "emptyLabel": "No hay sugerencias",
+    "clearLabel": "Borrar la búsqueda"
   },
   "sugerencias": {
     "metaEstablecimiento": "Establecimiento",

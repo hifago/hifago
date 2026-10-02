@@ -8,6 +8,10 @@
   "menuCloseLabel": "Close the menu",
   "languageLabel": "Language",
   "languageCurrentLabel": "Current language",
+  "idiomaCorto": {
+    "es": "ESP",
+    "en": "ENG"
+  },
   "footerNavLabel": "Institutional links",
   "footerLegalNotice": "Legal notice",
   "footerPrivacy": "Privacy policy",

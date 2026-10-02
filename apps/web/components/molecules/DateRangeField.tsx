@@ -105,29 +105,13 @@ function IconeCalendrier() {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="2.2"
       strokeLinecap="round"
-      className="size-4 shrink-0"
+      className="size-3.5 shrink-0"
       aria-hidden="true"
     >
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path d="M8 3v4M16 3v4M3 11h18" />
-    </svg>
-  );
-}
-
-function Chevron() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      className="size-4 shrink-0"
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }
@@ -167,8 +151,22 @@ export function FilterTrigger({
   return (
     // `size="lg"` : 44 px de cible tactile, exigés par components/README.md — ces deux déclencheurs
     // restent visibles sur mobile, contrairement au bouton « Buscar » de la barre.
-    <Button variant="outline" color="neutral" size="lg" shape="pill" isDisabled={isDisabled} testId={testId}>
-      {icon}
+    //
+    // ⚠️ L'APPARENCE DE LA MAQUETTE DE L'ACCUEIL (Jérôme, 2026-10-01) : plus de pilule bordée ni de
+    // chevron — l'icône dans une pastille bleu poudre, le libellé en Poppins à côté, rien d'autre.
+    // `ghost` garde le fond au survol et l'anneau de focus : c'est toujours un bouton, il le montre
+    // dès qu'on l'approche. Les deux filtres ne vivent que sur l'accueil (`SearchPanel`), d'où un
+    // changement d'apparence ici plutôt qu'une variante de plus.
+    <Button variant="ghost" color="neutral" size="lg" shape="pill" isDisabled={isDisabled} testId={testId}>
+      {/* La pastille : bleu poudre de la charte, glyphe BLANC comme sur la maquette. Décorative — le
+          libellé écrit à côté porte l'information. `text-white` et non un jeton : blanc dans les
+          deux modes, lisible sur le bleu poudre du clair comme sur le bleu soutenu du sombre. */}
+      <span
+        aria-hidden="true"
+        className="grid size-6 shrink-0 place-items-center rounded-full bg-[var(--default)] text-white"
+      >
+        {icon}
+      </span>
       {value === null ? (
         placeholderLabel
       ) : (
@@ -177,7 +175,6 @@ export function FilterTrigger({
           {value}
         </>
       )}
-      <Chevron />
     </Button>
   );
 }

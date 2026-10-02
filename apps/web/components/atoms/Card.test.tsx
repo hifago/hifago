@@ -289,6 +289,36 @@ describe("Card", () => {
     expect(el.className).not.toContain("overflow-hidden");
   });
 
+  // ⚠️ La disposition des cartes carrées de l'accueil (2026-10-01). Le défaut à craindre est
+  // SILENCIEUX : un cartouche positionné (`absolute`) capturerait le `::after` du lien, et un clic
+  // sur la photo ne mènerait plus nulle part — jsdom ne le verrait pas, seule la structure le peut.
+  it("en overlay, la carte est carrée et le texte se pose sur le visuel sans capturer le lien", () => {
+    const el = carte(
+      <Card layout="overlay" href="/x" title="Kayak" titleAs="h3" subtitle="Casa" media={<div />} testId="o">
+        <span>20.000 COP</span>
+      </Card>
+    );
+    expect(el.className).toContain("aspect-square");
+    expect(el.className).toContain("overflow-hidden");
+    expect(el.className).toContain("grid-rows-[minmax(0,1fr)]");
+    const media = el.querySelector("[data-testid='o-media']") as HTMLElement;
+    expect(media.className).toContain("row-start-1");
+    // Le cartouche partage la cellule du visuel, et AUCUN ancêtre du lien entre lui et la carte
+    // n'est positionné : le `::after` couvre donc toute la carte, photo comprise.
+    const lien = el.querySelector("[data-card-link]") as HTMLElement;
+    let noeud = lien.parentElement;
+    while (noeud && noeud !== el) {
+      expect(noeud.className).not.toMatch(/(^|\s)(absolute|relative|fixed|sticky)(\s|$)/);
+      noeud = noeud.parentElement;
+    }
+    const cartouche = (el.querySelector("[data-slot='card-header']") as HTMLElement).parentElement as HTMLElement;
+    expect(cartouche.className).toContain("row-start-1");
+    expect(cartouche.className).toContain("self-end");
+    // Le prix AVANT le titre dans le cartouche : il se lit en pastille au-dessus du nom.
+    expect(cartouche.firstElementChild?.getAttribute("data-slot")).toBe("card-content");
+    expect(el.querySelector("h3")?.className).toContain("uppercase");
+  });
+
   it("rend le sous-titre entre le titre et la description", () => {
     const el = carte(
       <Card title="T" titleAs="h2" subtitle="3 habitaciones" description={DESCRIPTION}>

@@ -70,10 +70,12 @@ export type TarjetaOfertaProps = {
 // variante `row` est agrandi par le lot d'arbitrage, cette valeur doit bouger avec lui.
 const SIZES_GRILLA = "(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw";
 const SIZES_LISTA = "64px";
-// ⚠️ Doit rester synchronisé avec `CLASE_CARTA_CARRUSEL` (`w-64`) de `SeccionOfertas.tsx` : une
-// carte de carrusel a une largeur FIXE, pas une fraction du viewport — lui servir `SIZES_GRILLA`
-// téléchargerait une image bien trop grande sur desktop.
-const SIZES_CARRUSEL = "256px";
+// ⚠️ Doit rester synchronisé avec `CLASE_CARTA_CARRUSEL` de `SeccionOfertas.tsx`, qui a cessé
+// d'être une largeur fixe le 2026-10-01 : depuis la refonte sur la référence de Jérôme, une rangée
+// montre EXACTEMENT trois cartes à partir de `md` (un tiers du conteneur) et une carte presque
+// pleine en dessous. La valeur suit donc le viewport, comme la grille — mais à ses propres
+// proportions, parce que le conteneur bleu poudre est en retrait des bords de l'écran.
+const SIZES_CARRUSEL = "(min-width: 768px) 32vw, 82vw";
 
 // Une table plutôt qu'une cascade de ternaires : c'est ce qui fait qu'ajouter une variante casse la
 // COMPILATION ici (le Record doit être exhaustif) au lieu de retomber silencieusement sur la
@@ -82,6 +84,25 @@ const SIZES_POR_VARIANTE: Record<TarjetaOfertaProps["variante"], string> = {
   grilla: SIZES_GRILLA,
   lista: SIZES_LISTA,
   carrusel: SIZES_CARRUSEL,
+};
+
+// Le RATIO de la photo, même raisonnement que `sizes` juste au-dessus : la carte est seule à savoir
+// quelle forme le conteneur attend d'elle. `1/1` en carrusel — les cartes carrées de la référence
+// fournie par Jérôme le 2026-10-01 ; `4/3` (le défaut de l'atome `Image`) partout ailleurs, donc
+// grille et liste sont inchangées. Record exhaustif pour la même raison : ajouter une variante doit
+// casser la compilation ici, pas retomber en silence sur une forme qui ne lui va pas.
+const RATIO_POR_VARIANTE: Record<TarjetaOfertaProps["variante"], "4/3" | "1/1"> = {
+  grilla: "4/3",
+  lista: "4/3",
+  carrusel: "1/1",
+};
+
+// Même raison que les deux tables ci-dessus : exhaustive, pour qu'une variante ajoutée casse la
+// compilation ici plutôt que de retomber en silence sur la carte empilée.
+const LAYOUT_POR_VARIANTE: Record<TarjetaOfertaProps["variante"], "stack" | "row" | "overlay"> = {
+  grilla: "stack",
+  lista: "row",
+  carrusel: "overlay",
 };
 
 export function TarjetaOferta({ oferta, variante, prioridad, locale }: TarjetaOfertaProps) {
@@ -146,11 +167,13 @@ export function TarjetaOferta({ oferta, variante, prioridad, locale }: TarjetaOf
       // `Card.Content`, et sa carte devient plus basse qu'une carte voisine qui affiche un prix,
       // dans la même ligne de grille. Un placeholder invisible réserve la même hauteur qu'une
       // ligne de prix réelle, sans rien annoncer à l'assistance.
-      (contenido ?? (
+      // En `carrusel` la carte est CARRÉE (`layout="overlay"`) : sa hauteur ne dépend plus de son
+      // texte, et ce placeholder y peindrait une pastille de prix vide sur la photo.
+      (contenido ?? (variante === "carrusel" ? undefined : (
         <span className="invisible" aria-hidden="true">
           &nbsp;
         </span>
-      ))
+      )))
     );
 
   return (
@@ -173,7 +196,10 @@ export function TarjetaOferta({ oferta, variante, prioridad, locale }: TarjetaOf
           ? t("conteoAlojamientos", { count: oferta.nAlojamientos })
           : undefined)
       }
-      layout={variante === "lista" ? "row" : "stack"}
+      // `overlay` en carrusel : la carte carrée de la référence de Jérôme (2026-10-01) — la photo
+      // remplit la carte, nom et établissement dans un cartouche par-dessus, prix en pastille.
+      layout={LAYOUT_POR_VARIANTE[variante]}
+      titleSize={variante === "carrusel" ? "md" : undefined}
       testId={oferta.testId}
       media={
         // Rendue même sans photo : `PhotoStrip` pose alors le substitut de l'atome `Image`, au même
@@ -182,6 +208,7 @@ export function TarjetaOferta({ oferta, variante, prioridad, locale }: TarjetaOf
           photos={fotos}
           loading={prioridad ? "priority" : "lazy"}
           sizes={SIZES_POR_VARIANTE[variante]}
+          ratio={RATIO_POR_VARIANTE[variante]}
           testId={`${oferta.testId}-fotos`}
         />
       }

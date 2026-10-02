@@ -50,11 +50,39 @@ dans aucune ligne, signaler le cas précis plutôt qu'improviser. Un composant a
 ## Deux thèmes, un seul design system
 
 `data-theme="vitrine"` (`apps/web`) et `data-theme="admin"` (`apps/admin`) posés sur `<html>` ;
-tokens communs et les deux jeux de valeurs dans `packages/ui/src/styles/globals.css`. ⚠️ Le thème
-`vitrine` ne définit encore aucun token (il tourne sur les défauts HeroUI ; `admin` en définit ~37)
-— voir la story `Playground/Tokens`. Le `@source "../**/*.{ts,tsx}"` de `apps/web/app/globals.css`
-fait entrer les composants de l'app dans le scan Tailwind de `packages/ui` : sans lui, ils
-s'affichent SANS STYLE en silence.
+tokens communs et les deux jeux de valeurs dans `packages/ui/src/styles/globals.css`. Le
+`@source "../**/*.{ts,tsx}"` de `apps/web/app/globals.css` fait entrer les composants de l'app dans
+le scan Tailwind de `packages/ui` : sans lui, ils s'affichent SANS STYLE en silence.
+
+**La vitrine porte la charte graphique Hifago 2026 depuis le 2026-10-01** (PDF fourni par Jérôme) —
+elle ne tourne plus sur les défauts HeroUI. Les cinq couleurs, leur emploi et les trois interdits
+mesurés sont dans `globals.css`, section « LA CHARTE ». Les trois qui se retiennent :
+
+1. **L'or `#ddae09` ne porte jamais de texte sur fond clair** (1.96:1) — c'est un aplat, avec du
+   marine dessus. Jamais de blanc sur l'or non plus (2.07:1).
+2. **Le bleu ciel `#619ccc` est décoratif** (2.79:1, sous le seuil de 3:1) : motif et aplats, jamais
+   une bordure de champ ni rien qui identifie un composant.
+3. **Les liens et le focus sont découplés de l'accent** (bleu moyen `#2a618e`), contrairement aux
+   autres thèmes — conséquence directe du point 1.
+
+Polices : Poppins (corps) et Anton (titres, `--font-titre`), chargées par `app/[locale]/layout.tsx`
+et par `.storybook/preview-head.html` pour le playground. ⚠️ La charte demande **Sugo Pro Display**
+pour les titres : seule sa version d'ESSAI existe (licence CC BY-NC, non commerciale, distribution
+interdite) — Storybook la lit hors dépôt sur la machine de Jérôme, jamais copiée dans le dépôt ni
+dans `public/` ; partout ailleurs Anton sert de repli jusqu'à la licence commerciale. ⚠️ Les noms de
+variables doivent rester identiques des deux côtés, sinon playground et production divergent en
+silence — c'est le piège qui a laissé la vitrine en pile système pendant un mois.
+
+**Espacement de la police de titre** (Jérôme, 2026-10-01) : tout texte en `--font-titre` prend
+l'interlettrage du jeton `--tracking-titre` (0.0667em, proportionnel : 3 pt sur un titre de 60 px,
+`globals.css`) et aucun autre — porté par la règle des `<h1>`–`<h3>`, ou par
+`tracking-[var(--tracking-titre)]` hors titre HTML. Jamais de `tracking-…` à côté de `font-titre` ni
+sur un `<h1>`–`<h3>` : la valeur se règle au jeton (`check-tokens.sh`).
+
+Cinq pistes de comparaison (`embalse`, `zocalo`, `cal`, `hifago`, `chiva`) restent derrière un
+`data-piste` que seule la barre d'outils Storybook pose. ⚠️ Elle MÉMORISE son dernier choix : une
+piste encore sélectionnée masque la charte sans prévenir — remettre « Aucune piste » avant de juger
+un rendu.
 
 ## Composants de la vitrine (`apps/web/components/`)
 

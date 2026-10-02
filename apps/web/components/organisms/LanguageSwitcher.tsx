@@ -30,12 +30,23 @@ import type { Locale } from "@/messages";
 //
 // 3. ⚠️ LE DRAPEAU N'EST JAMAIS SEUL À PORTER L'INFORMATION (même règle que la couleur, dans
 //    components/README.md). Deux raisons : les drapeaux en emoji ne s'affichent PAS sous Windows
-//    (le système n'embarque aucun glyphe de drapeau, `🇨🇴` y rend « CO ») — d'où des SVG inline ;
-//    et surtout aucun drapeau ne « dit » une langue. `es` est ici l'espagnol de COLOMBIE (le site
-//    vend à Guatapé), donc le drapeau colombien plutôt que celui de l'Espagne ; pour l'anglais,
-//    aucun drapeau n'est juste — l'Union Jack est un pis-aller, signalé comme tel au coordinateur.
-//    Le nom de la langue est donc toujours écrit à côté.
+//    (le système n'embarque aucun glyphe de drapeau, `🇪🇸` y rend « ES ») — d'où des SVG inline ;
+//    et surtout aucun drapeau ne « dit » une langue. Le nom (ou son abréviation) est donc toujours
+//    écrit à côté.
+//    ⚠️ LE DRAPEAU ESPAGNOL depuis le 2026-10-01, et c'est un revirement : `es` portait jusque-là
+//    le drapeau COLOMBIEN (l'espagnol parlé à Guatapé). La maquette de l'accueil fournie par Jérôme
+//    montre celui de l'Espagne — appliqué PARTOUT et pas seulement sur l'accueil, sinon le header et
+//    le pied de la même page afficheraient deux drapeaux différents pour la même langue. Revenir au
+//    drapeau colombien = changer la seule ligne `es:` de la table `DRAPEAUX`.
+//
+// 4. DEUX APPARENCES, UN SEUL COMPOSANT (2026-10-01). `menu` (défaut) est le déclencheur déroulant
+//    décrit ci-dessus. `banderas` est la rangée de la maquette de l'accueil — « 🇪🇸 ESP  🇬🇧 ING »,
+//    les deux langues en liens directs, sans menu : le header transparent de l'accueil n'a pas de
+//    panneau où ranger un déroulant. Les liens y sont les MÊMES (vrais `<a href>`, `locale`, query
+//    conservée au clic) : seul l'habillage change.
 export type LanguageSwitcherProps = {
+  /** `menu` (défaut) : déclencheur + panneau. `banderas` : les langues en ligne, drapeau + abréviation. */
+  apariencia?: "menu" | "banderas";
   testId?: string;
 };
 
@@ -47,12 +58,15 @@ const ENDONYMES: Record<Locale, string> = {
   en: "English",
 };
 
-function DrapeauColombie() {
+// L'écu est réduit à une silhouette : à 24 × 16 px, ses quartiers seraient une tache — c'est aussi
+// ce que montre la maquette.
+function DrapeauEspagne() {
   return (
     <svg viewBox="0 0 24 16" className="h-4 w-6 shrink-0 rounded-[2px] ring-1 ring-black/10" aria-hidden="true">
-      <rect width="24" height="8" fill="#FCD116" />
-      <rect y="8" width="24" height="4" fill="#003893" />
-      <rect y="12" width="24" height="4" fill="#CE1126" />
+      <rect width="24" height="16" fill="#AA151B" />
+      <rect y="4" width="24" height="8" fill="#F1BF00" />
+      <rect x="5.4" y="6.1" width="3.2" height="3.9" rx="1" fill="#AD1519" />
+      <rect x="5.1" y="5.3" width="3.8" height="0.9" rx="0.3" fill="#AD1519" />
     </svg>
   );
 }
@@ -70,11 +84,11 @@ function DrapeauRoyaumeUni() {
 }
 
 const DRAPEAUX: Record<Locale, () => React.ReactElement> = {
-  es: DrapeauColombie,
+  es: DrapeauEspagne,
   en: DrapeauRoyaumeUni,
 };
 
-export function LanguageSwitcher({ testId }: LanguageSwitcherProps) {
+export function LanguageSwitcher({ apariencia = "menu", testId }: LanguageSwitcherProps) {
   const t = useTranslations("Chrome");
   const chemin = usePathname();
   const router = useRouter();
@@ -106,6 +120,55 @@ export function LanguageSwitcher({ testId }: LanguageSwitcherProps) {
       document.removeEventListener("mousedown", surClic);
     };
   }, [ouvert]);
+
+  // ⚠️ Branche APRÈS tous les hooks, jamais avant : un `return` anticipé au-dessus de `useState`
+  // changerait l'ordre des hooks d'un rendu à l'autre (règle des hooks de React).
+  if (apariencia === "banderas") {
+    return (
+      // Un `<nav>` nommé : c'est un ensemble de liens de navigation, distinct de celui du compte et
+      // du panier dans le même header — deux `<nav>` cohabitent sans ambiguïté s'ils sont nommés.
+      <nav aria-label={t("languageLabel")} data-testid={testId}>
+        <ul className="flex items-center gap-1 sm:gap-3">
+          {routing.locales.map((valeur) => {
+            const Drapeau = DRAPEAUX[valeur];
+            const courante = valeur === locale;
+            return (
+              <li key={valeur}>
+                <Link
+                  href={chemin}
+                  locale={valeur}
+                  hrefLang={valeur}
+                  aria-current={courante ? "true" : undefined}
+                  // `min-h-11` : 44 px de cible tactile. Anton (`--font-sous-titre`), la police que la
+                  // charte réserve aux sous-titres — celle de « ESP · ING » sur la maquette.
+                  className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius)] px-1.5 font-[family-name:var(--font-sous-titre)] text-base leading-none underline-offset-4 hover:underline focus-visible:status-focused"
+                  onClick={(evenement) => {
+                    evenement.preventDefault();
+                    empujarConservandoQuery(router, chemin, { locale: valeur });
+                  }}
+                  data-testid={testId ? `${testId}-${valeur}` : undefined}
+                >
+                  <Drapeau />
+                  {/* L'abréviation est un libellé d'INTERFACE (« ING » en espagnol, « ENG » en
+                      anglais), contrairement aux endonymes du menu : elle passe donc par les
+                      messages. */}
+                  <span>{t(`idiomaCorto.${valeur}`)}</span>
+                  {/* ⚠️ Le nom complet, dans SA langue, pour le lecteur d'écran — et APRÈS
+                      l'abréviation visible, pas à sa place : le nom accessible doit CONTENIR le
+                      libellé affiché (WCAG 2.5.3), sinon « clique sur ING » ne trouve rien en
+                      commande vocale. « ING (English) ». */}
+                  <span className="sr-only" lang={valeur}>
+                    {` (${ENDONYMES[valeur]})`}
+                  </span>
+                  {courante ? <span className="sr-only">{`, ${t("languageCurrentLabel")}`}</span> : null}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    );
+  }
 
   const DrapeauCourant = DRAPEAUX[locale];
 

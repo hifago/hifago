@@ -34,14 +34,38 @@ function Bloc({ children }: { children: React.ReactNode }) {
   return <div className="rounded border border-[var(--border)] p-4 text-sm">{children}</div>;
 }
 
-// accueil, établissement — max-w-3xl (672 px).
+// accueil, index de catégories, listings, établissement, fiche produit — une GRILLE à trois
+// colonnes depuis le 2026-10-01 : `1fr | lecture (704 px à 1280) | 1fr`. À regarder en Desktop 1280,
+// c'est là que tout se joue ; en Mobile 390 les deux blocs se superposent et la story ne montre rien.
 export const Large: Story = {
   args: {
     variant: "large",
     children: (
       <>
         <Bloc>Contenu large&nbsp;: le catalogue et la page établissement.</Bloc>
-        <Bloc>Le second bloc rend visible le `gap-6` qui sépare les enfants.</Bloc>
+        <Bloc>Le second bloc rend visible le `gap-y-6` qui sépare les enfants.</Bloc>
+      </>
+    ),
+  },
+};
+
+// ⚠️ LA story de cette coquille : l'enfant marqué `data-bleed` sort de la colonne de lecture et
+// touche les deux bords du viewport, pendant que ses voisins restent alignés sur elle. C'est ce que
+// `SeccionOfertas` utilise pour ses rangées de cartes (décision de Jérôme, 2026-10-01), et c'est la
+// seule façon de VOIR que la marque fonctionne — en jsdom, aucun test ne calcule une largeur.
+export const LargeAvecFondPerdu: Story = {
+  args: {
+    variant: "large",
+    children: (
+      <>
+        <Bloc>Un bloc ordinaire&nbsp;: colonne de lecture, 704&nbsp;px à 1280.</Bloc>
+        <div
+          data-bleed=""
+          className="bg-[var(--surface-secondary)] p-4 text-center text-sm"
+        >
+          `data-bleed`&nbsp;: d&apos;un bord à l&apos;autre, sans unité `vw`.
+        </div>
+        <Bloc>Le bloc suivant retrouve la colonne, sans rien savoir du précédent.</Bloc>
       </>
     ),
   },

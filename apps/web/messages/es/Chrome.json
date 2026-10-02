@@ -8,6 +8,10 @@
   "menuCloseLabel": "Cerrar el menú",
   "languageLabel": "Idioma",
   "languageCurrentLabel": "Idioma actual",
+  "idiomaCorto": {
+    "es": "ESP",
+    "en": "ING"
+  },
   "footerNavLabel": "Enlaces institucionales",
   "footerLegalNotice": "Aviso legal",
   "footerPrivacy": "Política de privacidad",

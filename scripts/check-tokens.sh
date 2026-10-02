@@ -100,8 +100,34 @@ done < <(find apps/web \
            -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.css' \) -print 2>/dev/null | sort)
 
 echo
+echo "== Espacement de la police de titre (--tracking-titre) =="
+# RÈGLE D'USAGE (Jérôme, 2026-10-01) : tout texte en police de titre prend l'interlettrage du jeton
+# `--tracking-titre` (globals.css), et aucun autre. Trois façons de la casser, trois contrôles :
+#   1. la règle des `<h1>`–`<h3>` de la vitrine ne lit plus le jeton ;
+#   2. une ligne qui pose `font-titre` y ajoute un `tracking-…` autre que le jeton ;
+#   3. un `<h1>`–`<h3>` (qui prend la police de titre par la base) reçoit un `tracking-…` à lui.
+# Mutation vérifiée à l'écriture : `tracking-[3pt]` dans BandaTitulo et `0.01em` dans globals.css
+# font chacun sortir ce contrôle en erreur.
+GLOBALS="packages/ui/src/styles/globals.css"
+if ! perl -0777 -ne 'exit(/\[data-theme="vitrine"\] :is\(h1, h2, h3\) \{[^}]*letter-spacing: var\(--tracking-titre\);/ ? 0 : 1)' "$GLOBALS"; then
+  signale "$GLOBALS" '[data-theme="vitrine"] :is(h1, h2, h3) { … }' \
+    "La règle des titres doit porter letter-spacing: var(--tracking-titre)."
+fi
+while IFS= read -r f; do
+  hits="$(perl -0777 -p "$SANS_COMMENTAIRES" "$f" \
+    | grep -nE 'font-titre|<h[1-3][ >]' \
+    | grep -E 'tracking-' \
+    | grep -vE 'tracking-\[var\(--tracking-titre\)\]' || true)"
+  [ -z "$hits" ] && continue
+  signale "$f" "$hits" \
+    "Police de titre : tracking-[var(--tracking-titre)] seulement — la valeur se règle dans globals.css."
+done < <(find apps/web \
+           \( -name node_modules -o -name .next -o -name storybook-static \) -prune -o \
+           -type f -name '*.tsx' -print 2>/dev/null | sort)
+
+echo
 if [ "$fail" -eq 0 ]; then
-  echo "✓ Aucune couleur en dur : tout passe par les jetons du thème."
+  echo "✓ Aucune couleur en dur, aucun interlettrage de titre hors jeton : tout passe par les jetons du thème."
 else
   echo "✗ Voir ci-dessus. Si une exception est réellement légitime, l'AJOUTER NOMMÉMENT dans est_exempte(), avec sa raison."
 fi

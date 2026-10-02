@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@hifago/ui";
 import { Link, useRouter } from "@/i18n/navigation";
 import { empujarConservandoQuery } from "@/lib/navigation/conservarQuery";
 import { IconButton } from "@/components/atoms/IconButton";
 import { IconLink } from "@/components/atoms/IconLink";
+import { LogoHifago } from "@/components/atoms/LogoHifago";
+import { COLUMNA_PORTADA } from "@/components/atoms/PageShell";
 import { useCart } from "@/lib/cart/CartContext";
-import { SiteMenu } from "./SiteMenu";
+import { LanguageSwitcher } from "./LanguageSwitcher";
+import { IconeCompte, ROUTE_COMPTE, ROUTE_CONNEXION, SiteMenu } from "./SiteMenu";
 
 // Le header de la vitrine (2026-09-02, vague 4). ⚠️ L'app n'en avait AUCUN : ni `<header>`, ni
 // `<nav>`, ni `<footer>` nulle part. Ce composant introduit donc les premiers landmarks du site.
@@ -58,8 +61,45 @@ export type SiteHeaderProps = {
    * `isAuthenticated` de `pago/page.tsx`.
    */
   isAuthenticated: boolean;
+  /**
+   * L'ACCUEIL (maquette fournie par Jérôme le 2026-10-01) : le header est posé PAR-DESSUS le héros,
+   * sans fond tant que la page n'a pas défilé — l'illustration de la rue aux zócalos passe dessous.
+   * Pas de logo (le héros porte le grand), les deux langues en ligne à gauche (« ESP · ING »),
+   * Mi viaje et Mi cuenta à droite, visibles à toutes les largeurs : il n'y a plus rien à replier
+   * derrière un bouton de menu. Choisi par la coquille (`CoquillaVitrine`), qui connaît la route.
+   */
+  transparente?: boolean;
   testId?: string;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// LE HEADER TRANSPARENT RESTE COLLANT — et c'est pour ça qu'il lui faut un fond une fois défilé
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+//
+// Le header suit le défilement depuis le 2026-09-02 (demande de Jérôme). Transparent ET collant,
+// il ferait défiler les sections SOUS les icônes, sans rien entre les deux — illisible dès la
+// première photo. Il prend donc l'or de la page dès qu'on a quitté le haut : transparent sur le
+// héros, comme la maquette, opaque partout ailleurs.
+//
+// `useSyncExternalStore` et non un `useState` posé depuis un écouteur : React ne re-rend que quand
+// le BOOLÉEN change (deux fois par aller-retour), pas à chaque événement de défilement, et le rendu
+// serveur reçoit `false` — le HTML servi est celui du haut de page, transparent.
+const SEUIL_DEFILEMENT_PX = 8;
+
+// Hors du composant : une fonction d'abonnement recréée à chaque rendu ferait se réabonner React à
+// chaque rendu.
+function abonnerDefilement(alChanger: () => void) {
+  window.addEventListener("scroll", alChanger, { passive: true });
+  return () => window.removeEventListener("scroll", alChanger);
+}
+
+function useADefile(actif: boolean) {
+  return useSyncExternalStore(
+    abonnerDefilement,
+    () => actif && window.scrollY > SEUIL_DEFILEMENT_PX,
+    () => false
+  );
+}
 
 // SVG inline : `lucide-react` est présent dans node_modules mais déclaré par `packages/ui`, PAS par
 // `apps/web` — l'importer créerait la dépendance fantôme qui a cassé le build Vercel le
@@ -97,30 +137,10 @@ function IconeFermer() {
   );
 }
 
-// Le logo, INLINÉ et non chargé depuis `public/logo-hifago.svg`. ⚠️ Ce n'est pas une préférence :
-// `currentColor` n'est hérité que par un SVG présent dans le document. Via `<img>` ou `next/image`,
-// le fichier devient un document isolé, retombe sur le noir, et le logo disparaîtrait en mode
-// sombre. Le fichier existe quand même dans `public/` pour les usages hors DOM (favicon, image de
-// partage) — les deux portent le même tracé, provisoire, jusqu'au vrai logo.
-function LogoHifago() {
-  return (
-    <svg viewBox="0 0 132 32" className="h-7 w-auto" aria-hidden="true">
-      <text
-        x="0"
-        y="24"
-        fontFamily="system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
-        fontSize="26"
-        fontWeight="600"
-        letterSpacing="-0.5"
-        fill="currentColor"
-      >
-        hifago
-      </text>
-    </svg>
-  );
-}
+// Le logo vit dans `components/atoms/LogoHifago.tsx` depuis le 2026-10-01 : il sert aussi la zone
+// auth, et la règle veut qu'un composant partagé par deux endroits y remonte.
 
-export function SiteHeader({ isAuthenticated, testId }: SiteHeaderProps) {
+export function SiteHeader({ isAuthenticated, transparente = false, testId }: SiteHeaderProps) {
   const t = useTranslations("Chrome");
   const router = useRouter();
   const { lines } = useCart();
@@ -130,6 +150,7 @@ export function SiteHeader({ isAuthenticated, testId }: SiteHeaderProps) {
   // README interdit `forwardRef` dans ce dépôt, et aucun composant n'en a. Le focus se rend donc
   // en retrouvant le <button> dans son enveloppe, ce qui ne demande rien à l'atome.
   const enveloppeBouton = useRef<HTMLDivElement>(null);
+  const aDefile = useADefile(transparente);
 
   // ⚠️ CE QUE LA PASTILLE COMPTE : le nombre de LIGNES du panier, pas la somme des quantités
   // (décision de Jérôme, 2026-09-02). Une réservation « Paseo en lancha, 3 personnes » est UNE
@@ -162,9 +183,67 @@ export function SiteHeader({ isAuthenticated, testId }: SiteHeaderProps) {
     />
   );
 
+  const panier =
+    nombreArticles > 0 ? (
+      <Badge.Anchor>
+        {lienPanier}
+        {/* ⚠️ `default` (bleu poudre) sur le header transparent de l'accueil : la pastille `accent`
+            y serait de l'OR posé sur l'or de la page — un chiffre flottant sans pastille. */}
+        <Badge color={transparente ? "default" : "accent"} size="sm" placement="top-right">
+          {/* ⚠️ Au-delà de 99, on affiche « 99+ » : trois chiffres élargissent la pastille au point
+              de déborder du bouton, et le compte exact n'apprend plus rien à ce stade. Le nom
+              accessible du lien, lui, garde le nombre réel. */}
+          <Badge.Label>{nombreArticles > 99 ? "99+" : nombreArticles}</Badge.Label>
+        </Badge>
+      </Badge.Anchor>
+    ) : (
+      // Panier vide : pas de pastille « 0 ». Un zéro permanent est du bruit, et le nom accessible
+      // dit déjà « Mi viaje, vacío ».
+      lienPanier
+    );
+
+  if (transparente) {
+    return (
+      // `fixed` et non `sticky` : le header doit SORTIR du flux pour que le héros commence sous lui,
+      // tout en haut de l'écran (la page s'en charge — `PageShell variant="portada"`). `z-50`, comme
+      // l'autre variante. Les couleurs du texte viennent de la page : marine sur or.
+      <header
+        className={`fixed inset-x-0 top-0 z-50 transition-[background-color,box-shadow] duration-200 ${
+          aDefile
+            ? "bg-accent shadow-[0_8px_16px_-12px_color-mix(in_oklab,var(--accent-foreground)_60%,transparent)]"
+            : "bg-transparent"
+        }`}
+        data-defile={aDefile ? "" : undefined}
+        data-testid={testId}
+      >
+        {/* `COLUMNA_PORTADA` : la colonne du héros, importée et non recopiée — les drapeaux tombent
+            ainsi à l'aplomb du logo, comme sur la maquette. `h-16` : le héros réserve exactement
+            cette hauteur au-dessus de son logo (`PortadaInicio`). */}
+        <div className={`${COLUMNA_PORTADA} flex h-16 items-center justify-between gap-2`}>
+          <LanguageSwitcher apariencia="banderas" testId={testId ? `${testId}-language` : undefined} />
+          <nav aria-label={t("navLabel")} className="flex items-center gap-1">
+            {panier}
+            {/* Le compte, hors du panneau `SiteMenu` : rien d'autre n'y serait rangé ici, et la
+                maquette ne prévoit aucun bouton de menu. Même route, même icône, même choix
+                compte / connexion — importés de `SiteMenu`, jamais recopiés. */}
+            <IconLink
+              href={isAuthenticated ? ROUTE_COMPTE : ROUTE_CONNEXION}
+              icon={<IconeCompte />}
+              label={isAuthenticated ? t("accountLabel") : t("loginLabel")}
+              testId={testId ? `${testId}-account` : undefined}
+            />
+          </nav>
+        </div>
+      </header>
+    );
+  }
+
   return (
     // `sticky top-0` : le header suit le défilement (demande de Jérôme). `z-50` le place au-dessus
     // du contenu, et le fond est opaque — sans lui le texte défilerait visiblement dessous.
+    //
+    // L'accueil, seule page posée sur l'or, a sa propre variante (`transparente`, plus haut) : la
+    // version or-sur-or de ce header, pilotée par `:has()`, a disparu avec elle le 2026-10-01.
     <header
       className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]"
       data-testid={testId}
@@ -193,21 +272,7 @@ export function SiteHeader({ isAuthenticated, testId }: SiteHeaderProps) {
         <nav aria-label={t("navLabel")} className="flex items-center gap-1">
           {/* Le panier est visible à TOUTES les largeurs : c'est l'action qui compte sur ce site,
               elle ne se cache pas derrière un menu. */}
-          {nombreArticles > 0 ? (
-            <Badge.Anchor>
-              {lienPanier}
-              <Badge color="accent" size="sm" placement="top-right">
-                {/* ⚠️ Au-delà de 99, on affiche « 99+ » : trois chiffres élargissent la pastille
-                    au point de déborder du bouton, et le compte exact n'apprend plus rien à ce
-                    stade. Le nom accessible du lien, lui, garde le nombre réel. */}
-                <Badge.Label>{nombreArticles > 99 ? "99+" : nombreArticles}</Badge.Label>
-              </Badge>
-            </Badge.Anchor>
-          ) : (
-            // Panier vide : pas de pastille « 0 ». Un zéro permanent est du bruit, et le nom
-            // accessible dit déjà « Mi viaje, vacío ».
-            lienPanier
-          )}
+          {panier}
 
           {/* Le panneau de navigation, extrait dans `SiteMenu` : une liste d'entrées puis la
               langue en bas, repliée sous `md` et rendue en ligne au-dessus. Un seul balisage — voir
