@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Dialogue socio « Cliente no vino » / « Cancelar reserva ». Représentatif des sept dialogues qui
 // affichaient le texte brut d'une erreur de RPC : ce fichier prouve que l'écran reçoit un texte
@@ -41,6 +41,7 @@ describe("SetOrderLineStatusDialog — erreur de la RPC", () => {
     toast.danger.mockClear();
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
+  afterEach(() => vi.restoreAllMocks());
 
   it("erreur métier : le texte du dialogue, jamais le message SQL", async () => {
     reponse = {

@@ -2,8 +2,9 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Import des photos LobbyPMS d'un logement. La route répond 503 quand elle n'a pas pu lire ce dont
-// elle a besoin (échec fermé) : ce fichier prouve que l'admin lit « réessaie », jamais le texte
-// générique qui laisse croire à un refus.
+// elle a besoin (échec fermé), avec un `reason` : ce fichier prouve que ces deux `reason` sont
+// traduits par « réessaie », jamais par le texte générique qui laisse croire à un refus. (Le
+// composant lit le `reason`, pas le statut HTTP.)
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), danger: vi.fn(), info: vi.fn() }));
 
@@ -24,7 +25,7 @@ function repondre(status: number, reason: string) {
   );
 }
 
-describe("ImportLobbyPhotosBlock — réponses 503", () => {
+describe("ImportLobbyPhotosBlock — raisons des réponses 503", () => {
   beforeEach(() => toast.danger.mockClear());
   afterEach(() => vi.restoreAllMocks());
 
