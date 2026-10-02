@@ -9,8 +9,9 @@ import { createClient } from "@hifago/supabase/client";
 // le conserve tel quel), mais un contrôle rouge qu'on laisse rouge cesse d'en être un.
 import { useRouter } from "@/i18n/navigation";
 import { useCart } from "@/lib/cart/CartContext";
-import { Button, cn } from "@hifago/ui";
+import { Button } from "@hifago/ui";
 import { Card } from "@/components/atoms/Card";
+import { Aviso } from "@/components/molecules/Aviso";
 import { Price } from "@/components/atoms/Price";
 import { formatLineSchedule } from "@/lib/orders/formatLineSchedule";
 import { computeTripRange, formatTripLabel } from "@/lib/orders/tripRange";
@@ -84,42 +85,24 @@ export function CartSummary({ lines, editable, locale }: CartSummaryProps) {
     >
       {/* Plan 41, F6 : les lignes ne sont plus des boîtes bordées de marine DANS une carte bordée
           de marine (rendu « fil de fer ») — des rangées séparées par le filet `--separator`.
-          ⚠️ La ligne indisponible n'est pas une boîte bordée non plus, et pas seulement par goût :
-          la règle de `divide-y` (`> :not(:last-child)`) est plus spécifique que `border` et
-          retirerait son trait du haut. Teinte seule, sur le conteneur INTÉRIEUR pour garder le
-          rythme des rangées, en attendant l'`Aviso` compact de S6 ; le message reste du texte,
-          l'état ne repose pas sur la couleur. `-mx-3` la fait déborder dans le padding de la
-          carte : son texte garde la largeur des autres lignes (sans lui, 24 px de moins, mesuré
-          à 390 px : le nom passait sur quatre lignes). */}
+          La ligne indisponible garde la forme des autres : son message est un `Aviso` compact
+          (S6) SOUS la rangée, sur toute sa largeur — dans la colonne du nom, il n'avait que la
+          moitié de la ligne et passait sur quatre lignes à 390 px. */}
       <ul className="flex flex-col divide-y divide-separator">
         {lines.map((line, i) => (
           <li
             key={line.id}
             data-testid={`cart-line-${line.id}`}
             data-unavailable={line.unavailable}
-            className="py-4 first:pt-0 last:pb-0"
+            className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0"
           >
-            <div
-              className={cn(
-                "flex items-center justify-between gap-4 text-sm",
-                line.unavailable && "-mx-3 rounded-lg bg-danger/10 p-3"
-              )}
-            >
+            <div className="flex items-center justify-between gap-4 text-sm">
               <div className="flex flex-col">
                 <span className="font-medium">{line.productName}</span>
                 <span className="text-muted">
                   {line.establishmentName} · {formatLineSchedule(line)} ·{" "}
                   {t("lineQty", { count: line.qty })}
                 </span>
-                {line.unavailable ? (
-                  <span
-                    role="alert"
-                    data-testid={`unavailable-${line.id}`}
-                    className="text-xs text-danger"
-                  >
-                    {t("lineUnavailable")}
-                  </span>
-                ) : null}
               </div>
               <div className="flex items-center gap-3">
                 <Price amountCop={totalesPorLinea[i]} locale={locale} />
@@ -137,6 +120,16 @@ export function CartSummary({ lines, editable, locale }: CartSummaryProps) {
                 ) : null}
               </div>
             </div>
+            {line.unavailable ? (
+              <Aviso
+                tono="error"
+                compacto
+                rol="alert"
+                testId={`unavailable-${line.id}`}
+              >
+                {t("lineUnavailable")}
+              </Aviso>
+            ) : null}
           </li>
         ))}
       </ul>

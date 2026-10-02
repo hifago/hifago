@@ -7,6 +7,7 @@ import { Button } from "@/components/atoms/Button";
 import { TextField, Input, Label } from "@hifago/ui";
 import { signOutAndGoHome } from "./signOutAndGoHome";
 import { Title } from "@/components/atoms/Title";
+import { Aviso } from "@/components/molecules/Aviso";
 
 // Spec 35 décisions ④/⑪ — confirmation forte et définitive, bloquée en amont pour un compte
 // professionnel. Même patron de confirmation-remplace-le-bouton que `CancelLineButton.tsx`
@@ -73,90 +74,101 @@ export function DeleteAccountSection({
     await signOutAndGoHome(router);
   }
 
+  // Plan 41, S6 : la zone n'est plus une boîte maison (et, en confirmation, une seconde boîte rouge
+  // DANS la première) mais un `Aviso`. Le `<h2>` reste AU-DESSUS, titre de section de la page dans
+  // la police de titre : un titre d'`Aviso` est un `<p>`, il sortirait la section de la hiérarchie.
+  // Compte professionnel : ton « alerte », pas « erreur » — rien n'a échoué, une condition manque.
   if (hasProfessionalCapability) {
     return (
-      <section className="flex flex-col gap-2 rounded-lg border border-default-200 p-4" data-testid="delete-account-section">
+      <section className="flex flex-col gap-3" data-testid="delete-account-section">
         <Title as="h2" size="bloque">
           {t("deleteSectionTitle")}
         </Title>
-        <p className="text-sm text-muted" data-testid="delete-blocked-capability">
-          {t("deleteBlockedByCapability")}
-        </p>
+        <Aviso tono="alerta">
+          <p data-testid="delete-blocked-capability">{t("deleteBlockedByCapability")}</p>
+        </Aviso>
       </section>
     );
   }
 
+  // Le formulaire qui remplace le bouton. Plus de bordure ni de teinte à lui : il est déjà dans
+  // l'encadré rouge (plan 41, F6 : fin des bordures imbriquées). `w-full` : la rangée d'actions de
+  // l'`Aviso` est un flex qui passe à la ligne, le formulaire en prend toute la largeur. Une
+  // variable JSX, jamais un composant déclaré ici : recréé à chaque rendu, il remonterait le champ
+  // (et perdrait le focus) à chaque frappe.
+  const action = !isConfirming ? (
+    <Button
+      type="button"
+      variant="outline"
+      color="danger"
+      size="sm"
+      width="auto"
+      onPress={() => setIsConfirming(true)}
+      testId="delete-account-button"
+    >
+      {t("deleteButton")}
+    </Button>
+  ) : (
+    <form
+      ref={confirmRef}
+      onSubmit={handleConfirm}
+      noValidate
+      role="alert"
+      className="flex w-full flex-col gap-2"
+      data-testid="delete-account-confirm"
+    >
+      <TextField name="confirm-email" value={confirmEmail} onChange={setConfirmEmail} isRequired>
+        <Label>{t("deleteConfirmLabel", { email })}</Label>
+        <Input type="email" autoComplete="off" data-testid="delete-account-email-input" />
+      </TextField>
+      {erreur === "mismatch" ? (
+        <p role="alert" className="text-sm text-danger" data-testid="delete-account-mismatch">
+          {t("deleteConfirmMismatch")}
+        </p>
+      ) : null}
+      {erreur === "failed" ? (
+        <p role="alert" className="text-sm text-danger" data-testid="delete-account-error">
+          {t("deleteError")}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="submit"
+          color="danger"
+          size="sm"
+          isPending={isSubmitting}
+          pendingLabel={t("deleting")}
+          testId="delete-account-confirm-yes"
+        >
+          {t("deleteConfirmYes")}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          color="neutral"
+          size="sm"
+          isDisabled={isSubmitting}
+          onPress={() => {
+            setIsConfirming(false);
+            setConfirmEmail("");
+            setErreur(null);
+          }}
+          testId="delete-account-confirm-no"
+        >
+          {t("deleteConfirmNo")}
+        </Button>
+      </div>
+    </form>
+  );
+
   return (
-    <section className="flex flex-col gap-2 rounded-lg border border-default-200 p-4" data-testid="delete-account-section">
+    <section className="flex flex-col gap-3" data-testid="delete-account-section">
       <Title as="h2" size="bloque">
         {t("deleteSectionTitle")}
       </Title>
-      <p className="text-sm text-muted">{t("deleteSectionDescription")}</p>
-
-      {!isConfirming ? (
-        <Button
-          type="button"
-          variant="outline"
-          color="danger"
-          size="sm"
-          width="auto"
-          onPress={() => setIsConfirming(true)}
-          testId="delete-account-button"
-        >
-          {t("deleteButton")}
-        </Button>
-      ) : (
-        <form
-          ref={confirmRef}
-          onSubmit={handleConfirm}
-          noValidate
-          role="alert"
-          className="flex flex-col gap-2 rounded-lg border border-danger bg-danger/10 p-3"
-          data-testid="delete-account-confirm"
-        >
-          <TextField name="confirm-email" value={confirmEmail} onChange={setConfirmEmail} isRequired>
-            <Label>{t("deleteConfirmLabel", { email })}</Label>
-            <Input type="email" autoComplete="off" data-testid="delete-account-email-input" />
-          </TextField>
-          {erreur === "mismatch" ? (
-            <p role="alert" className="text-sm text-danger" data-testid="delete-account-mismatch">
-              {t("deleteConfirmMismatch")}
-            </p>
-          ) : null}
-          {erreur === "failed" ? (
-            <p role="alert" className="text-sm text-danger" data-testid="delete-account-error">
-              {t("deleteError")}
-            </p>
-          ) : null}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="submit"
-              color="danger"
-              size="sm"
-              isPending={isSubmitting}
-              pendingLabel={t("deleting")}
-              testId="delete-account-confirm-yes"
-            >
-              {t("deleteConfirmYes")}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              color="neutral"
-              size="sm"
-              isDisabled={isSubmitting}
-              onPress={() => {
-                setIsConfirming(false);
-                setConfirmEmail("");
-                setErreur(null);
-              }}
-              testId="delete-account-confirm-no"
-            >
-              {t("deleteConfirmNo")}
-            </Button>
-          </div>
-        </form>
-      )}
+      <Aviso tono="error" accion={action}>
+        <p>{t("deleteSectionDescription")}</p>
+      </Aviso>
     </section>
   );
 }
