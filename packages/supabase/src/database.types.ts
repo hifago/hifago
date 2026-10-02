@@ -3257,6 +3257,10 @@ export type Database = {
         Args: { p_batch_size?: number; p_campaign_id: string }
         Returns: Json
       }
+      product_slug_from_name: {
+        Args: { p_exclude?: string; p_name: Json }
+        Returns: string
+      }
       provision_evento_availability: {
         Args: { p_horizon?: string; p_product_id: string }
         Returns: undefined
@@ -3308,6 +3312,10 @@ export type Database = {
           p_entity_type: string
           p_ordered_media_ids: string[]
         }
+        Returns: Json
+      }
+      replace_product_slot_rules: {
+        Args: { p_product_id: string; p_rules: Json }
         Returns: Json
       }
       request_payment_refund: {
