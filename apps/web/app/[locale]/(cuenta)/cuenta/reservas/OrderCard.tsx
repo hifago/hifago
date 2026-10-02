@@ -51,8 +51,13 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
       subtitle={tEtat(`status.${state}`)}
       testId={`order-card-${order.id}`}
       contentGap="md"
+      padding="lg"
     >
-      <ul className="flex flex-col gap-3">
+      {/* Plan 41, F6 : des rangées séparées par le filet `--separator`, plus des boîtes bordées
+          de marine dans la carte bordée de marine. Même balisage que `CartSummary` et
+          `OrderResult`. Une prestation annulée ne se signale plus par une bordure pâle : son
+          texte grisé, son nom barré et son libellé de statut le disent. */}
+      <ul className="flex flex-col divide-y divide-separator">
         {order.lines.map((line) => {
           const isDead = isDeadLine(line.status);
           // Dernière prestation encore active : la confirmation doit alors prévenir que toute la
@@ -65,8 +70,8 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
               key={line.id}
               data-testid={`order-line-${line.id}`}
               data-status={line.status}
-              className={`flex flex-col gap-2 rounded-lg border p-3 text-sm ${
-                isDead ? "border-default-200 text-muted" : "border"
+              className={`flex flex-col gap-2 py-4 text-sm first:pt-0 last:pb-0 ${
+                isDead ? "text-muted" : ""
               }`}
             >
               {/* Sous `md`, les montants passent SOUS le libellé plutôt qu'à sa droite : rien n'est

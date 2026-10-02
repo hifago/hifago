@@ -349,8 +349,17 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
         </Button>
       ) : null}
 
-      <Card title={tripLabel} titleAs="h2" titleSize="bloque" contentGap="md" testId="trip-summary">
-        <ul className="flex flex-col gap-3">
+      <Card
+        title={tripLabel}
+        titleAs="h2"
+        titleSize="bloque"
+        contentGap="md"
+        padding="lg"
+        testId="trip-summary"
+      >
+        {/* Plan 41, F6 : rangées séparées par le filet `--separator`, plus des boîtes bordées de
+            marine dans la carte bordée de marine — même balisage que `CartSummary`/`OrderCard`. */}
+        <ul className="flex flex-col divide-y divide-separator">
           {order.lines.map((line) => {
             const isDead = isDeadLine(line.status);
             return (
@@ -363,8 +372,8 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
                   // masqué selon la largeur, on réorganise (.claude/rules/ui.md) — même patron que
                   // OrderCard.tsx (`/cuenta/reservas`), nécessaire depuis que ce `<li>` porte un
                   // `<dl>` à deux montants et pas un seul `<Price>` court.
-                  "flex flex-col gap-2 rounded-lg border p-3 text-sm sm:flex-row sm:items-start sm:justify-between",
-                  isDead ? "border-default-200 text-muted" : "border"
+                  "flex flex-col gap-2 py-4 text-sm first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between",
+                  isDead && "text-muted"
                 )}
               >
                 <div className="flex flex-col gap-1">
@@ -441,7 +450,7 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
           })}
         </ul>
 
-        <dl className="flex flex-col gap-1 border-t pt-3 text-sm">
+        <dl className="flex flex-col gap-1 border-t border-separator pt-4 text-sm">
           <div className="flex justify-between font-medium">
             <dt>{t("total")}</dt>
             <dd>

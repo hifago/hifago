@@ -97,6 +97,21 @@ describe("Card", () => {
     expect(aere.querySelector("[data-slot='card-content']")?.className).toContain("gap-6");
   });
 
+  // Plan 41, F6 : les cartes de contenu prennent 20 → 24 px. Le défaut ne pose aucune classe, et
+  // c'est ce qui garde les tuiles et les fiches au `p-4` de HeroUI.
+  it("n'élargit le padding que quand on le demande, et jamais sur la carte overlay", () => {
+    const parDefaut = carte(<Card title="T" titleAs="h2"><p>x</p></Card>);
+    const ample = carte(<Card title="T" titleAs="h2" padding="lg"><p>x</p></Card>);
+    const overlay = carte(
+      <Card title="T" titleAs="h2" layout="overlay" padding="lg" media={<div />}><p>x</p></Card>
+    );
+    expect(parDefaut.className).not.toMatch(/\bp-[56]\b/);
+    expect(ample.className).toContain("p-5");
+    expect(ample.className).toContain("sm:p-6");
+    expect(overlay.className).toContain("p-0");
+    expect(overlay.className).not.toContain("p-5");
+  });
+
   it("ne rend ni en-tête ni contenu quand il n'y a rien à y mettre", () => {
     const el = carte(<Card testId="vide" />);
     expect(el.querySelector("[data-slot='card-header']")).toBeNull();
@@ -276,6 +291,19 @@ describe("Card", () => {
     expect(enveloppe.className).toContain("-mt-4");
     expect(el.className).toContain("overflow-hidden");
     expect(enveloppe.querySelector("[data-testid='photo']")).not.toBeNull();
+  });
+
+  // Sans ce suivi, un visuel dans une carte `padding="lg"` resterait en retrait de 4 à 8 px.
+  it("garde le visuel à fleur de carte quand le padding s'élargit", () => {
+    const el = carte(
+      <Card title="T" titleAs="h2" padding="lg" media={<div />} testId="ample">
+        <p>x</p>
+      </Card>
+    );
+    const enveloppe = el.querySelector("[data-testid='ample-media']") as HTMLElement;
+    expect(enveloppe.className).toContain("-mx-5");
+    expect(enveloppe.className).toContain("sm:-mt-6");
+    expect(enveloppe.className).not.toContain("-mx-4");
   });
 
   it("ne rogne pas une carte sans visuel : l'overflow-visible de HeroUI est laissé en place", () => {

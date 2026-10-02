@@ -321,13 +321,18 @@ export function ReservationForm({
                   // `row.date` lui-même (la boucle qui le construit pose `i=0 → map.set(row.date,
                   // row.date)`), donc `handleSelectDate` retrouve exactement ce départ.
                   onClick={() => handleSelectDate(parseISO(row.date))}
+                  // Plan 41, F6 : une tuile pleine, plus une boîte bordée de marine dans la carte
+                  // bordée de marine. Le contour marine de 2 px (≈ 11:1 sur la tuile) dit le
+                  // survol et le choix ; il est réservé TRANSPARENT au repos pour que la tuile ne
+                  // bouge pas d'un pixel quand il apparaît. `rounded-[12px]` en valeur fixe :
+                  // l'échelle `rounded-*` dérive de `--radius` (plan 41 §3.4).
                   className={cn(
-                    "flex flex-col items-start gap-1 rounded-md border p-3 text-left transition-colors",
+                    "flex flex-col items-start gap-1 rounded-[12px] border-2 bg-surface-secondary p-3 text-left transition-colors",
                     isFull
-                      ? "cursor-not-allowed border-border opacity-50 line-through"
+                      ? "cursor-not-allowed border-transparent opacity-50 line-through"
                       : isSelected
-                        ? "border-accent bg-surface-secondary"
-                        : "border-border hover:bg-surface-secondary"
+                        ? "border-border"
+                        : "border-transparent hover:border-border"
                   )}
                 >
                   <span className="text-xs font-medium text-muted">

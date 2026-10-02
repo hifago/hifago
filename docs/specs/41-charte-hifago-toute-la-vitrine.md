@@ -2193,7 +2193,7 @@ remarque.
 | F3 | Surfaces or / clair / marine | fait | 2026-10-02 | 713f5ee | `data-superficie` = `or` / `marine` / `clara` dans `globals.css` (valeurs du §3.2, `clara` relit les valeurs du thème via `--clara-*`) + `--punto-titulo`, `--trazo-titulo`, `--flecha-go` ; `--field-border-hover/-focus` redéclarés par surface. Écart de forme : `PageShell fondo="acento"` pose `data-superficie="or"` sur le `<main>` au lieu d'une règle sur `main[data-fondo]` ; header `transparente` idem. Mesuré : état vide de l'accueil 3,17 → 6,31:1 ; `Contrastes` 161 couples sans échec ; pages claires et popovers identiques au pixel. **Écart validé par Jérôme** (2026-10-02, gardé) : contour de « Mi viaje » (accueil, sous `md`) bleu moyen → marine, il lisait `--muted` |
 | F4 | Boutons | à faire | | | |
 | F5 | Sugo d'essai retirée de Storybook | fait | 2026-10-02 | non commité | révisé après D5 = B : Sugo retirée au lieu d'un `unicode-range` ; 9 captures (3 écrans × 360/390/1280) identiques au pixel au rendu Anton d'avant |
-| F6 | Fin des bordures imbriquées | à faire | | | |
+| F6 | Fin des bordures imbriquées | fait | 2026-10-02 | non commité | `Card padding="lg"` (additif : 20 → 24 px, le visuel à fleur suit) sur `CartSummary`, `OrderCard`, `OrderResult` ; lignes en `divide-y divide-separator`, 16 px ; totaux sous le même filet ; éditions de camp en tuiles `surface-secondary` 12 px, contour marine 2 px au survol et au choix (mesurés). **Reste pour S6** : ligne indisponible (teinte provisoire sans bordure, `-mx-3` pour garder la largeur du texte) et `DeleteAccountSection` |
 | F7 | Gabarit unique (`PageShell pagina`) | à faire | | | |
 | C1 | Header unique or | à faire | | | |
 | C2 | Pied de page marine | à faire | | | |

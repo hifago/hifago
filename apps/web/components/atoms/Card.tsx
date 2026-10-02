@@ -89,6 +89,10 @@ export type CardTitleLevel = "h2" | "h3" | "h4";
 export type CardTitleSize = "sm" | "md" | "lg" | "bloque";
 export type CardContentGap = "sm" | "md" | "lg";
 export type CardLayout = "stack" | "row" | "overlay";
+// `lg` : les cartes de CONTENU (récapitulatif du voyage, commande), 20 px puis 24 px à partir de
+// `sm` — plan 41, item F6 : leurs lignes ne sont plus des boîtes bordées mais des rangées séparées
+// par un filet, et c'est la carte qui donne l'air. `md` = le `p-4` de `.card` HeroUI, inchangé.
+export type CardPadding = "md" | "lg";
 
 type CardCommun = {
   /** Le corps de la carte. Rendu dans `Card.Content` — absent, le bloc n'existe pas. */
@@ -103,6 +107,8 @@ type CardCommun = {
   description?: ReactNode;
   /** L'écart entre les blocs du corps. `sm` = le défaut de HeroUI. */
   contentGap?: CardContentGap;
+  /** Le padding de la carte. `md` = le défaut de HeroUI (16 px). Sans effet en `overlay`. */
+  padding?: CardPadding;
   /**
    * `row` = vignette à gauche, texte à droite — la ligne produit d'une fiche établissement.
    * `overlay` = carte CARRÉE, le visuel la remplit entièrement et le texte est posé PAR-DESSUS, dans
@@ -180,6 +186,18 @@ const CONTENT_GAP_CLASSES: Record<CardContentGap, string> = {
   sm: "",
   md: "gap-3",
   lg: "gap-6",
+};
+
+// Même mécanisme : `p-5 sm:p-6` (couche `utilities`) bat le `p-4` de `.card` (couche
+// `components`). Le visuel `stack` annule ce padding pour venir à fleur de carte : sa marge
+// négative suit donc la même valeur, sinon il resterait en retrait de 4 à 8 px.
+const PADDING_CLASSES: Record<CardPadding, string> = {
+  md: "",
+  lg: "p-5 sm:p-6",
+};
+const MEDIA_A_FLEUR_CLASSES: Record<CardPadding, string> = {
+  md: "-mx-4 -mt-4",
+  lg: "-mx-5 -mt-5 sm:-mx-6 sm:-mt-6",
 };
 
 // L'overlay qui rend toute la carte cliquable. `after:content-['']` est écrit explicitement bien
@@ -294,6 +312,7 @@ export function Card({
   subtitle,
   description,
   contentGap = "sm",
+  padding = "md",
   layout = "stack",
   href,
   fullHeight = false,
@@ -308,7 +327,7 @@ export function Card({
     // fleur de carte. Ailleurs il retirerait sans raison l'`overflow-visible` de HeroUI, dont
     // dépendent les surcouches (popover, tooltip) qui débordent d'une carte.
     media && !estLigne && !estOverlay ? "overflow-hidden" : "",
-    estOverlay ? OVERLAY_CARTE_CLASS : "",
+    estOverlay ? OVERLAY_CARTE_CLASS : PADDING_CLASSES[padding],
     estLigne ? "flex-row items-center gap-4" : "",
     href ? `${CLICKABLE_CLASS} ${ENFANTS_INTERACTIFS_CLASS}` : "",
     // `.card` de HeroUI est déjà `flex flex-col` (card.css) : `h-full` suffit à l'étirer, et
@@ -402,9 +421,9 @@ export function Card({
               ? "col-start-1 row-start-1 min-h-0"
               : estLigne
               ? "w-16 shrink-0 overflow-hidden rounded-md"
-              : // Annule le `p-4` de `.card` : le visuel touche les bords et se fait rogner au
+              : // Annule le padding de la carte : le visuel touche les bords et se fait rogner au
                 // rayon des angles par le `overflow-hidden` posé plus haut.
-                "-mx-4 -mt-4"
+                MEDIA_A_FLEUR_CLASSES[padding]
           }
           data-testid={testId ? `${testId}-media` : undefined}
         >

@@ -74,55 +74,82 @@ export function CartSummary({ lines, editable, locale }: CartSummaryProps) {
   const tripLabel = formatTripLabel(computeTripRange(lines), locale, tTrip);
 
   return (
-    <Card title={tripLabel} titleAs="h2" titleSize="bloque" contentGap="md" testId="trip-summary">
-      <ul className="flex flex-col gap-3">
+    <Card
+      title={tripLabel}
+      titleAs="h2"
+      titleSize="bloque"
+      contentGap="md"
+      padding="lg"
+      testId="trip-summary"
+    >
+      {/* Plan 41, F6 : les lignes ne sont plus des boîtes bordées de marine DANS une carte bordée
+          de marine (rendu « fil de fer ») — des rangées séparées par le filet `--separator`.
+          ⚠️ La ligne indisponible n'est pas une boîte bordée non plus, et pas seulement par goût :
+          la règle de `divide-y` (`> :not(:last-child)`) est plus spécifique que `border` et
+          retirerait son trait du haut. Teinte seule, sur le conteneur INTÉRIEUR pour garder le
+          rythme des rangées, en attendant l'`Aviso` compact de S6 ; le message reste du texte,
+          l'état ne repose pas sur la couleur. `-mx-3` la fait déborder dans le padding de la
+          carte : son texte garde la largeur des autres lignes (sans lui, 24 px de moins, mesuré
+          à 390 px : le nom passait sur quatre lignes). */}
+      <ul className="flex flex-col divide-y divide-separator">
         {lines.map((line, i) => (
           <li
             key={line.id}
             data-testid={`cart-line-${line.id}`}
             data-unavailable={line.unavailable}
-            className={cn(
-              "flex items-center justify-between gap-4 rounded-lg border p-3 text-sm",
-              line.unavailable ? "border-danger bg-danger/10" : "border"
-            )}
+            className="py-4 first:pt-0 last:pb-0"
           >
-            <div className="flex flex-col">
-              <span className="font-medium">{line.productName}</span>
-              <span className="text-muted">
-                {line.establishmentName} · {formatLineSchedule(line)} ·{" "}
-                {t("lineQty", { count: line.qty })}
-              </span>
-              {line.unavailable ? (
-                <span role="alert" data-testid={`unavailable-${line.id}`} className="text-xs text-danger">
-                  {t("lineUnavailable")}
+            <div
+              className={cn(
+                "flex items-center justify-between gap-4 text-sm",
+                line.unavailable && "-mx-3 rounded-lg bg-danger/10 p-3"
+              )}
+            >
+              <div className="flex flex-col">
+                <span className="font-medium">{line.productName}</span>
+                <span className="text-muted">
+                  {line.establishmentName} · {formatLineSchedule(line)} ·{" "}
+                  {t("lineQty", { count: line.qty })}
                 </span>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-3">
-              <Price amountCop={totalesPorLinea[i]} locale={locale} />
-              {editable ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onPress={() => handleRemove(line.id)}
-                  isDisabled={removingId === line.id}
-                  data-testid={`remove-line-${line.id}`}
-                >
-                  {t("removeLine")}
-                </Button>
-              ) : null}
+                {line.unavailable ? (
+                  <span
+                    role="alert"
+                    data-testid={`unavailable-${line.id}`}
+                    className="text-xs text-danger"
+                  >
+                    {t("lineUnavailable")}
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-3">
+                <Price amountCop={totalesPorLinea[i]} locale={locale} />
+                {editable ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onPress={() => handleRemove(line.id)}
+                    isDisabled={removingId === line.id}
+                    data-testid={`remove-line-${line.id}`}
+                  >
+                    {t("removeLine")}
+                  </Button>
+                ) : null}
+              </div>
             </div>
           </li>
         ))}
       </ul>
 
-      <p className="text-lg font-medium" data-testid="cart-total">
-        {t("total")}: <Price amountCop={total} locale={locale} />
-      </p>
-      <p className="text-sm text-muted" data-testid="cart-total-now">
-        {t("totalNow")}: <Price amountCop={totalNow} locale={locale} />
-      </p>
+      {/* Le même filet que entre les lignes, et que celui des totaux d'`OrderResult`. */}
+      <div className="flex flex-col gap-1 border-t border-separator pt-4">
+        <p className="text-lg font-medium" data-testid="cart-total">
+          {t("total")}: <Price amountCop={total} locale={locale} />
+        </p>
+        <p className="text-sm text-muted" data-testid="cart-total-now">
+          {t("totalNow")}: <Price amountCop={totalNow} locale={locale} />
+        </p>
+      </div>
     </Card>
   );
 }
