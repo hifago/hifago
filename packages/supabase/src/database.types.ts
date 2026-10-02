@@ -2937,6 +2937,7 @@ export type Database = {
         Args: { p_error?: string; p_job: string; p_ok: boolean; p_stats?: Json }
         Returns: undefined
       }
+      html_text: { Args: { p_value: string }; Returns: string }
       invoke_payments_reconcile: { Args: never; Returns: undefined }
       invoke_pms_cancel_bookings: { Args: never; Returns: undefined }
       invoke_pms_nightly_contract_check: { Args: never; Returns: undefined }

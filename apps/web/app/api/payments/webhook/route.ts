@@ -135,7 +135,8 @@ export async function POST(request: Request) {
   // ⚠️ ORDRE VOULU : le tri par type passe AVANT la vérification de signature (inversé le
   // 2026-09-20). Mercado Pago envoie pour un même paiement des notifications `merchant_order` que
   // nous n'exploitons pas : les valider d'abord les faisait tomber en 401 et écrire une entrée de
-  // réconciliation — donc un e-mail à TOUS les admins (trigger 20260824060000) pour du bruit pur.
+  // réconciliation — donc un e-mail à TOUS les admins (trigger 20260824060000 ; les échecs de
+  // signature sont regroupés depuis la migration 20261002125023) pour du bruit pur.
   // Sur l'incident du 2026-09-20, 2 des 8 entrées étaient exactement ça. Ne rien authentifier ici
   // est sans risque : la branche ne fait rien, ne lit rien, n'écrit rien.
   if (notificationType !== "payment" || !dataId) {
@@ -168,6 +169,9 @@ export async function POST(request: Request) {
       mpPaymentId: dataId,
       body: rawBody,
       delivery: deliveryEvidence(request, url),
+      // ⚠️ Ce préfixe « signature invalide ( » est LU par le trigger
+      // notify_admin_new_reconciliation_exception (migration 20261002125023) : c'est lui qui désigne
+      // la classe d'entrées dont les e-mails admin sont étranglés. Ne pas le reformuler seul.
       failureReason: `signature invalide (${reason})`,
     });
     return new Response(null, { status: 401 });
