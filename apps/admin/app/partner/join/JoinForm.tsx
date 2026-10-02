@@ -7,8 +7,8 @@ import { Button, Checkbox, Input, Label, TextField, toast } from "@hifago/ui";
 import { OAuthSection } from "@/components/GoogleButton";
 import { PartnerTermsModal } from "./PartnerTermsModal";
 
-// Messages en français en dur : cette app, hors next-intl (cf. hifago/CLAUDE.md — l'i18n ne
-// vise qu'apps/web), pas une violation de la règle i18n.
+// Messages en espagnol en dur (2026-10-02 ; ils étaient en français) : cette app est hors
+// next-intl (cf. hifago/CLAUDE.md — l'i18n ne vise qu'apps/web), pas une violation de la règle i18n.
 const ERROR_MESSAGES: Record<string, string> = {
   invitation_not_found: "Este enlace de invitación no existe.",
   already_consumed: "Esta invitación ya fue utilizada.",

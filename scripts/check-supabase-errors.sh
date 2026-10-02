@@ -9,7 +9,7 @@
 # sur l'écran des exceptions de paiement. La règle : dans apps/{web,admin}/lib/ et dans les pages et
 # routes des deux apps (apps/web/app/ depuis le 2026-10-01, apps/admin/app/ depuis le 2026-10-02),
 # tout résultat Supabase attendu lit aussi son `error` (et lève, ou rend un échec explicite). Côté
-# admin, les pages passent par apps/admin/lib/supabase/checkedRead.ts.
+# admin, les pages passent par apps/admin/lib/supabase/checkedRead.ts, ou lèvent en ligne.
 #
 # Trois motifs, ceux par lesquels les sites corrigés étaient passés :
 #   - `const { data } = await …`, `const { data: x } = await …`, `const { count } = await …` ;

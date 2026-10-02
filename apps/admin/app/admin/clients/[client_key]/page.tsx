@@ -30,7 +30,14 @@ export default async function AdminClientDetailPage({
   params,
 }: PageProps<"/admin/clients/[client_key]">) {
   const { client_key } = await params;
-  const decodedKey = decodeURIComponent(client_key);
+  // Un `%` mal formé dans l'URL fait lever decodeURIComponent : une adresse inconnue (404), jamais
+  // l'écran d'erreur pour une faute de saisie.
+  let decodedKey: string;
+  try {
+    decodedKey = decodeURIComponent(client_key);
+  } catch {
+    notFound();
+  }
 
   const supabase = await createClient();
 

@@ -87,6 +87,12 @@ describe("/admin/clients/[client_key]", () => {
     await expect(resultat).rejects.not.toBeInstanceOf(Introuvable);
   });
 
+  it("clé mal encodée dans l'URL (`%` isolé) : 404 sans aucune lecture, jamais l'écran d'erreur", async () => {
+    reponse = PANNE;
+    await expect(ouvrir("ana%E0%A4%A")).rejects.toBeInstanceOf(Introuvable);
+    expect(lectures).toBe(0);
+  });
+
   it("client sans aucune commande : 404", async () => {
     reponse = { data: [], error: null };
     await expect(ouvrir("ana%40example.test")).rejects.toBeInstanceOf(Introuvable);
