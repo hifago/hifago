@@ -38,7 +38,7 @@ describe("uploadCatalogBlob", () => {
     repondre("Request Entity Too Large", { status: 413, json: false });
     await expect(uploadCatalogBlob("product", PHOTO)).resolves.toEqual({
       ok: false,
-      reason: "La foto es demasiado pesada (máx. 8 MB).",
+      reason: "La foto es demasiado pesada. Prueba con una imagen más liviana.",
     });
   });
 
@@ -59,7 +59,7 @@ describe("uploadCatalogBlob", () => {
   });
 
   it.each([
-    ["file_too_large", 413, "La foto es demasiado pesada (máx. 8 MB)."],
+    ["file_too_large", 413, "La foto es demasiado pesada. Prueba con una imagen más liviana."],
     ["unsupported_format", 415, "Formato no admitido: usa JPG, PNG o WebP."],
     ["authorization_unavailable", 503, "No se pudo verificar tu acceso en este momento. Vuelve a intentarlo."],
     ["not_authorized", 403, "No tienes permiso para subir esta foto."],

@@ -14,7 +14,9 @@ export type CatalogUploadEntity = "product" | "establishment" | "tag";
 export type CatalogUploadResult = { ok: true; storagePath: string } | { ok: false; reason: string };
 
 const ECHEC = "No se pudo subir la foto.";
-const TROP_LOURDE = "La foto es demasiado pesada (máx. 8 MB).";
+// Sans chiffre : la limite qui coupe d'abord n'est pas celle de la route (8 Mo) mais la limite de
+// corps de la plateforme, plus basse — un chiffre affiché serait faux sur l'un des deux chemins.
+const TROP_LOURDE = "La foto es demasiado pesada. Prueba con una imagen más liviana.";
 
 // Codes de refus du Route Handler (apps/admin/app/api/upload/[entity]/route.ts et
 // lib/media/catalogImage.ts). Un code absent d'ici retombe sur le message générique.

@@ -17,7 +17,8 @@ export type ImageCropProps = {
   /** Largeur/hauteur, ex. 4/3 ou 1 pour un carré — undefined = recadrage libre. */
   aspect?: number;
   onCancel: () => void;
-  onConfirm: (blob: Blob) => void;
+  /** Peut rendre une promesse : « Confirmar recorte » reste inactif jusqu'à sa résolution. */
+  onConfirm: (blob: Blob) => void | Promise<void>;
 };
 
 export function ImageCrop({ imageSrc, aspect, onCancel, onConfirm }: ImageCropProps) {
@@ -32,12 +33,19 @@ export function ImageCrop({ imageSrc, aspect, onCancel, onConfirm }: ImageCropPr
     setIsProcessing(true);
     setHasFailed(false);
     try {
-      const blob = await cropImageToBlob(imageSrc, croppedAreaPixels);
-      onConfirm(blob);
-    } catch {
-      // Image illisible par le navigateur, canvas indisponible : le dire, au lieu d'un bouton qui
-      // ne fait rien.
-      setHasFailed(true);
+      let blob: Blob;
+      try {
+        blob = await cropImageToBlob(imageSrc, croppedAreaPixels);
+      } catch {
+        // Image illisible par le navigateur, canvas indisponible : le dire, au lieu d'un bouton
+        // qui ne fait rien.
+        setHasFailed(true);
+        return;
+      }
+      // ATTENDU (2026-10-01) : le bouton reste inactif jusqu'à la fin de l'envoi que l'appelant
+      // déclenche. Sans cette attente, il se réactivait aussitôt, la modale encore ouverte, et un
+      // second clic relançait un second envoi.
+      await onConfirm(blob);
     } finally {
       setIsProcessing(false);
     }
