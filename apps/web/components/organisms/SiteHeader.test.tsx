@@ -150,6 +150,8 @@ describe("SiteHeader", () => {
     expect(header.querySelectorAll("nav").length).toBe(1);
     // ⚠️ Le logo n'est PAS un <h1> : le titre appartient à la page, pas à la marque.
     expect(header.querySelector("h1")).toBeNull();
+    // Le header des pages claires reste sur la surface claire du thème, jusqu'à l'item C1.
+    expect(header.hasAttribute("data-superficie")).toBe(false);
   });
 
   it("fait du logo un lien vers l'accueil, nommé", async () => {
@@ -419,6 +421,9 @@ describe("SiteHeader", () => {
         </NextIntlClientProvider>
       );
       expect(html).toContain("bg-transparent");
+      // Posé sur l'or, défilé ou non : il en porte la surface (plan 41, F3) — c'est elle qui passe
+      // son contour et son focus au marine. Déclarée sur le header lui-même, jamais sur le <body>.
+      expect(html).toContain('data-superficie="or"');
       expect(html).toContain('href="/es/productos/kayak"');
       expect(html).toContain('href="/en/productos/kayak"');
       expect(html).toContain('href="/entrar"');

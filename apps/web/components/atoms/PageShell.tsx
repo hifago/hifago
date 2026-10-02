@@ -32,8 +32,13 @@ export type PageShellProps = {
   /**
    * `"acento"` pose TOUTE la page sur l'or de la charte — <body> et header compris, sans bande
    * claire entre les sections (l'accueil, demande de Jérôme du 2026-10-01). La coquille ne fait que
-   * le DÉCLARER (`data-fondo`) : c'est `globals.css` qui le propage par `:has()` aux éléments rendus
-   * par les layouts, qui ne savent pas sur quelle page ils sont. Absent = le fond de page normal.
+   * le DÉCLARER, par deux attributs que lit `globals.css` :
+   *   - `data-fondo="acento"` : le fond or est propagé par `:has()` au <body>, rendu par le layout,
+   *     qui ne sait pas sur quelle page il est ;
+   *   - `data-superficie="or"` (plan 41, item F3) : le <main> devient une SURFACE or, qui redéfinit
+   *     ce qui s'y lit — texte discret, lien, focus, bordures en marine. Le <body> ne la reçoit
+   *     jamais : les popovers y sont rendus, sur fond blanc, et doivent garder les valeurs du clair.
+   * Absent = le fond de page normal, la surface claire du thème.
    */
   fondo?: "acento";
   testId?: string;
@@ -115,7 +120,12 @@ export const COLUMNA_PORTADA = "mx-auto w-full max-w-5xl px-5 sm:px-8";
 
 export function PageShell({ children, variant, fondo, testId }: PageShellProps) {
   return (
-    <main className={VARIANT_CLASSES[variant]} data-fondo={fondo} data-testid={testId}>
+    <main
+      className={VARIANT_CLASSES[variant]}
+      data-fondo={fondo}
+      data-superficie={fondo === "acento" ? "or" : undefined}
+      data-testid={testId}
+    >
       {children}
     </main>
   );

@@ -137,7 +137,27 @@ const JETONS_AFFICHES = [
   "--field-border", "--success", "--warning", "--danger", "--border", "--separator",
 ];
 
-type Mesures = { couples: { nom: string; ratio: number; seuil: number }[]; jetons: { nom: string; css: string }[] };
+type Ratio = { nom: string; ratio: number; seuil: number };
+type Mesures = { couples: Ratio[]; jetons: { nom: string; css: string }[] };
+
+/** Mesure chaque couple sur la sonde, donc dans le contexte (thème, piste, mode, surface) où elle est posée. */
+function mesurerCouples(sonde: HTMLElement, couples: Couple[]): Ratio[] {
+  return couples.map(({ nom, texte, fonds, seuil }) => ({
+    nom,
+    seuil,
+    ratio: contraste(versRgb([resoudre(sonde, texte)]), versRgb(fonds.map((f) => resoudre(sonde, f)))),
+  }));
+}
+
+/** Pose une sonde invisible dans `hote`, la passe à `mesure`, puis la retire. */
+function avecSonde<T>(hote: HTMLElement, mesure: (sonde: HTMLElement) => T): T {
+  const sonde = document.createElement("span");
+  sonde.style.cssText = "position:absolute;opacity:0;pointer-events:none";
+  hote.appendChild(sonde);
+  const resultat = mesure(sonde);
+  sonde.remove();
+  return resultat;
+}
 
 /**
  * Mesure tout ce qui est affiché, sur le panneau réel — donc dans son thème, sa piste, son mode.
@@ -154,26 +174,158 @@ function useMesures(): [(noeud: HTMLDivElement | null) => void, Mesures | null] 
 
   const attacher = React.useCallback((panneau: HTMLDivElement | null) => {
     if (!panneau) return;
-    const sonde = document.createElement("span");
-    sonde.style.cssText = "position:absolute;opacity:0;pointer-events:none";
-    panneau.appendChild(sonde);
-
-    setMesures({
-      couples: COUPLES.map(({ nom, texte, fonds, seuil }) => ({
-        nom,
-        seuil,
-        ratio: contraste(
-          versRgb([resoudre(sonde, texte)]),
-          versRgb(fonds.map((f) => resoudre(sonde, f)))
-        ),
-      })),
-      jetons: JETONS_AFFICHES.map((nom) => ({ nom, css: resoudre(sonde, `var(${nom})`) })),
-    });
-
-    sonde.remove();
+    setMesures(
+      avecSonde(panneau, (sonde) => ({
+        couples: mesurerCouples(sonde, COUPLES),
+        jetons: JETONS_AFFICHES.map((nom) => ({ nom, css: resoudre(sonde, `var(${nom})`) })),
+      }))
+    );
   }, []);
 
   return [attacher, mesures];
+}
+
+/** Même principe que `useMesures`, pour les couples d'une surface : la sonde est posée DANS la surface. */
+function useMesuresSurface(couples: Couple[]): [(noeud: HTMLDivElement | null) => void, Ratio[] | null] {
+  const [ratios, setRatios] = React.useState<Ratio[] | null>(null);
+
+  const attacher = React.useCallback(
+    (surface: HTMLDivElement | null) => {
+      if (!surface) return;
+      setRatios(avecSonde(surface, (sonde) => mesurerCouples(sonde, couples)));
+    },
+    [couples]
+  );
+
+  return [attacher, ratios];
+}
+
+/* ------------------------------------------------------------------------------------------- */
+/* Les trois surfaces de la charte — plan 41, item F3                                            */
+/* ------------------------------------------------------------------------------------------- */
+
+// Une surface (`data-superficie`, `globals.css`) redéfinit ce qui se lit sur son fond. Ces couples
+// sont ceux qui ÉCHOUAIENT avant elle — le texte discret de l'accueil mesurait 3.17:1 sur l'or — et
+// ceux que les items suivants poseront sur l'or et le marine (bandeaux, pied de page, rails). Les
+// fonds sont résolus DANS la surface : `var(--accent)` y reste l'or, puisqu'aucune surface ne le
+// redéfinit. La vitrine n'a plus de mode sombre (arbitrage D9 = A) : clair seulement.
+type Surface = {
+  cle: string;
+  titre: string;
+  superficie: "or" | "marine" | "clara";
+  /** La surface sur laquelle celle-ci est posée — un `Aviso` blanc (`clara`) sur l'or. */
+  sur?: "or";
+  couples: Couple[];
+};
+
+const SURFACES: Surface[] = [
+  {
+    cle: "or",
+    titre: "Or — accueil, navigation, bandeaux",
+    superficie: "or",
+    couples: [
+      { nom: "Texte courant sur l’or", texte: "var(--foreground)", fonds: ["var(--accent)"], seuil: 4.5 },
+      { nom: "Texte discret sur l’or", texte: "var(--muted)", fonds: ["var(--accent)"], seuil: 4.5 },
+      { nom: "Lien sur l’or", texte: "var(--link)", fonds: ["var(--accent)"], seuil: 4.5 },
+      { nom: "Anneau de focus sur l’or", texte: "var(--focus)", fonds: ["var(--accent)"], seuil: 3 },
+      { nom: "Bordure de champ sur l’or", texte: "var(--field-border)", fonds: ["var(--accent)"], seuil: 3 },
+    ],
+  },
+  {
+    cle: "marine",
+    titre: "Marine — rails, pied de page",
+    superficie: "marine",
+    couples: [
+      { nom: "Texte courant sur le marine", texte: "var(--foreground)", fonds: ["var(--charte-marine)"], seuil: 4.5 },
+      { nom: "Texte discret sur le marine", texte: "var(--muted)", fonds: ["var(--charte-marine)"], seuil: 4.5 },
+      { nom: "Lien sur le marine", texte: "var(--link)", fonds: ["var(--charte-marine)"], seuil: 4.5 },
+      { nom: "Anneau de focus sur le marine", texte: "var(--focus)", fonds: ["var(--charte-marine)"], seuil: 3 },
+    ],
+  },
+  {
+    cle: "aviso-sur-or",
+    titre: "Clara — un Aviso blanc posé sur l’or",
+    superficie: "clara",
+    sur: "or",
+    couples: [
+      { nom: "Texte de l’Aviso", texte: "var(--foreground)", fonds: ["var(--surface)"], seuil: 4.5 },
+      { nom: "Texte discret de l’Aviso", texte: "var(--muted)", fonds: ["var(--surface)"], seuil: 4.5 },
+      { nom: "Lien dans l’Aviso", texte: "var(--link)", fonds: ["var(--surface)"], seuil: 4.5 },
+      { nom: "Bordure de l’Aviso, sur l’or", texte: "var(--border)", fonds: ["var(--accent)"], seuil: 3 },
+    ],
+  },
+];
+
+function TableauRatios({ ratios }: { ratios: Ratio[] | null }) {
+  return (
+    <>
+      <table className="w-full text-xs">
+        <tbody>
+          {(ratios ?? []).map((c) => (
+            <tr key={c.nom} className="border-b border-separator">
+              <td className="py-1 pr-2">{c.nom}</td>
+              <td className="py-1 text-right font-mono tabular-nums">{c.ratio.toFixed(2)}</td>
+              <td className="py-1 pl-2 text-right whitespace-nowrap">
+                {/* Jamais la seule couleur : le mot est écrit. */}
+                {c.ratio >= c.seuil ? `✓ ≥ ${c.seuil}` : `✗ < ${c.seuil}`}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {ratios === null ? <p className="text-xs text-muted">Mesure en cours…</p> : null}
+    </>
+  );
+}
+
+function ApercuSurface() {
+  return (
+    <div className="flex flex-col gap-1 text-sm">
+      <p>Texte courant — nom de l’offre, prix.</p>
+      <p className="text-muted">Texte discret — durée, point de rendez-vous.</p>
+      {/* La couleur d'un lien, sans lien : un échantillon de palette ne mène nulle part. */}
+      <p className="text-link underline underline-offset-4">Un lien, souligné</p>
+    </div>
+  );
+}
+
+function PanneauSurface({ surface }: { surface: Surface }) {
+  const [attacher, ratios] = useMesuresSurface(surface.couples);
+  // L'élément mesuré est celui qui porte la surface : posé directement dans le panneau, ou, pour
+  // l'Aviso, dans une surface or qui l'entoure — c'est l'emboîtement réel qu'on veut prouver.
+  const mesuree = (
+    <div
+      ref={attacher}
+      data-superficie={surface.superficie}
+      className={
+        surface.sur
+          ? "relative rounded-[16px] border border-border bg-surface p-4"
+          : "relative rounded-[16px] p-4"
+      }
+    >
+      <ApercuSurface />
+    </div>
+  );
+
+  return (
+    <div
+      data-theme="vitrine"
+      data-mode="clair"
+      className="min-w-0 rounded-lg border border-border bg-background p-4 text-foreground"
+    >
+      <p className="mb-3 text-sm font-semibold">{surface.titre}</p>
+      <div className="mb-4">
+        {surface.sur ? (
+          <div data-superficie={surface.sur} className="rounded-[16px] p-4">
+            {mesuree}
+          </div>
+        ) : (
+          mesuree
+        )}
+      </div>
+      <TableauRatios ratios={ratios} />
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------------------------------- */
@@ -282,21 +434,7 @@ function PanneauMesure({ piste, mode }: { piste: string; mode: Mode }) {
         ))}
       </div>
 
-      <table className="w-full text-xs">
-        <tbody>
-          {(mesures?.couples ?? []).map((c) => (
-            <tr key={c.nom} className="border-b border-separator">
-              <td className="py-1 pr-2">{c.nom}</td>
-              <td className="py-1 text-right font-mono tabular-nums">{c.ratio.toFixed(2)}</td>
-              <td className="py-1 pl-2 text-right whitespace-nowrap">
-                {/* Jamais la seule couleur : le mot est écrit. */}
-                {c.ratio >= c.seuil ? `✓ ≥ ${c.seuil}` : `✗ < ${c.seuil}`}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {mesures === null ? <p className="text-xs text-muted">Mesure en cours…</p> : null}
+      <TableauRatios ratios={mesures?.couples ?? null} />
     </div>
   );
 }
@@ -415,6 +553,19 @@ export const Contrastes: Story = {
         qui identifie un composant (1.4.11 — bordure de champ, anneau de focus). Le filet décoratif
         d’une carte n’entre dans aucune des deux catégories et n’est pas listé.
       </p>
+      <section id="surfaces">
+        <h2 className="mb-2 text-xl">Surfaces de la charte (production)</h2>
+        <p className="mb-3 max-w-[75ch] text-sm">
+          Chaque surface (<code>data-superficie</code>, plan 41, item F3) redéfinit ce qui se lit sur
+          son fond. Mesuré dans la surface elle-même, en clair seulement : la vitrine n’a plus de
+          mode sombre (arbitrage D9).
+        </p>
+        <div className="grid gap-4 md:grid-cols-3">
+          {SURFACES.map((surface) => (
+            <PanneauSurface key={surface.cle} surface={surface} />
+          ))}
+        </div>
+      </section>
       {PISTES.map((piste) => (
         <section key={piste.cle}>
           <h2 className="mb-2 text-lg font-semibold">{piste.titre}</h2>

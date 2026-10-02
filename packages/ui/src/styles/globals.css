@@ -565,6 +565,129 @@
   }
 
   /* ------------------------------------------------------------------------------------------
+   * LES TROIS SURFACES — or, marine, clara (plan 41, item F3, 2026-10-02)
+   * ------------------------------------------------------------------------------------------
+   * Une SURFACE est un fond, et les jetons de ce qui s'y lit. Un composant posé dessus n'a rien à
+   * savoir : il lit `--muted`, `--link`, `--focus`… et c'est la surface qui leur a donné la valeur
+   * lisible sur SON fond. Elle se déclare par `data-superficie` sur l'élément qui porte le fond :
+   *   - `or`     : navigation et bandeaux. L'accueil y est ENTIER (`PageShell fondo="acento"` pose
+   *                `data-superficie="or"` sur son <main>), son header aussi ;
+   *   - `marine` : rails de photos, pied de page ;
+   *   - `clara`  : remet les valeurs du thème — une carte blanche ou un `Aviso` posés sur l'or ou
+   *                le marine. Le contenu d'une page claire n'a rien à déclarer : c'est le défaut.
+   * Valeurs : tableau du §3.2 de `docs/specs/41-charte-hifago-toute-la-vitrine.md`.
+   *
+   * ⚠️ LE DÉFAUT QUI A FAIT NAÎTRE CES RÈGLES, mesuré sur l'accueil : `--muted` valait le bleu moyen
+   * partout, et la page or l'employait quand même — la description de l'état vide « Prueba con
+   * otras fechas… » à 3.17:1 sur l'or, pour 4.5:1 requis. `body:has(main[data-fondo="acento"])`,
+   * juste au-dessus, ne repeint que le fond et le texte courant.
+   *
+   * ⚠️ JAMAIS SUR <body>. Les popovers (suggestions, calendrier, personnes) sont rendus au bout du
+   * <body>, sur leur fond blanc : ils héritent du <body>, et doivent y trouver les valeurs du
+   * clair. D'où le <main> et le header, jamais leur parent commun.
+   *
+   * ⚠️ Une custom property est substituée sur l'élément qui la DÉCLARE, puis héritée telle quelle
+   * (cf. « Formules dérivées » plus haut). Redéfinir `--field-border` sur une surface ne recalcule
+   * donc PAS `--field-border-hover`/`--field-border-focus`, déclarées sur <html> : elles sont
+   * redéclarées ci-dessous, sur chaque surface. Même raison pour `--focus`, qui vaut `var(--link)`
+   * dans le thème : chaque surface le pose explicitement.
+   *
+   * ⚠️ `--accent` n'est JAMAIS redéfini par une surface : l'or des fonds et des boutons en dépend.
+   *
+   * Mode sombre : aucune valeur sombre ici, et c'est voulu — arbitrage D9 = A (2026-10-02), le mode
+   * sombre de la vitrine est abandonné (retrait : item G5). Les couleurs de charte sont fixes.
+   *
+   * Le fond et la couleur sont posés en couche `base` : tout utilitaire les bat. Le header de
+   * l'accueil reste donc transparent tant qu'on n'a pas défilé (`bg-transparent`), et une carte
+   * HeroUI garde son blanc sous `data-superficie="clara"`.
+   *
+   * Contrastes composés de chaque surface : `Playground/Palette → Contrastes`, section « Surfaces ».
+   * ------------------------------------------------------------------------------------------ */
+
+  /* Les valeurs du thème, relevées une fois sur <html> pour que `clara` puisse les REMETTRE sans
+     les recopier : `var()` est résolu ici, sur l'élément du thème, puis hérité tel quel par toute la
+     page — y compris sous une surface or ou marine, qui ne redéclare pas ces noms-là. */
+  [data-theme="vitrine"] {
+    --clara-foreground: var(--foreground);
+    --clara-muted: var(--muted);
+    --clara-link: var(--link);
+    --clara-focus: var(--focus);
+    --clara-field-border: var(--field-border);
+    --clara-border: var(--border);
+    --clara-separator: var(--separator);
+  }
+
+  /* Trois jetons DÉCORATIFS de surface, consommés par le titre à point (S1) et le « GO → » (S5).
+     Leurs valeurs du clair, une seule fois, pour la page et pour `clara` :
+       - point du titre : or (bleu poudre sur l'or, arbitrage D15) ;
+       - trait sous le titre : marine (or sur marine) ;
+       - flèche du « GO » : bleu moyen (bleu poudre sur l'or ; pas de « GO » sur le marine). */
+  [data-theme="vitrine"],
+  [data-theme="vitrine"] [data-superficie="clara"] {
+    --punto-titulo: var(--charte-or);
+    --trazo-titulo: var(--charte-marine);
+    --flecha-go: var(--charte-bleu-moyen);
+  }
+
+  /* OR — texte marine (6.31:1). La hiérarchie s'y fait par la taille et la graisse, pas par la
+     couleur : le texte discret, le lien, le focus et les bordures passent tous au marine (le bleu
+     moyen y tombe à 3.17:1, le blanc à 2.07:1). ⚠️ Un lien de la couleur du texte doit être
+     souligné pour rester repérable (WCAG 1.4.1) : c'est au composant de lien de le faire. */
+  [data-theme="vitrine"] [data-superficie="or"] {
+    background-color: var(--accent);
+    color: var(--foreground);
+    --foreground: var(--accent-foreground);
+    --muted: var(--charte-marine);
+    --link: var(--charte-marine);
+    --focus: var(--charte-marine);
+    --field-border: var(--charte-marine);
+    --border: var(--charte-marine);
+    --separator: color-mix(in oklab, var(--charte-marine) 30%, transparent);
+    --punto-titulo: var(--charte-bleu-poudre);
+    --trazo-titulo: var(--charte-marine);
+    --flecha-go: var(--charte-bleu-poudre);
+  }
+
+  /* MARINE — texte blanc (13.07:1), discret en bleu poudre (8.02:1), lien et focus en or (6.31:1).
+     ⚠️ `--surface-foreground`, `--field-foreground` et `--default-foreground` NE suivent PAS
+     `--foreground` ici (résolus sur <html>, cf. plus haut) : une carte blanche, un champ blanc ou un
+     bouton bleu poudre posés sur le marine gardent leur texte marine. C'est voulu. Bordure de champ
+     blanche, comme le dit le §3.2 : le champ y est un aplat blanc, c'est lui qui se détache. */
+  [data-theme="vitrine"] [data-superficie="marine"] {
+    background-color: var(--charte-marine);
+    color: var(--foreground);
+    --foreground: oklch(100% 0 0);
+    --muted: var(--charte-bleu-poudre);
+    --link: var(--charte-or);
+    --focus: var(--charte-or);
+    --field-border: oklch(100% 0 0);
+    --border: color-mix(in oklab, var(--charte-bleu-poudre) 45%, transparent);
+    --separator: color-mix(in oklab, var(--charte-bleu-poudre) 45%, transparent);
+    --punto-titulo: var(--charte-or);
+    --trazo-titulo: var(--charte-or);
+  }
+
+  /* CLARA — les valeurs du thème, relevées plus haut sur <html>. */
+  [data-theme="vitrine"] [data-superficie="clara"] {
+    background-color: var(--background);
+    color: var(--foreground);
+    --foreground: var(--clara-foreground);
+    --muted: var(--clara-muted);
+    --link: var(--clara-link);
+    --focus: var(--clara-focus);
+    --field-border: var(--clara-field-border);
+    --border: var(--clara-border);
+    --separator: var(--clara-separator);
+  }
+
+  /* Les deux formules de « Formules dérivées » qui lisent un jeton redéfini par les surfaces,
+     recopiées à l'identique pour être recalculées sur chaque surface. */
+  [data-theme="vitrine"] [data-superficie] {
+    --field-border-hover: color-mix(in oklab, var(--field-border) 88%, var(--field-foreground) 10%);
+    --field-border-focus: color-mix(in oklab, var(--field-border) 74%, var(--field-foreground) 22%);
+  }
+
+  /* ------------------------------------------------------------------------------------------
    * Piste « Embalse » — l'eau du barrage
    * ------------------------------------------------------------------------------------------
    * Parti pris : teal profond, neutres à peine froids, angles généreux (0.75rem), carte blanche

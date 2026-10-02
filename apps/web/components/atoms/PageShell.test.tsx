@@ -138,16 +138,24 @@ describe("PageShell", () => {
   });
 
   // Le contrat avec `globals.css` (fond or de l'accueil, 2026-10-01) : la coquille ne peint rien,
-  // elle DÉCLARE — c'est `body:has(main[data-fondo="acento"])` qui propage l'or au body et au header.
-  it("déclare le fond or par `data-fondo`, et seulement quand on le demande", () => {
+  // elle DÉCLARE — c'est `body:has(main[data-fondo="acento"])` qui propage l'or au body.
+  //
+  // ⚠️ Depuis le plan 41 (item F3), elle déclare AUSSI la surface or sur le <main> : c'est elle qui
+  // passe le texte discret, les liens et le focus au marine, lisibles sur l'or. Le <body> ne doit
+  // jamais la porter (les popovers y sont rendus, sur fond blanc). L'effet des jetons ne se teste
+  // pas ici — jsdom ne charge pas `globals.css` — mais au rendu, story `Playground/Palette →
+  // Contrastes` et `Écrans/Accueil → Sin resultados`.
+  it("déclare le fond or et la surface or, et seulement quand on le demande", () => {
     const avec = render(
       <PageShell variant="large" fondo="acento">
         <p>x</p>
       </PageShell>
     ).container.querySelector("main") as HTMLElement;
     expect(avec.getAttribute("data-fondo")).toBe("acento");
+    expect(avec.getAttribute("data-superficie")).toBe("or");
     const { main } = shell("large", <p>x</p>);
     expect(main.hasAttribute("data-fondo")).toBe(false);
+    expect(main.hasAttribute("data-superficie")).toBe(false);
   });
   // `portada` — l'accueil de la maquette du 2026-10-01 : son héros commence SOUS le header
   // transparent, tout en haut de l'écran. La coquille ne doit donc RIEN poser : ni padding (le héros

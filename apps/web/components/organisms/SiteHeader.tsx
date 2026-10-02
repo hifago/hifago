@@ -204,9 +204,11 @@ export function SiteHeader({ isAuthenticated, transparente = false, testId }: Si
   // variante sur les deux fonds, comparé en capture à 390 px :
   //   - page claire : `soft` accent, une teinte d'or pâle, texte à 80 % marine. Le contour or serait
   //     une bordure à 1.96:1 sur le clair, sous le seuil de 3:1 d'un composant (charte, point 1) ;
-  //   - accueil : `outline` neutre, contour bleu moyen et texte marine sur l'or. Le `soft` neutre
-  //     y est un bleu poudre à 50 % mêlé à l'or — un kaki terne. ⚠️ SOUS `md` seulement : au-dessus,
-  //     l'aplat bleu poudre revient (`BOUTON_VIAJE_DESKTOP`, en tête de fichier).
+  //   - accueil : `outline` neutre, texte marine sur l'or. Le `soft` neutre y est un bleu poudre à
+  //     50 % mêlé à l'or — un kaki terne. ⚠️ SOUS `md` seulement : au-dessus, l'aplat bleu poudre
+  //     revient (`BOUTON_VIAJE_DESKTOP`, en tête de fichier). Son contour lit `--muted` : bleu moyen
+  //     jusqu'au 2026-10-02 (3.17:1 sur l'or), MARINE depuis que le header porte la surface or
+  //     (plan 41, F3 : 6.31:1).
   const couleurBouton = transparente ? "neutral" : "accent";
   const boutonViaje = (
     <LinkButton
@@ -266,7 +268,14 @@ export function SiteHeader({ isAuthenticated, transparente = false, testId }: Si
       // `fixed` et non `sticky` : le header doit SORTIR du flux pour que le héros commence sous lui,
       // tout en haut de l'écran (la page s'en charge — `PageShell variant="portada"`). `z-50`, comme
       // l'autre variante. Les couleurs du texte viennent de la page : marine sur or.
+      //
+      // `data-superficie="or"` (plan 41, item F3) : le header est posé sur l'or, défilé ou non — il
+      // en prend donc les jetons (contour, focus et texte discret en marine). Déclaré ICI et non
+      // hérité du <body> : les popovers rendus au bout du <body> doivent garder ceux du clair. Son
+      // fond reste transparent avant défilement : la surface peint en couche `base`, que
+      // `bg-transparent` bat.
       <header
+        data-superficie="or"
         className={`fixed inset-x-0 top-0 z-50 transition-[background-color,box-shadow] duration-200 ${
           aDefile
             ? "bg-accent shadow-[0_8px_16px_-12px_color-mix(in_oklab,var(--accent-foreground)_60%,transparent)]"
