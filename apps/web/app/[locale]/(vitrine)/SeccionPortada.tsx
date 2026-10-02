@@ -94,10 +94,11 @@ export type SeccionPortadaProps = {
 // refait le calcul.
 //
 // ⚠️ `@container` : la tuile est SON PROPRE conteneur de requête, et tout ce qu'elle contient
-// (arrondi, marges, cartouche, bulles, texte) est en `cqw` DE LA TUILE, pas de la section. C'est ce
-// qui lui permet de passer de 28,69 à 82,39cqw de section sans qu'aucune de ses mesures intérieures
-// ne change de proportion. Les valeurs de la tuile sont celles de la maquette (en cqw de section)
-// multipliées par 100 / 28,69 : au-dessus de `md`, le rendu est inchangé au centième près.
+// (marges, cartouche, bulles, texte) est en `cqw` DE LA TUILE, pas de la section. C'est ce qui lui
+// permet de passer de 28,69 à 82,39cqw de section sans qu'aucune de ses mesures intérieures ne change
+// de proportion. Les valeurs de la tuile sont celles de la maquette (en cqw de section) multipliées
+// par 100 / 28,69 : au-dessus de `md`, le rendu est inchangé au centième près. Seul l'ARRONDI y
+// échappe : 16 px fixes depuis le 2026-10-02 (voir `Tesela`).
 // Le `<li>` ne peut pas s'interroger lui-même — sa largeur se résout donc toujours sur la section.
 const CLASE_TESELA = "@container w-[82.39cqw] shrink-0 snap-start md:w-[28.69cqw]";
 
@@ -174,10 +175,19 @@ function Tesela({
   // libellé pluriel traduit que cette section ne reçoit pas : elle n'a alors que son nom.
   const sousTitre = oferta.establecimiento;
 
+  // ⚠️ CARRÉE, ARRONDIE À 16 PX (Jérôme, 2026-10-02 : « je les veux carrées, coins arrondis à
+  // 16 px ; le reste ne change pas »). Avant : `aspect-[20/21]`, plus haute que large, et un arrondi
+  // de 8,37cqw de tuile (23 px à 1 280, 24 px à 390). La largeur ne bouge pas : la tuile perd donc
+  // 5 % de hauteur, et le conteneur marine avec elle.
+  //   · 16 px FIXES, et non `rounded-2xl` : dans le thème vitrine, HeroUI calcule `--radius-2xl` à
+  //     2 × `--radius` (4 px), soit 8 px — mesuré au rendu. Un jeton dérivé du rayon des boutons
+  //     bougerait avec lui (F4 du plan 41).
+  //   · Les voiles de bord de `FilaPortada` recouvrent l'arrondi de la tuile : même valeur, tenue
+  //     par un test.
   return (
     <li className={CLASE_TESELA}>
       <div
-        className="group relative grid aspect-[20/21] grid-rows-[minmax(0,1fr)] overflow-hidden rounded-[8.37cqw] bg-[var(--default)]"
+        className="group relative grid aspect-square grid-rows-[minmax(0,1fr)] overflow-hidden rounded-[16px] bg-[var(--default)]"
         data-testid={oferta.testId}
       >
         {foto ? (
@@ -277,10 +287,12 @@ export function SeccionPortada({
             sous `md` : la photo seule y est centrée à l'écran (`CLASE_TESELA`). */}
         <div className={CLASE_BLOQUE}>
           {/* LE CONTENEUR MARINE (`--accent-foreground` : le marine de la charte, couple du logo
-              avec l'or de la page). Son arrondi fait 58 % de celui des tuiles (1,4 / 2,4cqw sur la
-              maquette) : sous `md`, où la photo seule s'arrondit à 6,9cqw de section (8,37cqw de
-              tuile × 82,39 %), le garder à 1,4cqw laissait des coins marine anguleux autour d'elle (vu
-              au rendu, 5 px contre 26) — d'où 4,02cqw, la même proportion. */}
+              avec l'or de la page). Son arrondi a été fixé à 58 % de celui des tuiles d'ALORS (1,4 /
+              2,4cqw sur la maquette) : sous `md`, où la photo seule s'arrondissait à 6,9cqw de
+              section, le garder à 1,4cqw laissait des coins marine anguleux autour d'elle (vu au rendu,
+              5 px contre 26) — d'où 4,02cqw, la même proportion.
+              ⚠️ Depuis les tuiles carrées à 16 px (2026-10-02), ce rapport ne tient plus (≈ 13-14 px
+              contre 16) et l'arrondi n'a PAS été recalculé : « le reste ne change pas » (Jérôme). */}
           <div className="rounded-[4.02cqw] bg-[var(--accent-foreground)] p-[1.3cqw] md:rounded-[1.4cqw]">
             {/* La rangée et ses voiles flous de bord : seule partie client de la section, voir
                 `FilaPortada.tsx`. Les tuiles restent rendues ICI, côté serveur. */}

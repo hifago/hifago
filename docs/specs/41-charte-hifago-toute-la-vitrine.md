@@ -42,6 +42,13 @@ repond_a:
 >
 > **Statut : proposition (`brouillon`).** Les items qui dépendent d'un arbitrage `D…` encore ouvert au
 > §5 ne s'appliquent pas tant que Jérôme n'a pas tranché.
+>
+> **Révision du 2026-10-02 — tuiles carrées** (Jérôme : « je les veux carrées, coins arrondis à 16 px ;
+> le reste ne change pas »). Les tuiles de l'accueil, base de tout le plan, étaient plus hautes que
+> larges (`aspect-[20/21]`) et arrondies à ≈ 24 px. Elles sont désormais **carrées, arrondies à 16 px
+> fixes**, appliqué sur l'accueil (`SeccionPortada.tsx`, voiles de `FilaPortada.tsx`). Largeurs,
+> cartouche, bulles, conteneur marine et son arrondi : inchangés. Le plan entier se réfère à cette
+> tuile (§0 règles 6-7, §2.3, §3.4, T10, S3, S4, P2, §9.2).
 
 ## Sommaire et statut
 
@@ -91,12 +98,13 @@ SEO ni de la conversion. Chaque changement est un item du §6 ; ce §0 donne les
    sous les titres de section. C'est la signature des titres de rubrique.
 5. **Le rail marine** : conteneur marine arrondi qui épouse ses tuiles, motif bleu derrière, voiles
    flous aux bords, lien « GO → ». Une rangée d'offres est un rail.
-6. **La tuile photo** : une photo, arrondie (≈ 24 px) ; un cartouche blanc bleuté en bas (nom en
-   Poppins 700 majuscules sur 2 lignes, établissement dessous) ; des bulles blanches cerclées pour le
-   prix. Jamais de texte nu sur une photo.
+6. **La tuile photo** : une photo **carrée**, arrondie à **16 px** (fixes, quelle que soit sa largeur) ;
+   un cartouche blanc bleuté en bas (nom en Poppins 700 majuscules sur 2 lignes, établissement
+   dessous) ; des bulles blanches cerclées pour le prix. Jamais de texte nu sur une photo.
 7. **Formes** : un seul rayon pour les boutons rectangulaires (D4) ; la pilule pour la recherche, les
-   puces et les bulles ; conteneurs ≈ 16 px ; tuiles ≈ 24 px. Pas d'ombre, sauf le header défilé et
-   ce qui flotte (popover, toast).
+   puces et les bulles ; conteneurs ≈ 16 px ; tuiles 16 px. Pas d'ombre, sauf le header défilé et
+   ce qui flotte (popover, toast). ⚠️ Un rayon en px s'écrit en valeur fixe (`rounded-[16px]`) :
+   l'échelle `rounded-*` dérive de `--radius` (4 px), et `rounded-2xl` rend **8 px** (§3.4).
 8. **Une seule colonne**, celle de l'accueil (`COLUMNA_PORTADA` : 1 024 px gouttières comprises) pour
    le header, les bandeaux, le contenu et le pied de page.
 9. **Chaque page intérieure s'ouvre sur un bandeau or** (fil d'Ariane, H1, chapô, recherche ou CTA)
@@ -252,8 +260,8 @@ qu'une IA sans contexte n'ait besoin que de lui.
 4. cinq sections, une par type. Chacune a :
    - un grand titre condensé suivi d'un point bleu poudre, souligné d'un trait marine ;
    - le motif bleu qui dépasse en haut à gauche ;
-   - un conteneur marine aux angles arrondis, avec trois photos à cartouche et bulle de prix, et un
-     voile flou au bord droit ;
+   - un conteneur marine aux angles arrondis, avec trois photos carrées à cartouche et bulle de prix,
+     et un voile flou au bord droit ;
    - « GO → » aligné à droite ;
 5. le pied de page, **clair** (bleu-gris très pâle), sous l'or.
 
@@ -283,9 +291,9 @@ contenu à partir de 1 024 px d'écran. C'est ce qui rend la maquette à l'ident
 | 15 | **Titre de section à point** | « Actividades● » très grand, condensé | Police de titre ; `clamp(1.75rem, 6.3cqw, 3.75rem)` (28 → 60 px) ; `leading-none` ; interlettrage `--tracking-titre` ; point `size-[0.3em]` bleu poudre, `ml-[0.14em]`, posé sur la ligne de base, décoratif | `app/[locale]/(vitrine)/SeccionPortada.tsx` | **Oui** : c'est la signature (S1) |
 | 16 | **Trait** | Ligne marine sous le titre | `h-[clamp(2px,0.5cqw,4px)] w-[68cqw] bg-current`, `mt-[0.8cqw]` | `SeccionPortada.tsx` | **Oui** (S1) |
 | 17 | **Motif bleu** | Tracés « micelio » bleus qui débordent en haut et à gauche du conteneur | `public/brand/motif-bleu-section.webp` (bleu `#3c90d4`, tiré de `fond micelio.png`) ; `w-[68cqw]`, hauteur du ratio − 18 px, `background-position: 0 -7px` ; en fond CSS, décoratif ; **jamais répété** | `SeccionPortada.tsx` | **Oui** (S3) |
-| 18 | **Conteneur marine** | Bloc marine arrondi qui épouse ses photos | `bg-[var(--accent-foreground)]` ; décalé `ml-[7.5cqw]` ; `w-fit max-w-[92.5cqw]` (85 cqw sous `md`) ; marge intérieure 1,3 cqw (12,5 px) ; rayon 1,4 cqw (13 px) desktop, 4,02 cqw mobile | `SeccionPortada.tsx` | **Oui** (S3) |
-| 19 | **Rangée + voiles** | Défilement horizontal sans barre, aimanté ; voile flou marine au bord où il reste des photos | `snap-x snap-mandatory gap-[1.9cqw]` ; voiles `w-[6cqw]` (8 cqw mobile), `backdrop-blur-sm`, dégradé marine/50 masqué ; allumés seulement du côté à découvrir | `app/[locale]/(vitrine)/FilaPortada.tsx` (client), hook `useBordesDesplazables` | **Oui** (S3) |
-| 20 | **Tuile photo** | Photo carrée-ish très arrondie, zoom doux au survol | Largeur 28,69 cqw (275 px) / 82,39 cqw mobile (288 px à 390) ; `aspect-[20/21]` ; rayon 8,37 cqw de la tuile (≈ 23 px) ; fond bleu poudre sans photo ; **première photo seule** ; survol `scale-105` 300 ms (coupé en mouvement réduit) | `SeccionPortada.tsx` (`Tesela`) | **Oui** : modèle unique de carte photo (S4) |
+| 18 | **Conteneur marine** | Bloc marine arrondi qui épouse ses photos | `bg-[var(--accent-foreground)]` ; décalé `ml-[7.5cqw]` ; `w-fit max-w-[92.5cqw]` (85 cqw sous `md`) ; marge intérieure 1,3 cqw (12,5 px) ; rayon 1,4 cqw (13 px) desktop, 4,02 cqw mobile (14 px à 390) — **inchangé** par les tuiles carrées, il n'est donc plus proportionnel à leur arrondi (13-14 px autour de 16) | `SeccionPortada.tsx` | **Oui** (S3) |
+| 19 | **Rangée + voiles** | Défilement horizontal sans barre, aimanté ; voile flou marine au bord où il reste des photos | `snap-x snap-mandatory gap-[1.9cqw]` ; voiles `w-[6cqw]` (8 cqw mobile), `backdrop-blur-sm`, dégradé marine/50 masqué ; allumés seulement du côté à découvrir ; arrondis côté bord à **16 px**, comme la tuile qu'ils recouvrent (test `SeccionPortada.test.tsx`) | `app/[locale]/(vitrine)/FilaPortada.tsx` (client), hook `useBordesDesplazables` | **Oui** (S3) |
+| 20 | **Tuile photo** | Photo **carrée**, arrondie à 16 px, zoom doux au survol | Largeur 28,69 cqw (275 px) / 82,39 cqw mobile (288 px à 390) ; **`aspect-square`** (275 × 275 à 1 280, 288 × 288 à 390) ; rayon **16 px fixes** (`rounded-[16px]`, jamais `rounded-2xl` qui rend 8 px), le seul réglage de la tuile qui n'est pas en `cqw` ; fond bleu poudre sans photo ; **première photo seule** ; survol `scale-105` 300 ms (coupé en mouvement réduit). Avant le 2026-10-02 : `aspect-[20/21]` (275 × 289) et 8,37 cqw de tuile (≈ 23 px) | `SeccionPortada.tsx` (`Tesela`) | **Oui** : modèle unique de carte photo (S4) |
 | 21 | **Cartouche** | Étiquette blanc bleuté en bas de photo : NOM en majuscules, établissement dessous | `bg-[var(--background)]` ; rayon 4,88 cqw (13 px) ; centré ; nom **Poppins 700 majuscules**, 2 lignes, `clamp(0.6875rem, 5.23cqw, 1rem)` (≈ 14,4 px) ; établissement Poppins 500, 1 ligne, ≈ 11,5 px | `SeccionPortada.tsx` | **Oui** (S4) — surveiller la taille de l'établissement (≥ 12 px) |
 | 22 | **Bulles** | Pastille de prix blanche cerclée, fond sombre translucide | `rounded-full border-[1.5px] border-white bg-black/55 backdrop-blur-sm`, Poppins 700 majuscules blanc ≈ 11 px ; voile à 55 % = 4,74:1 au pire (photo blanche) ; 4 formes de prix (montant, « Desde », texte libre tel quel, rien) | `SeccionPortada.tsx`, `components/atoms/Card.tsx` (`OVERLAY_BULLES_CLASS`) | **Oui** (S4) |
 | 23 | **Lien pleine tuile** | Toute la tuile est cliquable, nom accessible = nom de l'offre | Lien sur le nom, `::after` étiré sur la tuile ; anneau de focus **or**, intérieur, 4 px | `SeccionPortada.tsx` | **Oui** (S4) |
@@ -432,10 +440,16 @@ Règles qui vont avec :
 | Champ de saisie | même rayon que les boutons | 1 px, `--field-border` | aucune |
 | Carte de contenu (panneau, récapitulatif) | 12 → 16 px | 1 px marine (décision du 2026-09-14) | aucune |
 | Ligne dans une carte | 12 px, **sans bordure** (fond `--surface-secondary` ou séparateur) | — | aucune |
-| Tuile photo | ≈ 24 px | aucune | aucune |
-| Conteneur marine (rail) | ≈ 13 px desktop, ≈ 16 px mobile | aucune | aucune |
+| Tuile photo (carrée) | **16 px fixes**, à toute largeur de tuile (rail, grille, mobile) | aucune | aucune |
+| Conteneur marine (rail) | ≈ 13 px desktop, ≈ 14 px mobile (inchangé, plus proportionnel à la tuile) | aucune | aucune |
 | Header défilé | — | — | ombre marine douce (existante) |
 | Popover, toast, menu | 12 px | 1 px marine | `--overlay-shadow` (existante) |
+
+⚠️ **Écrire un rayon** (mesuré le 2026-10-02) : dans le thème vitrine, l'échelle Tailwind `rounded-*`
+dérive de `--radius` (4 px) par HeroUI — `rounded-xl` = 6 px, **`rounded-2xl` = 8 px**,
+`rounded-3xl` = 12 px — et changera si F4 touche `--radius`. Les rayons en px de ce tableau (16 px
+des tuiles, des encadrés, du calendrier) s'écrivent donc en valeur fixe, `rounded-[16px]` ; seuls les
+boutons et les champs suivent le jeton (D4).
 
 ### 3.5 Mise en page et rythme
 - **Une colonne** pour tout le site : `COLUMNA_PORTADA` (`max-w-5xl` gouttières comprises :
@@ -545,7 +559,7 @@ renvoie à `docs/dette-technique.md` (section du 2026-10-01).
 | T7 | **Deux headers étrangers l'un à l'autre** : accueil (or au défilé, drapeaux, « Mi viaje » bleu poudre à 8 px, colonne 1 024) / intérieur (clair, bordure marine, petit logo, « Mi viaje » or pâle à 4 px, langue en menu déroulant, menu burger sous `md`, colonne 768) | toutes les pages intérieures | captures | C1 (D2) |
 | T8 | **Pied de page** clair partout, colonne 768 ; absent de la zone compte (le tunnel n'en a pas, volontairement) | toutes | captures | C2 (D3) |
 | T9 | **Index par type = la première version de l'accueil**. Il garde : des bandes or où le titre défile en boucle, répété huit fois avec « ↓ » ; des conteneurs bleu poudre ; un bouton or dans une languette. Des **bandes claires de 24 px** séparent les sections or (`gap-y-6` de `PageShell`). Le même « Más actividades » sert de texte de lien pour **chaque** catégorie, vers des URL différentes. La catégorie « otras » a un `<h2>` vide (défaut connu n° 5) | `/actividades`, `/alojamientos`… | captures 390 / 1 280 | P1 (D7), S3 |
-| T10 | **Cartes de listing ≠ tuiles de l'accueil** : rayon 16 contre 24 px, carré contre 20/21, nom en police de titre sur 1 ligne tronquée contre Poppins 700 sur 2 lignes, carrousel à flèches contre photo seule, bulles de 2 contre 1,5 px | catégories, établissement | captures, code (`Card layout="overlay"`) | S4 (D6) |
+| T10 | **Cartes de listing ≠ tuiles de l'accueil** : rayon **8 px** (`rounded-2xl`, mesuré le 2026-10-02 — la première version du plan disait 16, à tort) contre **16 px** ; toutes deux **carrées** depuis le 2026-10-02 (la tuile était en 20/21) ; nom en police de titre sur 1 ligne tronquée contre Poppins 700 sur 2 lignes, carrousel à flèches contre photo seule, bulles de 2 contre 1,5 px | catégories, établissement | captures, code (`Card layout="overlay"`), `border-radius` calculé | S4 (D6) |
 | T11 | **Bordures imbriquées** : chaque ligne est bordée de marine dans une carte bordée de marine, d'où un rendu « fil de fer » | Mi viaje, Pago, résultat, Mis reservas, éditions de camp | captures | F6 |
 | T12 | **Le fil d'Ariane fait défiler la page** à 390 px : largeur de page 551 px (hébergement PMS), 803 px (« Consultar », nom long), 407 px (événement en vitrine) — défaut connu n° 1 | fiches | `scrollWidth` mesuré | C3 |
 | T13 | **Dates ISO brutes** (« 2026-10-14 · 10:00:00 ») — défaut connu n° 7 | Mi viaje, Pago, résultat, Mis reservas | captures | P5, P6, P7, P8 |
@@ -1117,26 +1131,35 @@ Règle commune à tous les composants de ce lot :
     `-ver-mas`, ceux des tuiles) restent identiques : `e2e/home.spec.ts` et
     `reorder-secciones-tras-agregar.spec.ts` les cliquent.
   - Garder le test « pas de `"use client"` » sur `SeccionRiel`.
+  - Garder aussi le test qui tient l'accord tuile ↔ voiles : les voiles de `FilaRiel` recouvrent
+    l'arrondi de la tuile, ils doivent porter le **même** rayon (16 px, `rounded-l-[16px]` /
+    `rounded-r-[16px]`, sans variante `md:`).
   - Sur fond clair, le rail marine et le motif bleu restent ; la flèche du « GO » prend
     `--flecha-go` (F3).
 - **Vérifier** :
-  - accueil à 360, 390, 768 et 1 280 px, mesuré avant/après : largeur de tuile, décalage du
-    conteneur, liseré, voiles ;
+  - accueil à 360, 390, 768 et 1 280 px, mesuré avant/après : largeur de tuile, **tuile carrée**
+    (hauteur = largeur), rayon de 16 px, décalage du conteneur, liseré, voiles ;
   - e2e `home.spec.ts`.
 - Dépend de S1, S4, S5 · Arbitrage D7 · Effort L
 
 #### S4 — Tuile photo unique
 - **Pourquoi** : T10. Deux cartes photo coexistent : la tuile de l'accueil, et `Card
-  layout="overlay"` (listings, chambres d'un établissement). Les deux diffèrent par la forme, la
-  police, le nombre de lignes, les bulles et le carrousel.
+  layout="overlay"` (listings, chambres d'un établissement). Les deux diffèrent par l'arrondi, la
+  police, le nombre de lignes, les bulles et le carrousel (plus par la proportion : toutes deux
+  carrées depuis le 2026-10-02).
 - **Aujourd'hui** :
-  - **accueil** (`Tesela` dans `SeccionPortada.tsx`) : `aspect-[20/21]`, rayon ≈ 24 px, une photo,
-    nom Poppins 700 majuscules sur 2 lignes, bulles à bord de 1,5 px ;
+  - **accueil** (`Tesela` dans `SeccionPortada.tsx`) : **carrée** (`aspect-square`), rayon **16 px
+    fixes** (`rounded-[16px]`), une photo, nom Poppins 700 majuscules sur 2 lignes, bulles à bord de
+    1,5 px ;
   - **listings** (`TarjetaOferta` `grilla`/`carrusel` → `Card layout="overlay"`) : carré, rayon
-    16 px, `PhotoStrip` à flèches, nom dans un `h3`, donc en **police de titre**, sur 1 ligne
-    tronquée, bulles à bord de 2 px.
+    **8 px** (`rounded-2xl`, mesuré), `PhotoStrip` à flèches, nom dans un `h3`, donc en **police de
+    titre**, sur 1 ligne tronquée, bulles à bord de 2 px.
 - **Cible** (D6 = A) : `components/molecules/TeselaOferta.tsx`, serveur, qui utilise l'atome `Image`
   (il n'importe que `next/image`). C'est la `Tesela` de l'accueil, extraite.
+  - **Forme** : carrée (`aspect-square`), arrondie à **16 px fixes** (`rounded-[16px]`) dans **tous**
+    les contextes — rail de l'accueil (202 à 288 px de large), grille de catégorie (jusqu'à 300 px),
+    fiche établissement. Le reste de l'intérieur (cartouche, bulles, texte) reste en `cqw` de la
+    tuile, donc proportionnel à sa largeur.
   - **Props** :
     - `oferta` ;
     - `locale` ;
@@ -1159,6 +1182,10 @@ Règle commune à tous les composants de ce lot :
 - **Pièges** :
   - Le texte alternatif « <nom>, foto i de n » disparaît des cartes : c'est voulu, une seule photo
     décorative et un lien nommé. Le dire dans le test.
+  - **Le rayon ne s'écrit ni en `cqw` ni par l'échelle** : `rounded-2xl` rend 8 px dans le thème
+    vitrine (§3.4), et un rayon en `cqw` varierait d'une grille à un rail. `rounded-[16px]`, et un test
+    qui le fige (celui de `SeccionPortada.test.tsx` est le modèle). Les cartes de listing passent ainsi
+    de 8 à 16 px : c'est voulu.
   - `sizes` exact par contexte : rail (`(min-width: 1024px) 276px, (min-width: 768px) 27vw, 78vw`) ;
     grille 3 colonnes de la colonne de 960 px (`(min-width: 1024px) 300px, (min-width: 768px) 45vw,
     90vw`).
@@ -1430,7 +1457,9 @@ l'écran.
     - recherche ;
     - si D16 = oui, l'image de la catégorie à droite à partir de `lg`.
   - **Grille de `TeselaOferta`** (S4) : 1 colonne sous `md`, 2 en `md`, 3 en `lg` ; écart de 16 px
-    (24 en `lg`), dans la colonne de 960 px.
+    (24 en `lg`), dans la colonne de 960 px. Tuiles carrées comme les cartes d'aujourd'hui : la
+    hauteur d'une rangée ne change que par l'élargissement de la colonne (704 → 960 px, F7), pas par
+    la forme.
   - Compteur « 3 de 3 ofertas » en rôle `meta`, marine, centré.
   - « Cargar más » : **bouton `marine`** (F4 : un bouton or disparaîtrait sur l'or), `lg`, centré.
   - Chargement : le bouton en attente (`isPending`) ; échec : `Aviso` erreur + « Reintentar » ;
@@ -2110,6 +2139,8 @@ composée**.
 | Rayon `Button` | 12 px | « Confirmar reserva », « Quitar » |
 | Rayon `LinkButton` | 4 px | « Reservar », « Mi viaje » intérieur |
 | Rayon « Mi viaje » de l'accueil (desktop) | 8 px | header de l'accueil |
+| Tuile de l'accueil (après la révision « tuiles carrées ») | 275 × 275 px à 1 280, 202 × 202 à 768, 288 × 288 à 390, 264 × 264 à 360 ; rayon 16 px ; voiles 16 px. Avant : 275 × 289, 23 px (1 280) et 288 × 303, 24 px (390) | `ecrans-accueil--defecto` |
+| Rayon des cartes de listing (`rounded-2xl`) | 8 px (`--radius-2xl` = 2 × `--radius`) | `ecrans-categorie--con-descripcion` |
 | Hauteurs de bouton | 36 (« Confirmar reserva »), 32 (« Quitar »), 40 (« Reservar ») px | Pago, Mi viaje |
 | Hauteur des champs | 42 px (texte), 44 px (téléphone) | Pago |
 | Calendrier de la fiche | 212 px de large, cases de 28 × 28 px (à 390 comme à 1 280) | `ecrans-fiche-produit--actividad-con-fecha` |

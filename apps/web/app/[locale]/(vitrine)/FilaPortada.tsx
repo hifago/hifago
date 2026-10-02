@@ -35,17 +35,18 @@ const CLASES_FILA =
 //     cinquième flouterait 58 px de la seule photo visible : `8cqw` (28 px à 390), le minimum pour
 //     porter l'arrondi de la tuile sans qu'il soit écrasé (un arrondi plus large que l'élément est
 //     réduit par le navigateur).
-//   · `rounded-*` : l'arrondi des tuiles, que le voile recouvre au bord — `2.4cqw` de section au-dessus
-//     de `md`, `6.9cqw` en dessous (8,37cqw de tuile × 82,39 %). Suivent `SeccionPortada`.
+//   · `rounded-*` : l'arrondi des tuiles, que le voile recouvre au bord — 16 px fixes à toute largeur
+//     depuis les tuiles carrées (2026-10-02 ; avant, 2,4cqw de section au-dessus de `md` et 6,9cqw
+//     en dessous). Suit `Tesela` de `SeccionPortada` ; `SeccionPortada.test.tsx` tient l'accord.
 //   · `z-[2]` : au-dessus du calque de texte des tuiles (`z-[1]`) et du `::after` de leur lien.
 //   · `pointer-events-none` : un clic sur le bord flouté atteint toujours la tuile dessous.
 // Chaînes littérales complètes : Tailwind v4 ne génère pas une classe fabriquée par interpolation.
 const CLASES_VELO =
   "pointer-events-none absolute inset-y-0 z-[2] w-[8cqw] backdrop-blur-sm to-transparent transition-opacity duration-200 motion-reduce:transition-none md:w-[6cqw]";
 const VELO_IZQUIERDA =
-  "left-0 rounded-l-[6.9cqw] bg-gradient-to-r from-[var(--accent-foreground)]/50 [mask-image:linear-gradient(to_right,black_30%,transparent)] md:rounded-l-[2.4cqw]";
+  "left-0 rounded-l-[16px] bg-gradient-to-r from-[var(--accent-foreground)]/50 [mask-image:linear-gradient(to_right,black_30%,transparent)]";
 const VELO_DERECHA =
-  "right-0 rounded-r-[6.9cqw] bg-gradient-to-l from-[var(--accent-foreground)]/50 [mask-image:linear-gradient(to_left,black_30%,transparent)] md:rounded-r-[2.4cqw]";
+  "right-0 rounded-r-[16px] bg-gradient-to-l from-[var(--accent-foreground)]/50 [mask-image:linear-gradient(to_left,black_30%,transparent)]";
 
 export function FilaPortada({ children, testId }: { children: ReactNode; testId?: string }) {
   const ref = useRef<HTMLUListElement>(null);

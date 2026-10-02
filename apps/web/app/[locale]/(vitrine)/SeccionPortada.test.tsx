@@ -268,6 +268,25 @@ describe("SeccionPortada", () => {
     }
   });
 
+  // ⚠️ Tuiles carrées arrondies à 16 px (Jérôme, 2026-10-02). Deux fichiers doivent rester d'accord :
+  // la tuile (`Tesela`) et les voiles de bord (`FilaPortada`), qui recouvrent son arrondi — un voile
+  // plus ou moins arrondi qu'elle déborderait sur le marine ou laisserait un coin net. Et pas
+  // `rounded-2xl` : le thème vitrine le calcule à 8 px (2 × `--radius`, mesuré au rendu).
+  it("rend des tuiles carrées arrondies à 16 px, et des voiles au même arrondi", () => {
+    const container = rendu();
+    const tuile = container.querySelector('[data-testid="tarjeta-oferta-1"]') as HTMLElement;
+    const classes = tuile.className.split(/\s+/);
+    expect(classes).toContain("aspect-square");
+    expect(classes).toContain("rounded-[16px]");
+    expect(tuile.className).not.toMatch(/aspect-\[|rounded-\[[\d.]+cqw\]/);
+    const voile = (cote: string) =>
+      (container.querySelector(`[data-testid="seccion-activity-fila-velo-${cote}"]`) as HTMLElement).className;
+    expect(voile("izquierda").split(/\s+/)).toContain("rounded-l-[16px]");
+    expect(voile("derecha").split(/\s+/)).toContain("rounded-r-[16px]");
+    // Un seul arrondi à toute largeur : plus de variante `md:` qui reprendrait l'ancien.
+    expect(`${voile("izquierda")} ${voile("derecha")}`).not.toMatch(/md:rounded-/);
+  });
+
   // ⚠️ La décision structurante : aucune interactivité, donc aucun JavaScript. Le HTML des sections
   // est servi tel quel — c'est lui que Google indexe. Vérifié sur le TEXTE du fichier : une règle
   // que rien ne vérifie n'est pas une règle (CLAUDE.md §11.20).
