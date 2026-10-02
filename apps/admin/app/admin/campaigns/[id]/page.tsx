@@ -53,22 +53,24 @@ export default async function CampaignDetailPage({
     notFound();
   }
 
-  // comm_campaign_targets_select_admin : lecture admin seule — pas de filtre supplémentaire ici.
-  const { data: targets, error: targetsError } = await supabase
-    .from("comm_campaign_targets")
-    .select("status")
-    .eq("campaign_id", id);
-  if (targetsError) {
-    throw new Error(`Lecture des destinataires impossible (comm_campaign_targets) : ${targetsError.message}`);
+  // Compteurs agrégés en SQL (admin_campaign_target_counts, 20261002155922) : une ligne par
+  // statut, au lieu d'une ligne par destinataire comptée ici et tronquée par `max_rows` au-delà de
+  // 1000. La RPC est SECURITY INVOKER : comm_campaign_targets_select_admin (admin seul) filtre
+  // toujours la lecture.
+  const { data: statusCounts, error: countsError } = await supabase.rpc("admin_campaign_target_counts", {
+    p_campaign_ids: [id],
+  });
+  if (countsError) {
+    throw new Error(`Lecture des destinataires impossible (admin_campaign_target_counts) : ${countsError.message}`);
   }
 
   const counts = Object.fromEntries(TARGET_STATUS_ORDER.map((status) => [status, 0])) as Record<
     (typeof TARGET_STATUS_ORDER)[number],
     number
   >;
-  for (const target of targets ?? []) {
-    if (target.status in counts) {
-      counts[target.status as (typeof TARGET_STATUS_ORDER)[number]] += 1;
+  for (const row of statusCounts) {
+    if (row.status in counts) {
+      counts[row.status as (typeof TARGET_STATUS_ORDER)[number]] += row.n;
     }
   }
 
