@@ -161,14 +161,51 @@ describe("PhotoStrip", () => {
     expect(container.querySelector('[data-testid="carousel-dots"]')).toBeNull();
   });
 
-  it("aucune photo : réserve quand même la hauteur de la rangée de points, invisible", () => {
-    // Même raisonnement que ci-dessus, côté substitut : sans ça, une offre sans photo serait plus
-    // basse qu'une offre qui en a une ou plusieurs.
-    const container = rendre([]);
+  // ⚠️ PLAN 41, S9 : il n'y a plus de rangée de points SOUS la photo (les commandes sont posées
+  // dessus), donc plus de hauteur à réserver quand il n'y a pas de photo. Le substitut prend
+  // l'arrondi de la galerie.
+  it("aucune photo : le substitut à l'arrondi de la galerie, sans rangée réservée dessous", () => {
+    const container = rendre([], { testId: "vide" });
 
-    const espaceReserve = container.querySelector('[aria-hidden="true"].invisible');
-    expect(espaceReserve).not.toBeNull();
-    expect(espaceReserve?.querySelector("span")?.className).toContain("rounded-full");
+    expect(container.querySelector('[aria-hidden="true"].invisible')).toBeNull();
+    const substitut = container.querySelector('[data-testid="vide-photo-0"]') as HTMLElement;
+    expect(substitut.parentElement?.className).toContain("rounded-[24px]");
+  });
+
+  // ── Les commandes SUR la photo (plan 41, S9) ─────────────────────────────────────────────────
+  // Le constat T15 : des boutons `outline` de 32 px à glyphe « ‹ » qui disparaissaient sur une
+  // photo sombre, et des points de 8 px impossibles à viser. La lisibilité elle-même se juge au
+  // rendu (photo claire, photo sombre) ; ces tests tiennent la structure.
+  it("pose des flèches rondes de 44 px, nommées, à chevron SVG", () => {
+    const container = rendre(photos("fleches", 3));
+    for (const testId of ["carousel-prev", "carousel-next"]) {
+      const bouton = container.querySelector(`[data-testid="${testId}"]`) as HTMLButtonElement;
+      expect(bouton.tagName).toBe("BUTTON");
+      expect(bouton.getAttribute("type")).toBe("button");
+      expect(bouton.className.split(/\s+/)).toEqual(expect.arrayContaining(["size-11", "rounded-full"]));
+      expect(bouton.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+      // Plus de glyphe typographique : le nom accessible vient du libellé traduit.
+      expect(bouton.textContent).toBe("");
+    }
+    expect(container.querySelector('[data-testid="carousel-prev"]')?.getAttribute("aria-label")).toBe(
+      "Foto anterior"
+    );
+  });
+
+  it("remplace les points par un compteur « 1 / n », décoratif", () => {
+    const container = rendre(photos("compteur", 4));
+    expect(container.querySelector('[data-testid="carousel-dots"]')).toBeNull();
+    const compteur = container.querySelector('[data-testid="carousel-counter"]') as HTMLElement;
+    expect(compteur.textContent).toBe("1 / 4");
+    // Le texte alternatif de chaque photo dit déjà « foto i de n » : le compteur ne le répète pas.
+    expect(compteur.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("arrondit la photo à 24 px : la racine porte l'arrondi, le cadre qui rogne l'hérite", () => {
+    const container = rendre(photos("arrondi", 2));
+    const racine = container.querySelector('[data-testid="carousel"]') as HTMLElement;
+    expect(racine.className).toContain("rounded-[24px]");
+    expect((racine.firstElementChild as HTMLElement).className).toContain("rounded-[inherit]");
   });
 
   it('⚠️ loading="lazy" sur la BANDE : plus aucun slide prioritaire, pas même le premier', () => {

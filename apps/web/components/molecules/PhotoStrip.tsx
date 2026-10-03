@@ -10,7 +10,7 @@ import { Image, type ImageProps } from "@/components/atoms/Image";
 // `Carousel` d'Embla reste dans `packages/ui`, VOLONTAIREMENT indépendant de Next.js (c'est écrit
 // dans son en-tête), et c'est l'appelant qui lui fournit ses images via `renderSlide`. Ce fichier
 // est cet appelant côté vitrine ; `apps/admin/components/catalog-card.tsx` est son équivalent côté
-// back-office. Le `Carousel` n'est pas modifié.
+// back-office. Le `Carousel` n'est modifié qu'additivement (prop `controles`, plan 41 S9).
 //
 // `"use client"` obligatoire : le `Carousel` est un composant client (Embla), et importer le barrel
 // `@hifago/ui` depuis un Server Component casse `next build` (CLAUDE.md §11.16).
@@ -88,11 +88,12 @@ export function PhotoStrip({ photos, sizes, loading, ratio, testId }: PhotoStrip
   return (
     <div data-testid={testId}>
       {photos.length === 0 ? (
-        <>
-          {/* `alt=""` : le substitut de l'atome est `aria-hidden`, il ne rend aucune balise <img>
-              et n'a donc rien à décrire. `loading` n'a lui non plus aucun effet sans source — il
-              est relayé tel quel plutôt que forcé, pour que le contrat se lise pareil dans les
-              deux branches. */}
+        // `alt=""` : le substitut de l'atome est `aria-hidden`, il ne rend aucune balise <img> et
+        // n'a donc rien à décrire. `loading` n'a lui non plus aucun effet sans source — il est
+        // relayé tel quel plutôt que forcé, pour que le contrat se lise pareil dans les deux
+        // branches. Même arrondi que la galerie. Plus de rangée de points à réserver dessous : les
+        // commandes sont SUR la photo depuis le plan 41 (S9).
+        <div className="overflow-hidden rounded-[24px]">
           <Image
             src={null}
             alt=""
@@ -101,17 +102,16 @@ export function PhotoStrip({ photos, sizes, loading, ratio, testId }: PhotoStrip
             ratio={ratio}
             testId={testId ? `${testId}-photo-0` : undefined}
           />
-          {/* Même réservation de hauteur que la rangée de points du Carousel (invisible quand une
-              seule photo) : sans elle, une offre SANS photo serait plus basse qu'une offre qui en
-              a une ou plusieurs, dans la même grille de cartes. */}
-          <div className="invisible mt-2 flex justify-center gap-1.5" aria-hidden="true">
-            <span className="h-2 w-2 rounded-full" />
-          </div>
-        </>
+        </div>
       ) : (
+        // PLAN 41, S9 (2026-10-03) : flèches rondes de 44 px et compteur « 1 / 5 » posés SUR la
+        // photo, lisibles sur une photo claire comme sombre ; photo arrondie à 24 px (l'arrondi de
+        // la racine, que le cadre du carrousel hérite). Les points de 8 px disparaissent.
         <Carousel
           slides={photos}
           variant="gallery"
+          controles="sobreFoto"
+          className="rounded-[24px]"
           labels={{
             anterior: t("carruselAnterior"),
             siguiente: t("carruselSiguiente"),
