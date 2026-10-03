@@ -2222,7 +2222,7 @@ remarque.
 | P10 | Authentification | à faire | | | |
 | P11 | 404 et erreurs | à faire | | | |
 | P12 | Accueil : résidus | à faire | | | |
-| A1 | Logo sur or | à faire | | | |
+| A1 | Logo sur or | fait | 2026-10-02 | « plan 41, A1 » | `public/brand/logo-header-sur-or.webp` : 179 × 96, 7 996 octets (WebP qualité 80, alpha 100), dérivé de `logo-horizontal-marine-bleu.png` (marine + bleu ciel, sans or) rogné au contenu par `sharp().trim()`. **Écart de forme** : `logo-header-clair`/`-sombre` gardent une marge de 10 à 12 px (contenu 144 × 78 dans 167 × 96) ; celui-ci est rogné comme le demande l'item, donc à 48 px de haut le dessin est plus grand (≈ 90 px de large au lieu de 84) — mesuré à 360 px dans C1. Branché par C1 (variante `sobre`) |
 | A2 | Favicon et icônes | à faire | | | |
 | A3 | Image de partage | à faire | | | |
 | A4 | Police Sugo (licence) | fait | 2026-10-02 | non commité | D5 = B : réduit à réévaluer `--tracking-titre` en Anton, sans licence — fait dans F1 (0.04em, choix de Jérôme) |
