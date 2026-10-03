@@ -7,7 +7,7 @@
 --   (b) pms_booking_id est PARTAGÉ — annuler une activité ne doit pas tuer la nuit ;
 --   (c) sortir de `reserved` fait quitter claim_pms_poll_batch — d'où la file, qui prend le relais.
 begin;
-select plan(12);
+select plan(20);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -188,6 +188,87 @@ select is(
   (select status from public.pms_cancellation_queue where pms_booking_id = '90000001'),
   'done',
   'un 422 RESTRICTED_RESERVATION clôt l''entrée en succès, jamais en échec'
+);
+
+-- Migration 20261003223900 : le trigger ne filtre plus le connecteur actif. Une commande qui expire
+-- pendant que le connecteur est coupé ne laisse plus son booking orphelin chez Lobby : l'entrée est
+-- enfilée et attend la réactivation, le drainage ne la réclamant pas tant que le connecteur est coupé.
+insert into public.establishments (id, partner_id, name, lobby_connector_active, lobby_api_token)
+values ('cc000000-0000-4000-8000-0000000000e3', 'cc000000-0000-4000-8000-000000000001',
+        '{"es":"Establecimiento C2 desconectado"}'::jsonb, false, 'jeton-factice-c2b');
+insert into public.products (id, partner_id, establishment_id, type, name, slug, price_cop, lobby_category_id)
+values ('cc000000-0000-4000-8000-0000000000e2', 'cc000000-0000-4000-8000-000000000001',
+        'cc000000-0000-4000-8000-0000000000e3', 'lodging', '{"es":"Noche C2 desconectada"}'::jsonb, 'noche-c2-desconectada', 100000, 9632);
+insert into public.orders (id, account_id, holder_name, holder_email, status)
+values ('cc000000-0000-4000-8000-0000000000e1', 'cc000000-0000-4000-8000-0000000000c2',
+        'Cliente C2', 'c2@example.test', 'reserved');
+insert into public.order_lines (id, order_id, account_id, product_id, status, qty, price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct, acompte_cop, referrer_commission_cop, app_commission_cop, holder_name, date, pms_booking_id)
+values ('cc000000-0000-4000-8000-0000000000e4', 'cc000000-0000-4000-8000-0000000000e1', 'cc000000-0000-4000-8000-0000000000c2',
+        'cc000000-0000-4000-8000-0000000000e2', 'reserved', 1, 100000, 100000, 'direct', 0.15, 0, 0.10, 15000, 0, 10000,
+        'Cliente C2', '2027-03-02', '90000099');
+update public.order_lines set status = 'expired' where id = 'cc000000-0000-4000-8000-0000000000e4';
+
+select is(
+  (select status from public.pms_cancellation_queue where pms_booking_id = '90000099'),
+  'pending',
+  'connecteur coupé : le booking de la commande expirée est enfilé (il attend la réactivation)'
+);
+select is(
+  (select count(*)::int from claim_pms_cancellation_batch(10) c where c.pms_booking_id = '90000099'),
+  0,
+  '… et le drainage ne le réclame pas tant que le connecteur est coupé'
+);
+
+-- Un jeton REMPLACÉ peut ouvrir un autre compte Lobby : l'annulation en attente ne part pas vers lui,
+-- elle passe en échec pour une vérification manuelle (le contrôle nocturne compte les échecs).
+insert into auth.users (id, email) values ('cc000000-0000-4000-8000-0000000000ad', 'admin-c2@test.local');
+insert into public.partner_capabilities (account_id, role, source, status)
+values ('cc000000-0000-4000-8000-0000000000ad', 'admin', 'migration', 'active');
+-- Un établissement SANS jeton, avec une annulation en attente : son premier jeton ne déclenche rien.
+insert into public.establishments (id, partner_id, name, lobby_connector_active, lobby_api_token)
+values ('cc000000-0000-4000-8000-0000000000e5', 'cc000000-0000-4000-8000-000000000001',
+        '{"es":"Establecimiento C2 sin token"}'::jsonb, false, null);
+insert into public.pms_cancellation_queue (pms_booking_id, establishment_id, hifago_status)
+values ('90000098', 'cc000000-0000-4000-8000-0000000000e5', 'expired');
+select test_login('cc000000-0000-4000-8000-0000000000ad');
+set local role authenticated;
+-- « Remplacé » se juge sur les jetons normalisés (nullif(btrim(…), '')).
+select set_establishment_pms_connector('cc000000-0000-4000-8000-0000000000e5', 'premier-jeton', false, 'premier jeton');
+select set_establishment_pms_connector('cc000000-0000-4000-8000-0000000000e3', E'  jeton-factice-c2b\t\n', false, 'même jeton, recollé');
+select set_establishment_pms_connector('cc000000-0000-4000-8000-0000000000e3', '   ', false, 'champ vide');
+reset role;
+select is(
+  (select status from public.pms_cancellation_queue where pms_booking_id = '90000098'),
+  'pending',
+  'un PREMIER jeton (aucun avant) ne fait rien échouer'
+);
+select is(
+  (select jsonb_build_object('file', (select status from public.pms_cancellation_queue where pms_booking_id = '90000099'),
+                             'jeton', (select lobby_api_token from public.establishments where id = 'cc000000-0000-4000-8000-0000000000e3'))),
+  jsonb_build_object('file', 'pending', 'jeton', 'jeton-factice-c2b'),
+  'le même jeton recollé avec des espaces, puis un champ vide : rien n''échoue, le jeton reste (sans espaces)'
+);
+set local role authenticated;
+select set_establishment_pms_connector('cc000000-0000-4000-8000-0000000000e3', ' jeton-factice-c2c ', true, 'nouveau compte Lobby');
+reset role;
+select is(
+  (select status from public.pms_cancellation_queue where pms_booking_id = '90000099'),
+  'failed',
+  'jeton remplacé : l''annulation en attente passe en échec, jamais envoyée au nouveau compte'
+);
+select ok(
+  (select last_error like 'jeton Lobby remplacé%' from public.pms_cancellation_queue where pms_booking_id = '90000099'),
+  '… avec le motif, pour la vérification manuelle'
+);
+select is(
+  (select lobby_api_token from public.establishments where id = 'cc000000-0000-4000-8000-0000000000e3'),
+  'jeton-factice-c2c',
+  'le nouveau jeton est stocké sans ses espaces'
+);
+select is(
+  (select status from public.pms_cancellation_queue where pms_booking_id = '90000098'),
+  'pending',
+  'seulement CET établissement : l''annulation en attente d''un autre établissement ne bouge pas'
 );
 
 select * from finish();

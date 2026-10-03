@@ -136,7 +136,7 @@ select is(
 select is(
   (select count(*)::int from pms_cancellation_queue where pms_booking_id = '90000001'),
   1,
-  'le booking Lobby déjà créé part en file d''annulation (trigger existant, non modifié)'
+  'le booking Lobby déjà créé part en file d''annulation (trigger)'
 );
 
 -- Idempotence : un rejeu ne rend pas les places une seconde fois.
@@ -207,9 +207,11 @@ select is(
   'commande pending relâchée : unpaid, paiement cancelled, place rendue'
 );
 
--- Revue adversariale : connecteur coupé ENTRE le claim et le relâchement. Le trigger
--- enqueue_pms_cancellations filtre les connecteurs actifs : sans l'enfilage explicite de la
--- fonction, le booking déjà créé chez Lobby resterait orphelin.
+-- Revue adversariale : connecteur coupé ENTRE le claim et le relâchement — le booking déjà créé
+-- chez Lobby doit partir en file quand même. Jusqu'à la migration 20261003223900, le trigger
+-- enqueue_pms_cancellations filtrait les connecteurs actifs et seul l'enfilage explicite de la
+-- fonction tenait ; il ne filtre plus, les deux enfilent désormais (l'index partiel absorbe le
+-- doublon) : ce cas prouve le résultat, plus le seul enfilage explicite.
 reset role;
 insert into orders (id, account_id, holder_name, holder_email, payment_status) values
   ('9a930000-0000-4000-8000-000000000073', '9a930000-0000-4000-8000-000000000021', 'Holder Off', 'release-off@test.local', 'unpaid'),

@@ -82,7 +82,14 @@ select is(
         'record_pms_booking',
         'release_pms_reserve_claim',
         -- Échéance de paiement (migration 20261001194704) : lue par les RPC qui en ont besoin.
-        'order_payment_deadline'
+        'order_payment_deadline',
+        -- Synchro PMS et supervision (migration 20261003223900) : l'issue du poll REND DES PLACES et
+        -- annule des lignes sur simple UUID ; la libération touche la file d'e-mails ; les watchdogs
+        -- sont du cron.
+        'apply_pms_poll_outcome',
+        'release_notification_email_claim',
+        'job_watchdog',
+        'jobs_watchdog'
       )
       and (
         has_function_privilege('anon', p.oid, 'EXECUTE')
@@ -158,7 +165,14 @@ select is(
         'record_pms_booking',
         'release_pms_reserve_claim',
         -- Échéance de paiement (migration 20261001194704) : lue par les RPC qui en ont besoin.
-        'order_payment_deadline'
+        'order_payment_deadline',
+        -- Synchro PMS et supervision (migration 20261003223900) : l'issue du poll REND DES PLACES et
+        -- annule des lignes sur simple UUID ; la libération touche la file d'e-mails ; les watchdogs
+        -- sont du cron.
+        'apply_pms_poll_outcome',
+        'release_notification_email_claim',
+        'job_watchdog',
+        'jobs_watchdog'
     ]) as n
     where not exists (
       select 1 from pg_proc p
