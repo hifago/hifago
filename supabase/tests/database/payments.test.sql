@@ -7,7 +7,7 @@
 -- `set local role authenticated` (le vrai rôle Postgres change, contrairement à test_login qui ne
 -- simule qu'un claim JWT), pas seulement l'un ou l'autre.
 begin;
-select plan(84);
+select plan(87);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -840,7 +840,8 @@ select test_logout();
 -- I2 : aucun paiement tant qu'une nuit PMS-backed n'a pas son booking Lobby ; un logement local ou
 -- une activité liée à Lobby sans booking ne bloquent pas. Montant changé entre deux intents →
 -- l'ancien est annulé. Un seul `pending` par commande : le `for update` sur orders sérialise les
--- appels (aucun index unique : un rejected peut redevenir pending, cf. cas 44).
+-- appels, et l'index payments_one_pending_per_order le garantit en base depuis la migration
+-- 20261002185102, avec la garde du webhook (cf. cas 44).
 reset role;
 insert into products (
   id, partner_id, establishment_id, type, name, price_cop, sellable, slug, lobby_category_id, lobby_product_id
@@ -918,9 +919,11 @@ select is(
   'cas 43 : montant changé entre deux intents → ancien payment annulé, nouveau créé, un seul pending'
 );
 
--- Cas 44 : PAS d'index unique sur les pending (décision de la revue de P4a) — un paiement `rejected`
--- qui redevient `pending` par une retentative dans la même session Checkout Pro, pendant qu'un
--- nouvel intent est déjà `pending`, doit être APPLIQUÉ par le webhook, pas finir en 23505.
+-- Cas 44 (migration 20261002185102) : un paiement `rejected` qui redevient `pending` par une
+-- retentative dans l'ancienne session Checkout Pro, pendant qu'un nouvel intent est déjà `pending`,
+-- n'est PAS rétrogradé : la garde other_intent_pending répond ok (Mercado Pago ne retente pas), et
+-- l'index payments_one_pending_per_order n'est jamais heurté. Avant cette garde, l'index était
+-- retiré (P4a) parce que ce chemin finissait en 23505.
 insert into orders (id, account_id, holder_name, holder_email, payment_status) values
   ('88970000-0000-4000-8000-000000000246', '88970000-0000-4000-8000-000000000032', 'Holder Retry', 'retry-payments@test.local', 'pending');
 insert into order_lines (
@@ -940,17 +943,25 @@ select is(
   (select apply_payment_webhook(
      'mp-retry-1', '88970000-0000-4000-8000-000000000266'::uuid, 'pending',
      jsonb_build_object('id', 'mp-retry-1', 'status', 'in_process')
-   ) ->> 'ok'),
-  'true',
-  'cas 44 : rejected → pending pendant qu''un autre pending existe → webhook appliqué, aucune 23505'
+   )),
+  jsonb_build_object('ok', true, 'reason', 'other_intent_pending'),
+  'cas 44 : rejected → pending pendant qu''un autre pending existe → ok, other_intent_pending, aucune 23505'
 );
 reset role;
+select is(
+  (select jsonb_build_object(
+     'ancien', (select status from payments where id = '88970000-0000-4000-8000-000000000266'),
+     'pendings', (select count(*) from payments where order_id = '88970000-0000-4000-8000-000000000246' and status = 'pending'))),
+  jsonb_build_object('ancien', 'rejected', 'pendings', 1),
+  'cas 44a : l''ancien intent reste rejected, un seul pending'
+);
 set local role authenticated;
 select test_login('88970000-0000-4000-8000-000000000032');
 select is(
-  (select create_payment_intent('88970000-0000-4000-8000-000000000246') ->> 'ok'),
-  'true',
-  'cas 44b : avec deux pending, create_payment_intent répond sans erreur'
+  (select (r ->> 'ok') || '/' || (r ->> 'reused') || '/' || (r ->> 'payment_id')
+     from (select create_payment_intent('88970000-0000-4000-8000-000000000246') as r) x),
+  'true/true/88970000-0000-4000-8000-000000000267',
+  'cas 44b : create_payment_intent réutilise le pending courant, sans erreur'
 );
 reset role;
 
@@ -987,19 +998,21 @@ select is(
 ------------------------------------------------------------------------------------------------
 -- Échéance de paiement (migration 20261001194704)
 ------------------------------------------------------------------------------------------------
--- create_payment_intent refuse `order_expiring` dès created_at + 28 min (order_payment_deadline),
+-- create_payment_intent refuse `order_expiring` dès created_at + 28 min (order_payment_deadline)
+-- MOINS 30 s (marge, migration 20261002185102 : payments/create revérifie la limite juste après),
 -- avant tout `payments`, avant `pms_booking_missing` et avant la réutilisation d'un pending.
 -- `now()` est constant dans la transaction : on VIEILLIT LA DONNÉE, jamais l'horloge.
 reset role;
 select test_logout();
 insert into orders (id, account_id, holder_name, holder_email, payment_status, created_at) values
-  ('88970000-0000-4000-8000-000000000e01', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 1', 'deadline-1@test.local', 'unpaid', now() - interval '27 minutes 59 seconds'),
-  ('88970000-0000-4000-8000-000000000e02', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 2', 'deadline-2@test.local', 'unpaid', now() - interval '28 minutes'),
-  ('88970000-0000-4000-8000-000000000e03', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 3', 'deadline-3@test.local', 'unpaid', now() - interval '28 minutes 1 second'),
+  ('88970000-0000-4000-8000-000000000e01', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 1', 'deadline-1@test.local', 'unpaid', now() - interval '27 minutes 29 seconds'),
+  ('88970000-0000-4000-8000-000000000e02', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 2', 'deadline-2@test.local', 'unpaid', now() - interval '27 minutes 30 seconds'),
+  ('88970000-0000-4000-8000-000000000e03', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 3', 'deadline-3@test.local', 'unpaid', now() - interval '27 minutes 31 seconds'),
   ('88970000-0000-4000-8000-000000000e04', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 4', 'deadline-4@test.local', 'unpaid', now() - interval '28 minutes'),
   ('88970000-0000-4000-8000-000000000e05', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 5', 'deadline-5@test.local', 'pending', now() - interval '28 minutes'),
   ('88970000-0000-4000-8000-000000000e06', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 6', 'deadline-6@test.local', 'paid', now() - interval '40 minutes'),
-  ('88970000-0000-4000-8000-000000000e07', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 7', 'deadline-7@test.local', 'unpaid', now() - interval '40 minutes');
+  ('88970000-0000-4000-8000-000000000e07', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 7', 'deadline-7@test.local', 'unpaid', now() - interval '40 minutes'),
+  ('88970000-0000-4000-8000-000000000e08', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 8', 'deadline-8@test.local', 'unpaid', now() - interval '29 minutes');
 insert into order_lines (
   id, order_id, account_id, product_id, date, end_date, qty, status, holder_name,
   price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
@@ -1016,7 +1029,8 @@ select l.id::uuid, l.order_id::uuid, '88970000-0000-4000-8000-000000000032', l.p
     ('88970000-0000-4000-8000-000000000e14', '88970000-0000-4000-8000-000000000e04', '88970000-0000-4000-8000-000000000221', '2029-03-07', '2029-03-08'),
     ('88970000-0000-4000-8000-000000000e15', '88970000-0000-4000-8000-000000000e05', '88970000-0000-4000-8000-000000000222', '2029-03-09', '2029-03-10'),
     ('88970000-0000-4000-8000-000000000e16', '88970000-0000-4000-8000-000000000e06', '88970000-0000-4000-8000-000000000222', '2029-03-11', '2029-03-12'),
-    ('88970000-0000-4000-8000-000000000e17', '88970000-0000-4000-8000-000000000e07', '88970000-0000-4000-8000-000000000222', '2029-03-13', '2029-03-14')
+    ('88970000-0000-4000-8000-000000000e17', '88970000-0000-4000-8000-000000000e07', '88970000-0000-4000-8000-000000000222', '2029-03-13', '2029-03-14'),
+    ('88970000-0000-4000-8000-000000000e18', '88970000-0000-4000-8000-000000000e08', '88970000-0000-4000-8000-000000000222', '2029-03-15', '2029-03-16')
   ) as l(id, order_id, product_id, date, end_date);
 -- e07 : déjà expirée (aucune ligne vivante) et vieille.
 update order_lines set status = 'expired' where id = '88970000-0000-4000-8000-000000000e17';
@@ -1030,17 +1044,17 @@ select test_login('88970000-0000-4000-8000-000000000032');
 select is(
   (select create_payment_intent('88970000-0000-4000-8000-000000000e01') ->> 'ok'),
   'true',
-  'cas 46a : commande de 27 min 59 s → intent accepté'
+  'cas 46a : commande de 27 min 29 s → intent accepté'
 );
 select is(
   (select create_payment_intent('88970000-0000-4000-8000-000000000e02') ->> 'reason'),
   'order_expiring',
-  'cas 46b : commande de 28 min pile → order_expiring (même limite que payments/create)'
+  'cas 46b : commande de 27 min 30 s pile → order_expiring (limite de payments/create moins la marge de 30 s)'
 );
 select is(
   (select create_payment_intent('88970000-0000-4000-8000-000000000e03') ->> 'reason'),
   'order_expiring',
-  'cas 46c : commande de 28 min 1 s → order_expiring'
+  'cas 46c : commande de 27 min 31 s → order_expiring'
 );
 select is(
   (select create_payment_intent('88970000-0000-4000-8000-000000000e04') ->> 'reason'),
@@ -1062,7 +1076,20 @@ select is(
   'nothing_to_pay',
   'cas 46j : commande déjà expirée ET vieille → nothing_to_pay, comme avant (l''écran relu dit « expirée »)'
 );
+-- Cas 46k-l : à 29 min, la commande n'est plus payable mais pas encore expirable — la limite de
+-- paiement (28 min) précède l'expiration (30 min), écart que scripts/check-payment-deadline.sh
+-- verrouille sur les littéraux.
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000e08') ->> 'reason'),
+  'order_expiring',
+  'cas 46k : commande de 29 min → plus payable (order_expiring)'
+);
 reset role;
+select is(
+  (select expire_payment_order('88970000-0000-4000-8000-000000000e08', now()) ->> 'reason'),
+  'not_candidate',
+  'cas 46l : commande de 29 min → pas encore expirable (not_candidate) : la limite précède l''expiration'
+);
 select test_logout();
 select is(
   (select count(*)::int from payments where order_id in ('88970000-0000-4000-8000-000000000e02', '88970000-0000-4000-8000-000000000e03', '88970000-0000-4000-8000-000000000e04')),
