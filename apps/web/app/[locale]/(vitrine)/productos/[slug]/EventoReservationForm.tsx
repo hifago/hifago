@@ -242,7 +242,7 @@ export function EventoReservationForm({
         </p>
       ) : null}
 
-      <Button size="lg" testId="add-to-cart-button" onPress={handleAddToCart} isDisabled={!selectedDate || isFull}>
+      <Button size="lg" width="full" testId="add-to-cart-button" onPress={handleAddToCart} isDisabled={!selectedDate || isFull}>
         {t("addToCart")}
       </Button>
     </div>

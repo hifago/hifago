@@ -160,7 +160,12 @@ export const CLASSE_CALENDRIER = String.raw`w-full max-w-sm [--cell-size:2.75rem
 // `CLASSE_CADRE_CALENDRIER` — le cadre d'un calendrier POSÉ DANS UNE PAGE (les formulaires) : blanc,
 // bordure marine de 1 px, 16 px d'arrondi, 12 puis 16 px de marge. Pas dans ce wrapper : il vit
 // dans le popover de `DateRangeField`, qui est déjà un cadre — deux bordures s'y emboîteraient.
-export const CLASSE_CADRE_CALENDRIER = "rounded-[16px] border border-[var(--border)] bg-surface p-3 sm:p-4";
+// ⚠️ À partir de `lg`, plus de cadre (plan 41, P3) : les quatre formulaires, ses seuls appelants,
+// vivent alors dans le panneau de réservation de la fiche, carte blanche bordée de marine — même
+// raison que le popover. Le panneau rend aussi sa largeur aux cases : 360 px moins 2 × 24 de
+// padding laissent 310 px, sept cases de 44 px ; avec le cadre, elles tombaient à 36 px.
+export const CLASSE_CADRE_CALENDRIER =
+  "rounded-[16px] border border-[var(--border)] bg-surface p-3 sm:p-4 lg:rounded-none lg:border-0 lg:p-0";
 
 // Le mois en rôle `titre-bloc` (Anton, 20 → 22 px), majuscule initiale (« octubre 2026 » en
 // espagnol). ⚠️ `classNames.caption_label` REMPLACE celui de legacy-calendar (il n'est pas fusionné) :

@@ -48,6 +48,12 @@ describe("BandeauPagina", () => {
     expect(rendre({ conPunto: false }).querySelector("h1 span")).toBeNull();
   });
 
+  // Les fiches gardent le `data-testid` de leur ancien H1, lu par les e2e (plan 41, P3 et P4).
+  it("porte le data-testid du titre demandé par la page", () => {
+    const h1 = rendre({ tituloTestId: "product-name" }).querySelector("h1") as HTMLElement;
+    expect(h1.getAttribute("data-testid")).toBe("product-name");
+  });
+
   // L'ordre du §6 (S2) : fil d'Ariane → lien retour → H1 → chapô → meta → action.
   it("rend les éléments dans l'ordre de lecture du plan", () => {
     const racine = rendre(COMPLET);

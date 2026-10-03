@@ -193,6 +193,44 @@ describe("FichaProducto — unité de prix", () => {
   });
 });
 
+// Plan 41, P3 (2026-10-03) : le bandeau or porte le SEUL `<h1>` (spec 30, invariant 2), le fil
+// d'Ariane reçu de la page, « Ofrecido por » et les faits en puces ; le panneau porte la politique
+// d'annulation ; la barre mobile n'existe que s'il y a quelque chose à réserver. La disposition
+// elle-même (deux colonnes, ordre mobile, collant) se prouve au rendu : jsdom n'applique pas les
+// media queries.
+describe("FichaProducto — mise en page de la charte (plan 41, P3)", () => {
+  it("un seul <h1>, le nom du produit, dans le bandeau, sans point", () => {
+    renderView({ capacity: 2, unitCount: 3 });
+    const titres = document.querySelectorAll("h1");
+    expect(titres.length).toBe(1);
+    expect(titres[0].getAttribute("data-testid")).toBe("product-name");
+    expect(titres[0].textContent).toBe("GLAMPING");
+    expect(titres[0].closest("[data-testid='ficha-bandeau']")).not.toBeNull();
+    expect(titres[0].querySelector("span")).toBeNull();
+  });
+
+  it("met « Ofrecido por » et les faits en puces dans le bandeau", () => {
+    renderView({ capacity: 2, unitCount: 3, lodgingKind: "private" });
+    const bandeau = screen.getByTestId("ficha-bandeau");
+    const ofrecido = screen.getByTestId("product-ofrecido-por");
+    expect(bandeau.contains(ofrecido)).toBe(true);
+    expect(ofrecido.textContent).toContain("Ofrecido por Casa Kayam");
+    expect(ofrecido.querySelector("a")?.getAttribute("href")).toBe("/establecimientos/casa-kayam");
+    const faits = screen.getByTestId("product-lodging-facts");
+    expect(bandeau.contains(faits)).toBe(true);
+    expect(faits.querySelectorAll("[data-tono='neutro']").length).toBe(3);
+  });
+
+  it("pose la politique d'annulation dans un encadré, et la barre mobile quand on peut réserver", () => {
+    renderView({ capacity: 2, unitCount: 3 });
+    expect(screen.getByTestId("politica-cancelacion").getAttribute("data-tono")).toBe("info");
+    const barra = screen.getByTestId("barra-reserva");
+    expect(barra.textContent).toContain("120.000");
+    expect(barra.textContent).toContain("Reservar");
+    expect(document.getElementById("reservar")).not.toBeNull();
+  });
+});
+
 // products/product_amenity_assignments (migration 20260917110000, décision Jérôme du 2026-09-17).
 describe("FichaProducto — équipements structurés", () => {
   it("affiche les équipements groupés par catégorie quand la fiche en porte", () => {

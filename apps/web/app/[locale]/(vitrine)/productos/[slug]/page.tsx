@@ -102,8 +102,10 @@ export default async function ProductoPage({ params }: PageProps<"/[locale]/prod
       )
     : null;
 
+  // Plan 41, P3 : le gabarit des pages intérieures (`pagina`, la colonne de l'accueil). La fiche
+  // s'ouvre sur son bandeau or à fond perdu, que `FichaProducto` rend en premier enfant du `<main>`.
   return (
-    <PageShell variant="large">
+    <PageShell variant="pagina">
       {/* Le JSON-LD est rendu ICI, côté serveur, jamais dans un composant : le composant affiche,
           la route décrit (règle SEO 6). */}
       <JsonLd
@@ -131,9 +133,14 @@ export default async function ProductoPage({ params }: PageProps<"/[locale]/prod
           page déclarait un `BreadcrumbList` de deux entrées SANS afficher le moindre fil. */}
       <JsonLd data={buildBreadcrumbJsonLd(getSiteUrl(), migasParaJsonLd(migas, locale, rutaCanonica))} />
 
-      <Migas items={migas} etiqueta={t("migasEtiqueta")} locale={locale as Locale} testId="migas" />
-
-      <FichaProducto ficha={ficha} etiquetas={{ ocurrencia }} locale={locale as Locale} />
+      {/* Le fil visible part dans le bandeau de la fiche, déjà rendu : c'est toujours la liste
+          `migas` du JSON-LD ci-dessus. */}
+      <FichaProducto
+        ficha={ficha}
+        etiquetas={{ ocurrencia }}
+        locale={locale as Locale}
+        migas={<Migas items={migas} etiqueta={t("migasEtiqueta")} locale={locale as Locale} testId="migas" />}
+      />
     </PageShell>
   );
 }
