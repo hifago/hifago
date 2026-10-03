@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { differenceInCalendarDays } from "date-fns";
+import { isoDateToLocalMidnight } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/client";
 // ⚠️ Corrigé le 2026-09-10 (spec 33) : ce fichier importait `useRouter` de `next/navigation`,
 // ce que `scripts/check-i18n-links.sh` refuse — le contrôle était rouge depuis la livraison de
@@ -11,10 +13,10 @@ import { useRouter } from "@/i18n/navigation";
 import { useCart } from "@/lib/cart/CartContext";
 import { Button } from "@/components/atoms/Button";
 import { Card } from "@/components/atoms/Card";
+import { LinkButton } from "@/components/atoms/LinkButton";
 import { Aviso } from "@/components/molecules/Aviso";
 import { Price } from "@/components/atoms/Price";
-import { formatLineSchedule } from "@/lib/orders/formatLineSchedule";
-import { computeTripRange, formatTripLabel } from "@/lib/orders/tripRange";
+import { formatLineSchedule, resolveDisplayEndDate } from "@/lib/orders/formatLineSchedule";
 import { computeCartLineTotal } from "@/lib/cart/cartLineTotal";
 import type { CartLineForDisplay } from "@/lib/cart/getCartLines";
 import type { Locale } from "@/messages";
@@ -31,13 +33,31 @@ export type CartSummaryProps = {
   lines: CartLineForDisplay[];
   editable: boolean;
   locale: Locale;
+  presentation?: "trip" | "checkout";
+  lodgingRequirement?: {
+    message: string;
+    chooseHref: string;
+    chooseLabel: string;
+  } | null;
 };
 
-export function CartSummary({ lines, editable, locale }: CartSummaryProps) {
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" />
+    </svg>
+  );
+}
+
+export function CartSummary({
+  lines,
+  editable,
+  locale,
+  presentation = editable ? "trip" : "checkout",
+  lodgingRequirement = null,
+}: CartSummaryProps) {
   const t = useTranslations("CartPage");
-  // Le titre "Tu viaje del X al X" est partagé avec l'écran de résultat — mêmes clés
-  // `OrderResultPage.trip.*`, jamais recopiées (cf. `lib/orders/tripRange.ts`).
-  const tTrip = useTranslations("OrderResultPage");
+  const tCommon = useTranslations("Common");
   const router = useRouter();
   const { refresh } = useCart();
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -70,25 +90,8 @@ export function CartSummary({ lines, editable, locale }: CartSummaryProps) {
     );
   }
 
-  // Calculé APRÈS la garde ci-dessus : `computeTripRange` suppose `lines` non vide (même
-  // invariant que côté commande, tenu ici par l'embranchement plutôt que par `create_order`).
-  const tripLabel = formatTripLabel(computeTripRange(lines), locale, tTrip);
-
-  return (
-    <Card
-      title={tripLabel}
-      titleAs="h2"
-      titleSize="bloque"
-      contentGap="md"
-      padding="lg"
-      testId="trip-summary"
-    >
-      {/* Plan 41, F6 : les lignes ne sont plus des boîtes bordées de marine DANS une carte bordée
-          de marine (rendu « fil de fer ») — des rangées séparées par le filet `--separator`.
-          La ligne indisponible garde la forme des autres : son message est un `Aviso` compact
-          (S6) SOUS la rangée, sur toute sa largeur — dans la colonne du nom, il n'avait que la
-          moitié de la ligne et passait sur quatre lignes à 390 px. */}
-      <ul className="flex flex-col divide-y divide-separator">
+  const liste = (
+    <ul className="flex flex-col divide-y divide-separator">
         {lines.map((line, i) => (
           <li
             key={line.id}
@@ -96,16 +99,26 @@ export function CartSummary({ lines, editable, locale }: CartSummaryProps) {
             data-unavailable={line.unavailable}
             className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0"
           >
-            <div className="flex items-center justify-between gap-4 text-sm">
-              <div className="flex flex-col">
-                <span className="font-medium">{line.productName}</span>
-                <span className="text-muted">
-                  {line.establishmentName} · {formatLineSchedule(line)} ·{" "}
-                  {t("lineQty", { count: line.qty })}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="text-base font-semibold sm:text-[17px]">{line.productName}</span>
+                <span className="text-sm text-muted">
+                  {line.establishmentName} · {formatLineSchedule(line, locale)}
+                  {resolveDisplayEndDate(line)
+                    ? ` · ${t("lineNights", {
+                        count: differenceInCalendarDays(
+                          isoDateToLocalMidnight(resolveDisplayEndDate(line)!),
+                          isoDateToLocalMidnight(line.date)
+                        ),
+                      })}`
+                    : ""}
+                  {` · ${t("lineQty", { count: line.qty })}`}
                 </span>
               </div>
-              <div className="flex items-center gap-3">
-                <Price amountCop={totalesPorLinea[i]} locale={locale} />
+              <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
+                <span className="font-semibold tabular-nums">
+                  <Price amountCop={totalesPorLinea[i]} locale={locale} />
+                </span>
                 {editable ? (
                   <Button
                     type="button"
@@ -114,6 +127,7 @@ export function CartSummary({ lines, editable, locale }: CartSummaryProps) {
                     size="sm"
                     onPress={() => handleRemove(line.id)}
                     isDisabled={removingId === line.id}
+                    iconBefore={<TrashIcon />}
                     testId={`remove-line-${line.id}`}
                   >
                     {t("removeLine")}
@@ -134,16 +148,85 @@ export function CartSummary({ lines, editable, locale }: CartSummaryProps) {
           </li>
         ))}
       </ul>
+  );
 
-      {/* Le même filet que entre les lignes, et que celui des totaux d'`OrderResult`. */}
-      <div className="flex flex-col gap-1 border-t border-separator pt-4">
-        <p className="text-lg font-medium" data-testid="cart-total">
-          {t("total")}: <Price amountCop={total} locale={locale} />
-        </p>
-        <p className="text-sm text-muted" data-testid="cart-total-now">
-          {t("totalNow")}: <Price amountCop={totalNow} locale={locale} />
+  const totaux = (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-baseline justify-between gap-4" data-testid="cart-total">
+        <span className="titre-bloc">{t("total")}</span>
+        <span className="text-lg font-semibold tabular-nums">
+          <Price amountCop={total} locale={locale} />
+        </span>
+      </div>
+      <div className="rounded-[16px] bg-[var(--default)] p-4" data-testid="cart-total-now">
+        <p className="meta">{t("depositToday")}</p>
+        <p className="prix-fort mt-1 tabular-nums">
+          <Price amountCop={totalNow} locale={locale} />
         </p>
       </div>
-    </Card>
+      <p className="text-sm text-muted">{t("depositExplanation")}</p>
+    </div>
+  );
+
+  if (presentation === "checkout") {
+    return (
+      <Card contentGap="md" padding="lg" testId="trip-summary">
+        {liste}
+        <div className="border-t border-separator pt-4">{totaux}</div>
+      </Card>
+    );
+  }
+
+  const action = lodgingRequirement ? (
+    <Aviso
+      tono="alerta"
+      testId="lodging-required-notice"
+      accion={
+        <>
+          <Button isDisabled size="lg" width="full" testId="go-to-checkout">
+            {t("goToCheckout")}
+          </Button>
+          <LinkButton
+            href={lodgingRequirement.chooseHref}
+            variant="outline"
+            color="neutral"
+            width="full"
+            testId="choose-lodging-button"
+          >
+            {lodgingRequirement.chooseLabel}
+          </LinkButton>
+        </>
+      }
+    >
+      {lodgingRequirement.message}
+    </Aviso>
+  ) : (
+    <div className="fixed inset-x-5 bottom-4 z-20 rounded-[12px] bg-background/95 p-2 shadow-lg backdrop-blur lg:static lg:rounded-none lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none">
+      <LinkButton href="/pago" size="lg" width="full" testId="go-to-checkout">
+        <span className="lg:hidden">
+          {t("goToCheckout")} · <Price amountCop={totalNow} locale={locale} />
+        </span>
+        <span className="hidden lg:inline">{t("goToCheckout")}</span>
+      </LinkButton>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-6 pb-16 lg:pb-0">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+        <Card contentGap="md" padding="lg" testId="trip-summary">
+          {liste}
+        </Card>
+        {/* `top-24` : sous le header collant (`SiteHeader`, `h-16`), avec 32 px d'air. */}
+        <aside className="flex flex-col gap-4 lg:sticky lg:top-24">
+          <Card contentGap="md" padding="lg" testId="trip-recap">
+            {totaux}
+            {action}
+            <p className="meta">{tCommon("cancellationPolicy")}</p>
+          </Card>
+        </aside>
+      </div>
+
+    </div>
   );
 }

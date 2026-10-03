@@ -5,6 +5,12 @@ import { useTranslations } from "next-intl";
 import { createClient } from "@hifago/supabase/client";
 import { cn } from "@hifago/ui";
 import { Button } from "@/components/atoms/Button";
+import { LinkButton } from "@/components/atoms/LinkButton";
+import {
+  PuceEstado,
+  TONO_POR_ESTADO_PEDIDO,
+  tonoDeLinea,
+} from "@/components/atoms/PuceEstado";
 // ⚠️ `useRouter` d'`@/i18n/navigation`, jamais de `next/navigation` (scripts/check-i18n-links.sh).
 // Ici seul `refresh()` est utilisé — que next-intl conserve tel quel (il ne surcharge que
 // push/replace/prefetch) — mais la règle ne souffre pas d'exception au cas par cas : un jour
@@ -12,8 +18,10 @@ import { Button } from "@/components/atoms/Button";
 import { Link, useRouter } from "@/i18n/navigation";
 import { Card } from "@/components/atoms/Card";
 import { Price } from "@/components/atoms/Price";
+import { Aviso } from "@/components/molecules/Aviso";
 import { MontantsLigne } from "@/components/molecules/MontantsLigne";
 import { Title } from "@/components/atoms/Title";
+import { BandeauPagina } from "@/components/organisms/BandeauPagina";
 import { formatLineSchedule } from "@/lib/orders/formatLineSchedule";
 import { deriveOrderState, isDeadLine } from "@/lib/orders/orderState";
 import { computeTripRange, formatTripLabel } from "@/lib/orders/tripRange";
@@ -47,7 +55,11 @@ const PAYMENT_ERROR_REASONS = [
   "mercadopago_unavailable",
 ] as const;
 
-type PaymentIntentResult = { ok: boolean; reason?: string; payment_id?: string };
+type PaymentIntentResult = {
+  ok: boolean;
+  reason?: string;
+  payment_id?: string;
+};
 
 /**
  * Que faire de la réponse de `/api/pms/reserve-nights`, appelée quand `create_payment_intent` refuse
@@ -87,19 +99,27 @@ export type BookingRecovery =
 
 type ReserveNightsBody = { ok?: boolean; reason?: string; released?: boolean };
 
-const stop = (notice: PmsNoticeKey | null, blockPayment = false): BookingRecovery => ({
+const stop = (
+  notice: PmsNoticeKey | null,
+  blockPayment = false,
+): BookingRecovery => ({
   kind: "stop",
   notice,
   blockPayment,
 });
 
-export function bookingRecovery(httpOk: boolean, body: ReserveNightsBody | null): BookingRecovery {
+export function bookingRecovery(
+  httpOk: boolean,
+  body: ReserveNightsBody | null,
+): BookingRecovery {
   if (httpOk) return { kind: "booked" };
   if (body === null) return stop("pms_unknown_outcome"); // 500/504 de la plateforme, corps illisible
   if (body.reason === "order_paid") return stop(null);
-  if (body.reason === "pms_claim_in_progress") return stop("pms_claim_in_progress");
+  if (body.reason === "pms_claim_in_progress")
+    return stop("pms_claim_in_progress");
   if (body.released === true) {
-    if (body.reason === "pms_refused" || body.reason === "pms_unavailable") return stop(body.reason);
+    if (body.reason === "pms_refused" || body.reason === "pms_unavailable")
+      return stop(body.reason);
     // order_not_active : la commande était déjà défaite (expirée) — l'écran relu le dit seul.
     if (body.reason === "order_not_active") return stop(null);
     return stop("pms_unreachable");
@@ -113,7 +133,9 @@ export function bookingRecovery(httpOk: boolean, body: ReserveNightsBody | null)
   return stop("pms_unconfirmed");
 }
 
-async function reserveMissingBookings(orderId: string): Promise<BookingRecovery> {
+async function reserveMissingBookings(
+  orderId: string,
+): Promise<BookingRecovery> {
   let response: Response;
   try {
     response = await fetch("/api/pms/reserve-nights", {
@@ -124,14 +146,15 @@ async function reserveMissingBookings(orderId: string): Promise<BookingRecovery>
   } catch {
     return stop("pms_unknown_outcome");
   }
-  const body = (await response.json().catch(() => null)) as ReserveNightsBody | null;
+  const body = (await response
+    .json()
+    .catch(() => null)) as ReserveNightsBody | null;
   return bookingRecovery(response.ok, body);
 }
 
 /** Cadence et plafond du rafraîchissement pendant l'attente du webhook (≈ 1 minute au total). */
 const REFRESH_INTERVAL_MS = 3000;
 const MAX_REFRESH_TICKS = 20;
-
 
 export type OrderResultProps = {
   order: OrderForDisplay;
@@ -142,7 +165,12 @@ export type OrderResultProps = {
   paymentOutcome: "approved" | "pending" | "rejected" | null;
 };
 
-export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: OrderResultProps) {
+export function OrderResult({
+  order,
+  locale,
+  isRealAccount,
+  paymentOutcome,
+}: OrderResultProps) {
   const t = useTranslations("OrderResultPage");
   const router = useRouter();
   // Retour de Mercado Pago (réel ou simulé) avec un paiement rejeté : la page s'est entièrement
@@ -152,7 +180,7 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
   // évite de toute façon un rendu intermédiaire sans le message). Elle superpose le même état d'écran
   // `failed` qu'un échec détecté avant le départ (cf. en-tête du fichier).
   const [paymentError, setPaymentError] = useState<string | null>(() =>
-    paymentOutcome === "rejected" ? t("errors.payment_rejected") : null
+    paymentOutcome === "rejected" ? t("errors.payment_rejected") : null,
   );
   const [isPaying, setIsPaying] = useState(false);
   // Pendant l'appel à reserve-nights (jusqu'à près d'une minute chez Lobby) : le bouton ne dit pas
@@ -226,8 +254,13 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
 
     const supabase = createClient();
     const requestIntent = async () => {
-      const { data, error } = await supabase.rpc("create_payment_intent", { p_order_id: order.id });
-      return { intentResult: data as PaymentIntentResult | null, intentError: error };
+      const { data, error } = await supabase.rpc("create_payment_intent", {
+        p_order_id: order.id,
+      });
+      return {
+        intentResult: data as PaymentIntentResult | null,
+        intentError: error,
+      };
     };
     let { intentResult, intentError } = await requestIntent();
 
@@ -254,7 +287,8 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
       setIsPaying(false);
       const raw = intentResult?.reason;
       const reason =
-        raw !== undefined && (PAYMENT_ERROR_REASONS as readonly string[]).includes(raw)
+        raw !== undefined &&
+        (PAYMENT_ERROR_REASONS as readonly string[]).includes(raw)
           ? raw
           : "unknown";
       // Plus rien à payer, ou déjà payé : la commande a changé sous cet écran (expirée, défaite ou
@@ -283,9 +317,10 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
       setPaymentError(t("errors.mercadopago_unavailable"));
       return;
     }
-    const createResult = (await createResponse.json().catch(() => null)) as
-      | { ok: boolean; init_point?: string }
-      | null;
+    const createResult = (await createResponse.json().catch(() => null)) as {
+      ok: boolean;
+      init_point?: string;
+    } | null;
     if (!createResponse.ok || !createResult?.ok || !createResult.init_point) {
       setIsPaying(false);
       setPaymentError(t("errors.mercadopago_unavailable"));
@@ -299,108 +334,139 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
   }
 
   const tripLabel = formatTripLabel(computeTripRange(order.lines), locale, t);
+  const tonoEstado = TONO_POR_ESTADO_PEDIDO[state];
+  // `Aviso` n'a pas de ton neutre : une annulation est une information, sans la peindre en erreur.
+  const tonoAviso = tonoEstado === "neutro" ? "info" : tonoEstado;
+  // Paiement bloqué après un relâchement PMS impossible : ne plus promettre un paiement qu'on a
+  // justement retiré. La notice dans l'`Aviso` devient alors l'unique détail, comme avant P7.
+  const detalleEstado =
+    isPaymentBlocked && state === "unpaid"
+      ? undefined
+      : t(`status.${state}Detail`);
 
   return (
-    <div className="flex flex-col gap-6" data-testid="order-result">
+    <>
+      <BandeauPagina
+        variante="contenido"
+        titulo={t("title", { reference: order.reference })}
+        conPunto={false}
+        complementoTitulo={
+          <PuceEstado tono={tonoEstado} testId={`order-status-${state}`}>
+            {t(`status.${state}`)}
+          </PuceEstado>
+        }
+        chapo={detalleEstado}
+        testId="order-result-banner"
+      />
+
       <div
-        role="status"
-        data-testid={`order-state-${state}`}
-        className={cn(
-          "flex flex-col gap-1 rounded-lg border p-4",
-          state === "paid"
-            ? "border-success bg-success/10"
-            : state === "failed" || state === "expired" || state === "cancelled" || state === "paid_not_honored"
-              ? "border-danger bg-danger/10"
-              : "border"
-        )}
+        className="mx-auto flex w-full max-w-2xl flex-col gap-6"
+        data-testid="order-result"
       >
-        <p className="font-medium">{t(`status.${state}`)}</p>
-        {/* Paiement retiré (relâchement impossible) : le détail d'`unpaid` dirait encore « Paga el
-            anticipo » sous une page sans bouton — la notice dit seule ce qui va se passer. */}
-        {isPaymentBlocked && state === "unpaid" ? null : (
-          <p className="text-sm text-muted">{t(`status.${state}Detail`)}</p>
-        )}
-        {paymentError ? (
-          <p role="alert" data-testid="payment-error" className="text-sm text-danger">
-            {paymentError}
-          </p>
-        ) : null}
-        {notice ? (
-          <p role="alert" data-testid="pms-notice" className="text-sm">
-            {notice}
-          </p>
-        ) : null}
-      </div>
-
-      {isPayable ? (
-        <Button
-          type="button"
-          size="lg"
-          onPress={startPayment}
-          isDisabled={isPaying || isRefreshing}
-          testId={paymentError ? "retry-payment-button" : "pay-button"}
+        <Aviso
+          tono={tonoAviso}
+          titulo={t(`status.${state}`)}
+          rol="status"
+          testId={`order-state-${state}`}
         >
-          {isConfirmingBooking
-            ? t("confirmingBooking")
-            : isPaying
-              ? t("paying")
-              : paymentError
-                ? t("retryPayment")
-                : t("pay")}
-        </Button>
-      ) : null}
+          {/* Paiement retiré (relâchement impossible) : le détail d'`unpaid` dirait encore « Paga el
+            anticipo » sous une page sans bouton — la notice dit seule ce qui va se passer. */}
+          {detalleEstado ? <p>{detalleEstado}</p> : null}
+          {paymentError ? (
+            <p
+              role="alert"
+              data-testid="payment-error"
+              className="mt-2 text-danger"
+            >
+              {paymentError}
+            </p>
+          ) : null}
+          {notice ? (
+            <p role="alert" data-testid="pms-notice" className="mt-2">
+              {notice}
+            </p>
+          ) : null}
+        </Aviso>
 
-      <Card
-        title={tripLabel}
-        titleAs="h2"
-        titleSize="bloque"
-        contentGap="md"
-        padding="lg"
-        testId="trip-summary"
-      >
-        {/* Plan 41, F6 : rangées séparées par le filet `--separator`, plus des boîtes bordées de
+        {isPayable ? (
+          <Button
+            type="button"
+            size="lg"
+            onPress={startPayment}
+            isDisabled={isPaying || isRefreshing}
+            testId={paymentError ? "retry-payment-button" : "pay-button"}
+          >
+            {isConfirmingBooking
+              ? t("confirmingBooking")
+              : isPaying
+                ? t("paying")
+                : paymentError
+                  ? t("retryPayment")
+                  : t("pay")}
+          </Button>
+        ) : null}
+
+        <Card
+          title={tripLabel}
+          titleAs="h2"
+          titleSize="bloque"
+          contentGap="md"
+          padding="lg"
+          testId="trip-summary"
+        >
+          {/* Plan 41, F6 : rangées séparées par le filet `--separator`, plus des boîtes bordées de
             marine dans la carte bordée de marine — même balisage que `CartSummary`/`OrderCard`. */}
-        <ul className="flex flex-col divide-y divide-separator">
-          {order.lines.map((line) => {
-            const isDead = isDeadLine(line.status);
-            return (
-              <li
-                key={line.id}
-                data-testid={`order-line-${line.id}`}
-                data-status={line.status}
-                className={cn(
-                  // Sous `sm`, le montant passe SOUS le libellé plutôt qu'à sa droite : rien n'est
-                  // masqué selon la largeur, on réorganise (.claude/rules/ui.md) — même patron que
-                  // OrderCard.tsx (`/cuenta/reservas`), nécessaire depuis que ce `<li>` porte un
-                  // `<dl>` à deux montants et pas un seul `<Price>` court.
-                  "flex flex-col gap-2 py-4 text-sm first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between",
-                  isDead && "text-muted"
-                )}
-              >
-                <div className="flex flex-col gap-1">
-                  <span className={cn("font-medium", isDead && "line-through")}>
-                    {line.productName}
-                  </span>
-                  <span className="text-muted">
-                    {/* Spec 34 décision ③ — l'établissement devient un lien vers sa fiche. Rendu
+          <ul className="flex flex-col divide-y divide-separator">
+            {order.lines.map((line) => {
+              const isDead = isDeadLine(line.status);
+              return (
+                <li
+                  key={line.id}
+                  data-testid={`order-line-${line.id}`}
+                  data-status={line.status}
+                  className={cn(
+                    // Sous `sm`, le montant passe SOUS le libellé plutôt qu'à sa droite : rien n'est
+                    // masqué selon la largeur, on réorganise (.claude/rules/ui.md) — même patron que
+                    // OrderCard.tsx (`/cuenta/reservas`), nécessaire depuis que ce `<li>` porte un
+                    // `<dl>` à deux montants et pas un seul `<Price>` court.
+                    "flex flex-col gap-2 py-4 text-sm first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between",
+                    isDead && "text-muted",
+                  )}
+                >
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <span
+                        className={cn("font-medium", isDead && "line-through")}
+                      >
+                        {line.productName}
+                      </span>
+                      <PuceEstado
+                        tono={tonoDeLinea(line.status)}
+                        testId={`line-status-${line.id}`}
+                      >
+                        {t(`lineStatus.${line.status}`)}
+                      </PuceEstado>
+                    </div>
+                    <span className="text-muted">
+                      {/* Spec 34 décision ③ — l'établissement devient un lien vers sa fiche. Rendu
                         même s'il est dépublié : le 404 est rare, et recopier ici le prédicat de
                         `establishments_select_public` créerait une seconde définition de
                         « publiquement visible » (spec 34 §9). */}
-                    {line.establishmentSlug ? (
-                      <Link
-                        href={`/establecimientos/${line.establishmentSlug}`}
-                        data-testid={`establishment-link-${line.id}`}
-                        className="underline underline-offset-2"
-                      >
-                        {line.establishmentName}
-                      </Link>
-                    ) : (
-                      line.establishmentName
-                    )}{" "}
-                    · {formatLineSchedule(line)} · {t("lineQty", { count: line.qty })}
-                  </span>
-                  <span className="text-xs text-muted">{t(`lineStatus.${line.status}`)}</span>
-                  {/* Spec 34 décision ⑥ — écrire à l'établissement, message pré-rempli avec le
+                      {line.establishmentSlug ? (
+                        <Link
+                          href={`/establecimientos/${line.establishmentSlug}`}
+                          data-testid={`establishment-link-${line.id}`}
+                          className="underline underline-offset-2"
+                        >
+                          {line.establishmentName}
+                        </Link>
+                      ) : (
+                        line.establishmentName
+                      )}{" "}
+                      · {formatLineSchedule(line, locale)} ·{" "}
+                      {t("lineQty", { count: line.qty })}
+                    </span>
+                    {/* Spec 34 décision ⑥ — écrire à l'établissement, message pré-rempli avec le
                       numéro de réservation : la forme exacte du portail en production
                       (`reservar.js`, « Hola, soy {name}, reserva #{id} »), à ceci près que
                       `reference` porte déjà son préfixe HFG-. L'URL de base est construite côté
@@ -413,110 +479,135 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
                       écrit au prestataire et l'autre à la plateforme — constaté en capturant le
                       rendu réel le 2026-09-11. Le cahier §2c prévoit bien les deux canaux ; c'est
                       au libellé de dire lequel. */}
-                  {line.establishmentContactUrl ? (
-                    <a
-                      href={`${line.establishmentContactUrl}?text=${encodeURIComponent(
-                        t("contactMessage", {
-                          name: order.holderName,
-                          reference: order.reference,
-                        })
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      data-testid={`contact-whatsapp-${line.id}`}
-                      className="text-xs underline underline-offset-2"
-                    >
-                      {t("contactWhatsApp", { establishment: line.establishmentName })}
-                    </a>
-                  ) : null}
-                </div>
-                {/* Décision Gabriel (2026-09-16) : le reste dû sur place se lit par article, jamais
+                    {line.establishmentContactUrl ? (
+                      <a
+                        href={`${line.establishmentContactUrl}?text=${encodeURIComponent(
+                          t("contactMessage", {
+                            name: order.holderName,
+                            reference: order.reference,
+                          }),
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-testid={`contact-whatsapp-${line.id}`}
+                        className="text-xs underline underline-offset-2"
+                      >
+                        {t("contactWhatsApp", {
+                          establishment: line.establishmentName,
+                        })}
+                      </a>
+                    ) : null}
+                  </div>
+                  {/* Décision Gabriel (2026-09-16) : le reste dû sur place se lit par article, jamais
                     en un seul total agrégé en bas de carte — une commande peut toucher plusieurs
                     établissements, un montant unique induit en erreur. Le balisage est celui
                     d'`OrderCard.tsx` (`/cuenta/reservas`) parce que c'est LE MÊME composant : seule
                     la paire de montants change. */}
-                <MontantsLigne
+                  <MontantsLigne
+                    locale={locale}
+                    montants={[
+                      {
+                        label: t("total"),
+                        amountCop: line.totalCop,
+                        testId: `line-total-${line.id}`,
+                      },
+                      {
+                        label: t("remainder"),
+                        amountCop: line.totalCop - line.acompteCop,
+                        testId: `line-remainder-${line.id}`,
+                      },
+                    ]}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+
+          <dl className="flex flex-col gap-2 rounded-[16px] bg-[var(--default)] p-4">
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-sm font-medium">{t("total")}</dt>
+              <dd className="text-right font-semibold tabular-nums">
+                <Price
+                  amountCop={order.totalCop}
                   locale={locale}
-                  montants={[
-                    { label: t("total"), amountCop: line.totalCop, testId: `line-total-${line.id}` },
-                    {
-                      label: t("remainder"),
-                      amountCop: line.totalCop - line.acompteCop,
-                      testId: `line-remainder-${line.id}`,
-                    },
-                  ]}
+                  testId="order-total"
                 />
-              </li>
-            );
-          })}
-        </ul>
+              </dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-sm font-medium text-muted">{t("acompte")}</dt>
+              <dd className="text-right font-semibold tabular-nums">
+                <Price
+                  amountCop={order.acompteCop}
+                  locale={locale}
+                  testId="order-acompte"
+                />
+              </dd>
+            </div>
+          </dl>
+        </Card>
 
-        <dl className="flex flex-col gap-1 border-t border-separator pt-4 text-sm">
-          <div className="flex justify-between font-medium">
-            <dt>{t("total")}</dt>
-            <dd>
-              <Price amountCop={order.totalCop} locale={locale} testId="order-total" />
-            </dd>
-          </div>
-          <div className="flex justify-between text-muted">
-            <dt>{t("acompte")}</dt>
-            <dd>
-              <Price amountCop={order.acompteCop} locale={locale} testId="order-acompte" />
-            </dd>
-          </div>
-        </dl>
-      </Card>
+        <section className="flex flex-col gap-3">
+          <Title as="h2" size="bloque">
+            {t("holder")}
+          </Title>
+          <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[auto_minmax(0,1fr)]">
+            <dt className="text-sm font-medium text-muted">
+              {t("holderName")}
+            </dt>
+            <dd>{order.holderName}</dd>
+            {order.holderPhone ? (
+              <>
+                <dt className="text-sm font-medium text-muted">
+                  {t("holderPhone")}
+                </dt>
+                <dd>{order.holderPhone}</dd>
+              </>
+            ) : null}
+            <dt className="text-sm font-medium text-muted">
+              {t("holderEmail")}
+            </dt>
+            <dd className="break-words">{order.holderEmail}</dd>
+          </dl>
+        </section>
 
-      <section className="flex flex-col gap-1 text-sm">
-        <Title as="h2" size="bloque">
-          {t("holder")}
-        </Title>
-        <p>
-          <span className="text-muted">{t("holderName")} : </span>
-          {order.holderName}
-        </p>
-        {order.holderPhone ? (
-          <p>
-            <span className="text-muted">{t("holderPhone")} : </span>
-            {order.holderPhone}
-          </p>
-        ) : null}
-        <p>
-          <span className="text-muted">{t("holderEmail")} : </span>
-          {order.holderEmail}
-        </p>
-      </section>
+        <Aviso tono="info" testId="keep-link">
+          {t("keepLink")}
+        </Aviso>
 
-      <p className="text-xs text-muted" data-testid="keep-link">
-        {t("keepLink")}
-      </p>
-
-      {isRealAccount ? (
-        <Link href="/cuenta/reservas" data-testid="view-orders-link" className="text-sm hover:underline">
-          {t("viewOrders")}
-        </Link>
-      ) : (
-        // Le rattachement des commandes par email est fait par `attach_orders_to_account`, appelée
-        // depuis /auth/callback une fois l'email VÉRIFIÉ (spec 33 Tranche 3). L'email est pré-rempli
-        // pour que le client ne rattache pas par erreur une adresse différente de sa commande.
-        <div className="flex flex-col gap-1">
-          <Link
-            href={`/registro?next=/cuenta/reservas&email=${encodeURIComponent(order.holderEmail)}`}
-            data-testid="create-account-link"
-            className="text-sm hover:underline"
+        {isRealAccount ? (
+          <LinkButton
+            href="/cuenta/reservas"
+            variant="soft"
+            color="neutral"
+            testId="view-orders-link"
           >
-            {t("createAccount")}
-          </Link>
-          {/* Spec 34 décision ⑨ — un visiteur sans compte n'annule pas lui-même : la RPC refuse
-              une session anonyme, et ouvrir « Anular » sur cette adresse donnerait un droit
-              destructif à quiconque détient le lien (il circule par email, se transfère, et une
-              annulation n'est ni remboursée ni réversible — spec 33 invariant 4). Son chemin est
-              le bouton de contact posé plus haut, sur la prestation concernée. */}
-          <p className="text-xs text-muted" data-testid="guest-cancel-hint">
-            {t("guestCancelHint")}
-          </p>
-        </div>
-      )}
-    </div>
+            {t("viewOrders")}
+          </LinkButton>
+        ) : (
+          // Le rattachement des commandes par email est fait par `attach_orders_to_account`, appelée
+          // depuis /auth/callback une fois l'email VÉRIFIÉ (spec 33 Tranche 3). L'email est pré-rempli
+          // pour que le client ne rattache pas par erreur une adresse différente de sa commande.
+          <div className="flex flex-col items-start gap-3">
+            <LinkButton
+              href={`/registro?next=/cuenta/reservas&email=${encodeURIComponent(order.holderEmail)}`}
+              variant="soft"
+              color="neutral"
+              testId="create-account-link"
+            >
+              {t("createAccount")}
+            </LinkButton>
+            {/* Spec 34 décision ⑨ — un visiteur sans compte n'annule pas lui-même : la RPC refuse
+                une session anonyme, et ouvrir « Anular » sur cette adresse donnerait un droit
+                destructif à quiconque détient le lien (il circule par email, se transfère, et une
+                annulation n'est ni remboursée ni réversible — spec 33 invariant 4). Son chemin est
+                le bouton de contact posé plus haut, sur la prestation concernée. */}
+            <p className="text-sm text-muted" data-testid="guest-cancel-hint">
+              {t("guestCancelHint")}
+            </p>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

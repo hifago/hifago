@@ -67,7 +67,13 @@ export const Reembolsado: StoryObj = { ...pedido("token-reembolsado"), name: "Re
 
 export const Expirado: StoryObj = { ...pedido("token-expirado"), name: "Expirée" };
 
-export const Anulado: StoryObj = { ...pedido("token-anulado"), name: "Annulée" };
+export const Anulado: StoryObj = {
+  ...pedido("token-anulado"),
+  name: "Annulée",
+  play: async ({ canvasElement }) => {
+    await expect(await esperar(canvasElement, '[data-testid="order-state-cancelled"]')).toBeVisible();
+  },
+};
 
 export const LineasMixtas: StoryObj = {
   ...pedido("token-mixto"),

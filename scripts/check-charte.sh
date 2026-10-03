@@ -221,8 +221,6 @@ est_exempte_main() {
     'apps/web/app/[locale]/(auth)/olvide-password/page.tsx') return 0 ;;       # → P10
     'apps/web/app/[locale]/(auth)/restablecer-password/page.tsx') return 0 ;;  # → P10
     'apps/web/app/[locale]/(auth)/verificar-email/page.tsx') return 0 ;;       # → P10
-    'apps/web/app/[locale]/(tunnel)/mi-viaje/page.tsx') return 0 ;;            # → P5
-    'apps/web/app/[locale]/(tunnel)/pago/page.tsx') return 0 ;;                # → P6
   esac
   return 1
 }

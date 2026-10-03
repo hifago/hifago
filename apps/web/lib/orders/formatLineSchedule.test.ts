@@ -49,6 +49,18 @@ describe("formatLineSchedule", () => {
       formatLineSchedule({ date: "2026-10-01", endDate: "2026-10-03", durationDays: 7 })
     ).toBe("2026-10-01 → 2026-10-03");
   });
+
+  it("rend une date et un créneau lisibles dans la locale du tunnel", () => {
+    expect(formatLineSchedule({ date: "2026-10-14", slotStartTime: "10:00" }, "es")).toBe(
+      "mié, 14 oct · 10:00"
+    );
+  });
+
+  it("ne répète pas le mois pour une plage lisible dans le même mois", () => {
+    expect(formatLineSchedule({ date: "2026-10-14", endDate: "2026-10-16" }, "es")).toBe(
+      "14 → 16 oct"
+    );
+  });
 });
 
 // Plan 41, P8 : la même date, lisible. Les trois formes, en espagnol et en anglais ; le 2026-10-15

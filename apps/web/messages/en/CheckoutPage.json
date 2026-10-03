@@ -1,5 +1,11 @@
 {
   "title": "Complete your booking",
+  "formTitle": "Your details",
+  "tripRange": "From {start} to {end}",
+  "tripSingle": "On {start}",
+  "emptyCart": "Your trip is empty.",
+  "emptyCartDescription": "Explore experiences and build your next getaway to Guatapé.",
+  "exploreActivities": "Explore activities",
   "holderName": "Full name",
   "holderPhone": "WhatsApp",
   "holderPhoneCountry": "Country code",
