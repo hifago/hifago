@@ -72,6 +72,30 @@ describe("Migas", () => {
     expect(container.querySelector("nav")?.textContent).toContain("Kayak");
   });
 
+  // Plan 41, item C3 : le fil ne fait plus défiler la page (551, 803 et 407 px mesurés à 390 sur
+  // trois fiches). jsdom n'applique pas les media queries : ce qui est vérifié ici, c'est QUI reçoit
+  // la troncature — ni le premier niveau ni la page courante, qui a ses deux lignes. Le reste
+  // (retour à la ligne, largeur de page) se prouve au rendu.
+  it("ne tronque que les niveaux intermédiaires, et borne la page courante à deux lignes", () => {
+    const { container } = render(
+      <Migas
+        items={[
+          { nombre: "Inicio", href: "/" },
+          { nombre: "Actividades", href: "/actividades" },
+          { nombre: "Deportes náuticos", href: "/actividades/deportes-nauticos" },
+          { nombre: "Kayak" },
+        ]}
+        etiqueta="Ruta de navegación"
+        locale="es"
+      />
+    );
+    const niveaux = Array.from(container.querySelectorAll("li"));
+    expect(niveaux.map((li) => li.className.includes("max-sm:[&>a]:truncate"))).toEqual([false, true, true, false]);
+    expect(niveaux[3].className).toContain("[&>[aria-current=page]]:line-clamp-2");
+    // Tronqué à l'écran seulement : le nom entier reste dans le DOM.
+    expect(niveaux[2].textContent).toContain("Deportes náuticos");
+  });
+
   it("expose testId sur le repère", () => {
     expect(rendre().querySelector('[data-testid="migas"]')).not.toBeNull();
   });
