@@ -556,8 +556,9 @@
    *
    * ⚠️ Depuis la maquette de l'accueil (2026-10-01, seconde version), le header de cette page est
    * TRANSPARENT et ne porte plus de logo : c'est le grand logo du héros qui tient ce rôle (variante
-   * `transparente` de `SiteHeader`). La déclinaison « logo sur or » du petit logo, qui n'avait servi
-   * qu'au header or de la version précédente, a donc été retirée avec ses règles d'affichage.
+   * `transparente` de `SiteHeader`). La déclinaison « logo sur or » du petit logo est revenue avec
+   * le header or de TOUTES les autres pages (plan 41, items A1 et C1) — sans règle d'affichage ici :
+   * `LogoHifago variante="sobre"` rend une seule image, la surface or n'ayant pas de mode sombre.
    * ------------------------------------------------------------------------------------------ */
   [data-theme="vitrine"] body:has(main[data-fondo="acento"]) {
     background-color: var(--accent);

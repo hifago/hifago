@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { IconeCompte, ROUTE_COMPTE, ROUTE_CONNEXION } from "./SiteHeader";
 
 // Le panneau de navigation du header (2026-09-02, vague 4 — extrait de `SiteHeader` à la demande
 // de Jérôme le même jour). Il porte une LISTE d'entrées de navigation, puis la langue en bas.
@@ -37,25 +38,9 @@ export type SiteMenuProps = {
   testId?: string;
 };
 
-// L'architecture des pages de compte sera revue (décision de Jérôme, 2026-09-02) : une seule
-// constante à changer ce jour-là. ⚠️ CHANGÉ le 2026-09-11 (spec 35, décision ⑧) : `/cuenta/perfil`
-// est désormais l'accueil de la zone compte, pas `/cuenta/reservas` — qui reste atteignable depuis
-// un lien sur cet écran.
-//
-// EXPORTÉES depuis le 2026-10-01 : le header TRANSPARENT de l'accueil (`SiteHeader`) rend le même
-// lien de compte hors de ce panneau. Une seule définition de la route, de l'icône et du choix
-// compte/connexion — deux copies divergeraient au prochain déménagement de la zone compte.
-export const ROUTE_COMPTE = "/cuenta/perfil";
-export const ROUTE_CONNEXION = "/entrar";
-
-export function IconeCompte() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="size-5 shrink-0">
-      <circle cx="12" cy="8" r="3.6" />
-      <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
-    </svg>
-  );
-}
+// ⚠️ PLUS RENDU PAR LE HEADER depuis le plan 41 (item C1, 2026-10-02) : tout y est en ligne, sans
+// menu burger. Retrait de ce fichier, de ses tests et de ses stories à l'item G5 ; d'ici là, la
+// route et l'icône du compte sont importées de `SiteHeader`, leur seule définition.
 
 /**
  * Une entrée de navigation. Volontairement locale à ce fichier plutôt qu'un atome partagé : sa

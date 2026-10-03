@@ -30,14 +30,44 @@ import Image from "next/image";
 type LogoHifagoProps = {
   /**
    * Hauteur de rendu, en classe Tailwind. ⚠️ Mesuré au rendu : le lockup de la charte empile
-   * « hifa » sur « GO · Guatapé » (ratio 1.74:1, presque carré), donc sous 48 px le mot « Guatapé »
+   * « hifa » sur « GO · Guatapé » (ratio 1.86:1 au dessin, presque carré), donc sous 48 px le mot « Guatapé »
    * tombe sous 3 px de haut et devient une tache. `h-12` est le minimum lisible — ne pas descendre
    * en dessous sans vérifier au rendu.
    */
   hauteur?: string;
+  /**
+   * `auto` (défaut) : marine + or sur fond clair, or + bleu poudre sur fond sombre, basculés par
+   * CSS. `sobre` : posé sur l'OR — le header de toutes les pages depuis le plan 41 (item C1).
+   */
+  variante?: "auto" | "sobre";
 };
 
-export function LogoHifago({ hauteur = "h-12" }: LogoHifagoProps) {
+export function LogoHifago({ hauteur = "h-12", variante = "auto" }: LogoHifagoProps) {
+  if (variante === "sobre") {
+    return (
+      // ⚠️ LA DÉCLINAISON SANS OR (asset A1, `logo-horizontal-marine-bleu.png` de la charte) : le
+      // « GO » or des deux autres disparaîtrait sur l'or. UNE seule image, sans classe de bascule :
+      // la surface or n'a pas de mode sombre (arbitrage D9 = A), elle reste or et ce logo avec.
+      //
+      // ⚠️ Pas de `priority` ici, contrairement à la variante `auto` : sur une page intérieure, le
+      // LCP est la première photo du contenu, et le plan n'autorise qu'UNE image `priority` par
+      // page (§3.8). `loading="eager"` : le logo est au-dessus de la ligne de flottaison, il se
+      // charge tout de suite, sans préchargement qui ferait concurrence au LCP.
+      //
+      // Rogné au contenu (179 × 96, ≈ 1.86:1), à la différence des deux autres qui gardent une
+      // marge de 10 à 12 px : à `h-12`, le dessin occupe toute la hauteur.
+      <Image
+        src="/brand/logo-header-sur-or.webp"
+        alt=""
+        aria-hidden
+        loading="eager"
+        width={179}
+        height={96}
+        className={`w-auto ${hauteur}`}
+      />
+    );
+  }
+
   return (
     <>
       <Image
@@ -58,9 +88,6 @@ export function LogoHifago({ hauteur = "h-12" }: LogoHifagoProps) {
         height={96}
         className={`logo-sombre w-auto ${hauteur}`}
       />
-      {/* ⚠️ Il n'y a plus de troisième déclinaison « sur or » : la seule page posée sur l'or
-          (l'accueil) a un header transparent SANS logo depuis la maquette du 2026-10-01 — le grand
-          logo du héros (`PortadaInicio`) y tient ce rôle. */}
     </>
   );
 }
