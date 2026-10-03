@@ -121,23 +121,34 @@ function rendre(
 }
 
 describe("TarjetaOferta", () => {
-  it("rend le nom en h3, l'établissement, le prix formaté, et un lien vers l'offre", () => {
+  // ⚠️ PLAN 41, S4 (2026-10-02, D6 = A) : en `grilla` et `carrusel`, la carte est la tuile photo de
+  // l'accueil (`TeselaOferta`, testée à part) — le nom dans un cartouche, plus de `<h3>`, une seule
+  // photo décorative, plus de carrousel. Ces tests vérifient ce que CETTE molécule lui passe
+  // (libellés traduits, `sizes`, priorité) ; la `lista` garde son ancienne carte.
+  it("tuile : nom en lien localisé, établissement, prix formaté — sans titre HTML", () => {
     const { carte, precio, datos } = rendre();
 
-    // `titleAs="h3"` : le titre de la carte vit sous le `<h2>` d'une section (spec 28 §5), et un
-    // niveau deviné produirait un saut de hiérarchie sur un écran qui porte cinq sections.
-    expect(carte.querySelector("h3")?.textContent).toBe(NOMBRE);
-    expect(carte.querySelector("p")?.textContent).toBe("Casa Kayam Guatapé");
-
     const lien = carte.querySelector(`[data-testid="${datos.testId}-link"]`) as HTMLElement;
+    expect(lien.textContent).toBe(NOMBRE);
     expect(lien.getAttribute("href")).toBe("/productos/cabana-embalse");
     // Le lien passe par `@/i18n/navigation`, jamais un `<a href>` nu — sinon le préfixe de locale
     // est perdu et un hispanophone atterrit sur la version anglaise.
     expect(lien.getAttribute("data-localized")).toBe("true");
+    expect(carte.querySelector("p")?.textContent).toBe("Casa Kayam Guatapé");
+    // Le nom n'est plus un `<h3>` (police de titre à 18 px en faux gras, F2) : c'est la tuile de
+    // l'accueil, où le nom est un lien dans une liste.
+    expect(carte.querySelector("h1, h2, h3")).toBeNull();
 
     expect(precio?.textContent).toBe(formatCop(180000, "es"));
     // Le montant est bien FORMATÉ, pas recopié : « 180.000 » et non « 180000 ».
     expect(precio?.textContent).toContain("180.000");
+  });
+
+  it("ligne : le nom reste un h3, sous le <h2> de sa section", () => {
+    // `titleAs="h3"` : le titre de la carte vit sous le `<h2>` d'une section (spec 28 §5), et un
+    // niveau deviné produirait un saut de hiérarchie sur un écran qui porte cinq sections.
+    const { carte } = rendre({ fotos: fotos("ligne-h3", 1) }, { variante: "lista" });
+    expect(carte.querySelector("h3")?.textContent).toBe(NOMBRE);
   });
 
   it("sans établissement : aucun sous-titre, et rien qui laisse sa place vide", () => {
@@ -177,8 +188,8 @@ describe("TarjetaOferta", () => {
     // offre sans prix était plus basse qu'une offre voisine avec prix, dans la même ligne de
     // grille — `Card` n'ouvrait alors AUCUN `Card.Content`, faute d'enfants. Un `<span>` invisible
     // (pas vide) réserve la même hauteur qu'une ligne de prix réelle, sans rien annoncer à
-    // l'assistance (`aria-hidden`). Depuis le 2026-10-02 seule la `lista` en a besoin : les cartes
-    // photo sont carrées, leur hauteur ne dépend plus de leur texte.
+    // l'assistance (`aria-hidden`). Seule la `lista` en a besoin : la tuile est carrée, sa hauteur
+    // ne dépend pas de son texte.
     const { carte, precio } = rendre(
       { precio: null, fotos: fotos("sin-precio", 1) },
       { variante: "lista" }
@@ -189,22 +200,26 @@ describe("TarjetaOferta", () => {
     expect(contenu?.querySelector(".invisible")?.getAttribute("aria-hidden")).toBe("true");
   });
 
-  // ── LES BULLES de la carte photo (référence de Jérôme du 2026-10-02) ──────────────────────────
-  // Chaque enfant DIRECT du `Card.Content` devient une pastille (`[&>*]:…` dans `Card`) : c'est
-  // donc la STRUCTURE qu'il faut verrouiller — une enveloppe intercalée ferait une seule bulle de
-  // deux informations, sans qu'aucun autre test ne rougisse.
-  it("carte photo : une bulle par information présente — prix et capacité, enfants directs", () => {
+  // ── LES BULLES de la tuile ─────────────────────────────────────────────────────────────────────
+  // La capacité vient d'ici, traduite (« Hasta 4 personas ») : c'est le texte que l'e2e de la fiche
+  // établissement lit (« personas »).
+  it("tuile : une bulle par information présente — prix et capacité traduite", () => {
     const { carte, datos } = rendre({ capacidad: 4, fotos: fotos("bulles", 1) });
-    const contenu = carte.querySelector("[data-slot='card-content']") as HTMLElement;
-    const bulles = Array.from(contenu.children).map((n) => n.getAttribute("data-testid"));
-    expect(bulles).toEqual([`${datos.testId}-precio`, `${datos.testId}-capacidad`]);
-    expect(contenu.children[1].textContent).toBe("Hasta 4 personas");
+    expect(carte.querySelector(`[data-testid="${datos.testId}-precio"]`)).not.toBeNull();
+    expect(carte.querySelector(`[data-testid="${datos.testId}-capacidad"]`)?.textContent).toBe(
+      "Hasta 4 personas"
+    );
   });
 
-  it("carte photo sans prix ni capacité : aucune bulle, pas même vide", () => {
+  it("tuile sans prix ni capacité : aucune bulle, pas même vide", () => {
     for (const variante of ["grilla", "carrusel"] as const) {
-      const { carte } = rendre({ precio: null, fotos: fotos(`sans-bulle-${variante}`, 1) }, { variante });
-      expect(carte.querySelector("[data-slot='card-content']")).toBeNull();
+      const { carte, datos } = rendre(
+        { precio: null, fotos: fotos(`sans-bulle-${variante}`, 1) },
+        { variante }
+      );
+      expect(carte.querySelector(`[data-testid="${datos.testId}-precio"]`)).toBeNull();
+      expect(carte.querySelector(`[data-testid="${datos.testId}-capacidad"]`)).toBeNull();
+      expect(carte.querySelector(".rounded-full")).toBeNull();
     }
   });
 
@@ -230,11 +245,11 @@ describe("TarjetaOferta", () => {
     expect(precio?.textContent).not.toContain("COP");
   });
 
-  it("calcule l'alt de chaque photo : « <nom>, foto i de n »", () => {
+  it("ligne : calcule l'alt de chaque photo, « <nom>, foto i de n »", () => {
     // ⚠️ Le rang ET le total sont vérifiés sur trois photos : un alt qui répéterait « foto 1 de 1 »
     // partout serait indiscernable du bon à l'œil, et c'est le seul texte que reçoit un utilisateur
     // de lecteur d'écran sur un carrousel. Calculé ici et pas dans `lib/catalog/` (spec 28 §6).
-    const { images } = rendre({ fotos: fotos("alt", 3) });
+    const { images } = rendre({ fotos: fotos("alt", 3) }, { variante: "lista" });
     expect(images.map((img) => img.getAttribute("alt"))).toEqual([
       `${NOMBRE}, foto 1 de 3`,
       `${NOMBRE}, foto 2 de 3`,
@@ -242,9 +257,20 @@ describe("TarjetaOferta", () => {
     ]);
   });
 
-  it("offre sans photo : le substitut de PhotoStrip, aucune balise <img>", () => {
-    // Cas limite de la spec 28 §0 : la carte garde sa forme au lieu de se tasser.
-    const { carte, images, datos } = rendre({ fotos: [] });
+  // ⚠️ VOULU (plan 41, S4) : la tuile ne montre que la PREMIÈRE photo, décorative (`alt=""`) — le
+  // lien porte déjà le nom de l'offre. Le texte « <nom>, foto i de n » disparaît des tuiles avec
+  // leur carrousel.
+  it("tuile : une seule photo, décorative, sans texte alternatif calculé", () => {
+    const { images } = rendre({ fotos: fotos("tuile-alt", 3) });
+    expect(images.length).toBe(1);
+    expect(images[0].getAttribute("alt")).toBe("");
+  });
+
+  it("offre sans photo : aucune balise <img> — le substitut de PhotoStrip en ligne", () => {
+    // Cas limite de la spec 28 §0 : la carte garde sa forme au lieu de se tasser. La tuile garde
+    // son carré (fond bleu poudre) ; la ligne garde le substitut de l'atome `Image`.
+    expect(rendre({ fotos: [] }).images.length).toBe(0);
+    const { carte, images, datos } = rendre({ fotos: [] }, { variante: "lista" });
     expect(images.length).toBe(0);
     const substitut = carte.querySelector(
       `[data-testid="${datos.testId}-fotos-photo-0-placeholder"]`
@@ -253,27 +279,31 @@ describe("TarjetaOferta", () => {
     expect(substitut?.getAttribute("aria-hidden")).toBe("true");
   });
 
-  it("⚠️ prioridad : la première photo perd son loading=lazy — sans prioridad, elle le garde", () => {
+  it("⚠️ prioridad : la photo perd son loading=lazy — sans prioridad, elle le garde", () => {
     // Invariant 6 de la spec 28 §0 : `priority` sur la première carte de la première section (le
     // LCP), `lazy` partout ailleurs. Mesuré sur Next 16.3.0 (cf. Image.test.tsx) : `priority` ne
     // pose RIEN sur la balise, il RETIRE `loading="lazy"` — c'est donc son absence qui le prouve.
     const prioritaire = rendre({ fotos: fotos("lcp", 2) }, { prioridad: true });
+    expect(prioritaire.images.length).toBe(1);
     expect(prioritaire.images[0].hasAttribute("loading")).toBe(false);
-    // ⚠️ La deuxième reste lazy même sur la carte prioritaire : Embla monte TOUS les slides, et
-    // tout précharger annulerait le bénéfice recherché.
-    expect(prioritaire.images[1].getAttribute("loading")).toBe("lazy");
 
     const ordinaire = rendre({ fotos: fotos("hors-lcp", 2) });
-    expect(ordinaire.images.map((img) => img.getAttribute("loading"))).toEqual(["lazy", "lazy"]);
+    expect(ordinaire.images[0].getAttribute("loading")).toBe("lazy");
+
+    // ⚠️ En ligne, la deuxième photo reste lazy même sur la carte prioritaire : Embla monte TOUS
+    // les slides, et tout précharger annulerait le bénéfice recherché.
+    const ligne = rendre({ fotos: fotos("lcp-ligne", 2) }, { variante: "lista", prioridad: true });
+    expect(ligne.images[0].hasAttribute("loading")).toBe(false);
+    expect(ligne.images[1].getAttribute("loading")).toBe("lazy");
   });
 
   it("le sizes et la mise en page suivent la variante", () => {
-    // `sizes` est la seule chose que la carte sait et que `PhotoStrip` ne peut pas deviner. En
-    // grille il suit les points de rupture de `SeccionOfertas` ; en liste il vaut la largeur exacte
-    // de la vignette de `Card layout="row"`.
+    // `sizes` est la seule chose que la carte sait et que la tuile ne peut pas deviner. En grille
+    // il suit la grille de tuiles d'une page (plan 41, S4) ; en liste il vaut la largeur exacte de
+    // la vignette de `Card layout="row"`.
     const grille = rendre({ fotos: fotos("sizes-grilla", 1) });
     expect(grille.images[0].getAttribute("sizes")).toBe(
-      "(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+      "(min-width: 1024px) 300px, (min-width: 768px) 45vw, 90vw"
     );
 
     const liste = rendre({ fotos: fotos("sizes-lista", 1) }, { variante: "lista" });
@@ -282,34 +312,29 @@ describe("TarjetaOferta", () => {
     // carte qui resterait en `stack` passerait tous les autres tests au vert.
     expect(liste.carte.className).toContain("flex-row");
 
-    // Carrusel : depuis la refonte du 2026-10-01, ce n'est PLUS une largeur fixe (`256px`) mais
-    // une fraction du viewport — la rangée montre exactement trois cartes à partir de `md`, donc
-    // un tiers chacune, et une carte presque pleine en dessous. Ces deux valeurs doivent rester
-    // synchronisées avec `CLASE_CARTA_CARRUSEL` de `SeccionOfertas.tsx` (`82%` / un tiers).
+    // Carrusel : une fraction du viewport — la rangée montre exactement trois cartes à partir de
+    // `md`, donc un tiers chacune, et une carte presque pleine en dessous. Ces deux valeurs doivent
+    // rester synchronisées avec `CLASE_CARTA_CARRUSEL` de `SeccionOfertas.tsx` (`82%` / un tiers).
     const carrusel = rendre({ fotos: fotos("sizes-carrusel", 1) }, { variante: "carrusel" });
     expect(carrusel.images[0].getAttribute("sizes")).toBe("(min-width: 768px) 32vw, 82vw");
-    // Le même layout `stack` que la grille (photo pleine largeur de carte), pas la vignette de 64 px.
     expect(carrusel.carte.className).not.toContain("flex-row");
   });
 
-  // ⚠️ LA CARTE CARRÉE (demande de Jérôme, 2026-10-01, d'après sa capture de référence). Le ratio
-  // est un contrat entre trois fichiers — la carte le décide, `PhotoStrip` le relaie, l'atome
-  // `Image` le peint — et rien d'autre ne le vérifie : en jsdom aucune largeur n'est calculée, donc
-  // seule la CLASSE posée peut être observée. Sans ce test, un ratio perdu en route redonnerait
-  // des cartes en 4/3 sans qu'aucune suite ne rougisse.
-  // Étendu à la grille le 2026-10-02 (« mes cartes avec photo ») : seule la vignette de `lista`
-  // reste en 4/3.
-  it("rend la photo CARRÉE en carrusel et en grilla, et en 4/3 en lista", () => {
-    const boite = (r: ReturnType<typeof rendre>) =>
-      r.images[0].closest("[class*='aspect-']") as HTMLElement;
-
+  // ⚠️ LA TUILE CARRÉE À 16 PX (plan 41, S4) : en jsdom aucune largeur n'est calculée, seule la
+  // CLASSE posée s'observe. Les cartes de listing passent de 8 px (`rounded-2xl`, mesuré dans le
+  // thème vitrine) à 16 px fixes, comme l'accueil : c'est voulu. Seule la vignette de `lista` reste
+  // en 4/3.
+  it("rend une tuile CARRÉE à 16 px en carrusel et en grilla, et une vignette 4/3 en lista", () => {
     for (const variante of ["carrusel", "grilla"] as const) {
       const carree = rendre({ fotos: fotos(`ratio-${variante}`, 1) }, { variante });
-      expect(boite(carree).className).toContain("aspect-[1/1]");
-      expect(carree.carte.className).toContain("aspect-square");
+      expect(carree.carte.className.split(/\s+/)).toEqual(
+        expect.arrayContaining(["aspect-square", "rounded-[16px]"])
+      );
+      expect(carree.carte.className).not.toContain("rounded-2xl");
     }
 
     const liste = rendre({ fotos: fotos("ratio-lista", 1) }, { variante: "lista" });
-    expect(boite(liste).className).toContain("aspect-[4/3]");
+    const boite = liste.images[0].closest("[class*='aspect-']") as HTMLElement;
+    expect(boite.className).toContain("aspect-[4/3]");
   });
 });

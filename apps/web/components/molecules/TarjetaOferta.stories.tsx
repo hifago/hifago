@@ -52,7 +52,11 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// La variante des quatre sections non-activités : photos à fleur de carte, texte dessous.
+// La tuile photo de l'accueil (`TeselaOferta`, plan 41 S4) : une photo carrée arrondie à 16 px, le
+// nom dans un cartouche, le prix en bulle. Depuis S4, `grilla` et `carrusel` la rendent ; les
+// commentaires ci-dessous qui parlent de `Card` et de `PhotoStrip` ne valent plus que pour `lista`.
+// ⚠️ Les visuels de ces stories sont des SVG : sur une tuile, juger sur `Molécules/TeselaOferta`,
+// qui a les vraies photos.
 export const Grilla: Story = {};
 
 // ⚠️ POINT OUVERT DE LA SPEC 28 §10, à regarder avant d'arbitrer — c'est pour ça que cette story
