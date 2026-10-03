@@ -1,6 +1,6 @@
 ---
 name: hifago-charte
-description: Applique ou audite le style Hifago (charte 2026 + accueil) sur la vitrine, d'après le plan docs/specs/41-charte-hifago-toute-la-vitrine.md — un item (F1, C2, S3, P5…), un lot, ou une page entière — en vérifiant au rendu réel avant/après ; tient le suivi et les arbitrages de Jérôme. Usage — /hifago-charte <ID…> | page <écran> | lot <n> | audit <écran> | etat | decide <Dn> <choix>
+description: Applique ou audite le style Hifago (charte 2026 + accueil) sur la vitrine, d'après le plan docs/specs/41-charte-hifago-toute-la-vitrine.md — un item (F1, C2, S3, P5…), un lot, ou une page entière — en vérifiant au rendu réel avant/après ; tient le suivi et les arbitrages de Jérôme. Invocation Codex — $hifago-charte [ID…], page [écran], lot [n], audit [écran], etat, decide [Dn] [choix]
 ---
 
 # /hifago-charte — habiller la vitrine au style de l'accueil, item par item

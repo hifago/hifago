@@ -1,6 +1,6 @@
 ---
 name: next
-description: Dis-moi quoi faire maintenant sur hifago — guidage TDAH. Lit docs/backlog.md, la dernière entrée du journal et git log, et donne UNE seule action, jamais un choix. Usage — /next, /next done <point>, /next skip
+description: Dis-moi quoi faire maintenant sur hifago — guidage TDAH. Lit docs/backlog.md, la dernière entrée du journal et git log, et donne UNE seule action, jamais un choix. Invocation Codex — $next, $next done [point], $next skip
 ---
 
 # /next — une seule action à la fois (hifago)

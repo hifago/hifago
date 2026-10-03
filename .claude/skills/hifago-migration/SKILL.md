@@ -1,6 +1,6 @@
 ---
 name: hifago-migration
-description: Crée/valide une migration Supabase pour le nouveau stack Hifago en appliquant la checklist RLS/RPC-only non négociable (grants revoke, STABLE, SECURITY DEFINER, search_path, auth.uid() enveloppé), applique en local et régénère les types TypeScript. Usage — /hifago-migration <nom> (ou /hifago-migration check)
+description: Crée ou valide une migration Supabase pour le nouveau stack Hifago en appliquant la checklist RLS/RPC-only non négociable (grants revoke, STABLE, SECURITY DEFINER, search_path, auth.uid() enveloppé), applique en local et régénère les types TypeScript. Invocation Codex — $hifago-migration [nom] ou $hifago-migration check
 ---
 
 # /hifago-migration — créer/valider une migration Supabase

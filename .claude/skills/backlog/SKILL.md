@@ -1,6 +1,6 @@
 ---
 name: backlog
-description: Maintenance de docs/backlog.md (points ouverts, arbitrages en attente, dette connue de hifago) — sync en fin de session, fermer un point, en ajouter un. Usage — /backlog (sync), /backlog done <point>, /backlog add <texte>
+description: Maintenance de docs/backlog.md (points ouverts, arbitrages en attente, dette connue de hifago) — synchroniser en fin de session, fermer un point ou en ajouter un. Invocation Codex — $backlog, $backlog done [point], $backlog add [texte]
 ---
 
 # /backlog — tenir `docs/backlog.md` à jour (hifago)

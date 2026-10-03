@@ -1,0 +1,54 @@
+{
+  "description": "Garde-fous Hifago partagés avec Claude Code, adaptés aux événements Codex.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/hooks/inject-migration-checklist.mjs\"",
+            "commandWindows": "powershell -NoProfile -Command \"$repoRoot = (git rev-parse --show-toplevel); node (Join-Path $repoRoot 'scripts/hooks/inject-migration-checklist.mjs')\"",
+            "statusMessage": "Chargement de la checklist migration Hifago"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|read_file|mcp__filesystem__read_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/hooks/guard-doc-read.mjs\"",
+            "commandWindows": "powershell -NoProfile -Command \"$repoRoot = (git rev-parse --show-toplevel); node (Join-Path $repoRoot 'scripts/hooks/guard-doc-read.mjs')\"",
+            "statusMessage": "Vérification de la lecture documentaire Hifago"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/hooks/post-edit-check-instructions.mjs\"",
+            "commandWindows": "powershell -NoProfile -Command \"$repoRoot = (git rev-parse --show-toplevel); node (Join-Path $repoRoot 'scripts/hooks/post-edit-check-instructions.mjs')\"",
+            "statusMessage": "Validation des instructions Hifago"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/hooks/check-journal-updated.mjs\"",
+            "commandWindows": "powershell -NoProfile -Command \"$repoRoot = (git rev-parse --show-toplevel); node (Join-Path $repoRoot 'scripts/hooks/check-journal-updated.mjs')\"",
+            "statusMessage": "Vérification du journal Hifago"
+          }
+        ]
+      }
+    ]
+  }
+}

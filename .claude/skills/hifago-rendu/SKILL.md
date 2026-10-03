@@ -1,6 +1,6 @@
 ---
 name: hifago-rendu
-description: Capture le rendu réel d'écrans de la vitrine Hifago dans Storybook (Playwright + Edge, sans Docker) à 360/390/1280 px, dans la police de production (Anton), relève débordement horizontal, titres, boutons, champs, et compare avant/après au pixel. Usage — /hifago-rendu <écran|storyId…> [avant|apres] [--largeurs 360,390,1280] [--mesure], ou /hifago-rendu compare
+description: Capture le rendu réel d'écrans de la vitrine Hifago dans Storybook (Playwright + Edge, sans Docker) à 360/390/1280 px, dans la police de production (Anton), relève débordement horizontal, titres, boutons, champs, et compare avant/après au pixel. Invocation Codex — $hifago-rendu [écran ou storyId…] [avant ou apres] [--largeurs 360,390,1280] [--mesure], ou $hifago-rendu compare
 ---
 
 # /hifago-rendu — regarder le vrai rendu, pas le supposer

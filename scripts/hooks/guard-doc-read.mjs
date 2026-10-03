@@ -84,13 +84,14 @@ process.stdin.on('end', () => {
   try {
     const { tool_input: input = {} } = JSON.parse(entree || '{}');
     const chemin = input.file_path;
-    if (typeof chemin !== 'string' || !/\/docs\/.+\.md$/.test(chemin)) process.exit(0);
+    const cheminNormalise = typeof chemin === 'string' ? chemin.replace(/\\/g, '/') : '';
+    if (!/(^|\/)docs\/.+\.md$/.test(cheminNormalise)) process.exit(0);
     if (input.offset !== undefined && input.offset !== null) process.exit(0);
     if (!fs.existsSync(chemin) || fs.statSync(chemin).size <= SEUIL_OCTETS) process.exit(0);
 
     const lignes = fs.readFileSync(chemin, 'utf8').split('\n');
     if (lignes[lignes.length - 1] === '') lignes.pop();
-    const raison = /\/docs\/journal\/[^/]+\.md$/.test(chemin)
+    const raison = /\/docs\/journal\/[^/]+\.md$/.test(cheminNormalise)
       ? raisonJournal(chemin, lignes)
       : raisonDocument(chemin, lignes);
 

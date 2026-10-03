@@ -1,6 +1,6 @@
 ---
 name: hifago-mock-data
-description: Applique mockData/ (établissements/activités/tags/partenaires/photos, JSON) contre le nouveau stack Hifago — crée chaque item s'il n'existe pas encore, ne retouche jamais un item déjà en base (même modifié depuis) — jamais un reset, contrairement à /hifago-seed. Usage — /hifago-mock-data (local), /hifago-mock-data preprod
+description: Applique mockData/ (établissements/activités/tags/partenaires/photos, JSON) contre le nouveau stack Hifago — crée chaque item s'il n'existe pas encore, ne retouche jamais un item déjà en base (même modifié depuis) — jamais un reset, contrairement au skill hifago-seed. Invocation Codex — $hifago-mock-data ou $hifago-mock-data preprod
 ---
 
 # /hifago-mock-data — mock data JSON rejouable
