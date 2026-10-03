@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { PageShell } from "./PageShell";
+import { COLUMNA_PORTADA, PageShell } from "./PageShell";
 
 // Les trois gabarits de page de la vitrine, côte à côte pour la première fois. Jusqu'ici ils
 // n'existaient que recopiés dans huit fichiers de app/[locale]/**, donc invisibles ensemble : la
@@ -59,9 +59,12 @@ export const LargeAvecFondPerdu: Story = {
     children: (
       <>
         <Bloc>Un bloc ordinaire&nbsp;: colonne de lecture, 704&nbsp;px à 1280.</Bloc>
+        {/* ⚠️ `col-span-full` est posé par l'ENFANT, comme le fait `SeccionOfertas` : la coquille
+            ne fait que l'exclure de la colonne du milieu. Sans lui (jusqu'au 2026-10-02), cette
+            story rangeait la bande dans la troisième colonne et ne montrait aucun fond perdu. */}
         <div
           data-bleed=""
-          className="bg-[var(--surface-secondary)] p-4 text-center text-sm"
+          className="col-span-full bg-[var(--surface-secondary)] p-4 text-center text-sm"
         >
           `data-bleed`&nbsp;: d&apos;un bord à l&apos;autre, sans unité `vw`.
         </div>
@@ -69,6 +72,45 @@ export const LargeAvecFondPerdu: Story = {
       </>
     ),
   },
+};
+
+// LA page intérieure (plan 41, item F7) : la colonne de l'accueil, 960 px à 1280, gouttières de
+// 20 px à 390. Pas de padding haut — la page s'ouvre sur son bandeau or (item S2).
+export const Pagina: Story = {
+  args: {
+    variant: "pagina",
+    children: (
+      <>
+        <Bloc>Une page intérieure&nbsp;: la colonne de l&apos;accueil, 960&nbsp;px à 1280.</Bloc>
+        <div data-bleed="" className="col-span-full bg-[var(--surface-secondary)] p-4 text-center text-sm">
+          `data-bleed`&nbsp;: d&apos;un bord à l&apos;autre, comme avec `large`.
+        </div>
+        <Bloc>Aucun padding haut&nbsp;: le bandeau or (S2) sera collé au header.</Bloc>
+      </>
+    ),
+  },
+};
+
+// ⚠️ La preuve de F7 : une bande posée dans `COLUMNA_PORTADA` (la colonne du header et du pied de
+// l'accueil) au-dessus d'une page `pagina`. Les bords gauches de leurs CONTENUS tombent sur la même
+// abscisse à toute largeur — 20 px à 390, 160 px à 1280. Mesuré au rendu (`getBoundingClientRect`).
+export const PaginaAlineadaConLaPortada: Story = {
+  name: "Pagina alignée sur l'accueil",
+  args: { variant: "pagina", children: null },
+  render: () => (
+    <>
+      <div className={COLUMNA_PORTADA} data-testid="colonne-portada">
+        <div className="border-b border-[var(--border)] py-3 text-sm">
+          `COLUMNA_PORTADA`&nbsp;: le héros et les sections de l&apos;accueil.
+        </div>
+      </div>
+      <PageShell variant="pagina" testId="page-pagina">
+        <div className="border-b border-[var(--border)] py-3 text-sm" data-testid="contenu-pagina">
+          `pagina`&nbsp;: le contenu d&apos;une page intérieure, sur la même abscisse.
+        </div>
+      </PageShell>
+    </>
+  ),
 };
 
 // fiche produit, checkout, commandes — max-w-2xl (576 px). Plus étroit parce qu'on y lit et qu'on y

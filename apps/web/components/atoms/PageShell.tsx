@@ -26,9 +26,11 @@ export type PageShellProps = {
   children: ReactNode;
   /**
    * Pas de valeur par défaut : chaque page choisit explicitement sa largeur. `portada` est la seule
-   * qui n'en impose AUCUNE — voir `COLUMNA_PORTADA` plus bas.
+   * qui n'en impose AUCUNE — voir `COLUMNA_PORTADA` plus bas. `pagina` (plan 41, item F7) est LE
+   * gabarit des pages intérieures : `large`, `narrow` et `centered` disparaissent quand la dernière
+   * page y est passée (item G5).
    */
-  variant: "large" | "narrow" | "centered" | "portada";
+  variant: "large" | "narrow" | "centered" | "portada" | "pagina";
   /**
    * `"acento"` pose TOUTE la page sur l'or de la charte — <body> et header compris, sans bande
    * claire entre les sections (l'accueil, demande de Jérôme du 2026-10-01). La coquille ne fait que
@@ -97,7 +99,28 @@ const VARIANT_CLASSES: Record<PageShellProps["variant"], string> = {
   centered: "flex flex-1 flex-col items-center justify-center gap-6 p-6 sm:p-8",
   // l'accueil seulement — voir `COLUMNA_PORTADA` juste en dessous
   portada: "flex w-full flex-1 flex-col",
+  // LA page intérieure (plan 41, item F7) — voir « `pagina` » plus bas.
+  pagina:
+    "grid w-full flex-1 content-start gap-y-6 pb-12 grid-cols-[1fr_min(60rem,100%_-_2.5rem)_1fr] sm:grid-cols-[1fr_min(60rem,100%_-_4rem)_1fr] [&>*:not([data-bleed])]:col-start-2",
 };
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// `pagina` — UNE SEULE COLONNE POUR TOUT LE SITE, CELLE DE L'ACCUEIL (plan 41, item F7)
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+//
+// La grille de `large` (fond perdu `data-bleed` compris, même raisonnement), mais sa colonne du
+// milieu est la BOÎTE DE CONTENU de `COLUMNA_PORTADA` : `max-w-5xl` (64rem) moins ses gouttières,
+// soit `min(60rem, 100% − 2.5rem)` sous `sm` (gouttières de 20 px) et `min(60rem, 100% − 4rem)`
+// au-delà (32 px) — 960 px à 1 280. Le logo, le H1, le contenu et le texte du pied tombent ainsi sur
+// la même abscisse que le héros et les sections de l'accueil. Story `Pagina alignée sur l'accueil`.
+//
+// ⚠️ Pas de padding haut : une page intérieure s'ouvre sur son bandeau or (item S2), collé au
+// header. Une page passée à `pagina` AVANT d'avoir son bandeau aurait son H1 collé au header : la
+// migration de chaque page se fait donc dans son item P, avec le bandeau. Padding bas de 48 px.
+//
+// Les largeurs internes deviennent des choix de CONTENU, pas de coquille : texte en `max-w-prose`,
+// formulaire en `max-w-xl`, deux colonnes 2/3 + 1/3 à partir de `lg` (fiches, tunnel). ⚠️ Une image
+// dont la colonne s'élargit doit voir son `sizes` recalculé au passage de sa page.
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // `portada` — L'ACCUEIL DE LA MAQUETTE DU 2026-10-01, QUI COMMENCE SOUS LE HEADER

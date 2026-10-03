@@ -8,7 +8,7 @@ import { PageShell } from "./PageShell";
 // Ce fichier teste la SÉMANTIQUE, pas l'apparence : qu'il n'y a qu'un <main>, qu'il ne contient
 // aucun landmark ni titre de sa propre initiative, et que chaque variant garde sa largeur. Les
 // classes exactes sont vérifiées parce qu'elles SONT le contrat de cet atome — il n'a rien d'autre.
-function shell(variant: "large" | "narrow" | "centered", children = <p>contenu</p>) {
+function shell(variant: "large" | "narrow" | "centered" | "pagina", children = <p>contenu</p>) {
   const { container } = render(<PageShell variant={variant}>{children}</PageShell>);
   const main = container.firstElementChild as HTMLElement;
   return { container, main };
@@ -54,26 +54,54 @@ describe("PageShell", () => {
   // matche simplement jamais, et la page se rend alors en trois colonnes de contenu sans qu'aucun
   // test de classe ne bronche. On extrait donc le sélecteur de la classe elle-même et on le fait
   // TOURNER sur un vrai DOM — jamais un sélecteur jumeau recopié ici, qui resterait juste tout seul.
-  it("vise l'enfant ordinaire et épargne celui marqué data-bleed", () => {
-    const { container, main } = shell(
-      "large",
-      <>
-        <p data-testid="ordinaire">colonne de lecture</p>
-        <section data-bleed="" data-testid="fond-perdu">
-          rangée de cartes
-        </section>
-      </>
-    );
+  it.each(["large", "pagina"] as const)(
+    "vise l'enfant ordinaire et épargne celui marqué data-bleed (%s)",
+    (variant) => {
+      const { container, main } = shell(
+        variant,
+        <>
+          <p data-testid="ordinaire">colonne de lecture</p>
+          <section data-bleed="" data-testid="fond-perdu">
+            rangée de cartes
+          </section>
+        </>
+      );
 
-    const variante = main.className.split(" ").find((c) => c.startsWith("[&>*")) as string;
-    expect(variante).toContain(":col-start-2");
-    const selecteur = variante.slice(1, variante.indexOf("]:")).replace("&", "main");
+      const variante = main.className.split(" ").find((c) => c.startsWith("[&>*")) as string;
+      expect(variante).toContain(":col-start-2");
+      const selecteur = variante.slice(1, variante.indexOf("]:")).replace("&", "main");
 
-    const vises = [...container.querySelectorAll(selecteur)].map((el) =>
-      el.getAttribute("data-testid")
-    );
-    expect(vises).toContain("ordinaire");
-    expect(vises).not.toContain("fond-perdu");
+      const vises = [...container.querySelectorAll(selecteur)].map((el) =>
+        el.getAttribute("data-testid")
+      );
+      expect(vises).toContain("ordinaire");
+      expect(vises).not.toContain("fond-perdu");
+    }
+  );
+
+  // ⚠️ `pagina` (plan 41, item F7) : la colonne du milieu EST la boîte de contenu de
+  // `COLUMNA_PORTADA` (`max-w-5xl px-5 sm:px-8`) — 64rem moins 2 × 1.25rem sous `sm`, moins
+  // 2 × 2rem au-delà, plafonnés à 60rem (960 px). L'alignement réel (même abscisse que l'accueil)
+  // se MESURE au rendu, story `Pagina alignée sur l'accueil` ; ici, le contrat des classes.
+  it("rend la colonne de l'accueil en variant pagina, sans borner le <main> lui-même", () => {
+    const { main } = shell("pagina");
+    expect(main.className).toContain("grid-cols-[1fr_min(60rem,100%_-_2.5rem)_1fr]");
+    expect(main.className).toContain("sm:grid-cols-[1fr_min(60rem,100%_-_4rem)_1fr]");
+    expect(main.className).toContain("w-full");
+    expect(main.className).not.toContain("max-w-");
+    expect(main.className).not.toContain("mx-auto");
+  });
+
+  // Une page intérieure s'ouvre sur son bandeau or (item S2), collé au header : AUCUN padding haut,
+  // ni horizontal (les colonnes `1fr` sont les gouttières). 48 px en bas.
+  it("ne pose aucun padding haut ni horizontal en variant pagina, 48 px en bas", () => {
+    const { main } = shell("pagina");
+    const utilitaire = (classe: string) => classe.slice(classe.lastIndexOf(":") + 1);
+    const classes = main.className.split(" ").map(utilitaire);
+    expect(classes.filter((c) => /^(p|px|py|pt)-/.test(c))).toEqual([]);
+    expect(classes).toContain("pb-12");
+    expect(classes).toContain("gap-y-6");
+    expect(classes.filter((c) => c.startsWith("gap-") && !c.startsWith("gap-y-"))).toEqual([]);
   });
 
   it("borne la largeur à max-w-2xl en variant narrow", () => {
