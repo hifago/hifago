@@ -64,14 +64,14 @@ export default async function AccountOrdersPage({
           {t("loadError")}
         </p>
       ) : orders.upcoming.length === 0 && orders.past.length === 0 ? (
-        <div className="flex flex-col items-center gap-4">
-          <EstadoVacio
-            titulo={t("empty.titulo")}
-            descripcion={t("empty.descripcion")}
-            testId="no-orders"
-          />
-          <LinkButton href="/">{t("emptyCta")}</LinkButton>
-        </div>
+        // L'action « explorer » dans l'emplacement de l'état vide (plan 41, S8), au lieu d'un
+        // bouton posé à côté : c'est elle qui relance le parcours.
+        <EstadoVacio
+          titulo={t("empty.titulo")}
+          descripcion={t("empty.descripcion")}
+          accion={<LinkButton href="/">{t("emptyCta")}</LinkButton>}
+          testId="no-orders"
+        />
       ) : (
         <>
           {/* Une section vide n'est pas rendue — même règle que les sections de l'accueil. Le

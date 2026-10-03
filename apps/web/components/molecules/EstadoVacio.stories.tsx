@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { LinkButton } from "@/components/atoms/LinkButton";
 import { EstadoVacio } from "./EstadoVacio";
 
 // Les libellés ci-dessous sont en espagnol et ne sont pas décoratifs : l'accueil est servi en
 // `x-default` espagnol, et c'est cette langue qui produit les phrases les plus longues des deux
-// locales routées. Ce que ces stories servent à juger tient en deux points — la sobriété du bloc
-// (aucun bouton : le bloc de recherche reste juste au-dessus et c'est lui l'action) et le
-// comportement du texte centré quand il s'allonge.
+// locales routées. Ce que ces stories servent à juger : la pastille du motif et le titre en Anton
+// (plan 41, S8), le comportement du texte centré quand il s'allonge, l'action quand l'écran en a une
+// (sur l'accueil et les listings filtrés, il n'y en a pas : la recherche juste au-dessus EST
+// l'action), et le bloc posé sur l'or, où sa description passe au marine (F3).
 const meta = {
   title: "Affichage/EstadoVacio",
   component: EstadoVacio,
@@ -44,4 +46,30 @@ export const TextoLargo: Story = {
     descripcion:
       "Puedes ampliar las fechas, reducir el número de personas o quitar el filtro de categoría para ver todo lo que hay disponible en el embalse y sus alrededores durante esa semana.",
   },
+};
+
+// « Mis reservas » sans réservation : l'action relance le parcours (plan 41, S8).
+export const ConAccion: Story = {
+  args: {
+    titulo: "Todavía no tienes reservas",
+    descripcion: "Cuando reserves una actividad o un alojamiento, la verás aquí.",
+    accion: <LinkButton href="/">Explorar Guatapé</LinkButton>,
+  },
+};
+
+// Sans la pastille : un écran qui a déjà son illustration.
+export const SinIlustracion: Story = {
+  args: { ...Defaut.args, titulo: "No encontramos ofertas para tu búsqueda", ilustracion: null },
+};
+
+// Sur l'or (accueil, index) : la description `text-muted` y est marine (F3), la pastille reste.
+export const SobreOro: Story = {
+  args: { ...Defaut.args, titulo: "No encontramos ofertas para tu búsqueda" },
+  decorators: [
+    (Story) => (
+      <div data-superficie="or" className="p-6">
+        <Story />
+      </div>
+    ),
+  ],
 };

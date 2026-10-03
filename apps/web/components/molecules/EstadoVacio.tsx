@@ -23,37 +23,87 @@
 // classes fixes suffisent. Même raison pour le `sousId` local ci-dessous plutôt que celui de
 // `atoms/Field.tsx`, qui est un fichier client.
 //
-// Ce qu'il ne rend PAS, volontairement : aucun bouton, aucune illustration. Le bloc de recherche
-// reste monté juste au-dessus et c'est LUI l'action — un « Réinitialiser » ici dupliquerait une
-// commande déjà à l'écran, à trois centimètres de distance. Et pas de `role="status"` non plus :
-// changer de critères provoque une navigation, pas une mise à jour en place, et un `aria-live`
-// posé au montage n'annonce rien tout en polluant le premier rendu.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// ILLUSTRÉ, ET AVEC UNE ACTION — plan 41, item S8 (2026-10-03, constat T24)
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+//
+// « Un état vide doit relancer le parcours. » Jusqu'au plan 41, ce bloc rendait un titre de 16 px et
+// une description de 14 px en `text-muted`, sans rien d'autre : il fermait la page au lieu de la
+// relancer. Depuis S8 :
+//   - une ILLUSTRATION, décorative : une pastille de 128 → 160 px découpée dans le motif de la
+//     charte (`motif-bleu-ciel.webp`, inutilisé jusque-là et destiné aux états vides, §3.7 du plan),
+//     sur fond bleu poudre. Par défaut ; `ilustracion={null}` la retire. `next/image` la sert à sa
+//     taille (`sizes`), en chargement différé : ce n'est jamais le LCP ;
+//   - le titre au rôle `titre-bloc` (Anton, 20 → 22 px) — toujours sur un `<p>`, voir plus haut ;
+//   - la description en corps de texte, 16 px. Sa couleur `text-muted` est marine sur l'or (F3) ;
+//   - une ACTION facultative (`accion`) : un bouton ou un « GO → », passé tout rendu par l'appelant.
+//     Pas sur l'accueil et les listings filtrés, où la recherche juste au-dessus EST l'action — un
+//     « Réinitialiser » ici dupliquerait une commande déjà à l'écran, à trois centimètres de distance.
+//
+// Pas de `role="status"` : changer de critères provoque une navigation, pas une mise à jour en
+// place, et un `aria-live` posé au montage n'annonce rien tout en polluant le premier rendu.
+import NextImage from "next/image";
+import type { ReactNode } from "react";
+
 export type EstadoVacioProps = {
   /** Déjà traduit — une molécule reçoit son libellé, la page traduit. */
   titulo: string;
   /** Déjà traduite. Optionnelle : une phrase qui dit quoi faire ensuite. */
   descripcion?: string;
+  /** Ce qui relance le parcours (bouton, « GO → »), déjà rendu. Rien quand l'action est ailleurs. */
+  accion?: ReactNode;
+  /** La pastille décorative du motif (défaut), ou rien. */
+  ilustracion?: "motivo" | null;
   testId?: string;
 };
 
-export function EstadoVacio({ titulo, descripcion, testId }: EstadoVacioProps) {
+export function EstadoVacio({
+  titulo,
+  descripcion,
+  accion,
+  ilustracion = "motivo",
+  testId,
+}: EstadoVacioProps) {
   const sousId = (suffixe: string) => (testId ? `${testId}-${suffixe}` : undefined);
 
   return (
-    <div className="flex flex-col items-center gap-2 py-12 text-center" data-testid={testId}>
+    <div className="flex flex-col items-center gap-3 py-12 text-center" data-testid={testId}>
+      {ilustracion === "motivo" ? (
+        // Décorative : `alt=""` et `aria-hidden` sur la pastille. `relative` + `fill` : l'image
+        // couvre la pastille, rognée en cercle ; jamais répétée en mosaïque (§3.7 du plan).
+        <div
+          aria-hidden="true"
+          className="relative mb-1 size-32 shrink-0 overflow-hidden rounded-full bg-[var(--default)] sm:size-40"
+          data-testid={sousId("ilustracion")}
+        >
+          <NextImage
+            src="/brand/motif-bleu-ciel.webp"
+            alt=""
+            fill
+            sizes="160px"
+            loading="lazy"
+            className="object-cover"
+          />
+        </div>
+      ) : null}
       {/*
         `max-w-prose` sur les deux paragraphes : ce n'est pas une largeur en dur (c'est `65ch`, donc
         exprimé en caractères) mais la borne de longueur de ligne exigée par components/README.md
         § Lisibilité. Sans elle, un texte centré s'étale sur toute la largeur d'un écran 1280 et
         devient illisible — ce que la story `TextoLargo` existe pour montrer.
       */}
-      <p className="max-w-prose text-base font-medium" data-testid={sousId("titulo")}>
+      <p className="titre-bloc max-w-prose" data-testid={sousId("titulo")}>
         {titulo}
       </p>
       {descripcion ? (
-        <p className="max-w-prose text-sm text-muted" data-testid={sousId("descripcion")}>
+        <p className="max-w-prose text-base text-muted" data-testid={sousId("descripcion")}>
           {descripcion}
         </p>
+      ) : null}
+      {accion ? (
+        <div className="flex flex-wrap justify-center gap-2 pt-2" data-testid={sousId("accion")}>
+          {accion}
+        </div>
       ) : null}
     </div>
   );
