@@ -31,6 +31,13 @@ export type PuceEstadoProps = {
   tono: PuceEstadoTono;
   /** Le libellé, déjà traduit. C'est lui qui dit l'état ; l'icône le double, la couleur aussi. */
   children: ReactNode;
+  /**
+   * Le libellé passe à la ligne au lieu d'être tronqué (plan 41, P3). Pour une puce de FAIT, dont
+   * le texte n'est pas borné : « Los martes, cada 7 días, hasta el 12 de diciembre » dépasse la
+   * colonne à 360 px, et une ellipse y cacherait la fin de la phrase. Faux par défaut : un statut
+   * reste une pilule d'une ligne.
+   */
+  multilinea?: boolean;
   testId?: string;
 };
 
@@ -81,7 +88,7 @@ const TRACES: Record<PuceEstadoTono, ReactNode> = {
   neutro: <circle cx="12" cy="12" r="3.5" fill="currentColor" />,
 };
 
-export function PuceEstado({ tono, children, testId }: PuceEstadoProps) {
+export function PuceEstado({ tono, children, multilinea = false, testId }: PuceEstadoProps) {
   return (
     <span
       data-tono={tono}
@@ -89,7 +96,9 @@ export function PuceEstado({ tono, children, testId }: PuceEstadoProps) {
       className={[
         // `leading-normal` et non `leading-none` : le libellé est tronqué (`truncate`, donc
         // `overflow: hidden`), et une ligne de 13 px rognait les jambages (« pagar », vu au rendu).
-        "inline-flex h-7 max-w-full shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold leading-normal",
+        "inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold leading-normal",
+        // Multiligne : 28 px AU MOINS, la hauteur suit le texte ; la pilule s'arrondit à sa hauteur.
+        multilinea ? "min-h-7 py-1" : "h-7",
         TONO_CLASES[tono],
       ].join(" ")}
     >
@@ -106,7 +115,7 @@ export function PuceEstado({ tono, children, testId }: PuceEstadoProps) {
       >
         {TRACES[tono]}
       </svg>
-      <span className="truncate">{children}</span>
+      <span className={multilinea ? "min-w-0" : "truncate"}>{children}</span>
     </span>
   );
 }

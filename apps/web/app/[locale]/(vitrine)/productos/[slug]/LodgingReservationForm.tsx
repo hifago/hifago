@@ -18,6 +18,7 @@ import {
   CLASSNAMES_CALENDRIER,
   localeCalendrier,
 } from "@/components/molecules/Calendar";
+import { Aviso } from "@/components/molecules/Aviso";
 import {
   addMonthsIso,
   formatCop,
@@ -553,28 +554,37 @@ export function LodgingReservationForm({
         <Title as="h2" size="bloque">
           {t("availabilityTitle")}
         </Title>
+        {/* Plan 41, P3 : les états du PMS (injoignable, quota, connecteur coupé, lecture en cours)
+            en `Aviso` dans le panneau — erreur pour ce qui empêche de réserver, info pour l'attente.
+            Rôles et `data-testid` gardés sur l'encadré : `role="alert"` pour l'échec, `role="status"`
+            (annonce polie, l'équivalent de l'`aria-live="polite"` d'avant) pour la lecture. */}
         {monthState?.status === "error" ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm text-danger" role="alert" data-testid="pms-availability-error">
-              {t(motivo?.claveI18n ?? "pmsAvailabilityError")}
-            </p>
-            {motivo?.reintentable ? (
-              <Button
-                size="sm"
-                variant="solid"
-                color="neutral"
-                testId="pms-availability-retry"
-                onPress={() => setAttempt((value) => value + 1)}
-              >
-                {t("pmsAvailabilityRetry")}
-              </Button>
-            ) : null}
-          </div>
+          <Aviso
+            tono="error"
+            compacto
+            rol="alert"
+            testId="pms-availability-error"
+            accion={
+              motivo?.reintentable ? (
+                <Button
+                  size="sm"
+                  variant="solid"
+                  color="neutral"
+                  testId="pms-availability-retry"
+                  onPress={() => setAttempt((value) => value + 1)}
+                >
+                  {t("pmsAvailabilityRetry")}
+                </Button>
+              ) : undefined
+            }
+          >
+            {t(motivo?.claveI18n ?? "pmsAvailabilityError")}
+          </Aviso>
         ) : null}
         {cargando ? (
-          <p className="text-sm text-muted" aria-live="polite" data-testid="pms-availability-loading">
+          <Aviso tono="info" compacto rol="status" testId="pms-availability-loading">
             {t("pmsAvailabilityLoading")}
-          </p>
+          </Aviso>
         ) : null}
         {/* ⚠️ LE CLIC PERDU, corrigé le 2026-09-17. Pendant qu'un mois est en vol, tous ses jours
             sont `disabled` (une nuit absente n'est pas réservable — fail-closed du 2026-08-28) :
@@ -676,7 +686,7 @@ export function LodgingReservationForm({
         </p>
       ) : null}
 
-      <Button size="lg" testId="add-to-cart-button" onPress={handleAddToCart} isDisabled={!canAdd}>
+      <Button size="lg" width="full" testId="add-to-cart-button" onPress={handleAddToCart} isDisabled={!canAdd}>
         {t("addToCart")}
       </Button>
     </div>

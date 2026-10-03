@@ -40,6 +40,22 @@ describe("PuceEstado", () => {
     expect(puce.getAttribute("data-tono")).toBe("exito");
   });
 
+  // Plan 41, P3 : une puce de FAIT (occurrence d'un événement, horaires) passe à la ligne au lieu
+  // de cacher la fin de sa phrase sous une ellipse ; un statut reste tronqué sur une ligne.
+  it("multilinea : la hauteur suit le texte, plus aucune troncature", () => {
+    const { container } = render(
+      <PuceEstado tono="neutro" multilinea testId="fait">
+        Los martes, cada 7 días, hasta el 12 de diciembre de 2026.
+      </PuceEstado>
+    );
+    const puce = container.querySelector("[data-testid='fait']") as HTMLElement;
+    const classes = puce.className.split(/\s+/);
+    expect(classes).toEqual(expect.arrayContaining(["min-h-7", "py-1"]));
+    expect(classes).not.toContain("h-7");
+    expect(puce.querySelector(".truncate")).toBeNull();
+    expect(rendre("neutro").querySelector(".truncate")).not.toBeNull();
+  });
+
   // Jamais la couleur seule : cinq tracés différents, et l'icône muette (le libellé parle).
   it("dessine une icône différente par ton, cachée aux technologies d'assistance", () => {
     const icones = TONOS.map((tono) => rendre(tono).querySelector("svg") as SVGElement);

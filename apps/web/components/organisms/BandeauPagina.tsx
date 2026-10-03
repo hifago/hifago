@@ -44,6 +44,11 @@ export type BandeauPaginaProps = {
   volver?: ReactNode;
   /** Le `<h1>` de la page, déjà traduit. */
   titulo: string;
+  /**
+   * Le `data-testid` du `<h1>`, quand un e2e en lit un autre que `<testId>-titulo` : les fiches
+   * gardent `product-name` et `establishment-name` (plan 41, P3 et P4 ; même raison que `chapoTestId`).
+   */
+  tituloTestId?: string;
   /** Le point du titre à point. Vrai par défaut ; faux pour un nom propre (produit, établissement). */
   conPunto?: boolean;
   /** La phrase sous le titre, déjà traduite. */
@@ -67,6 +72,7 @@ export function BandeauPagina({
   migas,
   volver,
   titulo,
+  tituloTestId,
   conPunto = true,
   chapo,
   chapoTestId,
@@ -96,7 +102,7 @@ export function BandeauPagina({
       <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
         {migas}
         {volver}
-        <TituloRubrica as="h1" texto={titulo} tamano="pagina" punto={conPunto} testId={sousId("titulo")} />
+        <TituloRubrica as="h1" texto={titulo} tamano="pagina" punto={conPunto} testId={tituloTestId ?? sousId("titulo")} />
         {chapo ? (
           <p className="chapo max-w-[60ch]" data-testid={chapoTestId ?? sousId("chapo")}>
             {chapo}

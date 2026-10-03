@@ -26,6 +26,7 @@ import {
 } from "@/components/molecules/Calendar";
 import { startOfTodayInBogota } from "@hifago/domain";
 import { Price } from "@/components/atoms/Price";
+import { PuceEstado } from "@/components/atoms/PuceEstado";
 import { hrefAlojamientosCompatibles } from "@/lib/catalog/criterios";
 import { ultimoDiaCampIso } from "@/lib/cart/campMissingLodging";
 import { useCart } from "@/lib/cart/CartContext";
@@ -347,9 +348,11 @@ export function ReservationForm({
                         : "border-transparent hover:border-border"
                   )}
                 >
-                  <span className="text-xs font-medium text-muted">
+                  {/* Plan 41, P3 : la puce de statut (S7) — « N cupos » en `neutro`, « Completo » en
+                      `error`, les deux tons fixés par S7. Avant : un texte gris de 12 px. */}
+                  <PuceEstado tono={isFull ? "error" : "neutro"}>
                     {isFull ? t("full") : t("editionSpotsBadge", { count: remainingRow })}
-                  </span>
+                  </PuceEstado>
                   <span className="text-sm font-semibold">{dateLabel}</span>
                   <span className="text-xs text-muted">
                     {t("editionNights", { count: durationDays })}
@@ -421,6 +424,7 @@ export function ReservationForm({
 
       <Button
         size="lg"
+        width="full"
         testId="add-to-cart-button"
         onPress={handleAddToCart}
         isDisabled={!selectedRow || remaining < 1}

@@ -317,6 +317,7 @@ export function SlotReservationForm({
 
       <Button
         size="lg"
+        width="full"
         testId="add-to-cart-button"
         onPress={handleAddToCart}
         isDisabled={!selectedSlot || slotRemaining < 1}
