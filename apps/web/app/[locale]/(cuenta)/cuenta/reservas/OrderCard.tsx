@@ -2,7 +2,10 @@ import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { Card } from "@/components/atoms/Card";
 import { MontantsLigne } from "@/components/molecules/MontantsLigne";
-import { formatLineSchedule } from "@/lib/orders/formatLineSchedule";
+import { EnlaceGo } from "@/components/atoms/EnlaceGo";
+import { PuceEstado, TONO_POR_ESTADO_PEDIDO, tonoDeLinea } from "@/components/atoms/PuceEstado";
+import { formatLineScheduleLisible } from "@/lib/orders/formatLineSchedule";
+import { computeTripRange, formatTripLabel } from "@/lib/orders/tripRange";
 import { deriveOrderState, isDeadLine } from "@/lib/orders/orderState";
 import { CancelLineButton } from "./CancelLineButton";
 import type { MyOrder } from "@/lib/orders/getMyOrders";
@@ -43,20 +46,32 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
   const state = deriveOrderState(order);
   const activeLines = order.lines.filter((line) => line.status === "reserved");
 
+  const tripLabel = formatTripLabel(computeTripRange(order.lines), locale, tEtat);
+
+  // Plan 41, P8 : en-tête = référence (`titre-bloc`), puis la puce d'état (S7) et les dates du
+  // voyage ; lignes à séparateurs (F6) ; pied = « GO → » vers le détail (S5).
   return (
     <Card
       title={t("orderReference", { reference: order.reference })}
       titleAs="h3"
       titleSize="bloque"
-      subtitle={tEtat(`status.${state}`)}
       testId={`order-card-${order.id}`}
       contentGap="md"
       padding="lg"
     >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <PuceEstado tono={TONO_POR_ESTADO_PEDIDO[state]} testId={`order-state-${order.id}`}>
+          {tEtat(`status.${state}`)}
+        </PuceEstado>
+        <span className="text-sm font-medium text-muted" data-testid={`order-trip-${order.id}`}>
+          {tripLabel}
+        </span>
+      </div>
+
       {/* Plan 41, F6 : des rangées séparées par le filet `--separator`, plus des boîtes bordées
           de marine dans la carte bordée de marine. Même balisage que `CartSummary` et
           `OrderResult`. Une prestation annulée ne se signale plus par une bordure pâle : son
-          texte grisé, son nom barré et son libellé de statut le disent. */}
+          texte grisé, son nom barré et sa puce d'état le disent. */}
       <ul className="flex flex-col divide-y divide-separator">
         {order.lines.map((line) => {
           const isDead = isDeadLine(line.status);
@@ -64,29 +79,28 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
           // réservation va tomber. `activeLines` est calculé sur la commande entière, pas sur la
           // ligne — c'est justement l'information qu'une ligne seule ne peut pas connaître.
           const isLastActiveLine = activeLines.length === 1 && line.status === "reserved";
+          const fecha = formatLineScheduleLisible(line, locale);
 
           return (
             <li
               key={line.id}
               data-testid={`order-line-${line.id}`}
               data-status={line.status}
-              className={`flex flex-col gap-2 py-4 text-sm first:pt-0 last:pb-0 ${
-                isDead ? "text-muted" : ""
-              }`}
+              className={`flex flex-col gap-2 py-4 first:pt-0 last:pb-0 ${isDead ? "text-muted" : ""}`}
             >
-              {/* Sous `md`, les montants passent SOUS le libellé plutôt qu'à sa droite : rien n'est
+              {/* Sous `sm`, les montants passent SOUS le libellé plutôt qu'à sa droite : rien n'est
                   masqué selon la largeur, on réorganise (.claude/rules/ui.md). */}
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex flex-col">
-                  <span className={`font-medium ${isDead ? "line-through" : ""}`}>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <span className={`text-base font-semibold ${isDead ? "line-through" : ""}`}>
                     {line.productName}
                   </span>
-                  <span className="text-muted">
+                  <span className="text-sm text-muted">
                     {line.establishmentSlug ? (
                       <Link
                         href={`/establecimientos/${line.establishmentSlug}`}
                         data-testid={`establishment-link-${line.id}`}
-                        className="underline underline-offset-2"
+                        className="underline underline-offset-2 hover:text-foreground"
                       >
                         {line.establishmentName}
                       </Link>
@@ -94,11 +108,15 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
                       line.establishmentName
                     )}
                     {" · "}
-                    {formatLineSchedule(line)}
+                    {fecha}
                     {" · "}
                     {t("lineQty", { count: line.qty })}
                   </span>
-                  <span className="text-xs text-muted">{tEtat(`lineStatus.${line.status}`)}</span>
+                  <span className="pt-1">
+                    <PuceEstado tono={tonoDeLinea(line.status)} testId={`line-status-${line.id}`}>
+                      {tEtat(`lineStatus.${line.status}`)}
+                    </PuceEstado>
+                  </span>
                 </div>
 
                 {/* Décision ④ : ce qui a été payé POUR CETTE prestation, et son prix total. Le
@@ -117,7 +135,7 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
                 <CancelLineButton
                   lineId={line.id}
                   productName={line.productName}
-                  dateLabel={formatLineSchedule(line)}
+                  dateLabel={fecha}
                   isLastActiveLine={isLastActiveLine}
                   testId={`cancel-line-${line.id}`}
                 />
@@ -128,14 +146,16 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
       </ul>
 
       {/* Décision ③ : le détail est /reserva/<jeton>, celui que l'email porte déjà — jamais un
-          second écran de détail à tenir en parallèle. */}
-      <Link
-        href={`/reserva/${order.accessToken}`}
-        data-testid={`order-detail-link-${order.id}`}
-        className="text-sm underline underline-offset-2"
-      >
-        {t("viewDetail")}
-      </Link>
+          second écran de détail à tenir en parallèle. Le nom accessible dit la référence : dix
+          « GO » vers dix commandes ne doivent pas porter le même nom (S5). */}
+      <div className="flex justify-end border-t border-separator pt-2">
+        <EnlaceGo
+          href={`/reserva/${order.accessToken}`}
+          label={t("viewDetail", { reference: order.reference })}
+          tamano="normal"
+          testId={`order-detail-link-${order.id}`}
+        />
+      </div>
     </Card>
   );
 }

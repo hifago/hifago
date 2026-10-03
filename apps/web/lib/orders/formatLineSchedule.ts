@@ -1,3 +1,4 @@
+import { isoDateToLocalMidnight } from "@hifago/domain";
 import { ultimoDiaCampIso } from "@/lib/cart/campMissingLodging";
 
 // La date (ou la plage, ou le créneau) d'une ligne, rendue de la même façon partout.
@@ -43,4 +44,31 @@ export function formatLineSchedule(line: LineSchedule): string {
   if (resolvedEndDate) return `${line.date} → ${resolvedEndDate}`;
   if (line.slotStartTime) return `${line.date} · ${line.slotStartTime}`;
   return line.date;
+}
+
+/**
+ * La même date, LISIBLE (plan 41, constat T13, défaut connu n° 7) : `jue, 15 oct`,
+ * `15 oct → 17 oct`, `jue, 15 oct · 10:00` — `Thu, Oct 15`… en anglais.
+ *
+ * ⚠️ À CÔTÉ de `formatLineSchedule`, pas à sa place : Mis reservas (P8) l'adopte la première, et
+ * Mi viaje, Pago et le résultat (P5 à P7) gardent l'ISO jusqu'à leur propre item — basculer la
+ * fonction commune changerait quatre écrans d'un coup. Mêmes trois formes, même priorité (une plage
+ * ne porte pas d'heure). Le jour de la semaine seulement sur une date seule : sur une plage, deux
+ * jours de semaine alourdiraient la ligne pour rien.
+ *
+ * Sans année, comme le titre « Tu viaje del… » (`formatTripLabel`) : une réservation se lit dans
+ * l'année, et le détail (`/reserva/<jeton>`) reste à un clic. L'heure garde `HH:MM` (la base rend
+ * `10:00:00`). `isoDateToLocalMidnight` et jamais `new Date(iso)`, lu en UTC (voir `tripRange.ts`).
+ */
+export function formatLineScheduleLisible(line: LineSchedule, locale: string): string {
+  const jour = (iso: string, options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat(locale, options).format(isoDateToLocalMidnight(iso));
+  const resolvedEndDate = resolveDisplayEndDate(line);
+  if (resolvedEndDate) {
+    const court: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+    return `${jour(line.date, court)} → ${jour(resolvedEndDate, court)}`;
+  }
+  const avecJour = jour(line.date, { weekday: "short", day: "numeric", month: "short" });
+  if (line.slotStartTime) return `${avecJour} · ${line.slotStartTime.slice(0, 5)}`;
+  return avecJour;
 }

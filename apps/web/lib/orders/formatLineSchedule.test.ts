@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatLineSchedule } from "./formatLineSchedule";
+import { formatLineSchedule, formatLineScheduleLisible } from "./formatLineSchedule";
 
 // Extrait de `CartSummary`/`OrderResult` (spec 33) — ces trois formes de ligne sont les trois
 // formes de réservation du catalogue : produit à date, hébergement par plage, produit à créneau.
@@ -48,5 +48,29 @@ describe("formatLineSchedule", () => {
     expect(
       formatLineSchedule({ date: "2026-10-01", endDate: "2026-10-03", durationDays: 7 })
     ).toBe("2026-10-01 → 2026-10-03");
+  });
+});
+
+// Plan 41, P8 : la même date, lisible. Les trois formes, en espagnol et en anglais ; le 2026-10-15
+// est un jeudi.
+describe("formatLineScheduleLisible", () => {
+  it("rend le jour de la semaine, le jour et le mois pour un produit à date", () => {
+    expect(formatLineScheduleLisible({ date: "2026-10-15" }, "es")).toBe("jue, 15 oct");
+    expect(formatLineScheduleLisible({ date: "2026-10-15" }, "en")).toBe("Thu, Oct 15");
+  });
+
+  it("rend l'heure en HH:MM pour un produit à créneau (la base rend HH:MM:SS)", () => {
+    expect(formatLineScheduleLisible({ date: "2026-10-15", slotStartTime: "10:00:00" }, "es")).toBe(
+      "jue, 15 oct · 10:00"
+    );
+  });
+
+  it("rend une plage sans jour de semaine, camp compris", () => {
+    expect(formatLineScheduleLisible({ date: "2026-10-15", endDate: "2026-10-17" }, "es")).toBe(
+      "15 oct → 17 oct"
+    );
+    expect(formatLineScheduleLisible({ date: "2026-10-23", durationDays: 5 }, "en")).toBe(
+      "Oct 23 → Oct 27"
+    );
   });
 });

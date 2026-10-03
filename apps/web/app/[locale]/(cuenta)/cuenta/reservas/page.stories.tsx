@@ -73,18 +73,16 @@ export const Anulando: StoryObj = {
   },
 };
 
-// ⚠️ DÉFAUT RÉEL montré tel quel (relevé le 2026-10-01) : après un échec, la confirmation revient
-// à la normale SANS message ; « No se pudo anular » n'apparaît qu'après un clic sur « No ». Cette
-// story fait ce clic, pour que l'état d'erreur soit visible — l'écart est dans le code, pas ici.
+// Défaut connu n° 4 (relevé le 2026-10-01), corrigé par le plan 41, P8 : l'échec ne s'affichait
+// qu'après un clic sur « No ». Il apparaît maintenant sous la confirmation, dès la réponse.
 export const AnulacionFallida: StoryObj = {
   ...pagina(() =>
     simularRpc("cancel_order_line", { data: { ok: false, reason: "line_not_active" }, error: null })
   ),
-  name: "Annulation échouée (visible après « No », défaut connu)",
+  name: "Annulation échouée",
   play: async ({ canvasElement }) => {
     await pulsar(canvasElement, `[data-testid="cancel-line-${LINEA_DE_VARIAS}"]`);
     await pulsar(canvasElement, `[data-testid="cancel-line-${LINEA_DE_VARIAS}-yes"]`);
-    await pulsar(canvasElement, `[data-testid="cancel-line-${LINEA_DE_VARIAS}-no"]`);
     await expect(await esperar(canvasElement, `[data-testid="cancel-line-${LINEA_DE_VARIAS}-error"]`)).toBeVisible();
   },
 };
