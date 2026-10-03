@@ -1,7 +1,31 @@
 {
   "description": "Garde-fous Hifago partagés avec Claude Code, adaptés aux événements Codex.",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/setup-codex-skills.mjs\" --quiet",
+            "commandWindows": "powershell -NoProfile -Command \"$repoRoot = (git rev-parse --show-toplevel); node (Join-Path $repoRoot 'scripts/setup-codex-skills.mjs') --quiet\"",
+            "statusMessage": "Synchronisation des skills et règles Hifago"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
+      {
+        "matcher": "Edit|Write|Read|read_file|mcp__filesystem__read_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/hooks/inject-path-rules.mjs\"",
+            "commandWindows": "powershell -NoProfile -Command \"$repoRoot = (git rev-parse --show-toplevel); node (Join-Path $repoRoot 'scripts/hooks/inject-path-rules.mjs')\"",
+            "statusMessage": "Chargement des règles Hifago applicables",
+            "additionalContextLimit": 10000
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write",
         "hooks": [

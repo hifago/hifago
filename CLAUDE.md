@@ -7,6 +7,18 @@
 > `docs/backlog.md`. ⚠️ Annoncer la forme et l'effort de CHAQUE tâche avant de commencer :
 > `.claude/rules/orchestration.md`.
 
+## Compatibilité Claude Code / Codex
+
+- `.claude/skills/` et `.claude/rules/` sont les sources physiques versionnées ;
+  `.agents/skills/` et `.agents/rules/` sont leurs alias de dossier. Une création par l'un des deux
+  chemins est donc immédiatement visible par les deux IA. Après un clone :
+  `node scripts/setup-codex-skills.mjs` (également lancé au démarrage de Claude et Codex).
+- Tout nouveau skill partagé utilise le standard commun SKILL.md, avec uniquement `name` et
+  `description` dans le frontmatter. Toute nouvelle règle porte un `paths:` non vide : Claude le
+  charge nativement, Codex via `scripts/hooks/inject-path-rules.mjs`.
+- Ne jamais créer une copie propre à une IA. Si une instruction dépend d'un outil particulier,
+  documenter dans la même source l'équivalent pour l'autre IA.
+
 ## Projet en une phrase
 Refonte complète de Casa Kayam/Hifago : monorepo Next.js (App Router, npm workspaces) sur Vercel +
 Supabase utilisé pleinement (Postgres+PostGIS, Auth, Storage, Realtime, Edge Functions/pg_cron),
