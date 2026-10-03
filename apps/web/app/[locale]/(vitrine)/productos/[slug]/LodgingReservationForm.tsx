@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { format, parseISO } from "date-fns";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/atoms/Button";
 import {
@@ -12,6 +12,12 @@ import {
   Label,
   TextField,
 } from "@hifago/ui";
+import {
+  CLASSE_CADRE_CALENDRIER,
+  CLASSE_CALENDRIER,
+  CLASSNAMES_CALENDRIER,
+  localeCalendrier,
+} from "@/components/molecules/Calendar";
 import {
   addMonthsIso,
   formatCop,
@@ -115,6 +121,8 @@ export function LodgingReservationForm({
   rates: RateRow[];
 }) {
   const t = useTranslations("ProductPage");
+  // La langue de la page, pour la grille (plan 41, S10).
+  const locale = useLocale();
   const { lines } = useCart();
   const addToCart = useAddToCart();
 
@@ -579,7 +587,13 @@ export function LodgingReservationForm({
             clic perdu. `aria-busy` porte l'information pour un lecteur d'écran, l'opacité pour
             les autres. */}
         <div aria-busy={cargando} className={cargando ? "transition-opacity opacity-60" : "transition-opacity"}>
+          {/* Plan 41, S10 : la grille de la charte (cases à la largeur du panneau, mois en Anton,
+              jour choisi or et marine), dans son cadre, et dans la langue de la page — libellés
+              d'accessibilité compris. Purement visuel : prédicats et modificateurs inchangés. */}
           <Calendar
+            className={`${CLASSE_CALENDRIER} ${CLASSE_CADRE_CALENDRIER}`}
+            classNames={CLASSNAMES_CALENDRIER}
+            locale={localeCalendrier(locale)}
             mode="range"
             selected={range}
             onSelect={handleSelectRange}

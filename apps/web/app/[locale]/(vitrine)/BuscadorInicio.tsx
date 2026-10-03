@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { enUS, es } from "date-fns/locale";
 // ⚠️ `useRouter` vient d'`@/i18n/navigation`, JAMAIS de `next/navigation` (contrôlé par
 // scripts/check-i18n-links.sh depuis le 2026-09-07). `localePrefix: "always"` : le routeur nu
 // pousserait `/?q=kayak`, une URL sans préfixe de langue — le proxy la rattrape par une
 // redirection qui redevine la langue depuis un cookie au lieu de garder celle de la page lue.
 // Rien ne casse visiblement, et c'est bien le problème.
 import { useRouter } from "@/i18n/navigation";
+import { localeCalendrier } from "@/components/molecules/Calendar";
 import {
   SearchPanel,
   type SearchCriteria,
@@ -274,9 +274,10 @@ export function BuscadorInicio({
         suggestions={sugerenciasMostradas}
         onSuggestionSelect={elegirSugerencia}
         aujourdIso={aujourdIso}
-        // ⚠️ Un objet date-fns n'est pas sérialisable : c'est pour ça que la page passe un CODE de
-        // langue et que la traduction en objet se fait ici, du côté client de la frontière.
-        locale={localeCodigo === "en" ? enUS : es}
+        // ⚠️ Un objet de locale n'est pas sérialisable : c'est pour ça que la page passe un CODE de
+        // langue et que la traduction en objet se fait ici, du côté client de la frontière. Celle
+        // de la grille (plan 41, S10) : date-fns PLUS les libellés d'accessibilité traduits.
+        locale={localeCalendrier(localeCodigo)}
         // ⚠️ `people.valueLabel` ne peut PAS venir de la page : c'est un pluriel accordé sur le
         // nombre choisi (« 1 persona » / « 3 personas »), et ce nombre est un état client. La page
         // fournit tous les autres libellés déjà traduits ; celui-ci se recalcule ici à chaque

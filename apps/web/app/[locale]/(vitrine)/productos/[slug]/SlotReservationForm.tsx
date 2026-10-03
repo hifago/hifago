@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/atoms/Button";
 import {
   DayPickerCalendar as Calendar,
@@ -12,6 +12,12 @@ import {
   cn,
   dateTaggedDayButtonComponents,
 } from "@hifago/ui";
+import {
+  CLASSE_CADRE_CALENDRIER,
+  CLASSE_CALENDRIER,
+  CLASSNAMES_CALENDRIER,
+  localeCalendrier,
+} from "@/components/molecules/Calendar";
 import { startOfTodayInBogota } from "@hifago/domain";
 import { useCart } from "@/lib/cart/CartContext";
 import { useAddToCart } from "@/lib/cart/useAddToCart";
@@ -90,6 +96,8 @@ export function SlotReservationForm({
   minQty?: number;
 }) {
   const t = useTranslations("ProductPage");
+  // La langue de la page, pour la grille (plan 41, S10).
+  const locale = useLocale();
   const { lines } = useCart();
   const addToCart = useAddToCart();
   // Borne HAUTE de l'horizon produit (six mois, décidé le 2026-08-28). Le `useMemo` reste ici et
@@ -210,7 +218,13 @@ export function SlotReservationForm({
         <Title as="h2" size="bloque">
           {t("availabilityTitle")}
         </Title>
+        {/* Plan 41, S10 : la grille de la charte (cases à la largeur du panneau, mois en Anton,
+            jour choisi or et marine), dans son cadre, et dans la langue de la page — libellés
+            d'accessibilité compris. Purement visuel : prédicats et modificateurs inchangés. */}
         <Calendar
+          className={`${CLASSE_CALENDRIER} ${CLASSE_CADRE_CALENDRIER}`}
+          classNames={CLASSNAMES_CALENDRIER}
+          locale={localeCalendrier(locale)}
           mode="single"
           defaultMonth={defaultMonth}
           selected={selectedDate}

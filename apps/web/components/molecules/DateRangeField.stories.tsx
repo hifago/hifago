@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { es } from "date-fns/locale";
+import { localeCalendrier } from "./Calendar";
 import { PageShell } from "@/components/atoms/PageShell";
 import type { CalendarLibelles, PlageCalendrier } from "./Calendar";
 import { DateRangeField } from "./DateRangeField";
@@ -32,7 +32,7 @@ const meta = {
     aujourdIso: AUJOURDHUI,
     placeholderLabel: "Fechas",
     calendarLabels: LIBELLES_CALENDRIER,
-    locale: es,
+    locale: localeCalendrier("es"),
     testId: "dates",
   },
 } satisfies Meta<typeof DateRangeField>;
@@ -65,7 +65,7 @@ function Cadre({
         aujourdIso={AUJOURDHUI}
         placeholderLabel="Fechas"
         calendarLabels={LIBELLES_CALENDRIER}
-        locale={es}
+        locale={localeCalendrier("es")}
         isDisabled={isDisabled}
         testId="dates"
       />

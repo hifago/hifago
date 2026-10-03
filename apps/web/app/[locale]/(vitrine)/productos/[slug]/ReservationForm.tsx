@@ -18,6 +18,12 @@ import {
   cn,
   dateTaggedDayButtonComponents,
 } from "@hifago/ui";
+import {
+  CLASSE_CADRE_CALENDRIER,
+  CLASSE_CALENDRIER,
+  CLASSNAMES_CALENDRIER,
+  localeCalendrier,
+} from "@/components/molecules/Calendar";
 import { startOfTodayInBogota } from "@hifago/domain";
 import { Price } from "@/components/atoms/Price";
 import { hrefAlojamientosCompatibles } from "@/lib/catalog/criterios";
@@ -272,7 +278,13 @@ export function ReservationForm({
         <Title as="h2" size="bloque">
           {t("availabilityTitle")}
         </Title>
+        {/* Plan 41, S10 : la grille de la charte (cases à la largeur du panneau, mois en Anton,
+            jour choisi or et marine), dans son cadre, et dans la langue de la page — libellés
+            d'accessibilité compris. Purement visuel : prédicats et modificateurs inchangés. */}
         <Calendar
+          className={`${CLASSE_CALENDRIER} ${CLASSE_CADRE_CALENDRIER}`}
+          classNames={CLASSNAMES_CALENDRIER}
+          locale={localeCalendrier(locale)}
           mode="single"
           defaultMonth={defaultMonth}
           selected={selectedDate}
