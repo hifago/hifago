@@ -26,8 +26,8 @@ import type { Locale } from "@/messages";
 //     l'illustration du héros ;
 //   - `minimosTexto` : les planchers de texte des tuiles (S4), que l'accueil désactive pour l'instant.
 //
-// ⚠️ PAS UNE VARIANTE DE `SeccionOfertas`. Cette dernière sert les bandes défilantes des index par
-// catégorie, qui n'ont pas encore changé de maquette (P1 les remplacera par ce rail).
+// ⚠️ PAS UNE VARIANTE DE `SeccionOfertas`. Cette dernière servait les bandes défilantes des index
+// par type ; P1 (2026-10-03) les a remplacées par ce rail, et elle n'a plus d'appelant (G5).
 //
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // TOUT EST EN `cqw` — les proportions de la maquette, mesurées au pixel, à toute largeur
@@ -73,6 +73,15 @@ export type SeccionRielProps = {
   locale: Locale;
   /** Déjà traduit (« Desde ») — la section ne traduit rien, la page le lui passe. */
   labelDesde: string;
+  /**
+   * Le sous-titre d'une carte GROUPÉE (« 3 alojamientos »), déjà traduit, par nombre. Une fonction
+   * et non une chaîne : le pluriel dépend de chaque tuile. Elle passe d'un composant serveur à un
+   * autre, donc rien n'est sérialisé. Absente, une carte groupée n'a pas de sous-titre (l'accueil,
+   * qui doit rester identique au pixel).
+   */
+  conteoAlojamientos?: (n: number) => string;
+  /** La bulle de capacité (« Hasta 2 personas »), déjà traduite, par nombre. Même raison. */
+  capacidadPersonas?: (n: number) => string;
   /** La première tuile porte `priority` (le LCP de la page). Jamais sur l'accueil. */
   prioridad?: boolean;
   /** Le motif bleu derrière le conteneur. Vrai par défaut. */
@@ -136,6 +145,8 @@ export function SeccionRiel({
   tarjetas,
   locale,
   labelDesde,
+  conteoAlojamientos,
+  capacidadPersonas,
   prioridad = false,
   motivo = true,
   minimosTexto = true,
@@ -205,6 +216,12 @@ export function SeccionRiel({
                     oferta={tarjeta}
                     locale={locale}
                     labelDesde={labelDesde}
+                    labelConteo={
+                      tarjeta.nAlojamientos !== null ? conteoAlojamientos?.(tarjeta.nAlojamientos) : undefined
+                    }
+                    labelCapacidad={
+                      tarjeta.capacidad !== null ? capacidadPersonas?.(tarjeta.capacidad) : undefined
+                    }
                     sizes={SIZES_TESELA}
                     // UNE seule tuile prioritaire, la première : les autres sont hors de l'écran.
                     prioridad={prioridad && indice === 0}

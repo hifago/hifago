@@ -7,6 +7,7 @@
   "cargarMas": "Cargar más",
   "cargando": "Cargando…",
   "reintentar": "Reintentar",
+  "verCategoria": "Ver todo: {categoria}",
   "errorCarga": "No pudimos cargar más ofertas. Vuelve a intentarlo.",
   "conteo": "{cargadas} de {total, plural, one {# oferta} other {# ofertas}}",
   "campLodgingHint": "Elige un alojamiento para las {count, plural, one {# noche} other {# noches}} de tu campamento.",

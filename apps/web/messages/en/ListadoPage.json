@@ -7,6 +7,7 @@
   "cargarMas": "Load more",
   "cargando": "Loading…",
   "reintentar": "Try again",
+  "verCategoria": "See all: {categoria}",
   "errorCarga": "We couldn't load more offers. Please try again.",
   "conteo": "{cargadas} of {total, plural, one {# offer} other {# offers}}",
   "campLodgingHint": "Choose an accommodation for the {count, plural, one {# night} other {# nights}} of your camp.",

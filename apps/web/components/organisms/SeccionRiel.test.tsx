@@ -347,4 +347,26 @@ describe("SeccionRiel", () => {
     expect(nom(rendu())).toContain("text-[clamp(0.8125rem,");
     expect(nom(rendu({ minimosTexto: false }))).toContain("text-[clamp(0.6875rem,");
   });
+
+  // L'index des hébergements (P1) montre des cartes GROUPÉES (« 3 alojamientos ») ; l'accueil ne
+  // passe pas ces libellés et doit rester identique au pixel.
+  it("traduit par tuile le décompte d'une carte groupée et la capacité, et rien sans libellé", () => {
+    const groupee = { ...carte(1), nAlojamientos: 3, capacidad: 2 } as TarjetaOferta;
+    const simple = carte(2);
+    const tuiles = [groupee, simple];
+    const avec = rendu({
+      tarjetas: tuiles,
+      conteoAlojamientos: (n) => `${n} alojamientos`,
+      capacidadPersonas: (n) => `Hasta ${n} personas`,
+    });
+    const tuile = (c: HTMLElement, id: string) => c.querySelector(`[data-testid="${id}"]`)?.textContent;
+    expect(tuile(avec, "tarjeta-oferta-1")).toContain("3 alojamientos");
+    expect(tuile(avec, "tarjeta-oferta-1-capacidad")).toBe("Hasta 2 personas");
+    expect(tuile(avec, "tarjeta-oferta-2")).not.toContain("alojamientos");
+    expect(avec.querySelector('[data-testid="tarjeta-oferta-2-capacidad"]')).toBeNull();
+
+    const sans = rendu({ tarjetas: tuiles });
+    expect(tuile(sans, "tarjeta-oferta-1")).not.toContain("alojamientos");
+    expect(sans.querySelector('[data-testid="tarjeta-oferta-1-capacidad"]')).toBeNull();
+  });
 });
