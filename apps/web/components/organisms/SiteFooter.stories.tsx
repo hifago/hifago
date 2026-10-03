@@ -45,7 +45,7 @@ export const SousUnePage: Story = {
   args: { testId: "footer" },
   render: (args) => (
     <div className="flex min-h-screen flex-col">
-      <PageShell variant="large">
+      <PageShell variant="pagina">
         <Title as="h1">Alojamientos y actividades en Guatapé</Title>
         <p className="text-sm">
           Página corta, volontairement : c&apos;est le cas où un footer mal posé remonte coller au
@@ -62,7 +62,7 @@ export const SousUnePageLongue: Story = {
   args: { testId: "footer" },
   render: (args) => (
     <div className="flex min-h-screen flex-col">
-      <PageShell variant="large">
+      <PageShell variant="pagina">
         <Title as="h1">Alojamientos y actividades en Guatapé</Title>
         {Array.from({ length: 10 }, (_, i) => (
           <p key={i} className="text-sm">

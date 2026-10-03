@@ -53,7 +53,7 @@ function Cadre({
   }, [ouvrir]);
 
   return (
-    <PageShell variant="large">
+    <PageShell variant="pagina">
       <PeopleField
         value={nombre}
         onChange={setNombre}

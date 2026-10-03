@@ -160,8 +160,7 @@ export function FilterTrigger({
     // changement d'apparence ici plutôt qu'une variante de plus.
     <Button variant="ghost" color="neutral" size="md" shape="pill" isDisabled={isDisabled} testId={testId}>
       {/* La pastille : bleu poudre de la charte, glyphe BLANC comme sur la maquette. Décorative — le
-          libellé écrit à côté porte l'information. `text-white` et non un jeton : blanc dans les
-          deux modes, lisible sur le bleu poudre du clair comme sur le bleu soutenu du sombre. */}
+          libellé écrit à côté porte l'information. `text-white` reste constant sur cette forme. */}
       <span
         aria-hidden="true"
         className="grid size-6 shrink-0 place-items-center rounded-full bg-[var(--default)] text-white"

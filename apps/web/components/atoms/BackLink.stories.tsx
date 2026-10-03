@@ -46,7 +46,7 @@ export const DansUnePage: Story = {
   args: { href: "/", label: "Volver al catálogo" },
   parameters: { layout: "fullscreen" },
   render: (args) => (
-    <PageShell variant="narrow">
+    <PageShell variant="pagina">
       <BackLink {...args} />
       <div className="rounded border border-[var(--border)] p-4 text-sm">
         Contenu de la page — le lien de retour est toujours le premier enfant de la coquille.

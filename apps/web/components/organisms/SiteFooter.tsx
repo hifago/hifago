@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { LinkButton } from "@/components/atoms/LinkButton";
@@ -76,6 +77,20 @@ export function SiteFooter({ testId }: SiteFooterProps) {
     // rendrait son texte sombre sur un fond sombre, le panneau du LanguageSwitcher garde son
     // `--surface` » — est levée par les surfaces : c'est exactement ce qu'elles règlent.
     <footer data-superficie="marine" data-testid={testId}>
+      {/* Plan 41, A6 — bande approuvée par Jérôme le 2026-10-03 après comparaison à 390 et
+          1 280 px. Une image unique, jamais un motif répété : les bords de la source ne se
+          raccordent pas. Décorative, différée et bornée pour ne jamais devenir le LCP. */}
+      <Image
+        src="/brand/motif-footer.webp"
+        alt=""
+        width={1600}
+        height={120}
+        sizes="100vw"
+        loading="lazy"
+        aria-hidden="true"
+        className="block h-[clamp(48px,7.5vw,120px)] w-full object-cover object-center"
+        data-testid={testId ? `${testId}-motif` : undefined}
+      />
       {/* La colonne de l'accueil, comme le header (C1) et le contenu (F7). 32 px en haut et 24 en
           bas sur mobile, 40 et 32 à partir de `md`. */}
       <div className={`${COLUMNA_PORTADA} flex flex-col gap-6 pt-8 pb-6 md:pt-10 md:pb-8`}>

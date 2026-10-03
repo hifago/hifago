@@ -9,9 +9,9 @@ c'est CLAUDE.md qui fait foi.
 
 | Dossier | Contenu | Exemple |
 |---|---|---|
-| `atoms/` | Brique indivisible, sans logique métier, **ne traduit rien** | `Price`, `TypeBadge`, `Title` |
-| `molecules/` | Composition de plusieurs atomes, liée à un écran | `ProductCard`, `CatalogFilters` |
-| `organisms/` | Bloc autonome, souvent avec état ou navigation | `SiteHeader`, `CartSummary` |
+| `atoms/` | Brique indivisible, sans logique métier, **ne traduit rien** | `Price`, `PuceEstado`, `EnlaceGo` |
+| `molecules/` | Composition de plusieurs atomes, liée à un écran | `TituloRubrica`, `Aviso`, `TeselaOferta` |
+| `organisms/` | Bloc autonome, souvent avec état ou navigation | `SiteHeader`, `BandeauPagina`, `SeccionRiel` |
 | `seo/` | Pas de l'interface : données structurées | `JsonLd` |
 | `playground/` | Stories de référence (jetons, palettes, sémantique) | `Palette.stories.tsx` |
 | `parcours/` | Stories de PARCOURS : une suite d'écrans réutilisés, une story par étape | `ReservarActividad.stories.tsx` |
@@ -127,11 +127,11 @@ un prix. Cinq groupes, décidés le 2026-09-02 :
 
 | Groupe | Contenu |
 |---|---|
-| `Actions/` | `Button`, `IconButton`, `LinkButton`, `IconLink`, `BackLink` |
+| `Actions/` | `Button`, `IconButton`, `LinkButton`, `IconLink`, `BackLink`, `EnlaceGo` |
 | `Saisie/` | `Field`, `Textarea`, `Select`, `Checkbox` |
-| `Affichage/` | `Price`, `TypeBadge`, `Image`, `Title`, `PhotoStrip`, `CartSummary` |
-| `Structure/` | `PageShell`, `Card` |
-| `Coquille/` | `SiteHeader`, `SiteMenu`, `SiteFooter`, `LanguageSwitcher` |
+| `Affichage/` | `Price`, `TypeBadge`, `Image`, `Title`, `PhotoStrip`, `CartSummary`, `TituloRubrica`, `PuceEstado`, `Aviso`, `TeselaOferta` |
+| `Structure/` | `PageShell`, `Card`, `BandeauPagina`, `SeccionRiel` |
+| `Coquille/` | `SiteHeader`, `SiteFooter`, `LanguageSwitcher` |
 | `Playground/` | les stories de référence — jetons, palettes, sémantique |
 | `Écrans/` | les PAGES ENTIÈRES de la vitrine, une story par état (voir « Stories d'écran » plus bas) |
 | `Parcours/` | les enchaînements d'écrans, une story par étape `n · Étape` |
@@ -167,10 +167,10 @@ ses états**, à côté des briques. C'est le support sur lequel Jérôme tranch
 `npm run storybook -w @hifago/web`, puis <http://localhost:6006>. **Rien d'autre à lancer** : ni
 Docker, ni Supabase, ni `.env.local` — tout est simulé. Dans la barre latérale, `Écrans/` (une
 entrée par page, une story par état) et `Parcours/` (les étapes dans l'ordre). La barre d'outils
-s'applique à la page entière : **Piste** (Hifago, Embalse, Zócalo, Cal, Chiva), **Mode**
-(clair/sombre), **Rayon**, **langue** (es/en) et **gabarit** (Mobile 390 par défaut, Tablette 768,
-Desktop 1280). Un état obtenu par un clic (erreur, envoi en cours, calendrier ouvert…) se rejoue
-seul à l'ouverture ; l'onglet **Interactions** le montre pas à pas.
+s'applique à la page entière : **thème** (vitrine/admin), **rayon**, **langue** (es/en) et
+**gabarit** (Mobile 390 par défaut, Tablette 768, Desktop 1280). La vitrine présente toujours la
+charte Hifago adoptée, en clair. Un état obtenu par un clic (erreur, envoi en cours, calendrier
+ouvert…) se rejoue seul à l'ouverture ; l'onglet **Interactions** le montre pas à pas.
 
 ### Comment c'est fait
 
@@ -261,12 +261,3 @@ par leur dossier — c'est fait pour ça.
 Voir `hifago/AGENTS-PARALLELES.md`, section « Agent qui crée des composants ». En résumé : un agent
 = un dossier + un namespace i18n ; on ne crée jamais un atome qui n'est pas dans son périmètre ; on
 n'ajoute aucune dépendance ; on ne lance pas son propre serveur sur les ports 3100 / 6006.
-
-## Deux constats à connaître, non corrigés
-
-- ⚠️ **Le thème `vitrine` ne définit aucun token.** Il tourne sur les défauts HeroUI (le thème
-  `admin` en définit ~37). Voir la story `Playground/Tokens` pour ce qui est réellement en vigueur.
-- ⚠️ **Les polices Geist ne sont pas appliquées.** `app/[locale]/layout.tsx` définit
-  `--font-geist-sans`/`--font-geist-mono`, alors que HeroUI et Tailwind consomment `--font-sans` et
-  `--font-mono` : les noms ne correspondent pas, la vitrine est en pile système. Constaté le
-  2026-09-01, signalé, hors périmètre du lot.

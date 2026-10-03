@@ -201,7 +201,7 @@ export const DansUneCoquille: Story = {
   render: (args, { globals }) => {
     const { langue, locale, libelles } = contexte(globals);
     return (
-      <PageShell variant="narrow">
+      <PageShell variant="pagina">
         <h2 className="text-sm font-medium">Disponibilidad</h2>
         <Demo {...args} jours={joursDeReference(langue)} locale={locale} libelles={libelles} />
       </PageShell>

@@ -141,13 +141,20 @@ describe("SiteFooter", () => {
     expect(pied.getAttribute("style")).toBeNull();
   });
 
-  // ⚠️ FORCÉ : les classes `logo-clair`/`logo-sombre` suivent le MODE, et en mode clair la seconde
-  // est masquée — le logo du pied disparaîtrait. Une seule image, la déclinaison pour fond sombre.
-  it("porte le logo pour fond sombre, forcé quel que soit le mode", () => {
-    const images = Array.from(rendu().pied.querySelectorAll("img"));
+  // Une seule image, la déclinaison explicitement prévue pour la surface marine.
+  it("porte le logo pour fond sombre sur la surface marine", () => {
+    const images = Array.from(rendu().pied.querySelectorAll("img:not([data-testid='footer-motif'])"));
     expect(images).toHaveLength(1);
     expect(images[0].getAttribute("src")).toContain("logo-header-sombre");
     expect(images[0].className).not.toMatch(/logo-(clair|sombre)/);
+  });
+
+  it("rend la bande approuvée comme un décor différé, jamais comme contenu", () => {
+    const motif = rendu().pied.querySelector('[data-testid="footer-motif"]') as HTMLImageElement;
+    expect(motif.getAttribute("src")).toContain("motif-footer");
+    expect(motif.getAttribute("alt")).toBe("");
+    expect(motif.getAttribute("aria-hidden")).toBe("true");
+    expect(motif.getAttribute("loading")).toBe("lazy");
   });
 
   it("fait de WhatsApp l'action du pied : plein or, glyphe compris", () => {

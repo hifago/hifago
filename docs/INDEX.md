@@ -26,7 +26,7 @@
 
 ## Cadrage — la cible de la refonte
 - [Audit du modèle de données cible — entités partagées](00-modele-de-donnees.md) 56K
-- [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 96K
+- [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 97K
 - [Cahier des charges — portail socio (aujourd'hui /partner)](02-cahier-des-charges-socio.md) 56K
 - [Cahier des charges — back-office admin (aujourd'hui /admin)](03-cahier-des-charges-admin.md) 49K
 - [Choix de stack et architecture cible](04-architecture-cible.md) 78K
@@ -74,15 +74,15 @@
 - [Remise en route de la suite E2E Playwright](specs/38-remise-en-route-suite-e2e.md) 10K ○ · sans §0
 - [Garantir la confirmation d'un paiement quand le client ne revient pas](specs/39-garantie-confirmation-paiement.md) 30K ◐ · §0 offset 144 limit 57 · reste : Lot A + B1 + B2 livrés et vérifiés en local le 2026-09-22 (§C). Restent : validation par…
 - [Assistant par étapes — création/édition produit et établissement,…](specs/40-admin-produit-etablissement-assistant-par-etapes.md) 11K ✓ · §0 offset 41 limit 44
-- [Charte Hifago sur toute la vitrine : analyse de l'accueil, règles du…](specs/41-charte-hifago-toute-la-vitrine.md) 190K ○ · §0 offset 69 limit 112
+- [Charte Hifago sur toute la vitrine : analyse de l'accueil, règles du…](specs/41-charte-hifago-toute-la-vitrine.md) 194K ○ · §0 offset 69 limit 112
 - [Specs — fonctionnalités prêtes à coder, une par une](specs/README.md) 3K
 - [Gabarit de spec de feature (à copier, ne décrit aucune feature réelle)](specs/_modele.md) 7K
 - [Avant d'écrire une spec — poser les bonnes questions](specs/avant-la-spec.md) 8K
 
 ## Suivi — backlog, dette, pièges, journal
-- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 16K
+- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 15K
 - [Dette technique et QA/UI connue — hifago](dette-technique.md) 35K
 - [Journal hifago — août 2026](journal/2026-08.md) 660K · jamais en entier (voir 5.)
 - [Journal hifago — septembre 2026](journal/2026-09.md) 678K · jamais en entier (voir 5.)
-- [Journal hifago — octobre 2026](journal/2026-10.md) 107K · jamais en entier (voir 5.)
+- [Journal hifago — octobre 2026](journal/2026-10.md) 109K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K

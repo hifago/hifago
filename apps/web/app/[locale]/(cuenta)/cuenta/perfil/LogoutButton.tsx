@@ -23,9 +23,8 @@ export function LogoutButton() {
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="ghost"
       color="neutral"
-      size="sm"
       onPress={handleLogout}
       isPending={isSubmitting}
       pendingLabel={t("loggingOut")}

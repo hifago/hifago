@@ -67,7 +67,7 @@ function Cadre({ initial = VIDE }: { initial?: SearchCriteria }) {
   const [journal, setJournal] = useState<string[]>([]);
 
   return (
-    <PageShell variant="large">
+    <PageShell variant="pagina">
       <SearchPanel
         criteria={criteres}
         onCriteriaChange={setCriteres}

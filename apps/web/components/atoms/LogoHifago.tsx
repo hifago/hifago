@@ -8,22 +8,17 @@ import Image from "next/image";
 // Un atome ne traduit rien, et celui-ci n'a effectivement aucun libellé : son nom accessible est
 // porté par le lien qui l'enveloppe.
 //
-// ⚠️ DEUX <img>, basculées par CSS, et pas un `<picture media="(prefers-color-scheme: dark)">` :
-// la première version faisait ça, et le rendu l'a démentie. `<picture>` ne connaît que la
-// préférence SYSTÈME, alors que le thème suit `color-scheme` + le forçage `data-mode` — en mode
-// sombre forcé sur une machine en clair, la page passait au marine en gardant le logo marine
-// dessus, illisible. Les classes `logo-clair`/`logo-sombre` sont stylées dans
-// `packages/ui/src/styles/globals.css`, qui rejoue exactement la cascade du thème.
+// La vitrine est claire uniquement depuis l'arbitrage D9. La variante automatique rend donc une
+// seule image pour fond clair ; les surfaces or et marine choisissent explicitement leur
+// déclinaison avec `sobre` et `sombre`.
 //
 // ⚠️ Le logo de la charte est POLYCHROME : il ne peut pas être teint par `currentColor` comme
 // l'était le tracé provisoire qu'il remplace. Sa lisibilité sur fond sombre passe donc par un
 // changement de DÉCLINAISON — ce que la charte prévoit elle-même, en présentant le mot-marque sur
 // quatre fonds. Les autres déclinaisons sont dans `public/brand/`.
 //
-// `next/image` malgré deux fichiers : `className` voyage jusqu'à la balise rendue, donc la bascule
-// CSS fonctionne telle quelle — une première version utilisait `<img>` nu en affirmant l'inverse,
-// c'était faux. `priority` plutôt que `loading="eager"` : c'est le logo, il est au-dessus de la
-// ligne de flottaison, et `priority` pose en plus le préchargement. `width`/`height` sont les
+// `priority` plutôt que `loading="eager"` sur la variante automatique : c'est le logo, il est au-
+// dessus de la ligne de flottaison, et `priority` pose en plus le préchargement. `width`/`height` sont les
 // dimensions INTRINSÈQUES des WebP (déjà calibrés à 96 px de haut, ~7 Ko) ; la taille affichée
 // vient de `hauteur`, et les deux ensemble réservent la place sans décaler l'en-tête (CLS).
 
@@ -36,9 +31,8 @@ type LogoHifagoProps = {
    */
   hauteur?: string;
   /**
-   * `auto` (défaut) : marine + or sur fond clair, or + bleu poudre sur fond sombre, basculés par
-   * CSS. `sobre` : posé sur l'OR — le header de toutes les pages depuis le plan 41 (item C1).
-   * `sombre` : posé sur le MARINE, quel que soit le mode — le pied de page (item C2).
+   * `auto` (défaut) : marine + or sur fond clair. `sobre` : posé sur l'OR — le header de toutes
+   * les pages depuis le plan 41 (item C1). `sombre` : posé sur le MARINE — le pied (item C2).
    */
   variante?: "auto" | "sobre" | "sombre";
 };
@@ -71,9 +65,7 @@ export function LogoHifago({ hauteur = "h-12", variante = "auto" }: LogoHifagoPr
 
   if (variante === "sombre") {
     return (
-      // ⚠️ FORCÉE, et donc sans les classes `logo-clair`/`logo-sombre` : celles-ci suivent le MODE
-      // (`globals.css`), et en mode clair la règle `.logo-sombre { display: none }` masquerait ce
-      // logo posé sur le marine. Une surface marine est marine dans les deux modes.
+      // Déclinaison explicite pour la surface marine, sans classe de bascule de thème.
       // Pas de `priority` : le pied est sous la ligne de flottaison, le chargement différé de
       // `next/image` est le bon.
       <Image
@@ -88,25 +80,14 @@ export function LogoHifago({ hauteur = "h-12", variante = "auto" }: LogoHifagoPr
   }
 
   return (
-    <>
-      <Image
-        src="/brand/logo-header-clair.webp"
-        alt=""
-        aria-hidden
-        priority
-        width={167}
-        height={96}
-        className={`logo-clair w-auto ${hauteur}`}
-      />
-      <Image
-        src="/brand/logo-header-sombre.webp"
-        alt=""
-        aria-hidden
-        priority
-        width={158}
-        height={96}
-        className={`logo-sombre w-auto ${hauteur}`}
-      />
-    </>
+    <Image
+      src="/brand/logo-header-clair.webp"
+      alt=""
+      aria-hidden
+      priority
+      width={167}
+      height={96}
+      className={`w-auto ${hauteur}`}
+    />
   );
 }

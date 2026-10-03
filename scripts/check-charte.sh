@@ -212,15 +212,9 @@ est_exempte_main() {
     # La frontière d'erreur : `PageShell` n'y est pas importé pour que l'écran d'erreur ne dépende
     # de rien qui puisse échouer avec lui (en-tête du fichier).
     apps/web/components/organisms/ErrorScreen.tsx) return 0 ;;
-    # La 404 : exemption prévue par le plan (G1), à reconsidérer dans son item, P11.
-    'apps/web/app/[locale]/not-found.tsx') return 0 ;;
-    # ⚠️ TEMPORAIRES — chaque page passe à `PageShell variant="pagina"` dans son item P, avec son
-    # bandeau (S2). Retirer la ligne dans le même commit que la migration.
-    'apps/web/app/[locale]/(auth)/entrar/page.tsx') return 0 ;;                # → P10
-    'apps/web/app/[locale]/(auth)/registro/page.tsx') return 0 ;;              # → P10
-    'apps/web/app/[locale]/(auth)/olvide-password/page.tsx') return 0 ;;       # → P10
-    'apps/web/app/[locale]/(auth)/restablecer-password/page.tsx') return 0 ;;  # → P10
-    'apps/web/app/[locale]/(auth)/verificar-email/page.tsx') return 0 ;;       # → P10
+    # Le split auth P10 porte son unique `<main>` dans un cadre partagé : `PageShell` ne peut pas
+    # exprimer sa colonne formulaire + son panneau illustré pleine hauteur.
+    'apps/web/app/[locale]/(auth)/_components/AuthPage.tsx') return 0 ;;
   esac
   return 1
 }

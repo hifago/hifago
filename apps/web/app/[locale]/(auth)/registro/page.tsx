@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { safeNextPath } from "@hifago/domain";
 import { SignupForm } from "./SignupForm";
-import { Title } from "@/components/atoms/Title";
+import { AuthPage } from "../_components/AuthPage";
 
 export async function generateMetadata(
   props: Omit<PageProps<"/[locale]/registro">, "searchParams">
@@ -42,9 +42,8 @@ export default async function SignupPage({
   const initialEmail = typeof emailParam === "string" ? emailParam : "";
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
-      <Title as="h1">{t("title")}</Title>
+    <AuthPage title={t("title")}>
       <SignupForm next={next} initialEmail={initialEmail} />
-    </main>
+    </AuthPage>
   );
 }

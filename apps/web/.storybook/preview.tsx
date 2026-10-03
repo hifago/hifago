@@ -40,14 +40,7 @@ sb.mock(import("../lib/orders/getOrderByToken.ts"), { spy: true });
 
 const LIBELLES_LOCALE: Record<Locale, string> = { es: "Español", en: "English" };
 
-// `withThemeByDataAttribute` (addon-themes) ne sait poser qu'UN attribut : sa clé de global est
-// figée à "theme" dans son code (node_modules/@storybook/addon-themes/dist/index.js:28), donc en
-// instancier deux les ferait se disputer le même global. D'où ce décorateur, écrit sur le même
-// idiome que le sien — `useEffect` de storybook/preview-api, cible `document.documentElement`.
-//
-// ⚠️ La valeur neutre RETIRE l'attribut au lieu de le poser : `data-piste="aucune"` matcherait le
-// sélecteur d'attribut `[data-piste]` du CSS, et forcerait un `color-scheme` sur une vitrine sans
-// palette. C'est l'absence de l'attribut qui signifie « production actuelle », pas une valeur.
+// Ce décorateur ne sert plus qu'au comparateur de rayon Storybook.
 function attributSurHtml(attribut: string, global: string, valeurNeutre: string): Decorator {
   // Nommé, sinon react/display-name : un décorateur EST un composant pour ESLint.
   const Decorateur: Decorator = (Story, context) => {
@@ -90,90 +83,17 @@ const preview: Preview = {
   initialGlobals: {
     viewport: { value: "mobile", isRotated: false },
     locale: routing.defaultLocale,
-    // ⚠️ La clé est `palette` et non `piste`, et ce n'est pas cosmétique : Storybook MÉMORISE les
-    // globals par navigateur, et `initialGlobals` n'écrase JAMAIS une valeur déjà mémorisée. Un
-    // onglet ouvert avant ce lot gardait donc `piste=aucune` — donc aucune palette — donc un
-    // sélecteur « Mode » parfaitement inerte, symptôme signalé par Jérôme et reproduit à
-    // l'identique en repartant d'une session mémorisée. Renommer la clé rend l'ancienne valeur
-    // caduque et fait s'appliquer le nouveau défaut pour tout le monde, sans vidage manuel.
-    //
-    // ⚠️ Le défaut est la palette de MARQUE, pas « aucune », et c'est un revirement : mon
-    // premier choix était « aucune », pour que le playground ne mente pas sur la production. Sauf
-    // que sans piste il n'existe aucune palette sombre — basculer « Mode » sur sombre ne faisait
-    // alors STRICTEMENT RIEN, et la fonctionnalité passait pour cassée au premier contact (relevé
-    // par Jérôme, 2026-09-01). Un défaut qui rend inerte le sélecteur d'à côté est un mauvais
-    // défaut, même s'il est le plus honnête sur le papier. « Aucune piste » reste à un clic, et
-    // son libellé dit maintenant pourquoi le mode n'y fait rien.
-    //
-    // ⚠️ RETOUR À « aucune » le 2026-10-01 : la raison ci-dessus est tombée. Depuis l'adoption de
-    // la charte, « aucune piste » EST la production, ET elle a son mode sombre. Garder `hifago`
-    // ouvrait chaque story sur l'orange du portail legacy — la marque que la charte remplace —
-    // et faisait juger à Jérôme un rendu qui n'est pas le site (constaté en capturant l'accueil).
-    // ⚠️ Un navigateur qui a MÉMORISÉ `hifago` le garde : le choisir une fois dans la barre.
-    palette: "aucune",
-    mode: "clair",
     radius: "piste",
   },
   globalTypes: {
-    // ⚠️ « Aucune piste » n'est PAS le défaut (voir `initialGlobals` plus bas), mais elle reste la
-    // seule valeur qui montre la production telle qu'elle est : les défauts HeroUI, sans mode
-    // sombre. C'est la valeur à choisir pour comparer une piste à l'existant. La story
-    // `Playground/Palette` affiche les quatre pistes côte à côte par elle-même, sans dépendre de ce
-    // sélecteur.
-    palette: {
-      // ⚠️ La barre d'outils MÉMORISE le dernier choix : si une piste reste sélectionnée, elle
-      // surcharge la charte (spécificité supérieure) et on juge un rendu qui n'est pas la
-      // production — constaté en capturant l'accueil après l'adoption, le rendu sortait en orange
-      // legacy. Revenir à « Aucune piste » pour voir le site réel.
-      description: "Piste de comparaison — la production est « Aucune piste » (la charte)",
-      // `title` explicite : sans lui, `dynamicTitle` affiche le libellé de l'item sélectionné, et
-      // « Aucune piste (défauts HeroUI = production) » déborde de la barre d'outils.
-      // Relevé par la contre-vérification de l'inventaire Storybook, pas constaté à l'œil.
-      toolbar: {
-        title: "Piste",
-        // ⚠️ Pas `paintbrush` : c'est déjà l'icône du sélecteur de thème de @storybook/addon-themes
-        // (dist/manager.js:56), les deux boutons seraient indiscernables dans la barre.
-        icon: "photo",
-        items: [
-          { value: "aucune", title: "La charte Hifago 2026 — la production" },
-          { value: "hifago", title: "Hifago — la marque du portail legacy (remplacée)" },
-          { value: "embalse", title: "Embalse — l'eau du barrage" },
-          { value: "zocalo", title: "Zócalo — les frises peintes" },
-          { value: "cal", title: "Cal — encre et papier" },
-          { value: "chiva", title: "Chiva — flashy, trait noir, fond blanc" },
-        ],
-        dynamicTitle: true,
-      },
-    },
-    // « Système » retire l'attribut et laisse `color-scheme: light dark` suivre la préférence du
-    // système d'exploitation — c'est le comportement qu'aura la production une fois une piste
-    // adoptée. Les deux autres valeurs le forcent, pour pouvoir comparer sans toucher aux réglages
-    // de sa machine.
-    mode: {
-      description: "Clair, sombre, ou la préférence du système — sans effet si « Piste » vaut « Aucune »",
-      toolbar: {
-        title: "Mode",
-        icon: "contrast",
-        items: [
-          { value: "clair", title: "Clair" },
-          { value: "sombre", title: "Sombre" },
-          { value: "systeme", title: "Préférence système" },
-        ],
-        dynamicTitle: true,
-      },
-    },
-    // ⚠️ « Piste » = le rayon que la piste choisit elle-même ; les quatre autres valeurs le
-    // forcent, pour comparer sans éditer le CSS. Demandé par Jérôme le 2026-09-02 (« radius
-    // 6 8 12 18px à tester »). L'écart n'est PAS proportionnel d'un composant à l'autre : le
-    // bouton reprend le jeton au facteur 1, la carte le triple et sature à 32 px — donc 12 et 18
-    // rendent le même angle de carte. Détaillé au-dessus des blocs `data-radius` de globals.css.
+    // Comparateur de rayon conservé pour la charte de production.
     radius: {
-      description: "Rayon des angles à l'essai — sans effet si « Piste » vaut « Aucune »",
+      description: "Rayon des angles à l'essai sur la charte de production",
       toolbar: {
         title: "Rayon",
         icon: "component",
         items: [
-          { value: "piste", title: "Celui de la piste" },
+          { value: "piste", title: "Rayon de production" },
           { value: "6", title: "6 px" },
           { value: "8", title: "8 px" },
           { value: "12", title: "12 px" },
@@ -206,20 +126,13 @@ const preview: Preview = {
         </NextIntlClientProvider>
       );
     },
-    // Le thème est posé sur <html> en production par le layout ; ici c'est cet addon qui le pose.
-    // Depuis le 2026-10-01 le thème `vitrine` porte la charte graphique Hifago 2026 — il ne tourne
-    // plus sur les défauts HeroUI, et il a ses deux modes. Tant que le sélecteur de piste est sur
-    // « Aucune piste », ce playground montre donc la production telle quelle.
+    // Le thème `vitrine` porte directement la charte Hifago 2026.
     withThemeByDataAttribute({
       themes: { vitrine: "vitrine", admin: "admin" },
       defaultTheme: "vitrine",
       attributeName: "data-theme",
     }),
-    // Posés APRÈS le thème dans le tableau (donc plus externes au rendu), mais l'ordre n'a en
-    // pratique aucune importance : les trois écrivent des attributs indépendants sur le même
-    // élément, aucun ne lit celui d'un autre.
-    attributSurHtml("data-piste", "palette", "aucune"),
-    attributSurHtml("data-mode", "mode", "systeme"),
+    // Le rayon expérimental est posé après le thème ; les deux écrivent des attributs indépendants.
     attributSurHtml("data-radius", "radius", "piste"),
   ],
 };

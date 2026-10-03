@@ -158,8 +158,8 @@ export const ICON_SIZE_CLASS = "size-11";
 /**
  * La FORME, ajoutée le 2026-09-02 à la demande de Jérôme pour le bouton de la barre de recherche
  * (« plus rond en radius »). Deux valeurs, pas un rayon libre : un bouton suit le rayon du thème,
- * ou il est complètement arrondi — l'entre-deux serait une valeur en dur qui cesserait de suivre la
- * piste de couleur adoptée, exactement ce que la note ci-dessus cherche à éviter.
+ * ou il est complètement arrondi — l'entre-deux serait une valeur en dur qui cesserait de suivre
+ * le rayon de la charte, exactement ce que la note ci-dessus cherche à éviter.
  *
  * ⚠️ `square` porte le MÊME nom et le même sens que sur `IconButton`. Ce qui accorde vraiment les
  * deux composants, c'est `RADIUS_CLASS`, exporté d'ici et importé là-bas — PAS les deux tables, qui
@@ -205,7 +205,7 @@ export type ButtonProps = {
    */
   size?: ButtonSize;
   /**
-   * La forme des angles. `square` (défaut) suit `--radius`, donc la piste de couleur adoptée ;
+   * La forme des angles. `square` (défaut) suit `--radius`, donc la charte de production ;
    * `pill` arrondit complètement — réservé à un bouton logé dans un contenant déjà arrondi.
    */
   shape?: ButtonShape;

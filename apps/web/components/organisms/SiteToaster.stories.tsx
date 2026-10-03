@@ -15,21 +15,16 @@ import { SiteToaster } from "./SiteToaster";
 // boutons qui en déclenchent — d'où les déclencheurs ci-dessous, qui font partie de la story et
 // jamais du composant.
 //
-// À regarder aux deux gabarits (390 / 1280), dans les deux modes et sur les cinq pistes : le toast
-// est le seul élément du site qui se superpose au contenu, donc le seul dont le contraste dépend
-// de ce qu'il recouvre.
+// À regarder aux deux gabarits (390 / 1280) et sur les surfaces claire, or et marine : le toast est
+// le seul élément du site qui se superpose au contenu, donc le seul dont le contraste dépend de ce
+// qu'il recouvre.
 //
 // ⚠️ La file de toasts est un SINGLETON, partagé par toutes les stories de l'iframe : un toast
 // déclenché ici survit au changement de story tant que ses 4 secondes ne sont pas écoulées. Ce
 // n'est pas un défaut, c'est la propriété qui fait qu'un toast survit à un `router.push()`.
 //
-// ⚠️ Sur la piste « Aucune » — c'est-à-dire la palette RÉELLEMENT en production —, le panneau a11y
-// remonte deux `color-contrast` sur les DÉCLENCHEURS, jamais sur le toast : texte `#fcfcfc` sur
-// l'accent `#0485f7` à 3.58, et sur le danger `#ff5551` à 3.06 (mesures d'axe, seuil attendu 4).
-// Ce sont les couleurs par défaut de HeroUI, et le défaut est déjà visible sur `Actions/Button →
-// Matrice`, qui n'appartient pas à ce lot. Le toast lui-même passe sur les six pistes et les deux
-// modes. Constaté, non corrigé — les boutons restent en `solid` plutôt que déguisés en `outline`
-// pour ne pas masquer le défaut ici.
+// Les déclencheurs restent de vrais boutons de la charte : la story ne change pas leur variante
+// pour améliorer artificiellement un résultat d'accessibilité.
 const meta = {
   title: "Coquille/SiteToaster",
   component: SiteToaster,
@@ -95,7 +90,7 @@ function Declencheurs() {
 
 export const Defaut: Story = {
   render: () => (
-    <PageShell variant="narrow">
+    <PageShell variant="pagina">
       <Title as="h1">Notificaciones</Title>
       <Declencheurs />
       <SiteToaster testId="toaster" />
@@ -119,7 +114,7 @@ export const SurUnEcranReel: Story = {
       <PanierPre lignes={2} />
       <div className="flex min-h-screen flex-col">
         <SiteHeader isAuthenticated={false} testId="header" />
-        <PageShell variant="narrow">
+        <PageShell variant="pagina">
           <Title as="h1">Finaliza tu reserva</Title>
           <p className="text-sm">
             Paseo en lancha por el Embalse de Guatapé · Casa Kayam · 14 de septiembre de 2026

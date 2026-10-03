@@ -185,122 +185,12 @@
 }
 
 /* ============================================================================================
- * Thème `vitrine` (apps/web) — la charte adoptée, et cinq pistes conservées pour mémoire
+ * Thème `vitrine` (apps/web) — charte Hifago 2026 adoptée
  * ============================================================================================
- *
- * Écrit le 2026-09-01, quand le thème `vitrine` ne définissait AUCUN jeton : la vitrine tournait
- * sur la palette bleu-violet de HeroUI, que personne n'avait examinée, et il n'existait aucun mode
- * sombre nulle part dans le dépôt. Six pistes ont alors été montées pour être comparées à l'œil
- * dans un rendu réel (`Playground/Palette`) — même démarche que pour l'admin le 2026-08-15
- * (docs/specs/09-design-system-admin.md §10).
- *
- * ⚠️ CETTE SECTION CHANGE DÉSORMAIS LA PRODUCTION, et c'est l'inverse de ce qu'elle promettait.
- * Le 2026-10-01 Jérôme a fourni la CHARTE GRAPHIQUE Hifago 2026 (PDF : logo, typographie, cinq
- * couleurs avec leurs hex) et demandé qu'elle soit appliquée à toutes les pages du front. La
- * comparaison de pistes est donc close : la piste `penol`, qui dérivait déjà du logo hifaGO, a été
- * RECALÉE sur les hex exacts de la charte et PROMUE en thème `vitrine` par défaut (son bloc est
- * plus bas, titré « LA CHARTE »). Elle n'a plus de `data-piste`.
- *
- * ⚠️ LES CINQ AUTRES PISTES SONT CONSERVÉES, volontairement, et ne sont plus des candidates. Elles
- * gardent leur `[data-piste="…"]`, que seule la barre d'outils de Storybook pose, et leur
- * spécificité (0,3,0) l'emporte sur celle de la charte (0,2,0) : poser une piste montre encore
- * l'alternative, ne rien poser montre la production. Les supprimer aurait fait perdre les mesures
- * de contraste et les sacrifices documentés de chacune, qui sont le dossier de la décision — et
- * aurait cassé `Playground/Palette`. Parmi elles, `hifago` porte la marque du portail legacy
- * /guatape (orange #e63f0a, vert forêt #074242, papier #fffdf8) : c'est la marque que la charte
- * 2026 REMPLACE, pas une proposition inventée, d'où l'intérêt de pouvoir encore la regarder.
- *
- * REVENIR EN ARRIÈRE, ou adopter une autre piste — la recette, trois gestes :
- *   1. Donner à son bloc le sélecteur `[data-theme="vitrine"]` (le `color-scheme` voyage avec, il
- *      est DANS le bloc), et rendre à la charte un `[data-piste="charte"]`.
- *   2. Vérifier qu'aucun des deux ne déclare un jeton que l'autre attendait.
- *   3. Les sélecteurs de service (formules dérivées, fond de page, `data-radius`, `data-mode`)
- *      portent `[data-theme="vitrine"]` et n'ont PAS à bouger : ils suivent le thème, pas la piste.
- *
- * ----------------------------------------------------------------------------------------------
- * MÉCANISME CLAIR/SOMBRE : `color-scheme` + `light-dark()`, et pas autre chose
- * ----------------------------------------------------------------------------------------------
- * Chaque jeton porte SES DEUX valeurs dans une seule déclaration. Trois alternatives ont été
- * écartées, pour des raisons vérifiées et non supposées :
- *
- * - `[data-theme="vitrine-dark"]` (une 3ᵉ valeur de thème) : demanderait que `layout.tsx` écrive
- *   cette valeur, or il est HORS PÉRIMÈTRE de ce lot et rien ne la lui ferait écrire. Le mode
- *   sombre resterait donc inaccessible en production. Écarté.
- * - `@media (prefers-color-scheme: dark)` avec des blocs séparés : fonctionne, mais duplique
- *   chaque palette (une fois dans la media query pour l'automatique, une fois hors media query
- *   pour un futur bouton explicite), soit six blocs de ~35 jetons au lieu de trois. Deux copies
- *   qui divergent en silence, c'est exactement le genre de fichier qu'on ne maintient pas.
- * - La classe `.dark` de HeroUI (elle existe : node_modules/@heroui/styles/dist/themes/default/
- *   variables.css:176) : elle apporte SA propre palette sombre, qui se mélangerait à la nôtre —
- *   deux sources de vérité pour la même couleur.
- *
- * `color-scheme` n'est pas un extra ici, c'est LE mécanisme : c'est lui que `light-dark()` lit
- * pour choisir sa branche, et c'est lui, du même geste, qui fait suivre les contrôles natifs du
- * navigateur (barres de défilement, sélecteurs de date, autofill). Les deux ne peuvent pas
- * désynchroniser, contrairement à une media query où on oublie une ligne.
- *
- * Vérifié en navigateur réel avant d'écrire ce bloc, pas supposé :
- *   - sans `data-mode`, la palette suit la préférence système ;
- *   - `data-mode="clair"|"sombre"` la force, quelle que soit la préférence système ;
- *   - `light-dark()` fonctionne IMBRIQUÉ : deux sous-arbres de la même page peuvent afficher des
- *     modes opposés — c'est ce qui rend la comparaison côte à côte possible, et honnête ;
- *   - `light-dark()` est accepté DANS `color-mix()` et dans la couleur d'un `box-shadow`.
- *
- * ----------------------------------------------------------------------------------------------
- * CONTRASTES — mesurés deux fois, jamais jugés à l'œil
- * ----------------------------------------------------------------------------------------------
- * 264 couples mesurés (4 pistes × 2 modes × ~33 couples) : texte courant, texte sur carte, texte
- * discret, texte de champ, placeholder, lien, bouton primaire, badges pleins et translucides sur
- * carte ET sur page, bordure de champ, anneau de focus, étagement des surfaces, et l'écart de
- * teinte entre l'accent et chaque statut. Seuils : 4.5:1 pour du texte (WCAG 1.4.3), 3:1 pour ce
- * qui IDENTIFIE un composant (1.4.11 — bordure de champ, anneau de focus).
- *
- * Mesurés une première fois hors ligne sur les valeurs de palette, puis REMESURÉS dans un vrai
- * navigateur en repartant de ce fichier-ci — deux chaînes indépendantes qui doivent tomber sur les
- * mêmes chiffres, sinon c'est que le CSS a divergé de ce qu'on croit avoir écrit. Elles concordent
- * à moins de 3 % (l'écart d'arrondi entre une conversion oklch→sRGB en virgule flottante et le
- * canevas 8 bits du navigateur).
- *
- * Tout passe. Marge la plus serrée sur du texte : 4.87:1 (badge `warning` translucide posé
- * directement sur le fond de page). Marge la plus serrée sur du non-texte : 3.57:1 (bordure de
- * champ d'Embalse en clair).
- *
- * ⚠️ La bordure de champ est le jeton qui a demandé le plus de travail, et l'admin l'avait déjà
- * appris à ses dépens (spec 09 §10, « champs invisibles sur plusieurs écrans réels ») : le fond
- * d'un champ ne se distingue quasiment pas du fond de page, donc c'est la BORDURE qui identifie le
- * champ, donc elle tombe sous le seuil de 3:1. Les valeurs douces habituelles (oklch ~78 %)
- * mesuraient 1.9 à 2.5:1 — sous le seuil. D'où des `--field-border` nettement plus soutenus que ce
- * qu'un œil aurait spontanément posé : c'est le seul jeton du lot dont la valeur est dictée par la
- * mesure et non par le goût.
- *
- * ⚠️ L'étagement des surfaces est mesuré en CLARTÉ oklch (écart ≥ 4.5 points), pas en ratio WCAG :
- * en mode sombre les ratios se compriment et une séparation parfaitement visible mesure 1.06:1.
- * C'est aussi ce qui remplace l'ombre en sombre — voir `--surface-shadow` plus bas.
- *
- * ⚠️ Un accent ne doit pas se confondre avec un statut. L'écart de teinte accent/success,
- * accent/warning et accent/danger est mesuré pour chaque piste ; le premier jet de Zócalo posait
- * l'accent à 23° de `--danger`, ce qui rendait un bouton primaire difficile à distinguer d'une
- * alerte. L'accent a été décalé de 35° à 42° : l'écart est passé à 36° en clair, 40° en sombre.
- *
- * ----------------------------------------------------------------------------------------------
- * DEUX CHOSES QUE CE BLOC NE FAIT PAS
- * ----------------------------------------------------------------------------------------------
- * - ⚠️ Il ne touche pas aux polices. `app/[locale]/layout.tsx` définit `--font-geist-sans` /
- *   `--font-geist-mono`, alors que HeroUI et Tailwind consomment `--font-sans` / `--font-mono` :
- *   les noms ne se rejoignent nulle part, la vitrine est en pile système depuis toujours. Le
- *   correctif tient en deux lignes, mais il change TOUT le rendu du site d'un coup — il est
- *   proposé dans le rapport, pas appliqué ici.
- * - Il ne recale pas les utilitaires Tailwind « bruts ». `apps/web` compte 4 `rounded` et 30
- *   `border` sans suffixe, qui figent 0.25rem / 1px et ne dérivent pas de `--radius` /
- *   `--border-width` (le thème admin a dû les recaler explicitement, plus haut dans ce fichier).
- *   ⚠️ Constat révisé le 2026-09-02 : quatre pistes gardent `--border-width: 1px` — les `border`
- *   bruts y sont donc sans conséquence — mais `chiva` monte à 2px, et un trait à 1px au milieu
- *   d'une interface à 2px se voit immédiatement. Elle recale donc ces utilitaires elle-même, en
- *   fin de fichier, scopée à son seul sélecteur. Restent les 4 `rounded` figés à 0.25rem, y
- *   compris dans Cal qui vise des angles francs.
- *   Recaler 34 éléments d'un coup n'a pas été demandé : signalé plutôt que fait.
+ * Palette recalée sur les cinq couleurs officielles. La vitrine est volontairement claire
+ * (arbitrage D9) ; les anciennes pistes comparatives restent archivées dans le journal de
+ * septembre 2026 et ne sont plus livrées dans le CSS de production.
  * ============================================================================================ */
-
 @layer base {
   /* ------------------------------------------------------------------------------------------
    * Formules dérivées, communes à toutes les pistes
@@ -336,9 +226,8 @@
    * avec celui-ci — on échange donc un peu de marge de contraste contre une couleur juste, ce qui
    * est le bon sens de l'échange à ce niveau de marge.
    *
-   * ⚠️ Ce bloc portait `[data-piste]` tant qu'aucune palette n'était adoptée, pour que la section
-   * tienne sa promesse de ne rien changer à la production. La charte ayant été adoptée le
-   * 2026-10-01, il porte `[data-theme="vitrine"]` : ces formules s'appliquent à la vitrine réelle.
+   * Depuis l'adoption de la charte le 2026-10-01, ce bloc porte directement
+   * `[data-theme="vitrine"]` : ces formules s'appliquent à la vitrine réelle.
    * Les trois jetons d'ombre qu'il redéfinit sont d'ailleurs neutralisés par la charte elle-même
    * (`--surface-shadow: none`, cartes à bordure), qui est déclarée PLUS BAS à spécificité égale.
    * ------------------------------------------------------------------------------------------ */
@@ -470,8 +359,7 @@
    * imbriqué (story de comparaison), la même règle peint le panneau. Un seul geste couvre les deux.
    *
    * ⚠️ C'est la SEULE règle de cette section qui déclare autre chose que des custom properties.
-   * Conditionnée à `[data-piste]` tant qu'aucune palette n'était adoptée, elle peint depuis le
-   * 2026-10-01 le fond de la vitrine réelle — c'est elle qui rend le mode sombre effectif.
+   * Depuis le 2026-10-01, elle peint directement le fond de la vitrine réelle.
    * ------------------------------------------------------------------------------------------ */
   [data-theme="vitrine"] {
     background-color: var(--background);
@@ -502,45 +390,6 @@
     font-family: var(--font-titre);
     font-weight: 400;
     letter-spacing: var(--tracking-titre);
-  }
-
-  /* ------------------------------------------------------------------------------------------
-   * Les deux déclinaisons du logo
-   * ------------------------------------------------------------------------------------------
-   * Le logo de la charte est POLYCHROME : il ne peut pas être teint par `currentColor` comme
-   * l'était le tracé provisoire. Sa lisibilité sur fond sombre passe donc par un CHANGEMENT DE
-   * DÉCLINAISON — marine+or sur fond clair, or+bleu poudre sur fond sombre (le marine mesure
-   * 1.3:1 sur la page sombre : le servir partout effacerait le logo).
-   *
-   * ⚠️ Une première version utilisait `<picture media="(prefers-color-scheme: dark)">`, et c'était
-   * un défaut VU AU RENDU, pas supposé : `<picture>` ne connaît que la préférence système, alors
-   * que tout le reste du thème suit `color-scheme` + le forçage `data-mode`. En mode sombre forcé
-   * sur une machine en clair — exactement ce que fait la barre d'outils Storybook — la page passait
-   * au marine en gardant le logo marine dessus. Les trois règles ci-dessous rejouent la même
-   * cascade que le thème : défaut système, puis `data-mode` qui tranche.
-   *
-   * Les deux images sont dans le DOM et `aria-hidden` ; le nom accessible est porté par le lien qui
-   * les enveloppe (`aria-label`), donc en masquer une ne retire aucun contenu — c'est du décoratif,
-   * le seul cas où `display: none` est permis (cf. `.claude/rules/ui.md`).
-   * ------------------------------------------------------------------------------------------ */
-  [data-theme="vitrine"] .logo-sombre {
-    display: none;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    [data-theme="vitrine"]:not([data-mode="clair"]) .logo-clair {
-      display: none;
-    }
-    [data-theme="vitrine"]:not([data-mode="clair"]) .logo-sombre {
-      display: block;
-    }
-  }
-
-  [data-theme="vitrine"][data-mode="sombre"] .logo-clair {
-    display: none;
-  }
-  [data-theme="vitrine"][data-mode="sombre"] .logo-sombre {
-    display: block;
   }
 
   /* ------------------------------------------------------------------------------------------
@@ -689,426 +538,10 @@
   }
 
   /* ------------------------------------------------------------------------------------------
-   * Piste « Embalse » — l'eau du barrage
-   * ------------------------------------------------------------------------------------------
-   * Parti pris : teal profond, neutres à peine froids, angles généreux (0.75rem), carte blanche
-   * détachée d'une page très légèrement teintée. Vend le calme et la confiance. C'est la piste qui
-   * prend le moins de risque : elle ressemble à ce qu'un voyageur a déjà vu ailleurs, et se lit
-   * sans effort sur un téléphone en plein soleil.
-   *
-   * Ce qu'elle sacrifie : la couleur locale. Rien dans cette palette ne dit Guatapé plutôt que
-   * n'importe quelle destination lacustre — l'identité repose entièrement sur les photos. Si les
-   * photos partenaires sont inégales, cette piste ne rattrape rien.
-   *
-   * Mesures : accent posé à 47.5 % de clarté (et non 50 %) après mesure — à 50 % le lien tombait à
-   * 4.55:1 sur `--surface-secondary`, trop près du seuil. Écart accent/statuts : 56° (success),
-   * 130° (warning), 179° (danger) — c'est la piste la plus dégagée des trois de ce côté.
-   * ------------------------------------------------------------------------------------------ */
-  [data-theme="vitrine"][data-piste="embalse"] {
-    color-scheme: light dark;
-
-    --radius: 0.75rem;
-    --border-width: 1px;
-
-    /* Base */
-    --background: light-dark(oklch(98.5% 0.005 215), oklch(26% 0.018 235));
-    --foreground: light-dark(oklch(23% 0.025 235), oklch(96% 0.006 215));
-
-    /* Surfaces — l'étagement remplace l'ombre en mode sombre */
-    --surface: light-dark(oklch(100% 0 0), oklch(30.5% 0.02 235));
-    --surface-secondary: light-dark(oklch(94.8% 0.009 215), oklch(35% 0.02 235));
-    --surface-tertiary: light-dark(oklch(90.3% 0.011 215), oklch(39.5% 0.02 235));
-    --overlay: light-dark(oklch(100% 0 0), oklch(32% 0.02 235));
-
-    /* Texte discret */
-    --muted: light-dark(oklch(46% 0.022 232), oklch(77% 0.018 225));
-
-    /* Neutre (boutons secondaires, badges par défaut) */
-    --default: light-dark(oklch(91.5% 0.01 215), oklch(36% 0.018 235));
-
-    /* Accent — la couleur d'identité de la piste */
-    --accent: light-dark(oklch(47.5% 0.108 208), oklch(80% 0.095 200));
-    --accent-foreground: light-dark(oklch(99% 0.003 208), oklch(19% 0.03 220));
-
-    /* Champs de formulaire */
-    --field-background: light-dark(oklch(100% 0 0), oklch(28% 0.02 235));
-    --field-placeholder: light-dark(oklch(48% 0.02 232), oklch(70% 0.015 225));
-    --field-border: light-dark(oklch(59% 0.024 215), oklch(63% 0.026 235));
-
-    /* Statuts */
-    --success: light-dark(oklch(52% 0.115 152), oklch(76% 0.14 152));
-    --success-foreground: light-dark(oklch(99% 0.01 152), oklch(18% 0.03 152));
-    --warning: light-dark(oklch(72% 0.135 78), oklch(82% 0.13 82));
-    --warning-foreground: light-dark(oklch(22% 0.03 78), oklch(20% 0.03 80));
-    --danger: light-dark(oklch(51% 0.185 27), oklch(83.5% 0.12 25));
-    --danger-foreground: light-dark(oklch(99% 0.01 27), oklch(18% 0.03 25));
-
-    /* Divers */
-    --segment: light-dark(oklch(100% 0 0), oklch(32% 0.02 235));
-    --border: light-dark(oklch(80% 0.018 215), oklch(42% 0.018 235));
-    --separator: light-dark(oklch(89% 0.012 215), oklch(34% 0.018 235));
-    --surface-secondary-foreground: var(--surface-foreground);
-    --surface-tertiary-foreground: var(--surface-foreground);
-    --focus: var(--accent);
-    --link: var(--accent);
-  }
-
-  /* ------------------------------------------------------------------------------------------
-   * Piste « Zócalo » — les frises peintes des maisons
-   * ------------------------------------------------------------------------------------------
-   * Parti pris : brique saturée sur crème chaud, angles francs (0.25rem). C'est la seule des trois
-   * qu'on ne confondrait avec aucun autre site : elle porte une couleur, pas seulement une mise en
-   * page. Vend la chaleur et l'ancrage local.
-   *
-   * Ce qu'elle sacrifie, et il y a trois choses, pas une :
-   *   1. La neutralité du fond. Un crème teinte TOUTES les photos posées dessus — c'est le contraire
-   *      d'un fond blanc qui les laisse parler.
-   *   2. L'écart accent/danger : 36° en clair, 40° en sombre — le plus petit de toutes les pistes
-   *      (Embalse : 179°). Un bouton primaire et une alerte restent distinguables, mais l'un et
-   *      l'autre sont rouges. C'est mesuré, assumé, et c'est le vrai coût de cette direction.
-   *   3. Elle rappelle l'admin (terracotta sur beige), alors que Jérôme a demandé de l'oublier.
-   *      Les teintes diffèrent, l'impression générale beaucoup moins.
-   *
-   * Mesures : le premier jet posait l'accent à 35°, soit 23° de `--danger` — sous le seuil que je
-   * me suis fixé (25°) et visuellement ambigu. Accent décalé à 42°, `--danger` à 6° : l'écart passe
-   * à 36°. C'est la seule piste dont une valeur a été changée pour une raison autre que le
-   * contraste.
-   * ------------------------------------------------------------------------------------------ */
-  [data-theme="vitrine"][data-piste="zocalo"] {
-    color-scheme: light dark;
-
-    --radius: 0.25rem;
-    --border-width: 1px;
-
-    /* Base */
-    --background: light-dark(oklch(98.4% 0.011 78), oklch(26% 0.018 42));
-    --foreground: light-dark(oklch(22% 0.028 42), oklch(96% 0.014 78));
-
-    /* Surfaces — l'étagement remplace l'ombre en mode sombre */
-    --surface: light-dark(oklch(100% 0 0), oklch(30.5% 0.021 44));
-    --surface-secondary: light-dark(oklch(94.4% 0.024 76), oklch(35% 0.023 44));
-    --surface-tertiary: light-dark(oklch(89.9% 0.028 74), oklch(39.5% 0.025 44));
-    --overlay: light-dark(oklch(100% 0 0), oklch(32% 0.023 44));
-
-    /* Texte discret */
-    --muted: light-dark(oklch(45% 0.038 45), oklch(77% 0.024 60));
-
-    /* Neutre (boutons secondaires, badges par défaut) */
-    --default: light-dark(oklch(90% 0.026 72), oklch(36% 0.023 44));
-
-    /* Accent — la couleur d'identité de la piste */
-    --accent: light-dark(oklch(50% 0.15 42), oklch(79% 0.12 48));
-    --accent-foreground: light-dark(oklch(98.5% 0.01 60), oklch(16.5% 0.03 42));
-
-    /* Champs de formulaire */
-    --field-background: light-dark(oklch(99.7% 0.005 80), oklch(28% 0.021 44));
-    --field-placeholder: light-dark(oklch(47% 0.035 45), oklch(70% 0.02 60));
-    --field-border: light-dark(oklch(58% 0.045 58), oklch(63% 0.032 48));
-
-    /* Statuts */
-    --success: light-dark(oklch(50% 0.115 148), oklch(76% 0.14 148));
-    --success-foreground: light-dark(oklch(99% 0.01 148), oklch(18% 0.03 148));
-    --warning: light-dark(oklch(72% 0.135 86), oklch(82% 0.13 88));
-    --warning-foreground: light-dark(oklch(22% 0.03 86), oklch(20% 0.03 88));
-    --danger: light-dark(oklch(45% 0.19 6), oklch(84% 0.12 8));
-    --danger-foreground: light-dark(oklch(99% 0.01 6), oklch(16.5% 0.03 8));
-
-    /* Divers */
-    --segment: light-dark(oklch(99.5% 0.007 80), oklch(32% 0.023 44));
-    --border: light-dark(oklch(79% 0.032 72), oklch(42% 0.023 44));
-    --separator: light-dark(oklch(88% 0.022 74), oklch(34% 0.021 44));
-    --surface-secondary-foreground: var(--surface-foreground);
-    --surface-tertiary-foreground: var(--surface-foreground);
-    --focus: var(--accent);
-    --link: var(--accent);
-  }
-
-  /* ------------------------------------------------------------------------------------------
-   * Piste « Cal » — la chaux : encre et papier
-   * ------------------------------------------------------------------------------------------
-   * Parti pris : aucune couleur d'identité, aucun angle arrondi (0rem). L'accent est un quasi-noir
-   * en clair et un quasi-blanc en sombre — les boutons primaires sont de l'encre. L'interface se
-   * tait pour que les photos parlent. C'est la piste la plus contrastée des trois (texte courant à
-   * 19.4:1) et la plus radicale.
-   *
-   * ⚠️ Ce qu'elle sacrifie, et il faut le lire avant de la choisir : `--link` vaut `--accent`, donc
-   * la couleur d'un lien est celle du texte. DANS CETTE PISTE, LES LIENS DOIVENT ÊTRE SOULIGNÉS —
-   * sinon plus rien ne les distingue, et l'information passerait par la seule graisse. C'est une
-   * contrainte de composant, hors du périmètre des jetons : elle n'est pas réparable ici, elle est
-   * à retenir. Second sacrifice : un bouton primaire noir ne se repère pas de loin comme un bouton
-   * coloré, ce qui est exactement ce qu'on demande à un bouton de réservation.
-   *
-   * Particularité assumée : en mode clair, la carte est plus SOMBRE que la page (surface 95.5 % sur
-   * un fond 100 %), à l'inverse des deux autres pistes et du réflexe habituel. C'est le motif
-   * éditorial — la page est le papier, la carte est un encart.
-   * ------------------------------------------------------------------------------------------ */
-  [data-theme="vitrine"][data-piste="cal"] {
-    color-scheme: light dark;
-
-    --radius: 0rem;
-    --border-width: 1px;
-
-    /* Base */
-    --background: light-dark(oklch(99% 0 0), oklch(26% 0 0));
-    --foreground: light-dark(oklch(16% 0 0), oklch(97% 0 0));
-
-    /* Surfaces — l'étagement remplace l'ombre en mode sombre */
-    --surface: light-dark(oklch(95.5% 0.002 100), oklch(30.5% 0 0));
-    --surface-secondary: light-dark(oklch(91% 0.002 100), oklch(35% 0 0));
-    --surface-tertiary: light-dark(oklch(86.5% 0.002 100), oklch(39.5% 0 0));
-    --overlay: light-dark(oklch(100% 0 0), oklch(32% 0 0));
-
-    /* Texte discret */
-    --muted: light-dark(oklch(44% 0 0), oklch(77% 0 0));
-
-    /* Neutre (boutons secondaires, badges par défaut) */
-    --default: light-dark(oklch(90.5% 0.002 100), oklch(36% 0 0));
-
-    /* Accent — la couleur d'identité de la piste */
-    --accent: light-dark(oklch(22% 0 0), oklch(96% 0 0));
-    --accent-foreground: light-dark(oklch(99% 0 0), oklch(11% 0 0));
-
-    /* Champs de formulaire */
-    --field-background: light-dark(oklch(100% 0 0), oklch(28% 0 0));
-    --field-placeholder: light-dark(oklch(46% 0 0), oklch(68% 0 0));
-    --field-border: light-dark(oklch(57% 0 0), oklch(63% 0 0));
-
-    /* Statuts */
-    --success: light-dark(oklch(48% 0.11 150), oklch(76% 0.14 150));
-    --success-foreground: light-dark(oklch(99% 0.01 150), oklch(16% 0.03 150));
-    --warning: light-dark(oklch(70% 0.13 80), oklch(82% 0.13 82));
-    --warning-foreground: light-dark(oklch(20% 0.03 80), oklch(18% 0.03 82));
-    --danger: light-dark(oklch(48% 0.18 27), oklch(83.5% 0.12 25));
-    --danger-foreground: light-dark(oklch(99% 0.01 27), oklch(16% 0.03 25));
-
-    /* Divers */
-    --segment: light-dark(oklch(100% 0 0), oklch(32% 0 0));
-    --border: light-dark(oklch(79% 0 0), oklch(42% 0 0));
-    --separator: light-dark(oklch(88% 0 0), oklch(34% 0 0));
-    --surface-secondary-foreground: var(--surface-foreground);
-    --surface-tertiary-foreground: var(--surface-foreground);
-    --focus: var(--accent);
-    --link: var(--accent);
-  }
-
-  /* ------------------------------------------------------------------------------------------
-   * Piste « Hifago » — la marque telle qu'elle existe déjà
-   * ------------------------------------------------------------------------------------------
-   * ⚠️ CETTE PISTE N'EST PAS DE MOI. La spec de ce lot part du principe que « Jérôme n'a pas donné
-   * de direction ». C'est faux, et il valait mieux le vérifier que le supposer : le portail legacy
-   * /guatape, EN PRODUCTION, porte une marque complète, nommée, versionnée — et qui a déjà tranché
-   * la question du mode sombre, puisque c'est SON DÉFAUT. Toutes les valeurs ci-dessous sont
-   * converties depuis les hexadécimaux réels du dépôt racine, aucune n'est réinterprétée :
-   *
-   *   tailwind.config.js                      kayam-orange #e63f0a · kayam-forest #074242
-   *                                           kayam-beige #e4e2dd · kayam-taupe #bbb3a0
-   *   public/reservar.html:1310-1318          thème « papier » : #fffdf8, #000000, #074242,
-   *                                           #0d6969, #dc3910, #ad410c, --lt-edge à 3,2:1
-   *   public/reservar.html:100-103            thème sombre (LE DÉFAUT) : fond #0c0d0a, texte #e4e2dd
-   *   public/assets/kayam-contrast.css:31-32  #d8d3c4 « 14:1 » et #ff8a4c « 9:1 » sur fond sombre
-   *   docs/2-reference/04-app-reservar.md:394-400   les trois encres et leurs ratios
-   *
-   * C'est la seule des quatre pistes qui n'invente rien, et la règle de ce chantier est « refaire,
-   * pas réinventer ». À ce titre elle ne se compare pas aux trois autres : elle est la référence.
-   *
-   * TROIS ÉCARTS ASSUMÉS par rapport au legacy, tous imposés par la mesure, aucun par le goût :
-   *  1. ⚠️ Le legacy garde son FOND DE PAGE SOMBRE même en thème clair (04-app-reservar.md : « seules
-   *     les surfaces papier passent en clair — le fond de page ET les tuiles photo gardent leur voile
-   *     sombre »). Reproduit tel quel, `--background` serait sombre et `--foreground` clair pendant
-   *     que `--surface` serait du papier : cohérent pour un parcours d'une page couvert de photos,
-   *     intenable pour un catalogue. Le mode clair est donc ici un vrai mode clair, `--background`
-   *     à un cran sous le papier de marque (#fffdf8 reste `--surface`, exactement).
-   *  2. `--accent` prend l'orange de TEXTE du legacy (#ad410c, « l'orange descend d'un cran sur
-   *     papier, 5,8:1 ») et non l'orange d'aplat #dc3910 : dans HeroUI, `--accent` sert d'abord à
-   *     peindre un bouton dont le libellé doit être lisible. L'orange de marque plein reste
-   *     joignable, il est simplement décoratif — c'est exactement la distinction que le legacy fait
-   *     déjà entre `--lt-accent` et `--lt-accent-ink`.
-   *  3. ⚠️ Les teintes de STATUT ont été écartées de l'orange, pas l'inverse. Telles quelles, la
-   *     mesure donnait 24° entre l'accent et `warning` et 21° entre l'accent et `danger` : l'orange
-   *     Hifago tombe pile entre l'ambre d'alerte et le rouge d'erreur. C'est un vrai coût de cette
-   *     marque dans un design system à couleurs sémantiques, et il n'existait pas dans le legacy,
-   *     qui n'a pas de palette de statut. `warning` poussé vers le jaune (90°) et `danger` vers le
-   *     carmin (6°) : les écarts passent à 45° et 39°. L'orange de marque, lui, n'a pas bougé d'un
-   *     degré — c'est le point non négociable.
-   * ------------------------------------------------------------------------------------------ */
-  [data-theme="vitrine"][data-piste="hifago"] {
-    color-scheme: light dark;
-
-    --radius: 0.25rem;
-    --border-width: 1px;
-
-    /* Base */
-    --background: light-dark(oklch(98.4% 0.008 88), oklch(26% 0.007 118));
-    --foreground: light-dark(oklch(0% 0 0), oklch(91.3% 0.007 88.6));
-
-    /* Surfaces — l'étagement remplace l'ombre en mode sombre */
-    --surface: light-dark(oklch(100% 0 0), oklch(30.5% 0.009 110));
-    --surface-secondary: light-dark(oklch(94.6% 0.013 88), oklch(35% 0.01 110));
-    --surface-tertiary: light-dark(oklch(90.1% 0.014 88), oklch(39.5% 0.011 110));
-    --overlay: light-dark(oklch(100% 0 0), oklch(32% 0.01 110));
-
-    /* Texte discret */
-    --muted: light-dark(oklch(47.3% 0.077 194.9), oklch(76.8% 0.028 87.9));
-
-    /* Neutre (boutons secondaires, badges par défaut) */
-    --default: light-dark(oklch(91.3% 0.007 88.6), oklch(36% 0.011 110));
-
-    /* Accent — la couleur d'identité de la piste */
-    --accent: light-dark(oklch(51.8% 0.153 41.3), oklch(80.5% 0.14 46.8));
-    --accent-foreground: light-dark(oklch(99.4% 0.007 88.6), oklch(15.7% 0.02 46.8));
-
-    /* Champs de formulaire */
-    --field-background: light-dark(oklch(100% 0 0), oklch(28% 0.009 110));
-    --field-placeholder: light-dark(oklch(47.3% 0.077 194.9), oklch(72% 0.025 88));
-    --field-border: light-dark(oklch(56% 0.06 194.9), oklch(63% 0.03 110));
-
-    /* Statuts */
-    --success: light-dark(oklch(45% 0.1 160), oklch(76% 0.13 160));
-    --success-foreground: light-dark(oklch(99% 0.007 88.6), oklch(15.7% 0.03 160));
-    --warning: light-dark(oklch(72% 0.135 90), oklch(82% 0.13 92));
-    --warning-foreground: light-dark(oklch(18% 0.03 90), oklch(16% 0.03 92));
-    --danger: light-dark(oklch(44% 0.185 6), oklch(85% 0.115 8));
-    --danger-foreground: light-dark(oklch(99% 0.007 88.6), oklch(15.7% 0.03 8));
-
-    /* Divers */
-    --segment: light-dark(oklch(99.4% 0.007 88.6), oklch(32% 0.01 110));
-    --border: light-dark(oklch(79% 0.024 190), oklch(42% 0.012 110));
-    --separator: light-dark(oklch(88% 0.016 190), oklch(34% 0.011 110));
-    --surface-secondary-foreground: var(--surface-foreground);
-    --surface-tertiary-foreground: var(--surface-foreground);
-    --focus: var(--accent);
-    --link: var(--accent);
-  }
-
-
-  /* ------------------------------------------------------------------------------------------
-   * Piste « Chiva » — le bus peint colombien
-   * ------------------------------------------------------------------------------------------
-   * Ajoutée le 2026-09-02, à la demande de Jérôme : « une nouvelle flashy, bordure noire, fond
-   * blanc de base, et des couleurs flashy jaune rouge vert bleu ». Direction néo-brutaliste, et
-   * elle s'oppose frontalement aux quatre autres, qui sont toutes des palettes teintées et douces.
-   * C'est l'intérêt de l'ajouter : elle n'a pas été adoucie pour leur ressembler.
-   *
-   * Le nom : la chiva est le bus de bois colombien, peint en jaune/rouge/vert/bleu saturés avec des
-   * filets noirs entre les aplats. C'est exactement la demande, et c'est local — même registre que
-   * `zocalo` (les frises peintes des maisons de Guatapé).
-   *
-   * ⚠️ CE QUE CHAQUE COULEUR NE PEUT PAS FAIRE — mesuré, et c'est LA contrainte de conception que
-   * cette piste impose. En mode clair, les quatre couleurs se répartissent en deux camps, et ce
-   * n'est pas un choix de style : c'est de la physique.
-   *
-   *   couleur          comme TEXTE   texte NOIR   texte BLANC
-   *                     sur blanc      dessus       dessus
-   *   jaune #f9dc00          1.38        15.24          1.38
-   *   vert  #48d858          1.86        11.29          1.86
-   *   rouge #e30011          4.92         4.26          4.92
-   *   bleu  #0058f4          5.67         3.70          5.67
-   *
-   *   • ⚠️ Le JAUNE et le VERT ne seront JAMAIS du texte, ni une bordure, ni une icône seule :
-   *     1.38:1 et 1.86:1, on n'en est pas à un réglage près. Ce sont des APLATS, et rien d'autre.
-   *     Ils portent du texte noir, très confortablement (15.24 et 11.29).
-   *   • ⚠️ Le ROUGE et le BLEU sont l'exact inverse : ils passent en TEXTE (4.92 et 5.67) et ne
-   *     peuvent PAS porter de texte noir (4.26 et 3.70). Leurs aplats portent donc du BLANC.
-   *
-   * La piste a donc deux règles de texte au lieu d'une, et ce n'est pas une incohérence : une
-   * couleur claire porte du noir, une couleur foncée porte du blanc, et « flashy » ne dit pas
-   * laquelle des deux on obtient. Vouloir du texte noir partout obligerait à monter le rouge à
-   * 62 % — il porterait alors du noir à 5.13:1, mais cesserait d'être lisible en texte (4.10:1).
-   *
-   * ⚠️ POURQUOI CE COMPROMIS-LÀ, ET PAS L'AUTRE : `--danger` n'est pas qu'un aplat. Il colore du
-   * TEXTE dans sept fichiers de production (`LoginForm`, `SignupForm`, `CheckoutForm` ×2,
-   * `LodgingReservationForm` ×2, `OrdersList`) et dans `.error-message` / `.field-error` de HeroUI.
-   * Un rouge illisible en texte rendrait donc illisibles tous les messages d'erreur de la vitrine.
-   * Le rouge est posé à 57 % : 4.92:1 dans les deux emplois. (Ce couple manquait à la chaîne de
-   * mesure de la vague 2 — il y a été ajouté ; les quatre autres pistes le passent entre 6.07 et
-   * 8.90, donc l'oubli ne cachait rien chez elles.)
-   *
-   * ⚠️ En mode SOMBRE la contrainte disparaît : les quatre aplats sont clairs, portent du noir
-   * (7.93 à 15.70) et sont tous lisibles en texte sur la page (7.10 à 14.06). C'est le mode clair
-   * qui est difficile, pas le sombre.
-   *
-   * ⚠️ Le rouge a une double casquette assumée, et elle n'est PAS résolue par cette piste : il est
-   * à la fois couleur de marque et couleur du destructif. Sur les quatre autres pistes, voir du
-   * rouge veut dire « attention » ; ici il peut simplement vouloir dire « chiva ». Ce qui distingue
-   * encore une action destructrice, c'est la FORME (bouton plein `danger`) et le libellé, plus la
-   * couleur seule. Signalé à Jérôme, pas contourné en silence.
-   *
-   * Mode sombre : l'inversion (page à #121212, traits blancs, mêmes aplats), demandée telle quelle
-   * par Jérôme. Elle marche parce que les quatre aplats sont clairs : ils gardent leur texte noir,
-   * seul le décor s'inverse. Les accents ont dû être relevés (bleu 52 → 72 %, rouge 57 → 76 %) :
-   * ce sont eux qui deviennent du TEXTE sur fond sombre via les variantes `soft`.
-   *
-   * Mesures : 80 couples, 0 sous le seuil. Le plus serré est le `danger soft` survolé en sombre
-   * (4.89:1 hors ligne, 4.78:1 relu dans le navigateur) ; en clair, le lien sur la surface
-   * secondaire (4.90:1).
-   * ------------------------------------------------------------------------------------------ */
-  [data-theme="vitrine"][data-piste="chiva"] {
-    color-scheme: light dark;
-
-    --radius: 0.5rem;
-    --border-width: 2px;
-
-    /* Base */
-    --background: light-dark(oklch(100% 0 0), oklch(18% 0 0));
-    --foreground: light-dark(oklch(0% 0 0), oklch(100% 0 0));
-
-    /* Surfaces — l'étagement remplace l'ombre en mode sombre */
-    --surface: light-dark(oklch(100% 0 0), oklch(24% 0 0));
-    --surface-secondary: light-dark(oklch(95% 0 0), oklch(30% 0 0));
-    --surface-tertiary: light-dark(oklch(89% 0 0), oklch(36% 0 0));
-    --overlay: light-dark(oklch(100% 0 0), oklch(24% 0 0));
-
-    /* Texte discret */
-    --muted: light-dark(oklch(45% 0 0), oklch(76% 0 0));
-
-    /* Neutre (boutons secondaires, badges par défaut) */
-    --default: light-dark(oklch(92% 0 0), oklch(32% 0 0));
-
-    /* Accent — la couleur d'identité de la piste */
-    --accent: light-dark(oklch(52% 0.25 258), oklch(72% 0.18 250));
-    --accent-foreground: light-dark(oklch(100% 0 0), oklch(0% 0 0));
-
-    /* Champs de formulaire */
-    --field-background: light-dark(oklch(100% 0 0), oklch(18% 0 0));
-    --field-placeholder: light-dark(oklch(45% 0 0), oklch(72% 0 0));
-    --field-border: light-dark(oklch(0% 0 0), oklch(100% 0 0));
-
-    /* Statuts */
-    --success: light-dark(oklch(78% 0.21 145), oklch(80% 0.2 145));
-    --success-foreground: light-dark(oklch(0% 0 0), oklch(0% 0 0));
-    --warning: light-dark(oklch(89% 0.19 100), oklch(90% 0.18 100));
-    --warning-foreground: light-dark(oklch(0% 0 0), oklch(0% 0 0));
-    --danger: light-dark(oklch(57% 0.24 27), oklch(76% 0.2 25));
-    --danger-foreground: light-dark(oklch(100% 0 0), oklch(0% 0 0));
-
-    /* Divers */
-    --segment: light-dark(oklch(100% 0 0), oklch(24% 0 0));
-    --border: light-dark(oklch(0% 0 0), oklch(100% 0 0));
-    --separator: light-dark(oklch(0% 0 0), oklch(100% 0 0));
-    --surface-secondary-foreground: var(--surface-foreground);
-    --surface-tertiary-foreground: var(--surface-foreground);
-    --focus: light-dark(oklch(0% 0 0), oklch(100% 0 0));
-    --link: var(--accent);
-    /* ⚠️ L'ombre portée DURE, sans flou — c'est la moitié non chromatique du style, et elle
-     * remplace ici l'ombre diffuse posée par le bloc dérivé partagé plus haut (même spécificité,
-     * ce bloc passe après, donc il gagne ; les quatre autres pistes ne bougent pas).
-     * Sa couleur est `var(--border)`, donc elle s'inverse toute seule avec le mode : noire sur
-     * blanc, blanche sur noir. Une ombre noire sur une page noire ne porterait aucune information —
-     * c'est le constat qui avait fait éteindre les ombres des quatre autres pistes en sombre. */
-    --surface-shadow: 4px 4px 0 0 var(--border);
-    --field-shadow: 2px 2px 0 0 var(--border);
-    --overlay-shadow: 6px 6px 0 0 var(--border);
-  }
-
-
-  /* ------------------------------------------------------------------------------------------
    * LA CHARTE — thème `vitrine` par défaut (adoptée le 2026-10-01)
    * ------------------------------------------------------------------------------------------
-   * ⚠️ CE BLOC EST LA PRODUCTION. Il n'est plus enfermé derrière un `data-piste` : son sélecteur
-   * est `[data-theme="vitrine"]`, que `app/[locale]/layout.tsx` pose déjà. Toute la vitrine prend
-   * donc ces couleurs. Les cinq autres pistes conservent leur `data-piste` et restent des
-   * surcharges de comparaison dans Storybook (spécificité supérieure : elles gagnent quand la
-   * barre d'outils en pose une) — elles ne sont plus des candidates.
+   * Ce bloc est la production. Son sélecteur `[data-theme="vitrine"]` est posé par le layout ;
+   * aucune ancienne piste de comparaison ne peut plus le surcharger.
    *
    * Née le 2026-09-14 comme piste « Peñol » (la Piedra del Peñol, le rocher qui domine Guatapé),
    * à partir d'un logo envoyé par Jérôme, avec des couleurs ESTIMÉES À L'ŒIL depuis une capture —
@@ -1166,8 +599,8 @@
    *  3. **Cartes sans ombre, bordure marine** : `--surface-shadow` neutralisé (`none`). Une carte
    *     HeroUI n'a AUCUNE bordure par défaut (`card.css` : aucune classe `border-*` sur
    *     `.card--default/secondary/tertiary`, seule l'ombre la détache de la page) — il a donc fallu
-   *     en AJOUTER une, pas seulement changer sa couleur : règle dédiée plus bas, même technique
-   *     que le trait noir de `chiva`. ⚠️ En SOMBRE, le marine de la charte se fondrait dans une
+   *     en AJOUTER une, pas seulement changer sa couleur : règle dédiée plus bas. En sombre, le
+   *     marine de la charte se fondrait dans une
    *     carte déjà marine : `--border` y remonte à 66 % de clarté (4.81:1) pour rester une bordure
    *     VISIBLE — la fonction demandée (une bordure qui se voit) prime sur la valeur littérale de
    *     la charte, qui ne fait sens que sur fond clair.
@@ -1184,7 +617,7 @@
    * recopié ici.
    * ------------------------------------------------------------------------------------------ */
   [data-theme="vitrine"] {
-    color-scheme: light dark;
+    color-scheme: only light;
 
     --radius: 0.25rem;
     --border-width: 1px;
@@ -1333,10 +766,8 @@
   }
 
   /* Les cartes HeroUI n'ont AUCUNE bordure par défaut (card.css : seule l'ombre les détache de la
-     page) — l'ombre étant neutralisée ci-dessus pour cette piste, il faut poser la bordure
-     explicitement, même technique que le trait noir de `chiva` plus bas. `:not(.card--transparent)`
-     pour la même raison que chiva : une carte transparente n'a ni fond ni ombre, elle ne doit pas
-     avoir de trait non plus. */
+     page) — l'ombre étant neutralisée, il faut poser la bordure explicitement.
+     `:not(.card--transparent)` évite un trait sur une carte sans fond ni ombre. */
   [data-theme="vitrine"] [data-slot="card"]:not(.card--transparent) {
     border: var(--border-width) solid var(--border);
   }
@@ -1346,13 +777,10 @@
    * Rayon des angles à l'essai — 6 / 8 / 12 / 18 px
    * ------------------------------------------------------------------------------------------
    * Demande de Jérôme du 2026-09-02 : « radius 6 8 12 18px à tester ». Un attribut plutôt qu'une
-   * valeur figée, sur le même modèle que `data-piste` et `data-mode` : la barre d'outils de
-   * Storybook le bascule, et le rayon change PARTOUT à la fois — boutons, cartes, champs, badges —
-   * ce qui est la seule façon de juger un rayon. Absent, chaque piste garde le sien.
+   * valeur figée : la barre d'outils Storybook le bascule, et le rayon change PARTOUT à la fois —
+   * boutons, cartes, champs, badges — ce qui est la seule façon de juger un rayon.
    *
-   * Porte `[data-theme="vitrine"]` depuis l'adoption de la charte (2026-10-01) : le rayon se teste
-   * donc sur la vitrine réelle, et toujours aussi sur une piste de comparaison si la barre d'outils
-   * en pose une (elles ont la spécificité supérieure, mais ne déclarent pas `--radius` ici).
+   * Porte `[data-theme="vitrine"]` : le rayon se teste sur la charte réelle.
    *
    * ⚠️ Ce que ces quatre valeurs donnent VRAIMENT — mesuré au rendu, parce que ce n'est
    * proportionnel NULLE PART et que les trois familles divergent :
@@ -1388,48 +816,7 @@
   }
 
 
-  /* ------------------------------------------------------------------------------------------
-   * Le trait noir de la piste Chiva — la COULEUR (la largeur est plus bas, hors couche)
-   * ------------------------------------------------------------------------------------------
-   * ⚠️ Posé ici, dans `base`, DÉLIBÉRÉMENT et pas par commodité : `.button--outline` déclare sa
-   * propre `border-color` dans la couche `components`, et `Button` la repose ensuite en couche
-   * `utilities` (`[border-color:var(--btn-line)]`, son axe couleur). Les deux battent `base`. Donc
-   * un bouton `outline` garde SA couleur — accent, neutre ou danger — pendant qu'un bouton plein,
-   * une carte et un badge, qui ne déclarent aucune couleur de bordure, prennent le noir de la
-   * piste. C'est exactement le partage voulu : le trait est noir partout sauf là où la couleur
-   * porte une information.
-   *
-   * ⚠️ `ghost` est EXCLU des deux règles. Un bouton fantôme existe pour être l'action la plus
-   * légère de l'écran ; lui poser un trait noir de 2 px en ferait un `outline`, et deux des quatre
-   * formes de `Button` rendraient alors la même chose. Le néo-brutalisme entoure tout, mais pas au
-   * prix d'effacer une distinction que le composant porte exprès.
-   * ------------------------------------------------------------------------------------------ */
-  [data-theme="vitrine"][data-piste="chiva"] :is(
-      [data-slot="card"]:not(.card--transparent),
-      [data-slot="chip"],
-      [data-slot="button"]:not(.button--ghost)
-    ) {
-    border-color: var(--border);
-  }
 
-  /* ------------------------------------------------------------------------------------------
-   * Forçage du mode — ce que la barre d'outils de Storybook manipule
-   * ------------------------------------------------------------------------------------------
-   * Sans `data-mode`, la piste suit la préférence système du visiteur (`color-scheme: light dark`
-   * posé dans chaque bloc de piste). Ces deux règles la forcent, pour pouvoir COMPARER les deux
-   * modes côte à côte au lieu d'avoir à changer les réglages du système d'exploitation.
-   *
-   * ⚠️ Elles portaient `[data-piste]` tant qu'aucune palette n'était adoptée : sans lui, elles
-   * auraient forcé un `color-scheme` sur une vitrine sans palette, et le navigateur aurait peint un
-   * fond sombre derrière des jetons clairs. La charte étant adoptée (2026-10-01) et portant ses
-   * deux modes, ce garde-fou n'a plus d'objet : le forçage vise directement le thème.
-   * ------------------------------------------------------------------------------------------ */
-  [data-theme="vitrine"][data-mode="clair"] {
-    color-scheme: only light;
-  }
-  [data-theme="vitrine"][data-mode="sombre"] {
-    color-scheme: only dark;
-  }
 }
 
 /* ==============================================================================================
@@ -1583,55 +970,4 @@
   [data-theme="vitrine"] .checkbox__content {
     font-size: 0.9375rem;
   }
-}
-
-/* ==============================================================================================
- * Le trait noir de la piste Chiva — la LARGEUR, et pourquoi elle est HORS COUCHE
- * ==============================================================================================
- *
- * ⚠️ C'est le seul endroit de ce fichier qui sort de toute couche, et ce n'est pas un oubli.
- *
- * Constat mesuré le 2026-09-02, dans un navigateur, sur le CSS compilé :
- *
- *   - `var(--border-width)` n'est consommé NULLE PART dans le CSS de HeroUI (zéro occurrence dans
- *     `node_modules/@heroui/styles/dist/components/*.css`). Seul `--field-border-width` l'est, via
- *     la variable de thème `--border-width-field` que les champs lisent explicitement.
- *   - L'utilitaire `.border` de Tailwind fige `border-width: 1px` en dur, et vit dans la couche
- *     `utilities`. `.button--outline` fige 1px dans la couche `components`.
- *   - Une règle posée dans `@layer base` — même avec une spécificité de (0,3,0) — perd contre les
- *     deux : l'ORDRE DES COUCHES l'emporte sur la spécificité.
- *
- * ⚠️ CONSÉQUENCE, ET ELLE DÉPASSE CETTE PISTE : le recalage écrit pour le thème `admin` plus haut
- * dans ce fichier (« [data-theme="admin"] .border { border-width: var(--border-width) } », avec le
- * commentaire qui dit qu'il aligne tout l'existant sur les jetons) NE PREND PAS. Mesuré sous
- * `[data-theme="admin"]` : `--border-width` vaut bien `0px`, et `.border` rend quand même `1px`.
- * Le filet que ce recalage croyait supprimer est toujours là. Non corrigé ici — l'admin est en
- * préprod et Jérôme a demandé qu'il ne bouge pas — mais signalé.
- *
- * Hors couche, donc : les styles non affectés à une couche l'emportent sur TOUTES les couches
- * (CSS Cascade 5 §6.4.4). C'est le seul moyen d'atteindre `.border` et `.button--outline` sans
- * réécrire HeroUI. Portée strictement limitée à `[data-piste="chiva"]` : aucune autre piste,
- * aucun autre thème, et rien du tout tant que l'attribut n'est pas posé.
- *
- * ⚠️ La LARGEUR seulement, jamais la couleur : la couleur est posée dans `@layer base` plus haut,
- * pour qu'un bouton `outline` garde son axe couleur (voir le commentaire là-bas).
- * ============================================================================================== */
-[data-theme="vitrine"][data-piste="chiva"] :is(
-    [data-slot="card"]:not(.card--transparent),
-    [data-slot="chip"],
-    [data-slot="button"]:not(.button--ghost)
-  ) {
-  border-style: solid;
-  border-width: var(--border-width);
-}
-
-/* Les utilitaires « bruts » écrits à la main dans apps/web — 25 occurrences de `border`,
- * `border-b` et `border-t` au 2026-09-02, dont les champs et les séparateurs des écrans. Sans
- * cette règle, ils resteraient à 1px au milieu d'une interface à 2px : le trait franc serait
- * inégal, ce qui se voit immédiatement sur ce style-là. Même geste que celui tenté pour l'admin,
- * mais posé à un endroit où il fonctionne. */
-[data-theme="vitrine"][data-piste="chiva"] :is(
-    .border, .border-t, .border-b, .border-l, .border-r, .border-x, .border-y
-  ) {
-  border-width: var(--border-width);
 }

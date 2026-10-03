@@ -88,7 +88,7 @@ export type CardTitleLevel = "h2" | "h3" | "h4";
 // listings (`TarjetaOferta`), que l'item S4 du plan 41 remplace par la tuile de l'accueil.
 export type CardTitleSize = "sm" | "md" | "lg" | "bloque";
 export type CardContentGap = "sm" | "md" | "lg";
-export type CardLayout = "stack" | "row" | "overlay";
+export type CardLayout = "stack" | "row";
 // `lg` : les cartes de CONTENU (récapitulatif du voyage, commande), 20 px puis 24 px à partir de
 // `sm` — plan 41, item F6 : leurs lignes ne sont plus des boîtes bordées mais des rangées séparées
 // par un filet, et c'est la carte qui donne l'air. `md` = le `p-4` de `.card` HeroUI, inchangé.
@@ -107,26 +107,13 @@ type CardCommun = {
   description?: ReactNode;
   /** L'écart entre les blocs du corps. `sm` = le défaut de HeroUI. */
   contentGap?: CardContentGap;
-  /** Le padding de la carte. `md` = le défaut de HeroUI (16 px). Sans effet en `overlay`. */
+  /** Le padding de la carte. `md` = le défaut de HeroUI (16 px). */
   padding?: CardPadding;
-  /**
-   * `row` = vignette à gauche, texte à droite — la ligne produit d'une fiche établissement.
-   * `overlay` = carte CARRÉE, le visuel la remplit entièrement et le texte est posé PAR-DESSUS, dans
-   * un cartouche bleuté en bas ; chaque enfant DIRECT de `children` devient une bulle blanche
-   * cerclée juste au-dessus, à droite (`OVERLAY_BULLES_CLASS`). Références de Jérôme du 2026-10-01
-   * puis du 2026-10-02 (« La Comète Argentique »).
-   */
+  /** `row` = vignette à gauche, texte à droite — la ligne produit d'une fiche établissement. */
   layout?: CardLayout;
   /**
    * `true` : la carte remplit toute la hauteur disponible (`h-full`) et centre son contenu
-   * verticalement, au lieu de s'arrêter à la hauteur de son propre contenu. Sert la carte « voir
-   * más » du carrusel de `SeccionOfertas.tsx` : ses voisines n'ont pas toutes le même nombre de
-   * lignes (sous-titre présent ou non selon le type d'offre), et une hauteur calquée sur UN
-   * contenu précis se désynchronise dès que le contenu réel diffère. `align-items: stretch`
-   * (défaut d'un conteneur flex, posé sur le `<ul>` de la ligne) donne déjà à chaque `<li>` la
-   * hauteur de la plus grande carte — cette prop fait juste en sorte que le contenu de LA carte
-   * l'occupe, plutôt que de laisser un vide en dessous. Défaut `false` : les cinq usages existants
-   * (dans des grilles qui n'étirent pas leurs cellules) sont inchangés.
+   * verticalement, au lieu de s'arrêter à la hauteur de son propre contenu.
    */
   fullHeight?: boolean;
   testId?: string;
@@ -144,10 +131,7 @@ type CardTitre = {
   titleSize?: CardTitleSize;
   /**
    * `"center"` centre le titre (et le sous-titre/description sous lui, par héritage de
-   * `text-align`) — la carte « voir más » du carrusel de `SeccionOfertas.tsx` en a besoin pour
-   * ressembler à une carte d'offre normale sans photo ni prix, où rien d'autre n'ancre le titre à
-   * gauche. Défaut `"start"` : les cinq usages existants (catalogue, fiche produit ×2, fiche
-   * établissement ×2) sont inchangés.
+   * `text-align`). Défaut `"start"`.
    */
   titleAlign?: "start" | "center";
 };
@@ -280,10 +264,6 @@ const ENFANTS_INTERACTIFS_CLASS =
 // 247), demandé par Jérôme le 2026-10-02 d'après sa référence « La Comète Argentique » — avec le
 // marine du texte courant dessus (12.39:1). La photo ne porte JAMAIS de texte nu : son contraste
 // serait celui de l'image, donc inconnu.
-const OVERLAY_CARTE_CLASS =
-  "grid aspect-square grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden rounded-2xl p-0";
-const OVERLAY_CARTOUCHE_CLASS =
-  "z-[1] col-start-1 row-start-1 flex min-w-0 flex-col items-end gap-2 self-end p-3";
 
 // LES BULLES — chaque enfant DIRECT de `children` devient une pastille blanche cerclée, alignée à
 // droite au-dessus du cartouche (même référence). Le style est posé par sélecteur d'enfant plutôt
@@ -291,17 +271,14 @@ const OVERLAY_CARTOUCHE_CLASS =
 // leur ALLURE — `TarjetaOferta` ne connaît aucune classe de pastille.
 //
 // ⚠️ Blanc et noir NUS, pas des jetons — et c'est voulu : la bulle est posée sur une PHOTO, pas sur
-// une surface du thème. Son couple de couleurs ne dépend ni du thème ni du mode sombre, il dépend
-// de l'image ; un jeton qui basculerait en sombre la rendrait illisible sur une photo claire.
+// une surface du thème. Son couple de couleurs ne dépend pas de la surface de la charte mais de
+// l'image ; le relier à un jeton le rendrait illisible sur une photo claire.
 //
 // ⚠️ Le voile `bg-black/55` n'est PAS décoratif. La référence montre un texte blanc directement sur
 // la photo ; sur une photo claire (ciel, mur blanc, neige), ce texte disparaît. Calcul au pire cas,
 // photo blanche pure : noir à 55 % donne un fond ≈ #737373, blanc dessus 4.74:1 (seuil 4.5:1 du
 // texte de 14 px en gras). À 40 % on tombait à 2.85:1. Le flou d'arrière-plan garde l'effet
 // « verre » de la référence sans baisser ce plancher.
-const OVERLAY_BULLES_CLASS =
-  "flex-row flex-wrap justify-end gap-2 [&>*]:rounded-full [&>*]:border-2 [&>*]:border-white [&>*]:bg-black/55 [&>*]:px-3.5 [&>*]:py-1 [&>*]:text-sm [&>*]:font-bold [&>*]:uppercase [&>*]:text-white [&>*]:backdrop-blur-sm";
-
 export function Card({
   children,
   media,
@@ -319,15 +296,14 @@ export function Card({
   testId,
 }: CardProps) {
   const estLigne = layout === "row";
-  const estOverlay = layout === "overlay";
   const BaliseTitre = titleAs ?? "h3";
 
   const classesCarte = [
     // Le `overflow-hidden` n'est posé QUE là où il rogne vraiment quelque chose : le visuel à
     // fleur de carte. Ailleurs il retirerait sans raison l'`overflow-visible` de HeroUI, dont
     // dépendent les surcouches (popover, tooltip) qui débordent d'une carte.
-    media && !estLigne && !estOverlay ? "overflow-hidden" : "",
-    estOverlay ? OVERLAY_CARTE_CLASS : PADDING_CLASSES[padding],
+    media && !estLigne ? "overflow-hidden" : "",
+    PADDING_CLASSES[padding],
     estLigne ? "flex-row items-center gap-4" : "",
     href ? `${CLICKABLE_CLASS} ${ENFANTS_INTERACTIFS_CLASS}` : "",
     // `.card` de HeroUI est déjà `flex flex-col` (card.css) : `h-full` suffit à l'étirer, et
@@ -344,15 +320,7 @@ export function Card({
       // sous-titre/description en dessous se centrent avec lui sans classe supplémentaire.
       // `HeroUICard.Header`/`.Title` fusionnent ce `className` avec leurs classes `.card__*` par
       // défaut (composeSlotClassName de HeroUI) plutôt que de les remplacer.
-      <HeroUICard.Header
-        className={
-          estOverlay
-            ? "w-full rounded-xl bg-[var(--background)] px-4 py-2.5 text-center text-[var(--foreground)]"
-            : titleAlign === "center"
-              ? "text-center"
-              : undefined
-        }
-      >
+      <HeroUICard.Header className={titleAlign === "center" ? "text-center" : undefined}>
         {title ? (
           <HeroUICard.Title
             // `line-clamp-1` : une carte de grille (catalogue, listing) doit garder une hauteur
@@ -361,7 +329,7 @@ export function Card({
             // de grille (constaté sur les cartes d'activité). Les deux usages restants de cet
             // atome (`OrderCard`) ont eux aussi des titres courts et déterministes (nom de
             // produit) — aucun besoin réel d'un titre multi-ligne à ce jour.
-            className={`line-clamp-1 ${estOverlay ? "font-bold uppercase" : ""} ${TITLE_SIZE_CLASSES[titleSize]}`.trim()}
+            className={`line-clamp-1 ${TITLE_SIZE_CLASSES[titleSize]}`}
             render={(props) => <BaliseTitre {...props} />}
           >
             {href ? (
@@ -386,13 +354,7 @@ export function Card({
         {/* En overlay le sous-titre passe au marine, en `text-sm font-medium` : sur la référence
             c'est la ligne d'accroche du cartouche, pas une mention discrète. */}
         {subtitle ? (
-          <p
-            className={
-              estOverlay
-                ? "line-clamp-2 text-sm font-medium"
-                : "line-clamp-2 text-xs text-muted"
-            }
-          >
+          <p className="line-clamp-2 text-xs text-muted">
             {subtitle}
           </p>
         ) : null}
@@ -403,11 +365,7 @@ export function Card({
     ) : null;
 
   const corps = children ? (
-    <HeroUICard.Content
-      className={
-        estOverlay ? OVERLAY_BULLES_CLASS : CONTENT_GAP_CLASSES[contentGap]
-      }
-    >
+    <HeroUICard.Content className={CONTENT_GAP_CLASSES[contentGap]}>
       {children}
     </HeroUICard.Content>
   ) : null;
@@ -417,9 +375,7 @@ export function Card({
       {media ? (
         <div
           className={
-            estOverlay
-              ? "col-start-1 row-start-1 min-h-0"
-              : estLigne
+            estLigne
               ? "w-16 shrink-0 overflow-hidden rounded-md"
               : // Annule le padding de la carte : le visuel touche les bords et se fait rogner au
                 // rayon des angles par le `overflow-hidden` posé plus haut.
@@ -430,12 +386,7 @@ export function Card({
           {media}
         </div>
       ) : null}
-      {estOverlay ? (
-        <div className={OVERLAY_CARTOUCHE_CLASS}>
-          {corps}
-          {tete}
-        </div>
-      ) : estLigne ? (
+      {estLigne ? (
         // `min-w-0` : sans lui, un enfant flex refuse de descendre sous la largeur de son contenu
         // et un titre long pousse la vignette hors de la carte.
         <div className="flex min-w-0 flex-1 flex-col gap-1">

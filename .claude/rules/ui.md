@@ -54,35 +54,21 @@ tokens communs et les deux jeux de valeurs dans `packages/ui/src/styles/globals.
 `@source "../**/*.{ts,tsx}"` de `apps/web/app/globals.css` fait entrer les composants de l'app dans
 le scan Tailwind de `packages/ui` : sans lui, ils s'affichent SANS STYLE en silence.
 
-**La vitrine porte la charte graphique Hifago 2026 depuis le 2026-10-01** (PDF fourni par Jérôme) —
-elle ne tourne plus sur les défauts HeroUI. Les cinq couleurs, leur emploi et les trois interdits
-mesurés sont dans `globals.css`, section « LA CHARTE ». Les trois qui se retiennent :
+### Style Hifago 2026
 
-1. **L'or `#ddae09` ne porte jamais de texte sur fond clair** (1.96:1) — c'est un aplat, avec du
-   marine dessus. Jamais de blanc sur l'or non plus (2.07:1).
-2. **Le bleu ciel `#619ccc` est décoratif** (2.79:1, sous le seuil de 3:1) : motif et aplats, jamais
-   une bordure de champ ni rien qui identifie un composant.
-3. **Les liens et le focus sont découplés de l'accent** (bleu moyen `#2a618e`), contrairement aux
-   autres thèmes — conséquence directe du point 1.
+Le contrat complet est dans `docs/specs/41-charte-hifago-toute-la-vitrine.md` §0 ; les valeurs sont
+dans `globals.css`, section « LA CHARTE ». Trois surfaces : **or** (`#ddae09`, texte marine) pour la
+navigation et les bandeaux ; **claire** pour lire et agir ; **marine** (texte blanc, poudre ou or)
+pour les rails et le pied. Jamais de blanc sur l'or ni d'or sur clair ; le bleu ciel reste décoratif.
+Le slogan seul est en Poppins 800 ; titres de page, section et bloc sont en Anton 400 avec
+`--tracking-titre` ; le reste en Poppins. Anton n'est jamais rendu sous 20 px ni en faux gras.
+Tout `<h1>`–`<h3>` reçoit son interlettrage du jeton, jamais une classe `tracking-*` concurrente.
+Boutons et champs ont un rayon de 8 px ; les tuiles/conteneurs 16 px ; les pilules sont réservées à
+la recherche, aux puces et aux bulles. Les titres emploient la police de production dans Storybook
+comme dans Next : Anton est confirmé, aucune Sugo d'essai n'est servie.
 
-Polices : Poppins (corps) et Anton (titres, `--font-titre`), chargées par `app/[locale]/layout.tsx`
-et par `.storybook/preview-head.html` pour le playground. La charte demande **Sugo Pro Display**
-pour les titres ; Jérôme a **confirmé Anton** le 2026-10-02 (pas de licence). Sa version d'essai
-(CC BY-NC) n'est plus chargée nulle part, Storybook compris : jamais copiée dans le dépôt ni dans
-`public/`, jamais de surcharge de `--font-titre` dans le playground. ⚠️ Les noms de
-variables doivent rester identiques des deux côtés, sinon playground et production divergent en
-silence — c'est le piège qui a laissé la vitrine en pile système pendant un mois.
-
-**Espacement de la police de titre** (Jérôme, 2026-10-01) : tout texte en `--font-titre` prend
-l'interlettrage du jeton `--tracking-titre` (0.04em, proportionnel : 2,4 px sur un titre de 60 px,
-choisi par Jérôme en Anton le 2026-10-02, `globals.css`) et aucun autre — porté par la règle des `<h1>`–`<h3>`, ou par
-`tracking-[var(--tracking-titre)]` hors titre HTML. Jamais de `tracking-…` à côté de `font-titre` ni
-sur un `<h1>`–`<h3>` : la valeur se règle au jeton (`check-tokens.sh`).
-
-Cinq pistes de comparaison (`embalse`, `zocalo`, `cal`, `hifago`, `chiva`) restent derrière un
-`data-piste` que seule la barre d'outils Storybook pose. ⚠️ Elle MÉMORISE son dernier choix : une
-piste encore sélectionnée masque la charte sans prévenir — remettre « Aucune piste » avant de juger
-un rendu.
+Storybook rend toujours la charte adoptée, en mode clair. La planche `Playground/Charte` sert de
+référence visuelle ; `Playground/Palette → Contrastes` mesure les couples de production.
 
 ## Composants de la vitrine (`apps/web/components/`)
 

@@ -4,6 +4,7 @@ import { todayInBogota } from "@hifago/domain";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { COLUMNA_PORTADA, PageShell } from "@/components/atoms/PageShell";
 import { EstadoVacio } from "@/components/molecules/EstadoVacio";
+import { MenuTiposPortada } from "@/components/organisms/MenuTiposPortada";
 import { SeccionRiel } from "@/components/organisms/SeccionRiel";
 import { buscarSecciones, hrefSeccion } from "@/lib/catalog/buscar";
 import { escribirCriterios, leerCriterios, leerDesdeCarrito } from "@/lib/catalog/criterios";
@@ -15,7 +16,6 @@ import { getSiteUrl } from "@/lib/seo/siteUrl";
 import type { Locale } from "@/messages";
 import { BuscadorInicio } from "./BuscadorInicio";
 import { labelsBuscador } from "./labelsBuscador";
-import { MenuTiposPortada } from "./MenuTiposPortada";
 import { PortadaInicio } from "./PortadaInicio";
 import { tiposDeBarra } from "./tiposDeBarra";
 

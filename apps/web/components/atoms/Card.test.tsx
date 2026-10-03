@@ -99,17 +99,12 @@ describe("Card", () => {
 
   // Plan 41, F6 : les cartes de contenu prennent 20 → 24 px. Le défaut ne pose aucune classe, et
   // c'est ce qui garde les tuiles et les fiches au `p-4` de HeroUI.
-  it("n'élargit le padding que quand on le demande, et jamais sur la carte overlay", () => {
+  it("n'élargit le padding que quand on le demande", () => {
     const parDefaut = carte(<Card title="T" titleAs="h2"><p>x</p></Card>);
     const ample = carte(<Card title="T" titleAs="h2" padding="lg"><p>x</p></Card>);
-    const overlay = carte(
-      <Card title="T" titleAs="h2" layout="overlay" padding="lg" media={<div />}><p>x</p></Card>
-    );
     expect(parDefaut.className).not.toMatch(/\bp-[56]\b/);
     expect(ample.className).toContain("p-5");
     expect(ample.className).toContain("sm:p-6");
-    expect(overlay.className).toContain("p-0");
-    expect(overlay.className).not.toContain("p-5");
   });
 
   it("ne rend ni en-tête ni contenu quand il n'y a rien à y mettre", () => {
@@ -324,46 +319,6 @@ describe("Card", () => {
     expect((el.querySelector(".flex.min-w-0") as HTMLElement)).not.toBeNull();
     // Pas de rognage sur la carte : la vignette rogne la sienne.
     expect(el.className).not.toContain("overflow-hidden");
-  });
-
-  // ⚠️ La disposition des cartes carrées de l'accueil (2026-10-01). Le défaut à craindre est
-  // SILENCIEUX : un cartouche positionné (`absolute`) capturerait le `::after` du lien, et un clic
-  // sur la photo ne mènerait plus nulle part — jsdom ne le verrait pas, seule la structure le peut.
-  it("en overlay, la carte est carrée et le texte se pose sur le visuel sans capturer le lien", () => {
-    const el = carte(
-      <Card layout="overlay" href="/x" title="Kayak" titleAs="h3" subtitle="Casa" media={<div />} testId="o">
-        <span>20.000 COP</span>
-      </Card>
-    );
-    expect(el.className).toContain("aspect-square");
-    expect(el.className).toContain("overflow-hidden");
-    expect(el.className).toContain("grid-rows-[minmax(0,1fr)]");
-    const media = el.querySelector("[data-testid='o-media']") as HTMLElement;
-    expect(media.className).toContain("row-start-1");
-    // Le cartouche partage la cellule du visuel, et AUCUN ancêtre du lien entre lui et la carte
-    // n'est positionné : le `::after` couvre donc toute la carte, photo comprise.
-    const lien = el.querySelector("[data-card-link]") as HTMLElement;
-    let noeud = lien.parentElement;
-    while (noeud && noeud !== el) {
-      expect(noeud.className).not.toMatch(/(^|\s)(absolute|relative|fixed|sticky)(\s|$)/);
-      noeud = noeud.parentElement;
-    }
-    const cartouche = (el.querySelector("[data-slot='card-header']") as HTMLElement).parentElement as HTMLElement;
-    expect(cartouche.className).toContain("row-start-1");
-    expect(cartouche.className).toContain("self-end");
-    // Le prix AVANT le titre dans le cartouche : il se lit en pastille au-dessus du nom.
-    expect(cartouche.firstElementChild?.getAttribute("data-slot")).toBe("card-content");
-    expect(el.querySelector("h3")?.className).toContain("uppercase");
-    // Le cartouche au blanc bleuté de la charte (`--background`), pas le blanc pur de `--surface`
-    // (référence de Jérôme du 2026-10-02).
-    expect((el.querySelector("[data-slot='card-header']") as HTMLElement).className).toContain(
-      "bg-[var(--background)]"
-    );
-    // Les bulles : le style vise les enfants DIRECTS, et le voile qui garantit le contraste du
-    // texte blanc sur une photo claire est présent (voir `OVERLAY_BULLES_CLASS`).
-    const contenu = el.querySelector("[data-slot='card-content']") as HTMLElement;
-    expect(contenu.className).toContain("[&>*]:rounded-full");
-    expect(contenu.className).toContain("[&>*]:bg-black/55");
   });
 
   it("rend le sous-titre entre le titre et la description", () => {

@@ -10,6 +10,7 @@ import { createClient } from "@hifago/supabase/client";
 import { buildAuthCallbackRedirect } from "@hifago/domain";
 import { Input, Label, TextField } from "@hifago/ui";
 import { Button } from "@/components/atoms/Button";
+import { Aviso } from "@/components/molecules/Aviso";
 import { CamposContrasena } from "@/components/molecules/CamposContrasena";
 import { OAuthSection } from "@/components/molecules/GoogleButton";
 
@@ -99,16 +100,23 @@ export function SignupForm({ next, initialEmail = "" }: { next: string; initialE
           labelConfirmPassword={t("confirmPassword")}
         />
         {error ? (
-          <p role="alert" data-testid="signup-error" className="text-sm text-danger">
-            {error}
-          </p>
+          <Aviso tono="error" rol="alert" testId="signup-error">
+            <p>{error}</p>
+          </Aviso>
         ) : null}
-        <Button type="submit" size="lg" isDisabled={isSubmitting} testId="signup-submit-button">
-          {isSubmitting ? t("submitting") : t("submit")}
+        <Button
+          type="submit"
+          size="lg"
+          width="full"
+          isPending={isSubmitting}
+          pendingLabel={t("submitting")}
+          testId="signup-submit-button"
+        >
+          {t("submit")}
         </Button>
       </form>
 
-      <p className="text-center text-sm text-muted">
+      <p className="text-center text-base text-muted">
         {t("loginLink")}{" "}
         <Link
           href={next !== "/" ? `/entrar?next=${encodeURIComponent(next)}` : "/entrar"}

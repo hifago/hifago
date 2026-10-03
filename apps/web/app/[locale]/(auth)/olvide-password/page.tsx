@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { ForgotPasswordForm } from "./ForgotPasswordForm";
-import { Title } from "@/components/atoms/Title";
+import { AuthPage } from "../_components/AuthPage";
 
 export async function generateMetadata(
   props: Omit<PageProps<"/[locale]/olvide-password">, "searchParams">
@@ -23,9 +23,8 @@ export default async function ForgotPasswordPage({
   const t = await getTranslations("ForgotPassword");
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
-      <Title as="h1">{t("title")}</Title>
+    <AuthPage title={t("title")}>
       <ForgotPasswordForm />
-    </main>
+    </AuthPage>
   );
 }

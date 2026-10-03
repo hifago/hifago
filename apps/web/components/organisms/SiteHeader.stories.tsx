@@ -87,7 +87,7 @@ export const AuDessusDuContenu: Story = {
       <PanierPre lignes={3} />
       <div className="flex min-h-screen flex-col">
         <SiteHeader isAuthenticated={false} testId="header" />
-        <PageShell variant="large">
+        <PageShell variant="pagina">
           <Title as="h1">Alojamientos y actividades en Guatapé</Title>
           {Array.from({ length: 12 }, (_, i) => (
             <p key={i} className="text-sm">

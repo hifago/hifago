@@ -7,9 +7,8 @@ import { Legende } from "../playground/Legende";
 // Le playground du lien habillé en bouton. Deux choses à y regarder, et une seule compte vraiment :
 // que `LinkButton` et `Button` soient INDISCERNABLES à l'œil, et discernables à l'oreille.
 //
-// À voir aux deux gabarits (Mobile 390 par défaut, Desktop 1280) et dans les deux modes
-// (clair/sombre, barre d'outils) : les hauteurs changent au breakpoint `md`, et c'est là que se
-// joue la règle des 44 px de cible tactile.
+// À voir aux deux gabarits (Mobile 390 par défaut, Desktop 1280) : les hauteurs changent au
+// breakpoint `md`, et c'est là que se joue la règle des 44 px de cible tactile.
 const meta = {
   title: "Actions/LinkButton",
   component: LinkButton,
@@ -123,10 +122,9 @@ function Paire({ variant, color }: { variant: ButtonVariant; color: ButtonColor 
           </LinkButton>
         </div>
         {ecarts === null ? null : ecarts.length === 0 ? (
-          // ⚠️ Pas `text-success` : sur la piste Chiva, `--success` est un vert flashy mesuré à
-          // 1.86:1 sur blanc — un aplat, jamais un texte. Le verdict est porté par le MOT, pas par
-          // la couleur (règle de components/README.md : « l'information n'est jamais portée par la
-          // seule couleur »), donc `text-muted` suffit et reste lisible sur les cinq pistes.
+          // Le verdict est porté par le MOT, pas par la couleur (règle de components/README.md :
+          // « l'information n'est jamais portée par la seule couleur »). `text-muted` reste donc
+          // volontairement neutre sur la surface de production.
           <span className="text-xs text-muted">identiques</span>
         ) : (
           <span className="text-xs text-danger">
@@ -141,8 +139,8 @@ function Paire({ variant, color }: { variant: ButtonVariant; color: ButtonColor 
 /**
  * Les 12 combinaisons, bouton et lien côte à côte, avec le verdict mesuré à droite de chaque paire.
  * ⚠️ « identiques » n'est pas un commentaire écrit à la main : c'est le résultat de la comparaison
- * des styles calculés au moment où la story s'affiche. Si un jeton de thème, une piste de couleur
- * ou un ajout à `Button` faisait diverger les deux, la ligne passerait en rouge et dirait laquelle.
+ * des styles calculés au moment où la story s'affiche. Si un jeton de thème ou un ajout à `Button`
+ * faisait diverger les deux, la ligne passerait en rouge et dirait laquelle.
  */
 export const IdentiqueAuBouton: Story = {
   render: () => (

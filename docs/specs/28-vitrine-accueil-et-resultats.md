@@ -196,7 +196,7 @@ utilisent déjà — il sort du lot, comme la convention l'exige.
 ### Fichiers touchés
 
 **Créés** : `app/[locale]/(vitrine)/page.tsx` · `app/[locale]/(vitrine)/BuscadorInicio.tsx` ·
-`components/organisms/SeccionOfertas.tsx` · `components/molecules/TarjetaOferta.tsx` ·
+`components/organisms/SeccionOfertas.tsx` (supprimé par le plan 41, G5) · `components/molecules/TarjetaOferta.tsx` ·
 `components/molecules/EstadoVacio.tsx` (chacun + test + story) · `lib/catalog/criterios.ts` · `lib/catalog/segmentos.ts` (table `tipo` → segment d'URL) ·
 `e2e/home.spec.ts` · `supabase/migrations/<ts>_search_catalog_fotos_y_precios.sql`.
 **Modifiés** : `messages/{es,en}/HomePage.json` · `lib/catalog/buscar.ts` ·

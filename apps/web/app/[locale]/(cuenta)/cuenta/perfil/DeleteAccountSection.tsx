@@ -6,7 +6,6 @@ import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/atoms/Button";
 import { TextField, Input, Label } from "@hifago/ui";
 import { signOutAndGoHome } from "./signOutAndGoHome";
-import { Title } from "@/components/atoms/Title";
 import { Aviso } from "@/components/molecules/Aviso";
 
 // Spec 35 décisions ④/⑪ — confirmation forte et définitive, bloquée en amont pour un compte
@@ -74,17 +73,13 @@ export function DeleteAccountSection({
     await signOutAndGoHome(router);
   }
 
-  // Plan 41, S6 : la zone n'est plus une boîte maison (et, en confirmation, une seconde boîte rouge
-  // DANS la première) mais un `Aviso`. Le `<h2>` reste AU-DESSUS, titre de section de la page dans
-  // la police de titre : un titre d'`Aviso` est un `<p>`, il sortirait la section de la hiérarchie.
-  // Compte professionnel : ton « alerte », pas « erreur » — rien n'a échoué, une condition manque.
+  // Plan 41, P9 : le titre fait partie de l'`Aviso`, comme le demande la zone de suppression. Un
+  // compte professionnel reçoit un message d'information : aucune action n'a échoué et le bouton
+  // de suppression ne doit jamais lui être proposé.
   if (hasProfessionalCapability) {
     return (
-      <section className="flex flex-col gap-3" data-testid="delete-account-section">
-        <Title as="h2" size="bloque">
-          {t("deleteSectionTitle")}
-        </Title>
-        <Aviso tono="alerta">
+      <section data-testid="delete-account-section">
+        <Aviso tono="info" titulo={t("deleteSectionTitle")}>
           <p data-testid="delete-blocked-capability">{t("deleteBlockedByCapability")}</p>
         </Aviso>
       </section>
@@ -162,11 +157,8 @@ export function DeleteAccountSection({
   );
 
   return (
-    <section className="flex flex-col gap-3" data-testid="delete-account-section">
-      <Title as="h2" size="bloque">
-        {t("deleteSectionTitle")}
-      </Title>
-      <Aviso tono="error" accion={action}>
+    <section data-testid="delete-account-section">
+      <Aviso tono="error" titulo={t("deleteSectionTitle")} accion={action}>
         <p>{t("deleteSectionDescription")}</p>
       </Aviso>
     </section>

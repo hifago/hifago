@@ -58,7 +58,7 @@ function Cadre({
   }, [ouvrir]);
 
   return (
-    <PageShell variant="large">
+    <PageShell variant="pagina">
       <DateRangeField
         value={plage}
         onChange={setPlage}

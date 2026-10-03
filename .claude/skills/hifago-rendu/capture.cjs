@@ -31,9 +31,9 @@ const requireWeb = createRequire(path.join(RACINE, "apps/web/package.json"));
 const requireRacine = createRequire(path.join(RACINE, "package.json"));
 
 const STORYBOOK = process.env.STORYBOOK_URL || "http://localhost:6006";
-// La barre d'outils de Storybook MÉMORISE la piste choisie : on force la production (la charte), le
-// mode clair et le rayon de la piste dans l'URL, sinon on jugerait une autre palette.
-const GLOBALS = "palette:aucune;mode:clair;radius:piste";
+// La barre d'outils de Storybook mémorise ses globals : on force le rayon de production et la
+// langue espagnole dans l'URL pour rendre les captures reproductibles.
+const GLOBALS = "radius:piste;locale:es";
 
 function lireArgs(argv) {
   const opts = { out: null, largeurs: [390, 1280], mesure: false, decoupe: 0, ids: [], compare: null };

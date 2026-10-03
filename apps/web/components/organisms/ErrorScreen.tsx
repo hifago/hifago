@@ -2,8 +2,9 @@
 
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import Image from "next/image";
 import { Title } from "@/components/atoms/Title";
+import { Link } from "@/i18n/navigation";
 
 // L'ÉCRAN D'ERREUR DE LA VITRINE — un seul, partagé par les frontières de zone `(vitrine)`,
 // `(tunnel)` et `(cuenta)`, et par `app/global-error.tsx` (spec 27 § « Cas limites »).
@@ -15,15 +16,15 @@ import { Title } from "@/components/atoms/Title";
 // de Next : ni traduite, ni habillée.
 //
 // ⚠️ `"use client"` n'est pas un choix : Next l'exige de tout `error.tsx`, qui doit s'attacher à une
-// frontière d'erreur React côté navigateur. Rien de `@hifago/ui` ici (`scripts/check-design-system.sh`)
-// — un écran d'erreur qui monterait HeroUI ne pourrait plus s'afficher le jour où c'est justement le
-// rendu de HeroUI qui a échoué.
+// frontière d'erreur React côté navigateur. Les actions passent par les mêmes variantes que le reste
+// de la vitrine (plan 41, P11), mais l'écran ne lit aucune donnée : il reste affichable quand la base
+// est justement la source de la panne.
 //
 // ⚠️ Il ne rend PAS la coquille : une frontière de zone est rendue À L'INTÉRIEUR du layout de sa
 // zone, l'en-tête y est déjà — le rendre une seconde fois donnerait deux en-têtes. Il pose en
-// revanche l'unique `<main>` de la page (aucun des layouts de zone n'en pose), nu, aux mêmes classes
-// que la coquille `large` : `PageShell` n'est pas importable ici sans risquer de faire échouer
-// l'écran d'erreur lui-même sur le même défaut.
+// revanche l'unique `<main>` de la page (aucun des layouts de zone n'en pose), nu, sur la même
+// largeur de lecture que les pages `pagina` : `PageShell` n'est pas importable ici sans risquer de
+// faire échouer l'écran d'erreur lui-même sur le même défaut.
 //
 // ⚠️ `retry`, jamais `reset`. `reset()` ne fait que remonter le sous-arbre côté navigateur : sur une
 // erreur levée par un Server Component, il réaffiche le même échec. `retry()` (Next 16) relance la
@@ -57,30 +58,53 @@ export function ErrorScreen({
     console.error(`[${zone}] rendu interrompu par une erreur`, error);
   }, [error, zone]);
 
-  const classesLien = "min-h-11 underline";
+  // Cette frontière reste volontairement indépendante du graphe HeroUI : elle doit pouvoir
+  // s'afficher même si le chargement d'un composant applicatif a provoqué la panne.
+  const classesAction =
+    "inline-flex h-11 items-center justify-center rounded-[var(--rayon-bouton)] px-4 text-base font-semibold transition-colors focus-visible:status-focused motion-reduce:transition-none";
 
   return (
     <main
-      className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center gap-4 p-6 text-center sm:p-8"
+      className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-6 p-6 text-center sm:p-8"
       data-testid={testId}
     >
-      <Title as="h1">{t("error.titulo")}</Title>
-      <p className="max-w-prose text-muted">{t("error.descripcion")}</p>
-      <div className="flex flex-wrap items-center justify-center gap-4">
+      <Image
+        src="/brand/motif-bleu-ciel.webp"
+        alt=""
+        width={96}
+        height={103}
+        sizes="96px"
+        loading="lazy"
+        aria-hidden="true"
+        className="size-24 rounded-full object-cover opacity-70"
+      />
+      <div className="flex max-w-prose flex-col gap-3">
+        <Title as="h1">{t("error.titulo")}</Title>
+        <p className="text-muted">{t("error.descripcion")}</p>
+      </div>
+      <div className="flex flex-row items-center justify-center gap-3">
         <button
           type="button"
           onClick={retry}
-          className={classesLien}
+          className={`${classesAction} bg-accent text-accent-foreground hover:bg-[var(--accent-hover)]`}
           data-testid={`${testId}-reintentar`}
         >
           {t("error.reintentar")}
         </button>
         {inicioHref ? (
-          <a href={inicioHref} className={classesLien} data-testid={`${testId}-volver`}>
+          <a
+            href={inicioHref}
+            className={`${classesAction} bg-default text-default-foreground hover:bg-[var(--default-hover)]`}
+            data-testid={`${testId}-volver`}
+          >
             {t("error.volver")}
           </a>
         ) : (
-          <Link href="/" className={classesLien} data-testid={`${testId}-volver`}>
+          <Link
+            href="/"
+            className={`${classesAction} bg-default text-default-foreground hover:bg-[var(--default-hover)]`}
+            data-testid={`${testId}-volver`}
+          >
             {t("error.volver")}
           </Link>
         )}

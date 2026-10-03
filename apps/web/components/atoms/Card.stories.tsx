@@ -11,8 +11,7 @@ import { TypeBadge } from "./TypeBadge";
 //   • `Cliquable`, à parcourir au clavier et avec le panneau d'accessibilité ouvert : c'est là que
 //     se vérifie que le lien s'annonce par son titre et non par toute la carte.
 //
-// À voir aux deux gabarits (Mobile 390 par défaut, Desktop 1280) et dans les deux modes de la
-// barre d'outils.
+// À voir aux deux gabarits (Mobile 390 par défaut, Desktop 1280) dans la charte claire adoptée.
 const meta = {
   title: "Structure/Card",
   component: Card,
@@ -27,10 +26,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// `/globe.svg` : le seul visuel réellement présent dans apps/web/public — même source que
-// Image.stories.tsx et la story de CatalogBrowser. Pas d'URL distante : une story ne doit pas
-// dépendre du réseau pour s'afficher.
-const SRC = "/globe.svg";
+// Une vraie photo de `mockData/`, servie localement par Storybook sous `/mock`.
+const SRC = "/mock/activities/kayak1/photos/1.jpeg";
 // Valeur reprise de la production (CatalogBrowser.tsx:98), pas inventée : grille à une colonne
 // sous 640 px, deux au-delà.
 const SIZES = "(max-width: 640px) 100vw, 50vw";
@@ -87,7 +84,7 @@ export const SansImage: Story = {
  * Avec visuel, à fleur de carte. ⚠️ C'est ici que se voit ce que `overflow-hidden` était censé
  * faire dans le code d'origine et ne faisait pas : le `p-4` de `.card` mettait l'image en retrait
  * de 16 px, donc il n'y avait rien à rogner. Le visuel annule ce padding et se fait rogner au
- * rayon des angles — qui suit `--radius`, donc la piste de couleur choisie dans la barre d'outils.
+ * rayon des angles — qui suit le comparateur `--radius` de la barre d'outils.
  */
 export const AvecImage: Story = {
   render: (args) => (

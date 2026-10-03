@@ -3,10 +3,9 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 // Ce que la vitrine utilise RÉELLEMENT — lu à l'exécution, pas recopié d'un fichier.
 //
-// ⚠️ Son intérêt principal est de rendre visible une absence : le thème `vitrine` ne définit AUCUN
-// token dans packages/ui/src/styles/globals.css (le thème `admin` en définit ~37). Tout ce qui
-// s'affiche ici vient donc des valeurs par défaut de HeroUI, que personne n'a jamais examinées.
-// Basculer le thème dans la barre d'outils montre l'écart exact entre les deux.
+// Le thème `vitrine` porte la charte Hifago 2026 dans packages/ui/src/styles/globals.css.
+// Basculer sur `admin` permet seulement d'inspecter l'autre application ; il n'existe plus de
+// palette candidate ni de mode sombre pour la vitrine.
 
 const COULEURS = [
   "--background", "--foreground", "--surface", "--surface-foreground", "--overlay",
@@ -38,12 +37,9 @@ function useTokens(noms: string[]) {
     const observateur = new MutationObserver(() => setValeurs(lireTokens(noms)));
     observateur.observe(document.documentElement, {
       attributes: true,
-      // ⚠️ Les quatre attributs, pas seulement `data-theme` : depuis que la barre d'outils pilote
-      // aussi la piste, le mode et le rayon (2026-09-02), ce sont eux qui changent les jetons que
-      // ce tableau affiche. N'observer que `data-theme` laissait des valeurs PÉRIMÉES à l'écran
-      // après un changement de piste — sans rien signaler, et sur la story qui sert précisément à
-      // départager les pistes.
-      attributeFilter: ["data-theme", "data-piste", "data-mode", "data-radius"],
+      // Le thème et le comparateur de rayon sont les deux globals encore susceptibles de changer
+      // les jetons affichés sans remonter la story.
+      attributeFilter: ["data-theme", "data-radius"],
     });
     return () => observateur.disconnect();
   }, [noms]);
@@ -62,11 +58,8 @@ function Ligne({ nom, valeur, echantillon }: { nom: string; valeur: string; echa
         />
       ) : null}
       <code className="w-56 shrink-0 font-mono text-xs">{nom}</code>
-      {/* ⚠️ `min-w-0 break-words` : depuis que le thème vitrine a des pistes, une valeur n'est plus
-          `oklch(0.9702 0 0)` mais `light-dark(oklch(94.9% 0.013 88), oklch(15.7% 0.006 122.2))` —
-          trois fois plus longue. Sans ces deux classes, cette ligne poussait la PAGE à 397 px en
-          gabarit Mobile 390, c'est-à-dire exactement le défilement horizontal que le README
-          interdit. Relevé par le balayage a11y du lot des pistes (2026-09-01), qui l'a causé. */}
+      {/* Une valeur de jeton peut être une expression CSS bien plus longue qu'une couleur simple.
+          Sans `min-w-0 break-words`, cette ligne pousse la page au-delà du gabarit Mobile 390. */}
       <span className={`min-w-0 break-words ${defini ? "text-xs" : "text-xs italic text-[var(--muted)]"}`}>
         {defini ? valeur : "non défini — valeur héritée du navigateur"}
       </span>

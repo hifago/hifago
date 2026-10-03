@@ -1,8 +1,7 @@
 "use client";
 
-import { useRef } from "react";
-import type { ReactNode } from "react";
-import { useBordesDesplazables } from "@/components/molecules/CarruselConSombra";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
 
 // La rangée qui défile dans le conteneur marine d'un rail (`SeccionRiel`), et ses deux VOILES FLOUS
 // (Jérôme, 2026-10-02 : « ajoute un flou aux extrémités du conteneur pour marquer qu'il y a
@@ -17,11 +16,38 @@ import { useBordesDesplazables } from "@/components/molecules/CarruselConSombra"
 // cartes ou moins. Le savoir exige de lire `scrollLeft`/`scrollWidth` : une donnée de navigateur.
 // `SeccionRiel` reste un Server Component (son dernier test le vérifie) ; seule cette rangée
 // porte l'état, et ses `children` — les tuiles — sont rendus et servis par le serveur comme avant
-// (même montage que `CarruselConSombra` dans `SeccionOfertas`).
+// Le hook reste ici, au plus près de son unique appelant, depuis le retrait du vieux carrousel G5.
 //
-// Pas le composant `CarruselConSombra` lui-même : son défilant porte la barre visible, un `p-2` et
-// des gouttières en rem — tout ce que la maquette de l'accueil n'a pas. On partage la MESURE
-// (`useBordesDesplazables`), pas l'habillage.
+// La mesure reste séparée de l'habillage pour que les voiles ne supposent jamais qu'une ligne
+// déborde avant que le navigateur ait pu mesurer son contenu.
+
+/** Reste-t-il du contenu à faire défiler à gauche ou à droite de `ref` ? */
+export function useBordesDesplazables(ref: RefObject<HTMLElement | null>) {
+  const [puedeIzquierda, setPuedeIzquierda] = useState(false);
+  const [puedeDerecha, setPuedeDerecha] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const actualizar = () => {
+      setPuedeIzquierda(el.scrollLeft > 1);
+      setPuedeDerecha(el.scrollWidth - el.clientWidth - el.scrollLeft > 1);
+    };
+
+    actualizar();
+    el.addEventListener("scroll", actualizar, { passive: true });
+    const observateur = new ResizeObserver(actualizar);
+    observateur.observe(el);
+
+    return () => {
+      el.removeEventListener("scroll", actualizar);
+      observateur.disconnect();
+    };
+  }, [ref]);
+
+  return { puedeIzquierda, puedeDerecha };
+}
 
 // La rangée telle qu'elle était dans `SeccionPortada` : défilement natif, barre masquée (la
 // maquette n'en a pas). Pas de `tabIndex`/`role="region"` : elle ne contient que des liens

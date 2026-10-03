@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { buildAuthCallbackRedirect } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/client";
 import { Button } from "@/components/atoms/Button";
+import { Aviso } from "@/components/molecules/Aviso";
 import { PENDING_CART_MERGE_KEY, useCart } from "@/lib/cart/CartContext";
 
 // Entrée Google de la vitrine (2026-09-11) — le seul morceau du parcours d'authentification que la
@@ -125,6 +126,7 @@ export function GoogleButton({ next = "/", testId = "google-signin-button" }: Go
       <Button
         variant="outline"
         color="neutral"
+        size="lg"
         width="full"
         type="button"
         onPress={handlePress}
@@ -136,9 +138,9 @@ export function GoogleButton({ next = "/", testId = "google-signin-button" }: Go
         {t("oauth.google")}
       </Button>
       {hasFailed ? (
-        <p role="alert" data-testid={`${testId}-error`} className="text-sm text-danger">
-          {t("oauth.googleError")}
-        </p>
+        <Aviso tono="error" rol="alert" testId={`${testId}-error`} compacto>
+          <p>{t("oauth.googleError")}</p>
+        </Aviso>
       ) : null}
     </div>
   );
@@ -165,7 +167,7 @@ export function OAuthSection({ next = "/", testId }: OAuthSectionProps) {
           `separator` sont présentationnels pour les technologies d'assistance, donc le mot serait
           de toute façon perdu. Le dire franchement vaut mieux que le déclarer et l'ignorer — et le
           bloc est purement décoratif, le bouton et les champs portent déjà leurs propres libellés. */}
-      <div aria-hidden="true" className="flex items-center gap-3 text-xs text-muted">
+      <div aria-hidden="true" className="flex items-center gap-3 text-sm text-muted">
         <div className="h-px flex-1 bg-border" />
         {t("oauth.separator")}
         <div className="h-px flex-1 bg-border" />

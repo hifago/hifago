@@ -39,7 +39,9 @@ Sans argument : demander quel écran.
    node .claude/skills/hifago-rendu/capture.cjs --out <scratchpad>/rendu/avant \
      --largeurs 360,390,1280 --mesure --decoupe 1100 <storyId> [<storyId>…]
    ```
-   L'outil force la palette de production dans l'URL (`globals=palette:aucune;mode:clair;radius:piste`).
+   L'outil force la langue espagnole et le rayon de production dans l'URL
+   (`globals=radius:piste;locale:es`, où `piste` est le preset de rayon de production). La charte
+   Hifago adoptée est l'unique palette de la vitrine et reste claire.
    Il imprime une ligne JSON par capture : largeur de page contre largeur de vue, liste des `<h1>`,
    images `priority`, titres (police, taille, graisse), boutons (rayon, hauteur), champs, et des
    **alertes** :
@@ -87,8 +89,8 @@ au §8 du plan.
   la Sugo Pro Display d'essai, et l'option `--prod` qui la bloquait a disparu (l'outil refuse toute
   option inconnue). Les captures plus anciennes du plan 41 montrent encore la Sugo, avec des chiffres
   en glyphes de filigrane.
-- La barre d'outils de Storybook **mémorise la piste** choisie. L'outil la neutralise par l'URL, mais
-  un humain qui regarde dans son navigateur doit choisir « La charte Hifago 2026 — la production ».
+- La vitrine Storybook expose une seule charte claire. Ne pas ajouter de global de palette ou de
+  mode aux commandes de capture.
 - `globals=locale:en` dans l'URL n'a pas basculé la langue lors d'un essai du 2026-10-02 (journal). Pour
   l'anglais, utiliser la barre d'outils et vérifier à l'œil.
 - Une story peut garder une requête **volontairement pendante** (état « en cours ») : l'outil

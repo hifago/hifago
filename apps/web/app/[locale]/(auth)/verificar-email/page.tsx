@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { ResendConfirmationForm } from "./ResendConfirmationForm";
-import { Title } from "@/components/atoms/Title";
+import { AuthPage } from "../_components/AuthPage";
 
 export async function generateMetadata(
   props: Omit<PageProps<"/[locale]/verificar-email">, "searchParams">
@@ -32,12 +32,11 @@ export default async function VerifyEmailPage({
   const email = typeof emailParam === "string" ? emailParam : null;
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center">
-      <Title as="h1">{t("title")}</Title>
-      <p className="max-w-sm text-sm text-muted">
+    <AuthPage title={t("title")}>
+      <p className="text-center text-base text-muted">
         {email ? t("bodyWithEmail", { email }) : t("bodyGeneric")}
       </p>
       <ResendConfirmationForm email={email} />
-    </main>
+    </AuthPage>
   );
 }

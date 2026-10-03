@@ -4,8 +4,8 @@ import { FilaRiel } from "./FilaRiel";
 
 // Pas de @testing-library/jest-dom dans ce monorepo — assertions DOM natives uniquement.
 //
-// Même montage que `CarruselConSombra.test.tsx`, qui teste la mesure partagée
-// (`useBordesDesplazables`) en détail : jsdom ne fait aucune mise en page, les trois dimensions de
+// Le hook `useBordesDesplazables` vit désormais avec son unique appelant : jsdom ne fait aucune
+// mise en page, les trois dimensions de
 // défilement sont donc posées à la main, puis un `scroll` réel force la relecture. Ici on ne
 // vérifie que ce que cette rangée-ci ajoute : DEUX VOILES qui suivent la mesure, décoratifs.
 

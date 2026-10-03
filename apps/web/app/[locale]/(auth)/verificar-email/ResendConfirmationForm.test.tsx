@@ -8,7 +8,9 @@ import { loadMessages } from "@/messages";
 // site_url NU : le lien renvoyé devient `https://<site>&token_hash=…`, inutilisable. Ce test prouve
 // que le renvoi passe la même URL de callback que l'inscription (SignupForm.tsx).
 
-const state = vi.hoisted(() => ({ resend: vi.fn(async () => ({ error: null })) }));
+const state = vi.hoisted(() => ({
+  resend: vi.fn(async (): Promise<{ error: { message: string } | null }> => ({ error: null })),
+}));
 
 vi.mock("@hifago/supabase/client", () => ({
   createClient: () => ({ auth: { resend: state.resend } }),
@@ -20,11 +22,6 @@ vi.mock("@/i18n/navigation", () => ({
     </a>
   ),
 }));
-vi.mock("@hifago/ui", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@hifago/ui")>()),
-  toast: { success: vi.fn(), danger: vi.fn() },
-}));
-
 const { ResendConfirmationForm } = await import("./ResendConfirmationForm");
 
 describe("ResendConfirmationForm (vitrine)", () => {
@@ -46,5 +43,19 @@ describe("ResendConfirmationForm (vitrine)", () => {
       email: "ana@test.local",
       options: { emailRedirectTo: attendu.toString() },
     });
+    expect(screen.getByTestId("resend-confirmation-success")).not.toBeNull();
+  });
+
+  it("affiche l'échec dans un Aviso erreur persistant", async () => {
+    state.resend.mockResolvedValueOnce({ error: { message: "rate_limit" } });
+    render(
+      <NextIntlClientProvider locale="es" messages={loadMessages("es")}>
+        <ResendConfirmationForm email="ana@test.local" />
+      </NextIntlClientProvider>
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("resend-confirmation-button"));
+    });
+    expect(screen.getByTestId("resend-confirmation-error").getAttribute("role")).toBe("alert");
   });
 });

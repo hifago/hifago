@@ -134,7 +134,10 @@ describe("PortadaInicio", () => {
 
     // Le menu, sur DEUX lignes (téléphones) : ses liens perdent `44 − 34` px chacun, lus dans
     // `MenuTiposPortada.tsx` — c'est leur accord avec les marges d'ici qu'on vérifie.
-    const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "MenuTiposPortada.tsx"), "utf8");
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../../../components/organisms/MenuTiposPortada.tsx"),
+      "utf8"
+    );
     expect(source).toContain("md:min-h-11");
     const lienMobile = Number(source.match(/"[^"]*\bmin-h-\[(\d+)px\]/)?.[1]);
     const resserrement = 2 * (44 - lienMobile);

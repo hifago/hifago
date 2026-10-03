@@ -21,7 +21,7 @@ const zocalos = TARJETAS_POR_TIPO.evento[3];
 const SIZES = "(min-width: 1024px) 300px, (min-width: 768px) 45vw, 90vw";
 
 const meta = {
-  title: "Molécules/TeselaOferta",
+  title: "Affichage/TeselaOferta",
   component: TeselaOferta,
   parameters: { layout: "padded" },
   args: { oferta: kayak, locale: "es", labelDesde: "Desde", sizes: SIZES },

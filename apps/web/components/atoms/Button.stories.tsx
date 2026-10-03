@@ -47,19 +47,16 @@ const Croix = () => (
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // Contraste mesuré EN DIRECT, pas recopié.
 //
-// ⚠️ Écrire les ratios en dur dans un commentaire les rend faux au premier changement de jeton —
-// et les jetons light/dark sont en cours d'écriture par un autre agent au moment où ceci est écrit
-// (2026-09-01). Mesuré ici, le chiffre affiché sous chaque bouton reste vrai par construction, et
-// dit immédiatement si un changement de thème casse une combinaison.
+// ⚠️ Écrire les ratios en dur dans un commentaire les rend faux au premier changement de jeton.
+// Mesuré ici, le chiffre affiché sous chaque bouton reste vrai par construction et dit
+// immédiatement si un changement de thème casse une combinaison.
 //
 // La composition (les fonds `soft` sont semi-transparents) est faite par le navigateur lui-même
 // via un canvas 1×1 : aucun parsing d'oklch/color-mix à écrire, et le résultat est celui affiché.
 function contrasteMesure(bouton: HTMLElement): number | null {
   // ⚠️ Le fond de référence est celui d'une PAGE de la vitrine (`--background`), pas celui du body
-  // de Storybook — le playground ne le peint pas, et en mode sombre on mesurerait du texte clair
-  // sur du blanc. `resoudre` le fait évaluer par le moteur sur un élément réel : lu en brut,
-  // `--background` vaut la chaîne `light-dark(clair, sombre)` entière, dont le canvas prendrait
-  // toujours la branche claire.
+  // de Storybook, que le playground ne peint pas. `resoudre` fait évaluer la custom property par
+  // le moteur sur un élément réel au lieu de transmettre son expression CSS brute au canvas.
   // Posé sur une SURFACE (`data-superficie`, plan 41 F3), le fond de référence est le sien : le
   // bouton marine se mesure sur l'or, pas sur le clair.
   const surface = bouton.closest("[data-superficie]");
@@ -95,16 +92,15 @@ function AvecContraste({ legende, children }: { legende: string; children: React
       return window.setTimeout(mesurer, 250);
     };
     let minuteur = planifier();
-    // La barre d'outils pose `data-piste`/`data-mode` sur <html> APRÈS le montage : sans ce
-    // guetteur, un chiffre figé au premier rendu afficherait les contrastes des défauts HeroUI sur
-    // une story déjà passée à une autre piste.
+    // L'addon pose `data-theme` sur <html> APRÈS le montage : le contraste doit être recalculé si
+    // le thème vitrine/admin change dans la barre d'outils.
     const observateur = new MutationObserver(() => {
       window.clearTimeout(minuteur);
       minuteur = planifier();
     });
     observateur.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-piste", "data-mode", "data-theme", "class", "style"],
+      attributeFilter: ["data-theme"],
     });
     return () => {
       window.clearTimeout(minuteur);
@@ -144,19 +140,6 @@ export const Matrice: Story = {
       <Legende>
         Le chiffre sous chaque bouton est son contraste WCAG mesuré au rendu, pas une valeur
         recopiée : il suit les jetons du thème. Seuil du texte : 4.5:1.
-      </Legende>
-      {/* ⚠️ Constat du 2026-09-01, à ne pas confondre avec un défaut de ce composant. Mesuré sur
-          les quatre pistes × deux modes : avec « Aucune piste » (défauts HeroUI = production
-          actuelle), solid/accent rend 3.59:1 et solid/danger 3.48:1, sous le seuil. Avec chacune
-          des quatre pistes candidates de l'agent B (hifago, embalse, zócalo, cal), les douze
-          combinaisons passent, marge la plus serrée 5.84:1. La cible chiffrée pour corriger les défauts HeroUI (dichotomie sur le
-          rendu réel) : luminosité 0.5626 pour --accent et 0.5902 pour --danger. */}
-      <Legende>
-        Une case en rouge vient du THÈME, pas du bouton — la surcouche ne fait que consommer les
-        jetons. Sur « Aucune piste » (les défauts HeroUI, soit la production d&apos;aujourd&apos;hui),
-        solid/accent et solid/danger tombent à 3.59:1 et 3.48:1 : il faudrait descendre la
-        luminosité de --accent à 0.5626 et de --danger à 0.5902, chroma et teinte inchangés. Sur
-        chacune des pistes candidates, en clair comme en sombre, les douze cases passent.
       </Legende>
       {VARIANTS.map((variant) => (
         <div key={variant} className="flex flex-col gap-2">
