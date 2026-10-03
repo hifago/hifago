@@ -29,6 +29,8 @@ export function BotonContacto({
       // ⚠️ Obligatoire dès qu'on ouvre un onglet : sans lui, la page cible reçoit `window.opener`
       // et peut réécrire l'URL de la nôtre. L'atome l'exige, d'où cette prop.
       newTabLabel={etiqueta}
+      // `lg` (48 px, plan 41 F4) : il tient la place du CTA de conversion « Añadir a Mi viaje ».
+      size="lg"
       width="full"
       testId={testId}
     >

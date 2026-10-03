@@ -8,7 +8,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
 import { buildAuthCallbackRedirect } from "@hifago/domain";
-import { Button, Input, Label, TextField } from "@hifago/ui";
+import { Input, Label, TextField } from "@hifago/ui";
+import { Button } from "@/components/atoms/Button";
 import { CamposContrasena } from "@/components/molecules/CamposContrasena";
 import { OAuthSection } from "@/components/molecules/GoogleButton";
 
@@ -102,7 +103,7 @@ export function SignupForm({ next, initialEmail = "" }: { next: string; initialE
             {error}
           </p>
         ) : null}
-        <Button type="submit" isDisabled={isSubmitting} data-testid="signup-submit-button">
+        <Button type="submit" size="lg" isDisabled={isSubmitting} testId="signup-submit-button">
           {isSubmitting ? t("submitting") : t("submit")}
         </Button>
       </form>

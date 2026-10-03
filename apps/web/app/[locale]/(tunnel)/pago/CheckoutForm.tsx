@@ -6,7 +6,8 @@ import { isValidPhoneNumber } from "react-phone-number-input";
 import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
 import { useCart } from "@/lib/cart/CartContext";
-import { Button, Checkbox, Input, Label, TextField } from "@hifago/ui";
+import { Checkbox, Input, Label, TextField } from "@hifago/ui";
+import { Button } from "@/components/atoms/Button";
 import { PhoneField } from "@/components/atoms/PhoneField";
 
 // Raisons qui renvoient `line` (product_id/date de LA ligne fautive) — toujours un sous-ensemble
@@ -344,7 +345,7 @@ export function CheckoutForm({
           </Link>
         ) : null}
 
-        <Button type="submit" isDisabled={isSubmitting || isOrderPlaced} data-testid="submit-order-button">
+        <Button type="submit" size="lg" isDisabled={isSubmitting || isOrderPlaced} testId="submit-order-button">
           {isSubmitting ? t("submitting") : t("submit")}
         </Button>
 

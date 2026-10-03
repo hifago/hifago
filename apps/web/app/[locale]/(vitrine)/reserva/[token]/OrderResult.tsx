@@ -3,7 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { createClient } from "@hifago/supabase/client";
-import { Button, cn } from "@hifago/ui";
+import { cn } from "@hifago/ui";
+import { Button } from "@/components/atoms/Button";
 // ⚠️ `useRouter` d'`@/i18n/navigation`, jamais de `next/navigation` (scripts/check-i18n-links.sh).
 // Ici seul `refresh()` est utilisé — que next-intl conserve tel quel (il ne surcharge que
 // push/replace/prefetch) — mais la règle ne souffre pas d'exception au cas par cas : un jour
@@ -334,10 +335,10 @@ export function OrderResult({ order, locale, isRealAccount, paymentOutcome }: Or
       {isPayable ? (
         <Button
           type="button"
+          size="lg"
           onPress={startPayment}
           isDisabled={isPaying || isRefreshing}
-          data-testid={paymentError ? "retry-payment-button" : "pay-button"}
-          className="w-fit"
+          testId={paymentError ? "retry-payment-button" : "pay-button"}
         >
           {isConfirmingBooking
             ? t("confirmingBooking")

@@ -9,8 +9,8 @@ import { Title } from "@/components/atoms/Title";
 // modifiers/disabled/DayButton custom (dates pleines/dernière place, attribut data-date ciblé par
 // plusieurs specs Playwright) qu'un remplacement ne pourrait pas reproduire à l'identique sans
 // risquer une régression — décision à trancher séparément (cf. hifago/CLAUDE.md, point ouvert).
+import { Button } from "@/components/atoms/Button";
 import {
-  Button,
   DayPickerCalendar as Calendar,
   Input,
   Label,
@@ -358,16 +358,18 @@ export function ReservationForm({
             })}
           </div>
           {edicionesOcultasCount > 0 ? (
-            <Button
-              variant="outline"
-              className="mt-2 rounded-[4px]"
-              data-testid="show-more-editions"
-              onPress={() => setEdicionesVisiblesCount((count) => count + EDICIONES_VISIBLES_INICIALMENTE)}
-            >
-              {t("showMoreEditions", {
-                count: Math.min(EDICIONES_VISIBLES_INICIALMENTE, edicionesOcultasCount),
-              })}
-            </Button>
+            <div className="mt-2">
+              <Button
+                variant="outline"
+                color="neutral"
+                testId="show-more-editions"
+                onPress={() => setEdicionesVisiblesCount((count) => count + EDICIONES_VISIBLES_INICIALMENTE)}
+              >
+                {t("showMoreEditions", {
+                  count: Math.min(EDICIONES_VISIBLES_INICIALMENTE, edicionesOcultasCount),
+                })}
+              </Button>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -406,7 +408,8 @@ export function ReservationForm({
       ) : null}
 
       <Button
-        data-testid="add-to-cart-button"
+        size="lg"
+        testId="add-to-cart-button"
         onPress={handleAddToCart}
         isDisabled={!selectedRow || remaining < 1}
       >

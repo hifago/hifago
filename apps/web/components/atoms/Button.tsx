@@ -44,7 +44,7 @@ import { Button as HeroUIButton, Spinner } from "@hifago/ui";
 // porte à 4.53 et 4.52. Ce fichier ne le fait pas de lui-même, parce qu'un bouton qui assombrit
 // sa couleur cesserait de suivre le thème le jour où le thème sera juste.
 export type ButtonVariant = "solid" | "outline" | "soft" | "ghost";
-export type ButtonColor = "accent" | "neutral" | "danger";
+export type ButtonColor = "accent" | "neutral" | "danger" | "marine";
 export type ButtonSize = "sm" | "md" | "lg";
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -82,6 +82,12 @@ const COLOR_CLASSES: Record<ButtonColor, string> = {
   // Rouge. Réservé à ce qui détruit : annuler une commande, retirer une ligne du panier.
   danger:
     "[--btn-fill:var(--danger)] [--btn-fill-hover:var(--danger-hover)] [--btn-on-fill:var(--danger-foreground)] [--btn-tint:var(--danger-soft)] [--btn-tint-hover:var(--danger-soft-hover)] [--btn-on-tint:var(--danger-soft-foreground)] [--btn-line:var(--danger)]",
+  // Marine (plan 41, item F4). L'action principale posée sur une surface OR, où un bouton or
+  // disparaît : fond marine, texte blanc (13.07:1). Teinte bleu poudre pour `soft`, `ghost` et le
+  // survol d'`outline` ; texte et contour marine. ⚠️ Explicite à l'appel, jamais automatique :
+  // sur une surface claire, l'action principale reste `accent` (or + texte marine).
+  marine:
+    "[--btn-fill:var(--bouton-marine)] [--btn-fill-hover:var(--bouton-marine-survol)] [--btn-on-fill:var(--bouton-marine-texte)] [--btn-tint:var(--default)] [--btn-tint-hover:var(--default-hover)] [--btn-on-tint:var(--charte-marine)] [--btn-line:var(--charte-marine)]",
 };
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
@@ -108,19 +114,46 @@ export const HEROUI_VARIANT: Record<ButtonVariant, "primary" | "secondary" | "ou
 };
 
 /**
- * Le rayon des angles (2026-09-02, demande de Jérôme : « pas autant de border radius, juste 8 px »).
+ * Le rayon des angles : UN SEUL pour tout bouton rectangulaire de la vitrine (plan 41, item F4 ;
+ * arbitrage D4 de Jérôme, 2026-10-02 : 8 px, celui de « Mi viaje » sur l'accueil).
  *
- * ⚠️ Pourquoi `var(--radius)` et pas `rounded-lg` à 8 px fixes : le rayon du bouton n'est PAS une
- * valeur en dur chez HeroUI, il dérive du thème — `.button` porte `rounded-3xl`, et HeroUI
- * redéfinit cette échelle en `calc(var(--radius) * 3)`. Avec les jetons actuels ça fait 24 px, et
- * 36 px sur l'une des pistes candidates (celle dont `--radius` vaut 0.75rem). Reprendre le jeton
- * au facteur 1 donne exactement les 8 px demandés aujourd'hui, ET laisse le bouton suivre la piste
- * que Jérôme adoptera — un 8 px figé rendrait des angles ronds sur une piste qui les veut francs.
+ * ⚠️ Lu dans le jeton `--rayon-bouton` (`packages/ui/src/styles/globals.css`, le double de
+ * `--radius`), jamais écrit en px ici : les champs le lisent aussi (`--field-radius`, item S11),
+ * et le régler se fait à un seul endroit. `.button` de HeroUI porte `rounded-3xl`
+ * (`calc(var(--radius) * 3)`, 12 px) dans la couche `components` ; cette classe vit dans
+ * `utilities` et l'emporte — mesuré au rendu, story `Tailles`.
  *
- * Facteur 1 plutôt que 3 : c'est la seule chose que ce composant décide ici, et elle est visible
- * dans une constante plutôt que noyée dans une classe.
+ * Historique : `var(--radius)` au facteur 1 (4 px) du 2026-09-02 au 2026-10-02.
  */
-const RADIUS_CLASS = "rounded-[var(--radius)]";
+const RADIUS_CLASS = "rounded-[var(--rayon-bouton)]";
+
+/**
+ * Hauteur et texte par taille (plan 41, item F4). ⚠️ 44 px AU MOINS à toutes les tailles et à
+ * toutes les largeurs : HeroUI rétrécit chaque taille de 4 px à partir de `md` (`md:h-10`…), ce qui
+ * mettait tout bouton desktop sous la cible de 44 px. `sm` ne réduit que le padding et la police ;
+ * `lg` (48 px) est RÉSERVÉ aux CTA de conversion — « Añadir a Mi viaje », « Reservar »,
+ * « Confirmar reserva », « Pagar el anticipo », « Iniciar sesión », « Crear cuenta ».
+ *
+ * Mêmes leviers que l'axe couleur : des utilitaires (couche `utilities`), qui battent `.button--lg`
+ * et ses variantes responsives (couche `components`) sans réécrire HeroUI. Écrites en toutes
+ * lettres (Tailwind lit ce fichier comme du texte).
+ */
+const SIZE_CLASSES: Record<ButtonSize, string> = {
+  sm: "h-11 px-3 text-sm font-medium",
+  md: "h-11 px-4 text-base font-semibold",
+  lg: "h-12 px-5 text-base font-semibold",
+};
+
+/** Hauteur et texte d'une taille, partagés avec LinkButton — même bouton, mêmes tailles. */
+export function buttonSizeClasses(size: ButtonSize): string {
+  return SIZE_CLASSES[size];
+}
+
+/**
+ * Le bouton d'icône seule : 44 × 44 px à toutes les tailles, carré ou rond. La taille ne règle plus
+ * que le glyphe (le CSS de HeroUI). Partagé par IconButton et IconLink.
+ */
+export const ICON_SIZE_CLASS = "size-11";
 
 /**
  * La FORME, ajoutée le 2026-09-02 à la demande de Jérôme pour le bouton de la barre de recherche
@@ -161,13 +194,14 @@ export type ButtonProps = {
   children: ReactNode;
   /** La FORME. Jamais la couleur : c'est tout l'intérêt de séparer les deux axes. */
   variant?: ButtonVariant;
-  /** Le RÔLE de l'action : avancer (`accent`), accompagner (`neutral`), détruire (`danger`). */
+  /**
+   * Le RÔLE de l'action : avancer (`accent`), accompagner (`neutral`), détruire (`danger`), avancer
+   * depuis une surface or (`marine`).
+   */
   color?: ButtonColor;
   /**
-   * ⚠️ Défaut `lg`, contrairement au `md` de HeroUI : seul `lg` atteint les 44 px de cible tactile
-   * exigés par components/README.md sur mobile (mesuré : 44 px à 390 px de large, 40 px à 1280).
-   * `md` (40/36) et `sm` (36/32) sont sous la règle et restent réservés aux actions secondaires
-   * répétées dans une liste dense — jamais à une action principale.
+   * `md` par défaut : 44 px. `lg` (48 px) pour les seuls CTA de conversion, `sm` (44 px, texte
+   * 14 px) pour une action répétée dans une liste dense. Voir `SIZE_CLASSES`.
    */
   size?: ButtonSize;
   /**
@@ -198,7 +232,7 @@ export function Button({
   children,
   variant = "solid",
   color = "accent",
-  size = "lg",
+  size = "md",
   shape = "square",
   width = "auto",
   type,
@@ -212,7 +246,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <HeroUIButton
-      className={`${buttonToneClasses(variant, color)} ${SHAPE_CLASSES[shape]}`}
+      className={`${buttonToneClasses(variant, color)} ${SIZE_CLASSES[size]} ${SHAPE_CLASSES[shape]}`}
       variant={HEROUI_VARIANT[variant]}
       size={size}
       fullWidth={width === "full"}

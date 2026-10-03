@@ -184,8 +184,9 @@ export function LanguageSwitcher({ apariencia = "menu", testId }: LanguageSwitch
         ref={declencheur}
         type="button"
         // ⚠️ `min-h-11` : cible tactile de 44 px (components/README.md), comme toute la famille des
-        // boutons. Un sélecteur de langue est une cible qu'on vise au pouce.
-        className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius)] px-3 text-sm font-medium hover:bg-default focus-visible:status-focused"
+        // boutons. Un sélecteur de langue est une cible qu'on vise au pouce. Rayon : celui de tous
+        // les boutons (`--rayon-bouton`, plan 41 F4), visible au survol.
+        className="inline-flex min-h-11 items-center gap-2 rounded-[var(--rayon-bouton)] px-3 text-sm font-medium hover:bg-default focus-visible:status-focused"
         aria-expanded={ouvert}
         aria-controls={idPanneau}
         onClick={() => setOuvert((etat) => !etat)}

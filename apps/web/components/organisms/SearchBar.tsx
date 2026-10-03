@@ -400,11 +400,8 @@ export function SearchBar({
               complètement arrondi, pour qu'il se loge dans la pilule au lieu de la contredire.
               `shape` a été ajouté à l'atome `Button` pour ça, son rayon y était figé dans une
               constante.
-              ⚠️ `md` mesure 36 px de haut au lieu des 44 px que components/README.md exige comme
-              cible tactile. C'est acceptable ICI, et seulement ici, parce que ce bouton n'est
-              visible qu'à partir de `md` (768 px) — sur téléphone, la cible tactile réelle est le
-              champ, qui fait 70 px. À savoir avant de recopier ce réglage sur un bouton visible
-              sur mobile. */}
+              `md` mesure 44 px depuis le plan 41 (item F4) : comme toute la famille, il ne descend
+              plus sous la cible tactile, à aucune largeur. */}
           <Button
             type="button"
             size="md"

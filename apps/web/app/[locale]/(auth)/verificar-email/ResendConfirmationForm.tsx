@@ -5,7 +5,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
 import { buildAuthCallbackRedirect } from "@hifago/domain";
-import { Button, toast } from "@hifago/ui";
+import { toast } from "@hifago/ui";
+import { Button } from "@/components/atoms/Button";
 
 const COOLDOWN_SECONDS = 30;
 
@@ -59,9 +60,10 @@ export function ResendConfirmationForm({ email }: { email: string | null }) {
       <Button
         type="button"
         variant="outline"
+        color="neutral"
         isDisabled={cooldown > 0}
         onPress={handleResend}
-        data-testid="resend-confirmation-button"
+        testId="resend-confirmation-button"
       >
         {cooldown > 0 ? t("resendCooldown", { seconds: cooldown }) : t("resend")}
       </Button>

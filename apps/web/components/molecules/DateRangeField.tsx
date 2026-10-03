@@ -149,15 +149,16 @@ export function FilterTrigger({
   testId?: string;
 }) {
   return (
-    // `size="lg"` : 44 px de cible tactile, exigés par components/README.md — ces deux déclencheurs
-    // restent visibles sur mobile, contrairement au bouton « Buscar » de la barre.
+    // `size="md"` : 44 px de cible tactile à toute largeur, exigés par components/README.md — ces deux
+    // déclencheurs restent visibles sur mobile, contrairement au bouton « Buscar » de la barre.
+    // (`lg` mesure 48 px depuis le plan 41, item F4 : il est réservé aux CTA de conversion.)
     //
     // ⚠️ L'APPARENCE DE LA MAQUETTE DE L'ACCUEIL (Jérôme, 2026-10-01) : plus de pilule bordée ni de
     // chevron — l'icône dans une pastille bleu poudre, le libellé en Poppins à côté, rien d'autre.
     // `ghost` garde le fond au survol et l'anneau de focus : c'est toujours un bouton, il le montre
     // dès qu'on l'approche. Les deux filtres ne vivent que sur l'accueil (`SearchPanel`), d'où un
     // changement d'apparence ici plutôt qu'une variante de plus.
-    <Button variant="ghost" color="neutral" size="lg" shape="pill" isDisabled={isDisabled} testId={testId}>
+    <Button variant="ghost" color="neutral" size="md" shape="pill" isDisabled={isDisabled} testId={testId}>
       {/* La pastille : bleu poudre de la charte, glyphe BLANC comme sur la maquette. Décorative — le
           libellé écrit à côté porte l'information. `text-white` et non un jeton : blanc dans les
           deux modes, lisible sur le bleu poudre du clair comme sur le bleu soutenu du sombre. */}
@@ -167,14 +168,18 @@ export function FilterTrigger({
       >
         {icon}
       </span>
-      {value === null ? (
-        placeholderLabel
-      ) : (
-        <>
-          <span className="sr-only">{`${fieldLabel} : `}</span>
-          {value}
-        </>
-      )}
+      {/* `font-medium` : une PUCE de filtre, pas une action — elle garde la graisse 500 validée sur
+          l'accueil, quand les boutons passent à 600 (plan 41, item F4). */}
+      <span className="font-medium">
+        {value === null ? (
+          placeholderLabel
+        ) : (
+          <>
+            <span className="sr-only">{`${fieldLabel} : `}</span>
+            {value}
+          </>
+        )}
+      </span>
     </Button>
   );
 }

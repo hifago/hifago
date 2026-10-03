@@ -9,7 +9,7 @@ import { createClient } from "@hifago/supabase/client";
 // le conserve tel quel), mais un contrôle rouge qu'on laisse rouge cesse d'en être un.
 import { useRouter } from "@/i18n/navigation";
 import { useCart } from "@/lib/cart/CartContext";
-import { Button } from "@hifago/ui";
+import { Button } from "@/components/atoms/Button";
 import { Card } from "@/components/atoms/Card";
 import { Aviso } from "@/components/molecules/Aviso";
 import { Price } from "@/components/atoms/Price";
@@ -110,10 +110,11 @@ export function CartSummary({ lines, editable, locale }: CartSummaryProps) {
                   <Button
                     type="button"
                     variant="outline"
+                    color="neutral"
                     size="sm"
                     onPress={() => handleRemove(line.id)}
                     isDisabled={removingId === line.id}
-                    data-testid={`remove-line-${line.id}`}
+                    testId={`remove-line-${line.id}`}
                   >
                     {t("removeLine")}
                   </Button>

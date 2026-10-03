@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { useTranslations } from "next-intl";
+import { Button } from "@/components/atoms/Button";
 import {
-  Button,
   DayPickerCalendar as Calendar,
   Input,
   Label,
@@ -228,7 +228,7 @@ export function EventoReservationForm({
         </p>
       ) : null}
 
-      <Button data-testid="add-to-cart-button" onPress={handleAddToCart} isDisabled={!selectedDate || isFull}>
+      <Button size="lg" testId="add-to-cart-button" onPress={handleAddToCart} isDisabled={!selectedDate || isFull}>
         {t("addToCart")}
       </Button>
     </div>

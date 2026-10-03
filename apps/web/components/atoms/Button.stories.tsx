@@ -8,8 +8,8 @@ import { Legende } from "../playground/Legende";
 // Le playground du bouton de la vitrine. Il est fait pour être REGARDÉ d'un coup d'œil, pas
 // manipulé contrôle par contrôle : chaque story montre un axe entier à la fois.
 //
-// À voir aux deux gabarits (Mobile 390 par défaut, Desktop 1280) : les hauteurs changent au
-// breakpoint `md`, et c'est là que se joue la règle des 44 px (voir la story `Tailles`).
+// À voir aux deux gabarits (Mobile 390 par défaut, Desktop 1280) : depuis le plan 41 (item F4),
+// les hauteurs NE changent PLUS au breakpoint `md` — 44 px au moins partout (story `Tailles`).
 const meta = {
   title: "Actions/Button",
   component: Button,
@@ -60,9 +60,12 @@ function contrasteMesure(bouton: HTMLElement): number | null {
   // sur du blanc. `resoudre` le fait évaluer par le moteur sur un élément réel : lu en brut,
   // `--background` vaut la chaîne `light-dark(clair, sombre)` entière, dont le canvas prendrait
   // toujours la branche claire.
+  // Posé sur une SURFACE (`data-superficie`, plan 41 F3), le fond de référence est le sien : le
+  // bouton marine se mesure sur l'or, pas sur le clair.
+  const surface = bouton.closest("[data-superficie]");
   const sonde = document.createElement("div");
   document.body.appendChild(sonde);
-  let fondPage = resoudre(sonde, "var(--background)");
+  let fondPage = surface ? getComputedStyle(surface).backgroundColor : resoudre(sonde, "var(--background)");
   sonde.remove();
   if (!fondPage || fondPage === "rgba(0, 0, 0, 0)") fondPage = "rgb(255,255,255)";
 
@@ -171,8 +174,8 @@ export const Matrice: Story = {
   ),
 };
 
-// Mesure la hauteur RENDUE plutôt que de l'écrire en dur : elle change au breakpoint `md`, et une
-// valeur recopiée deviendrait fausse en silence au premier changement de HeroUI.
+// Mesure la hauteur RENDUE plutôt que de l'écrire en dur : une valeur recopiée deviendrait fausse
+// en silence au premier changement de HeroUI ou des classes de taille.
 function AvecHauteur({ children }: { children: React.ReactNode }) {
   const conteneur = useRef<HTMLDivElement>(null);
   const [hauteur, setHauteur] = useState<number | null>(null);
@@ -193,9 +196,9 @@ function AvecHauteur({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ⚠️ La règle des 44 px de components/README.md, mise à l'épreuve. Basculer sur Desktop 1280 fait
-// perdre 4 px à chaque taille (HeroUI rétrécit à partir de `md`) : seul `lg` sur mobile atteint
-// réellement 44 px, ce qui est la raison du défaut `lg` de ce composant.
+// ⚠️ La règle des 44 px de components/README.md, mise à l'épreuve (plan 41, item F4). HeroUI
+// rétrécit chaque taille de 4 px à partir de `md` ; les classes de taille de l'atome l'en empêchent :
+// `sm` et `md` font 44 px, `lg` 48 px, sur Mobile 390 comme sur Desktop 1280. Même rayon partout.
 export const Tailles: Story = {
   args: { children: "Reservar" },
   render: (args) => (
@@ -207,12 +210,12 @@ export const Tailles: Story = {
       </AvecHauteur>
       <AvecHauteur>
         <Button {...args} size="md">
-          md
+          md (défaut)
         </Button>
       </AvecHauteur>
       <AvecHauteur>
         <Button {...args} size="lg">
-          lg (défaut)
+          lg (conversion)
         </Button>
       </AvecHauteur>
     </div>
@@ -267,6 +270,30 @@ export const Etats: Story = {
           </div>
         </div>
       ))}
+    </div>
+  ),
+};
+
+// La couleur `marine` (plan 41, item F4) : l'action principale posée sur une SURFACE OR, où un
+// bouton or disparaîtrait. Le chiffre est mesuré sur l'or (le fond de la surface), pas sur le clair.
+export const SurLOr: Story = {
+  args: { children: "Ver alojamientos" },
+  render: (args) => (
+    <div data-superficie="or" className="flex flex-col gap-6 rounded-[16px] p-6">
+      {VARIANTS.map((variant) => (
+        <div key={variant} className="flex flex-col gap-2">
+          <Legende>{variant}</Legende>
+          <div className="flex flex-wrap items-center gap-3">
+            <AvecContraste legende="marine">
+              <Button {...args} variant={variant} color="marine" />
+            </AvecContraste>
+          </div>
+        </div>
+      ))}
+      <Legende>
+        Sur l&apos;or, l&apos;action principale est marine + texte blanc ; un bouton or y perd son
+        contour. Sur une surface claire, elle reste or + texte marine (`accent`).
+      </Legende>
     </div>
   ),
 };

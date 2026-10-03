@@ -54,36 +54,50 @@ describe("Button", () => {
     expect(el.className).toContain("button--outline");
   });
 
-  it("prend la taille lg par défaut (44 px de cible tactile sur mobile)", () => {
-    expect(bouton(<Button>A</Button>).className).toContain("button--lg");
-    expect(bouton(<Button size="sm">A</Button>).className).toContain("button--sm");
+  // Plan 41, item F4 : `md` par défaut (44 px), `lg` (48 px) réservé aux CTA de conversion. Les
+  // hauteurs se MESURENT dans la story `Tailles` (jsdom ne calcule pas la cascade) ; ici, le contrat :
+  // la classe de taille de l'atome est posée, et elle ne descend jamais sous `h-11` (44 px).
+  it("prend la taille md par défaut, et 44 px au moins à toutes les tailles", () => {
+    const parDefaut = bouton(<Button>A</Button>).className;
+    expect(parDefaut).toContain("button--md");
+    expect(parDefaut).toContain("h-11");
+    expect(bouton(<Button size="sm">A</Button>).className).toContain("h-11");
+    expect(bouton(<Button size="sm">A</Button>).className).toContain("text-sm");
+    const conversion = bouton(<Button size="lg">A</Button>).className;
+    expect(conversion).toContain("button--lg");
+    expect(conversion).toContain("h-12");
+    expect(conversion).not.toContain("h-11");
   });
 
-  // ⚠️ Le rayon dérive du thème, il n'est pas figé : `.button` de HeroUI porte `rounded-3xl`, que
-  // HeroUI définit comme calc(var(--radius) * 3) — 24 px aujourd'hui, 36 px sur l'une des pistes
-  // candidates. Le bouton reprend le jeton au facteur 1 (8 px avec les jetons actuels, mesuré),
-  // demande de Jérôme du 2026-09-02.
-  // ⚠️ Ce test ne vérifie QUE la moitié testable ici, et son titre le dit maintenant. Deux
-  // assertions tautologiques se sont succédé à cet endroit avant celle-ci (2026-09-02) :
-  // `toContain("button")` — que `button--lg` satisfait toujours — puis
-  // `not.toContain("rounded-3xl")`, tout aussi creuse, parce que `rounded-3xl` vit dans le CSS de
-  // `.button` et n'apparaît JAMAIS dans le className (mesuré : « button button--lg
-  // button--primary […] rounded-[var(--radius)] »).
-  // Que le rayon du composant l'emporte sur celui de HeroUI est un fait de CASCADE CSS, que jsdom
-  // ne calcule pas : il se vérifie au rendu, dans la story `Rayon`, pas ici.
-  it("pose la classe de rayon dérivée du thème", () => {
+  // ⚠️ Le rayon UNIQUE des boutons (plan 41, item F4 ; arbitrage D4 : 8 px) vient du jeton
+  // `--rayon-bouton` (globals.css, le double de `--radius`), pas d'une valeur en dur. Que cette
+  // classe l'emporte sur le `rounded-3xl` de `.button` est un fait de CASCADE CSS, que jsdom ne
+  // calcule pas : il se mesure au rendu (story `Tailles`), pas ici.
+  // Histoire de ce test (2026-09-02) : deux assertions tautologiques s'y sont succédé —
+  // `toContain("button")`, que `button--lg` satisfait toujours, puis `not.toContain("rounded-3xl")`,
+  // tout aussi creuse, `rounded-3xl` vivant dans le CSS de `.button` et jamais dans le className.
+  it("pose la classe du rayon unique des boutons", () => {
     const el = bouton(<Button>A</Button>);
-    expect(el.className).toContain("rounded-[var(--radius)]");
+    expect(el.className).toContain("rounded-[var(--rayon-bouton)]");
   });
 
   // `shape="pill"` (2026-09-02, demande de Jérôme pour le bouton de `organisms/SearchBar`) : un
   // bouton logé dans une forme déjà arrondie doit pouvoir l'être aussi. Deux valeurs seulement —
-  // un rayon libre serait une valeur en dur, qui cesserait de suivre la piste adoptée.
-  it("arrondit complètement avec shape=pill, et suit le thème par défaut", () => {
+  // un rayon libre serait une valeur en dur, qui cesserait de suivre le jeton.
+  it("arrondit complètement avec shape=pill, et suit le rayon des boutons par défaut", () => {
     const pilule = bouton(<Button shape="pill">A</Button>).className;
     expect(pilule).toContain("rounded-full");
-    expect(pilule).not.toContain("rounded-[var(--radius)]");
-    expect(bouton(<Button shape="square">A</Button>).className).toContain("rounded-[var(--radius)]");
+    expect(pilule).not.toContain("rounded-[var(--rayon-bouton)]");
+    expect(bouton(<Button shape="square">A</Button>).className).toContain("rounded-[var(--rayon-bouton)]");
+  });
+
+  // La couleur `marine` (plan 41, item F4) : l'action principale sur une surface or. Elle lit ses
+  // propres jetons — jamais ceux de l'accent, qui disparaîtraient sur l'or.
+  it("pose les jetons du bouton marine avec color=marine", () => {
+    const el = bouton(<Button color="marine">A</Button>).className;
+    expect(el).toContain("[--btn-fill:var(--bouton-marine)]");
+    expect(el).toContain("[--btn-on-fill:var(--bouton-marine-texte)]");
+    expect(el).not.toContain("[--btn-fill:var(--accent)]");
   });
 
   it("passe en pleine largeur avec width=full", () => {

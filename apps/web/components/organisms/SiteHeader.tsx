@@ -117,14 +117,14 @@ function useADefile(actif: boolean) {
 // pour garder exactement la même taille qu'en mobile. `[&>a]` (0,1,1) bat les utilitaires du bouton
 // (0,1,0). `contents` : le `span` n'a pas de boîte, le bouton reste l'élément `flex` du header.
 //
-// Angles un peu plus arrondis, desktop seulement lui aussi (Jérôme, même jour : « arrondir un peu
-// les angles du bouton ») : le DOUBLE du rayon du thème, 8 px au lieu de 4 — un multiple de
-// `--radius` et non une valeur en dur, pour suivre le thème comme `RADIUS_CLASS` (`Button.tsx`).
+// Les angles de 8 px (Jérôme, même jour : « arrondir un peu les angles du bouton ») ne sont plus
+// posés ici : depuis le plan 41 (item F4, arbitrage D4), c'est le rayon de TOUS les boutons, à
+// toute largeur (`RADIUS_CLASS`, `Button.tsx`).
 //
 // ⚠️ Chaîne écrite en toutes lettres : Tailwind lit ce fichier comme du texte, une classe
 // construite n'existerait pas dans le CSS compilé.
 const BOUTON_VIAJE_DESKTOP =
-  "contents md:[&>a]:[--button-bg:var(--btn-fill)] md:[&>a]:[--button-bg-hover:var(--btn-fill-hover)] md:[&>a]:[--button-bg-pressed:var(--btn-fill-hover)] md:[&>a]:[--button-fg:var(--btn-on-fill)] md:[&>a]:[border-color:var(--btn-fill)] md:[&>a]:rounded-[calc(var(--radius)*2)]";
+  "contents md:[&>a]:[--button-bg:var(--btn-fill)] md:[&>a]:[--button-bg-hover:var(--btn-fill-hover)] md:[&>a]:[--button-bg-pressed:var(--btn-fill-hover)] md:[&>a]:[--button-fg:var(--btn-on-fill)] md:[&>a]:[border-color:var(--btn-fill)]";
 
 // SVG inline : `lucide-react` est présent dans node_modules mais déclaré par `packages/ui`, PAS par
 // `apps/web` — l'importer créerait la dépendance fantôme qui a cassé le build Vercel le

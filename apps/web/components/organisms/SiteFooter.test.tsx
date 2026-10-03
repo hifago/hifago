@@ -73,14 +73,14 @@ describe("SiteFooter", () => {
     // ⚠️ RÉÉCRIT LE 2026-09-07. Ce test mesurait `min-h-11` sur les cinq liens institutionnels,
     // qui portaient cette classe eux-mêmes ; ils ont été retirés (pages inexistantes) et le test
     // n'avait plus de sujet. Le seul lien encore servi est le bouton WhatsApp, et il ne porte
-    // AUCUNE classe de hauteur : sa cible vient de la variante `button--lg` du design system,
-    // stylée par les jetons `[data-theme]`. Vérifier ici une classe Tailwind serait vérifier une
-    // implémentation que ce composant n'a pas — la garantie des 44 px appartient à l'atome Button
-    // et à ses propres tests.
+    // AUCUNE classe de hauteur : sa cible vient de la taille de l'atome (`md` par défaut, 44 px à
+    // toute largeur depuis le plan 41, item F4). Vérifier ici une classe Tailwind serait vérifier
+    // une implémentation que ce composant n'a pas — la garantie des 44 px appartient à l'atome
+    // Button et à ses propres tests.
     const { container } = rendu();
     const whatsapp = container.querySelector('[data-testid="footer-whatsapp"]') as HTMLElement;
     expect(whatsapp).not.toBeNull();
-    expect(whatsapp.className).toContain("button--lg");
+    expect(whatsapp.className).toContain("button--md");
   });
 
   // ⚠️ Le lien externe passe par `LinkButton`, qui impose `rel="noopener noreferrer"` (sa prop

@@ -6,7 +6,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
 import { buildAuthCallbackRedirect } from "@hifago/domain";
-import { Button, Input, Label, TextField } from "@hifago/ui";
+import { Input, Label, TextField } from "@hifago/ui";
+import { Button } from "@/components/atoms/Button";
 
 // Adapté d'apps/admin/app/forgot-password/ForgotPasswordForm.tsx (encore vivant côté admin, même
 // besoin ici), localisé via useTranslations, et en utilisant buildAuthCallbackRedirect
@@ -60,7 +61,7 @@ export function ForgotPasswordForm() {
         <Label>{t("email")}</Label>
         <Input type="email" autoComplete="email" />
       </TextField>
-      <Button type="submit" isDisabled={isSubmitting} data-testid="forgot-password-submit">
+      <Button type="submit" isDisabled={isSubmitting} testId="forgot-password-submit">
         {isSubmitting ? t("submitting") : t("submit")}
       </Button>
       <Link href="/entrar" className="self-center text-sm underline">

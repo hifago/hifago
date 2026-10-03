@@ -9,7 +9,8 @@ import { useTranslations } from "next-intl";
 // visiblement, et c'est bien le problème.
 import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
-import { Button, Input, Label, TextField } from "@hifago/ui";
+import { Input, Label, TextField } from "@hifago/ui";
+import { Button } from "@/components/atoms/Button";
 import { OAuthSection } from "@/components/molecules/GoogleButton";
 
 // `callbackFailed` : posé par `page.tsx` depuis `?error=auth_callback_failed`. Cette redirection
@@ -106,7 +107,7 @@ export function LoginForm({ next, callbackFailed = false }: { next: string; call
             {error}
           </p>
         ) : null}
-        <Button type="submit" isDisabled={isSubmitting}>
+        <Button type="submit" size="lg" isDisabled={isSubmitting}>
           {isSubmitting ? t("submitting") : t("submit")}
         </Button>
       </form>

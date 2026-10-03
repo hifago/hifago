@@ -76,12 +76,15 @@ export default async function CartPage({ params }: PageProps<"/[locale]/mi-viaje
             <div className="flex flex-col gap-2 sm:flex-row">
               {/* Rendu, jamais masqué : l'état "pas encore prêt à payer" doit rester visible,
                   pas disparaître (cf. le CTA juste à côté qui dit quoi faire). */}
-              <Button isDisabled width="auto" testId="go-to-checkout">
+              <Button isDisabled size="lg" width="auto" testId="go-to-checkout">
                 {t("goToCheckout")}
               </Button>
               <LinkButton
                 href={campSinAlojamiento.href}
                 variant="outline"
+                // `neutral` : contour bleu moyen. En `accent` (le défaut), le contour était l'or sur
+                // fond clair, 1.96:1 pour 3:1 requis (plan 41, F4).
+                color="neutral"
                 width="auto"
                 testId="choose-lodging-button"
               >
@@ -90,7 +93,7 @@ export default async function CartPage({ params }: PageProps<"/[locale]/mi-viaje
             </div>
           </div>
         ) : (
-          <LinkButton href="/pago" width="auto" testId="go-to-checkout">
+          <LinkButton href="/pago" size="lg" width="auto" testId="go-to-checkout">
             {t("goToCheckout")}
           </LinkButton>
         )

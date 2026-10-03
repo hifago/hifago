@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps 
 import { format, parseISO } from "date-fns";
 import { useTranslations } from "next-intl";
 import type { DateRange } from "react-day-picker";
+import { Button } from "@/components/atoms/Button";
 import {
-  Button,
   DayPickerCalendar as Calendar,
   DayPickerCalendarDayButton,
   Input,
@@ -553,8 +553,9 @@ export function LodgingReservationForm({
             {motivo?.reintentable ? (
               <Button
                 size="sm"
-                variant="secondary"
-                data-testid="pms-availability-retry"
+                variant="solid"
+                color="neutral"
+                testId="pms-availability-retry"
                 onPress={() => setAttempt((value) => value + 1)}
               >
                 {t("pmsAvailabilityRetry")}
@@ -661,7 +662,7 @@ export function LodgingReservationForm({
         </p>
       ) : null}
 
-      <Button data-testid="add-to-cart-button" onPress={handleAddToCart} isDisabled={!canAdd}>
+      <Button size="lg" testId="add-to-cart-button" onPress={handleAddToCart} isDisabled={!canAdd}>
         {t("addToCart")}
       </Button>
     </div>

@@ -1306,6 +1306,18 @@
     --taille-chapo: clamp(1.125rem, 1.02rem + 0.45vw, 1.375rem);
     --taille-prix: clamp(1.5rem, 1.39rem + 0.45vw, 1.75rem);
 
+    /* LES BOUTONS (plan 41, item F4 ; arbitrage D4 de Jérôme, 2026-10-02 : 8 px partout, champs
+       compris). UN rayon pour tout bouton rectangulaire — `Button`, `LinkButton`, `IconButton` et
+       `IconLink` en `square` — lu par `RADIUS_CLASS` (`apps/web/components/atoms/Button.tsx`), et
+       par `--field-radius` (item S11). Le DOUBLE de `--radius` plutôt que 8 px en dur : l'échelle
+       `rounded-*` de HeroUI dérive de `--radius` (4 px), et ce rayon la suit de la même façon.
+       Couleur `marine` du bouton : l'action principale posée sur une surface OR, où un bouton or
+       disparaîtrait. Texte blanc 13.07:1 ; survol éclairci de 8 % vers le blanc. */
+    --rayon-bouton: calc(var(--radius) * 2);
+    --bouton-marine: var(--charte-marine);
+    --bouton-marine-survol: color-mix(in oklab, var(--charte-marine) 92%, oklch(100% 0 0));
+    --bouton-marine-texte: oklch(100% 0 0);
+
     /* Les cinq couleurs de charte, brutes, pour ce qui n'est pas un jeton HeroUI — le motif
        décoratif, les aplats de section, un dégradé de héros. ⚠️ Le bleu ciel n'existe QUE ici :
        il est décoratif, il ne doit jamais porter de texte ni identifier un composant. */
