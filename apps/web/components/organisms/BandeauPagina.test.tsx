@@ -64,6 +64,13 @@ describe("BandeauPagina", () => {
     expect(chapo.className.split(/\s+/)).toEqual(expect.arrayContaining(["chapo", "max-w-[60ch]"]));
   });
 
+  // La page de catégorie (P2) garde le `data-testid` que lit son e2e.
+  it("porte le data-testid du chapô demandé par la page", () => {
+    const racine = rendre({ ...COMPLET, chapoTestId: "categoria-descripcion" });
+    expect(racine.querySelector("[data-testid='categoria-descripcion']")?.tagName).toBe("P");
+    expect(racine.querySelector("[data-testid='bandeau-chapo']")).toBeNull();
+  });
+
   it("n'ajoute aucun bloc vide quand chapô, meta, action et image manquent", () => {
     const racine = rendre();
     for (const suffixe of ["chapo", "meta", "accion", "imagen"]) {
@@ -102,11 +109,21 @@ describe("BandeauPagina", () => {
     expect(rendre().innerHTML).not.toContain("lg:grid-cols-");
   });
 
-  it("garde 24 → 32 px au-dessus et 32 → 48 px au-dessous", () => {
+  it("contenido : garde 24 → 32 px au-dessus et 32 → 48 px au-dessous", () => {
     const grille = rendre().querySelector("h1")!.parentElement!.parentElement as HTMLElement;
     expect(grille.className.split(/\s+/)).toEqual(
       expect.arrayContaining(["pt-6", "pb-8", "sm:pt-8", "sm:pb-12"])
     );
+  });
+
+  // Décision du 2026-10-03 : sur une page déjà or, l'écart du `<main>` (24 px) s'ajoute à la marge
+  // basse ; 0 → 24 px laissent 32 → 56 px visibles sous la recherche, le rythme des rails.
+  it("navegacion : même marge haute, 0 → 24 px au-dessous", () => {
+    const grille = rendre({ variante: "navegacion" }).querySelector("h1")!.parentElement!
+      .parentElement as HTMLElement;
+    const classes = grille.className.split(/\s+/);
+    expect(classes).toEqual(expect.arrayContaining(["pt-6", "pb-0", "sm:pt-8", "sm:pb-6"]));
+    expect(classes).not.toContain("sm:pb-12");
   });
 
   it("reste un Server Component : ni \"use client\", ni @hifago/ui", () => {

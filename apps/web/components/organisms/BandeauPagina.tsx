@@ -23,8 +23,8 @@ import { TituloRubrica } from "@/components/molecules/TituloRubrica";
 //     reste clair. ⚠️ Il doit être un enfant DIRECT du `<main>` de `PageShell pagina`.
 // Collé au header or (même or, sans filet) : `PageShell pagina` n'a pas de padding haut (F7).
 //
-// Disposition : la colonne de la page ; 24 px au-dessus (32 à partir de `sm`), 32 au-dessous (48) ;
-// 12 puis 16 px entre les éléments. L'image (D16 : celle d'une catégorie) passe à droite à partir de
+// Disposition : la colonne de la page ; 24 px au-dessus (32 à partir de `sm`), 32 au-dessous (48) en
+// `contenido`, 0 au-dessous (24) en `navegacion` (voir `contenu`) ; 12 puis 16 px entre les éléments. L'image (D16 : celle d'une catégorie) passe à droite à partir de
 // `lg`, et disparaît en dessous : c'est un DÉCOR (`aria-hidden`), la seule chose qu'on ait le droit
 // de masquer selon la largeur (`.claude/rules/ui.md`).
 //
@@ -48,6 +48,11 @@ export type BandeauPaginaProps = {
   conPunto?: boolean;
   /** La phrase sous le titre, déjà traduite. */
   chapo?: string;
+  /**
+   * Le `data-testid` du chapô, quand un e2e en lit un autre que `<testId>-chapo` : la page de
+   * catégorie garde `categoria-descripcion` (`e2e/categorias.spec.ts`, plan 41, P2).
+   */
+  chapoTestId?: string;
   /** Puces, adresse, lien vers l'établissement… déjà rendus. */
   meta?: ReactNode;
   /** La recherche ou le CTA de la page, déjà rendu. */
@@ -64,6 +69,7 @@ export function BandeauPagina({
   titulo,
   conPunto = true,
   chapo,
+  chapoTestId,
   meta,
   accion,
   imagen,
@@ -75,7 +81,15 @@ export function BandeauPagina({
   const contenu = (
     <div
       className={[
-        "grid gap-x-8 pt-6 pb-8 sm:pt-8 sm:pb-12",
+        // ⚠️ La marge basse dépend de la variante (décision du 2026-10-03, déléguée par Jérôme) : en
+        // `navegacion`, le contenu suit sur le MÊME or, et l'écart de 24 px du `<main>` de
+        // `PageShell pagina` s'y ajoute — 32/48 px ici laissaient 64 puis 80 px vides sous la
+        // recherche, plus que l'écart entre deux rails (32 → 58 px, celui de l'accueil). 0 puis 24 px
+        // ramènent l'espace visible à 32 puis 56 px : un seul rythme sur la page. En `contenido`, la
+        // marge est DANS l'or, avant le clair : elle reste.
+        variante === "navegacion"
+          ? "grid gap-x-8 pt-6 pb-0 sm:pt-8 sm:pb-6"
+          : "grid gap-x-8 pt-6 pb-8 sm:pt-8 sm:pb-12",
         imagen ? "lg:grid-cols-[minmax(0,1fr)_auto]" : "",
       ].join(" ")}
     >
@@ -84,7 +98,7 @@ export function BandeauPagina({
         {volver}
         <TituloRubrica as="h1" texto={titulo} tamano="pagina" punto={conPunto} testId={sousId("titulo")} />
         {chapo ? (
-          <p className="chapo max-w-[60ch]" data-testid={sousId("chapo")}>
+          <p className="chapo max-w-[60ch]" data-testid={chapoTestId ?? sousId("chapo")}>
             {chapo}
           </p>
         ) : null}

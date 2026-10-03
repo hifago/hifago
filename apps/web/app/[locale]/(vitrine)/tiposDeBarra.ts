@@ -18,10 +18,14 @@ import type { Locale } from "@/messages";
 //
 // ⚠️ LE LIBELLÉ VIENT DE `HomePage.tiposPortada.*` DEPUIS LE 2026-10-01, plus de `secciones.*` : la
 // maquette de l'accueil fournie par Jérôme écrit « Alojamiento », « Transporte » et « Retiros » (les
-// camps), là où les pages de listing et le fil d'Ariane gardent « Alojamientos », « Transportes »,
-// « Camps ». Une clé à part plutôt qu'un renommage de `secciones.*` : renommer aurait changé les
-// titres et le fil d'Ariane de pages que la maquette ne couvre pas. Les sections de l'accueil
-// (`page.tsx`) lisent la même clé, pour que le menu et les titres disent la même chose.
+// camps), là où les pages de listing et le fil d'Ariane gardent « Alojamientos », « Transportes ».
+// Une clé à part plutôt qu'un renommage de `secciones.*` : renommer aurait changé les titres et le
+// fil d'Ariane de pages que la maquette ne couvre pas. Les sections de l'accueil (`page.tsx`) lisent
+// la même clé, pour que le menu et les titres disent la même chose.
+// Exception tranchée par Jérôme (plan 41, D8, 2026-10-02, précisée le 2026-10-03) : le type camp se
+// dit « Retiros » en espagnol et « Camps » en anglais, PARTOUT — `secciones`, `tiposPortada`,
+// `masPorTipo`, `tiposSingular`, et « retiro » au lieu de « campamento » dans les phrases (l'URL
+// `/camps` ne change pas). Le singulier ou pluriel d'« Alojamiento »/« Transporte » reste ouvert.
 //
 // ⚠️ Ce module reste SERVEUR (`getTranslations`, pas `useTranslations`) et n'importe de `tipos.ts`
 // que des types/constantes sans dépendance — comme `labelsBuscador.ts`, ça évite de faire entrer le

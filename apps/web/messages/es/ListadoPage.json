@@ -8,9 +8,16 @@
   "cargando": "Cargando…",
   "reintentar": "Reintentar",
   "verCategoria": "Ver todo: {categoria}",
+  "verTipo": {
+    "activity": "Ver todas las actividades",
+    "lodging": "Ver todos los alojamientos",
+    "transport": "Ver todos los transportes",
+    "camp": "Ver todos los retiros",
+    "evento": "Ver todos los eventos"
+  },
   "errorCarga": "No pudimos cargar más ofertas. Vuelve a intentarlo.",
   "conteo": "{cargadas} de {total, plural, one {# oferta} other {# ofertas}}",
-  "campLodgingHint": "Elige un alojamiento para las {count, plural, one {# noche} other {# noches}} de tu campamento.",
+  "campLodgingHint": "Elige un alojamiento para las {count, plural, one {# noche} other {# noches}} de tu retiro.",
   "eventLodgingHint": "Elige un alojamiento para la noche de tu evento.",
   "emptyState": {
     "titulo": "No encontramos ofertas con esos criterios.",
@@ -34,7 +41,7 @@
       "descripcion": "Todo lo que todavía no entra en una categoría."
     },
     "camp": {
-      "nombre": "Otros camps",
+      "nombre": "Otros retiros",
       "descripcion": "Todo lo que todavía no entra en una categoría."
     },
     "evento": {

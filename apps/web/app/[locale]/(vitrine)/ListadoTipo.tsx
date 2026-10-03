@@ -1,12 +1,14 @@
 import { cache } from "react";
 import type { Metadata } from "next";
+import NextImage from "next/image";
 import { getTranslations } from "next-intl/server";
 import { todayInBogota } from "@hifago/domain";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { LinkButton } from "@/components/atoms/LinkButton";
 import { PageShell } from "@/components/atoms/PageShell";
-import { Title } from "@/components/atoms/Title";
 import { Migas } from "@/components/molecules/Migas";
 import { EstadoVacio } from "@/components/molecules/EstadoVacio";
+import { BandeauPagina } from "@/components/organisms/BandeauPagina";
 import { ListadoInfinito } from "@/components/organisms/ListadoInfinito";
 import { SLUG_SIN_TAG, buscarCategorias, buscarTipo } from "@/lib/catalog/buscar";
 import {
@@ -18,7 +20,7 @@ import {
   type ParamsBrutos,
 } from "@/lib/catalog/criterios";
 import { segmentoDeTipo } from "@/lib/catalog/segmentos";
-import type { TipoOferta } from "@/lib/catalog/tipos";
+import type { FotoTarjeta, TipoOferta } from "@/lib/catalog/tipos";
 import { buildBreadcrumbJsonLd } from "@/lib/seo/jsonld/breadcrumb";
 import { migasConCriterios, migasParaJsonLd } from "@/lib/seo/migas";
 import { buildPageMetadata } from "@/lib/seo/pageMetadata";
@@ -69,6 +71,11 @@ export type CategoriaDeListado = {
   nombre: string;
   /** Déjà résolu, `null` si la catégorie n'est pas rédigée. */
   descripcion: string | null;
+  /**
+   * L'image saisie dans l'admin (`catalog_tags.image_path`), `null` sans image et pour la catégorie
+   * de rattrapage. Décor du bandeau (plan 41, D16) : elle ne s'affichait nulle part avant P2.
+   */
+  foto: FotoTarjeta | null;
   esSinTag: boolean;
   /** cf. `CategoriaConTarjetas.localesNativas` — portée jusqu'ici pour `metadataCategoria`. */
   localesNativas: string[];
@@ -104,6 +111,7 @@ export async function resolverCategoria(
       slug: SLUG_SIN_TAG,
       nombre: t(`sinTag.${tipo}.nombre`),
       descripcion: t(`sinTag.${tipo}.descripcion`),
+      foto: null,
       esSinTag: true,
       localesNativas: encontrada.localesNativas,
     };
@@ -113,6 +121,7 @@ export async function resolverCategoria(
     slug: encontrada.slug,
     nombre: encontrada.nombre,
     descripcion: encontrada.descripcion,
+    foto: encontrada.foto,
     esSinTag: false,
     localesNativas: encontrada.localesNativas,
   };
@@ -251,7 +260,10 @@ export async function ListadoTipo({
   if (categoria?.esSinTag) parametros.set("sinTag", "1");
 
   return (
-    <PageShell variant="large">
+    // LA PAGE OR ENTIÈRE, comme l'index par type (plan 41, P2 ; arbitrage D1 = A : on parcourt sur
+    // l'or). `pagina` : la colonne de l'accueil (F7, 960 px) ; `acento` : la surface or, header
+    // compris.
+    <PageShell variant="pagina" fondo="acento">
       {/* ⚠️ Le JSON-LD est rendu ICI, côté serveur, et jamais dans `Migas` : règle SEO 6 du dépôt —
           le composant affiche, la route décrit. Les deux sortent de la MÊME liste `migas` — jamais
           recalculés séparément, ce qui garantit qu'ils ne peuvent pas diverger en STRUCTURE (chemin,
@@ -266,46 +278,65 @@ export async function ListadoTipo({
         data={buildBreadcrumbJsonLd(getSiteUrl(), migasParaJsonLd(migas, locale, rutaCanonica))}
       />
 
-      <Migas items={migasVisibles} etiqueta={t("migasEtiqueta")} locale={locale} testId="migas" />
-
-      {/* ⚠️ VISIBLE, contrairement au `<h1>` masqué de l'accueil (décision 5) : la règle « rien
-          au-dessus du bloc de recherche » du cahier §2a ne vaut que pour l'accueil. Sur une page
-          de listing, un titre masqué laisserait le visiteur deviner où il a atterri. */}
-      <Title as="h1">{titulo}</Title>
-
-      {/* ⚠️ Le texte de la catégorie, et c'est le SEUL contenu rédactionnel indexable de cette page
-          (décision 7) : sans lui elle n'aurait que des cartes, comme des milliers d'autres. Absent
-          sur les quatre listings, et absent d'une catégorie non encore rédigée — auquel cas le
-          titre se suffit, et aucun bloc vide ne s'ouvre. */}
-      {categoria?.descripcion ? (
-        <p className="max-w-prose text-base text-muted" data-testid="categoria-descripcion">
-          {categoria.descripcion}
-        </p>
-      ) : null}
-
-      {/* ⚠️ `atajosTipo={[]}` : les raccourcis de type n'ont aucun sens ici — la page ne connaît
-          qu'un type et n'a pas compté les autres. Un raccourci vers une section qu'elle n'a pas
-          mesurée mènerait peut-être à une page vide, ce que la Tranche 2 de la spec 28 s'était
-          justement interdit.
-          ⚠️ Et ce composant navigue vers `/`, pas vers la page courante : c'est la décision 10 —
-          le site n'a qu'UN écran de résultats. Aucune adaptation n'a été nécessaire, il poussait
-          déjà vers l'accueil. */}
-      <BuscadorInicio
-        criteriosIniciales={criterios}
-        aujourdIso={todayInBogota()}
-        localeCodigo={locale}
-        labels={labels}
-        atajosTipo={[]}
+      {/* Le bandeau (S2), variante `navegacion` : la page est déjà or, il n'a pas de fond propre.
+          Il porte le SEUL `<h1>`, à point, VISIBLE, contrairement à l'ancien `<h1>` masqué de
+          l'accueil (décision 5) : la règle « rien au-dessus du bloc de recherche » du cahier §2a ne
+          valait que pour l'accueil. Sur une page de listing, un titre masqué laisserait le visiteur
+          deviner où il a atterri. */}
+      <BandeauPagina
+        variante="navegacion"
+        migas={<Migas items={migasVisibles} etiqueta={t("migasEtiqueta")} locale={locale} testId="migas" />}
+        titulo={titulo}
+        // ⚠️ Le texte de la catégorie est le SEUL contenu rédactionnel indexable de cette page
+        // (décision 7) : sans lui elle n'aurait que des cartes, comme des milliers d'autres. Il est
+        // le chapô du bandeau, et garde le `data-testid` que lit `e2e/categorias.spec.ts`. Absent
+        // d'une catégorie non encore rédigée : le titre se suffit, aucun bloc vide ne s'ouvre.
+        chapo={categoria?.descripcion ?? undefined}
+        chapoTestId="categoria-descripcion"
+        // L'image de la catégorie (D16), saisie dans l'admin et affichée nulle part jusqu'ici : un
+        // décor à droite à partir de `lg` (`alt=""`, le bandeau la masque dessous), carré et
+        // arrondi comme une tuile. Sans image, rien : aucun emplacement vide.
+        imagen={
+          categoria?.foto ? (
+            <div className="relative size-40 overflow-hidden rounded-[16px] bg-[var(--default)]">
+              <NextImage src={categoria.foto.url} alt="" fill sizes="160px" className="object-cover" />
+            </div>
+          ) : undefined
+        }
+        accion={
+          // ⚠️ `atajosTipo={[]}` : les raccourcis de type n'ont aucun sens ici — la page ne connaît
+          // qu'un type et n'a pas compté les autres. Un raccourci vers une section qu'elle n'a pas
+          // mesurée mènerait peut-être à une page vide, ce que la Tranche 2 de la spec 28 s'était
+          // justement interdit.
+          // ⚠️ Et ce composant navigue vers `/`, pas vers la page courante : c'est la décision 10 —
+          // le site n'a qu'UN écran de résultats.
+          <BuscadorInicio
+            criteriosIniciales={criterios}
+            aujourdIso={todayInBogota()}
+            localeCodigo={locale}
+            labels={labels}
+            atajosTipo={[]}
+          />
+        }
       />
 
       {tarjetas.length === 0 ? (
         // Deux états vides distincts, et la différence compte pour le visiteur : « ta recherche ne
         // donne rien » n'est pas « cette section est encore vide ». Le second n'invite pas à
         // changer des critères qui n'existent pas.
+        //
+        // L'action (S8) remonte d'un niveau, vers l'index du type, critères conservés comme dans le
+        // fil d'Ariane : elle élargit la recherche à toutes les catégories, ce que la barre
+        // au-dessus ne fait pas. Bouton `marine` : un bouton or disparaîtrait sur l'or (F4).
         <EstadoVacio
           titulo={hayCriterios(criterios) ? t("emptyState.titulo") : t("sinOfertas.titulo")}
           descripcion={
             hayCriterios(criterios) ? t("emptyState.descripcion") : t("sinOfertas.descripcion")
+          }
+          accion={
+            <LinkButton href={`/${segmento}${sufijoCriterios}`} color="marine" testId="estado-vacio-ver-tipo">
+              {t(`verTipo.${tipo}`)}
+            </LinkButton>
           }
           testId="estado-vacio"
         />

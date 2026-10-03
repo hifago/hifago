@@ -7,7 +7,7 @@
   "totalNow": "Total a pagar ahora",
   "removeLine": "Quitar",
   "goToCheckout": "Reservar",
-  "lodgingRequiredNotice": "Tu campamento requiere un alojamiento en tu viaje que cubra sus {count, plural, one {# noche} other {# noches}} antes de reservar.",
+  "lodgingRequiredNotice": "Tu retiro requiere un alojamiento en tu viaje que cubra sus {count, plural, one {# noche} other {# noches}} antes de reservar.",
   "chooseLodging": "Elige tu alojamiento",
   "pendingOrdersTitle": "Tienes reservas pendientes de pago:",
   "pendingOrderLink": "Reserva {reference}"

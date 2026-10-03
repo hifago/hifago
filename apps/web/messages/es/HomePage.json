@@ -11,7 +11,7 @@
     "activity": "Actividades",
     "lodging": "Alojamientos",
     "transport": "Transportes",
-    "camp": "Camps",
+    "camp": "Retiros",
     "evento": "Eventos"
   },
   "tiposPortada": {
@@ -25,7 +25,7 @@
     "activity": "Actividad",
     "lodging": "Alojamiento",
     "transport": "Transporte",
-    "camp": "Camp",
+    "camp": "Retiro",
     "evento": "Evento"
   },
   "verMas": "Ver más",
@@ -34,7 +34,7 @@
     "activity": "Más actividades",
     "lodging": "Más alojamientos",
     "transport": "Más transportes",
-    "camp": "Más camps",
+    "camp": "Más retiros",
     "evento": "Más eventos"
   },
   "precioDesde": "Desde",

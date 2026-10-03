@@ -59,8 +59,17 @@ function tarjetas(cantidad: number): OfertaTarjeta[] {
 const meta = {
   title: "Affichage/ListadoInfinito",
   component: ListadoInfinito,
+  // Sur l'or, sa seule page : la catégorie (plan 41, P2). Son bouton `marine` et son décompte marine
+  // s'y jugent, pas sur le clair.
+  decorators: [
+    (Story) => (
+      <div data-superficie="or" className="p-4 sm:p-6">
+        <Story />
+      </div>
+    ),
+  ],
   parameters: {
-    layout: "padded",
+    layout: "fullscreen",
     // Les cartes passent par le `Link` de next-intl, qui lit le contexte de route — `null` hors
     // d'une route Next, et rien ne s'afficherait. Même geste que `SeccionOfertas`.
     nextjs: { appDirectory: true, navigation: { pathname: "/alojamientos" } },
