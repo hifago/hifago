@@ -1,5 +1,11 @@
 {
   "title": "Completa tu reserva",
+  "formTitle": "Tus datos",
+  "tripRange": "Del {start} al {end}",
+  "tripSingle": "El {start}",
+  "emptyCart": "Tu viaje está vacío.",
+  "emptyCartDescription": "Explora experiencias y arma tu próxima escapada a Guatapé.",
+  "exploreActivities": "Explorar actividades",
   "holderName": "Nombre completo",
   "holderPhone": "WhatsApp",
   "holderPhoneCountry": "Indicativo del país",

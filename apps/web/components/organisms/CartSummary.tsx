@@ -217,7 +217,8 @@ export function CartSummary({
         <Card contentGap="md" padding="lg" testId="trip-summary">
           {liste}
         </Card>
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-6">
+        {/* `top-24` : sous le header collant (`SiteHeader`, `h-16`), avec 32 px d'air. */}
+        <aside className="flex flex-col gap-4 lg:sticky lg:top-24">
           <Card contentGap="md" padding="lg" testId="trip-recap">
             {totaux}
             {action}
