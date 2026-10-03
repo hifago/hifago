@@ -1314,6 +1314,9 @@
        Couleur `marine` du bouton : l'action principale posée sur une surface OR, où un bouton or
        disparaîtrait. Texte blanc 13.07:1 ; survol éclairci de 8 % vers le blanc. */
     --rayon-bouton: calc(var(--radius) * 2);
+    /* Le champ prend le rayon des boutons (plan 41, item S11 ; D4 : « champs compris »). Remplace,
+       pour la charte, le `var(--radius)` des miroirs plus haut ; `rounded-field` de HeroUI le lit. */
+    --field-radius: var(--rayon-bouton);
     --bouton-marine: var(--charte-marine);
     --bouton-marine-survol: color-mix(in oklab, var(--charte-marine) 92%, oklch(100% 0 0));
     --bouton-marine-texte: oklch(100% 0 0);
@@ -1501,6 +1504,83 @@
     line-height: 1.2;
     letter-spacing: normal;
     font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ==============================================================================================
+ * LES CHAMPS DE FORMULAIRE (plan 41, item S11)
+ * ==============================================================================================
+ *
+ * Posé sur les classes BEM de HeroUI (`.input`, `.textarea`, `.select__trigger`, `.label`…) et pas
+ * dans les atomes : les écrans d'authentification, de profil et de paiement composent encore leurs
+ * champs avec les primitives HeroUI brutes, et leurs `data-testid` (dont dépendent les e2e) ne
+ * survivraient pas à un passage par `Field`. D'ici, la règle atteint TOUS les champs de la vitrine,
+ * sans toucher au DOM. Rayon : `--field-radius` (bloc de la charte, = `--rayon-bouton`).
+ *
+ * `@layer components`, comme le CSS de HeroUI : à couche égale, `[data-theme="vitrine"] .input`
+ * (0,2,0) bat `.input` (0,1,0), y compris son `sm:text-sm` ; tout utilitaire d'un atome
+ * (`min-h-12`) le bat encore.
+ *
+ *   - Hauteur 48 px (HeroUI : 42 px sur mobile, 38 px sur desktop, mesurés).
+ *   - Focus : contour de 2 px `--focus`, DÉCALÉ de 2 px — un `outline`, pas l'anneau collé de
+ *     HeroUI (`box-shadow`) : le décalage laisse voir le fond de la surface, or ou clair.
+ *   - Erreur : la BORDURE passe au rouge (les trois jetons de bordure redéfinis sur le champ, donc
+ *     survol et focus compris), au lieu du liseré extérieur de HeroUI collé à la bordure bleue ;
+ *     focus rouge. Le message porte une icône (croix cerclée, celle de l'`Aviso` d'erreur) :
+ *     l'erreur ne se lit pas qu'à la couleur.
+ *   - Libellé 15 px (Poppins 500, marine) ; aide et erreur 14 px (HeroUI : 12 px).
+ *   - Case à cocher : 20 px, libellé 15 px.
+ * ============================================================================================== */
+@layer components {
+  [data-theme="vitrine"] :is(.input, .textarea, .select__trigger) {
+    min-height: 3rem;
+  }
+
+  [data-theme="vitrine"] :is(.input, .textarea, .select__trigger):is([data-invalid="true"], [aria-invalid="true"]),
+  [data-theme="vitrine"] .select:is([data-invalid="true"]) .select__trigger {
+    --field-border: var(--danger);
+    --field-border-hover: var(--danger);
+    --field-border-focus: var(--danger);
+    outline: none;
+  }
+
+  [data-theme="vitrine"] :is(.input, .textarea):is(:focus, [data-focused="true"]),
+  [data-theme="vitrine"] .select__trigger:is(:focus-visible, [data-focus-visible="true"]) {
+    box-shadow: none;
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  [data-theme="vitrine"] :is(.input, .textarea):is([data-invalid="true"], [aria-invalid="true"]):is(:focus, [data-focused="true"]) {
+    outline-color: var(--danger);
+  }
+
+  [data-theme="vitrine"] .label {
+    font-size: 0.9375rem;
+  }
+
+  [data-theme="vitrine"] :is(.description, .error-message, .field-error) {
+    font-size: 0.875rem;
+  }
+
+  [data-theme="vitrine"] .error-message::before {
+    content: "";
+    display: inline-block;
+    width: 1.15em;
+    height: 1.15em;
+    margin-inline-end: 0.35em;
+    vertical-align: -0.2em;
+    background-color: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M15 9l-6 6M9 9l6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
+  [data-theme="vitrine"] .checkbox__control {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  [data-theme="vitrine"] .checkbox__content {
+    font-size: 0.9375rem;
   }
 }
 

@@ -55,12 +55,16 @@ export type PhoneFieldProps = {
 
 const LOCALE_LABELS = { es, en } as const;
 
+// UN SEUL GROUPE VISUEL (plan 41, item S11) : l'indicatif et le numéro sont collés, arrondis
+// seulement sur leurs bords extérieurs ; la bordure droite de l'indicatif sert de filet de
+// séparation (le numéro n'a pas de bordure gauche). Deux boîtes espacées se lisaient comme deux
+// champs. Le focus reste visible sur chaque partie : c'est un `outline` décalé (thème vitrine).
 function PhoneFieldContainer({ children }: { children: React.ReactNode }) {
-  return <div className="flex gap-2">{children}</div>;
+  return <div className="flex">{children}</div>;
 }
 
 function PhoneFieldInput(props: React.ComponentProps<"input">) {
-  return <input {...props} className={`input ${FIELD_MIN_HEIGHT} w-full`} />;
+  return <input {...props} className={`input ${FIELD_MIN_HEIGHT} w-full min-w-0 rounded-l-none border-l-0`} />;
 }
 
 function PhoneFieldCountrySelect({
@@ -91,7 +95,7 @@ function PhoneFieldCountrySelect({
     <select
       // ⚠️ `truncate` (overflow-hidden + ellipsis) : sans lui, un `<select>` natif coupe le nom du
       // pays choisi net, sans "…" — constaté visuellement sur "Colombia" → "Colomb" à `w-24`.
-      className={`input ${FIELD_MIN_HEIGHT} w-28 truncate shrink-0`}
+      className={`input ${FIELD_MIN_HEIGHT} w-28 truncate shrink-0 rounded-r-none`}
       value={value ?? "ZZ"}
       disabled={disabled}
       name={name}
