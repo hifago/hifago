@@ -141,10 +141,12 @@ export type CalendarProps = CalendarBase &
 //     `text-accent-foreground`, 6,31:1), inchangés ; milieu de plage : bleu poudre et marine ;
 //   - jours de la semaine : Poppins 600 12 px, majuscules, bleu moyen (`--link`) ;
 //   - jour désactivé : lisible, en `--muted`, SANS les deux estompes empilées (voir plus bas,
-//     `CLASSES_CASE`) ; jour complet : le barré que les formulaires posent sur la CASE est reporté
-//     sur le BOUTON, qui ne l'hérite pas (contrôle de formulaire) — il n'était jamais visible — et
-//     leur `opacity-60` est retiré pour la même raison de contraste (vu au rendu : une fin de
-//     séjour sur une nuit complète s'affichait or délavé) ;
+//     `CLASSES_CASE`) ; jour complet : le barré que les formulaires posent sur la CASE est aussi
+//     posé sur le BOUTON. Au rendu du 2026-10-03, Edge le propageait déjà jusqu'au chiffre ; la règle
+//     ne dépend plus de cette propagation, que l'en-tête de ce fichier a vue échouer ailleurs. Leur
+//     `opacity-60` est retiré pour la même raison de contraste que plus bas : avant, un jour
+//     complet s'affichait à 0,3 d'opacité, et une fin de séjour sur une nuit complète en or
+//     délavé ;
 //   - aujourd'hui : souligné, comme dans ce wrapper ;
 //   - prix et places sous le jour : 11 px, `--muted` hors sélection.
 // `w-full` bat `w-fit` par tailwind-merge : react-day-picker joint `classNames.root` puis le
