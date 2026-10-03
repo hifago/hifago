@@ -130,7 +130,10 @@ lancer "Corpus d'instructions (tailles, renvois)"    npm run check:instructions
 # remplie. L'étape « pour information seulement » qui doublait celle-ci en `|| true` est supprimée :
 # un signal qui ne peut pas échouer n'est pas lu, et celui-là avait masqué js-yaml et
 # @vitest/mocker, tous deux réparables.
-lancer "Dépendances sans vulnérabilité haute"        npm audit --audit-level=high
+# 2026-10-03 : un avis sans AUCUNE version corrigée (braces, outillage de lint) rendait ce contrôle
+# rouge partout sans geste possible → scripts/check-npm-audit.sh : production toujours à zéro, audit
+# complet hors exemptions NOMMÉES, et une exemption périmée fait échouer (la liste ne peut que rétrécir).
+lancer "Dépendances sans vulnérabilité haute"        bash scripts/check-npm-audit.sh
 
 # Le détail ne s'affiche que pour ce qui a échoué : un log qui imprime aussi les 11 contrôles verts
 # enterre les 2 lignes qui comptent, et c'est ce qui rendait le diagnostic long en CI.
