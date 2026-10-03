@@ -97,7 +97,6 @@ export const PEDIDOS_POR_TOKEN: Record<string, OrderForDisplay> = {
   "token-anulado": pedido({
     id: "o-58",
     reference: "HFG-000058",
-    paymentStatus: "paid",
     lines: LINEAS_VIAJE.map((l) => ({ ...l, status: "cancelled_by_client" })),
   }),
   "token-mixto": pedido({

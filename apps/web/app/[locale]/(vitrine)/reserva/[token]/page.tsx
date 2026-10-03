@@ -4,7 +4,6 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { getOrderByToken } from "@/lib/orders/getOrderByToken";
 import { viewerIsRealAccount } from "@/lib/auth/viewer";
 import { PageShell } from "@/components/atoms/PageShell";
-import { Title } from "@/components/atoms/Title";
 import { OrderResult } from "./OrderResult";
 import type { Locale } from "@/messages";
 
@@ -29,7 +28,7 @@ import type { Locale } from "@/messages";
 // la commande, `lib/auth/` résout qui regarde.
 
 export async function generateMetadata(
-  props: Omit<PageProps<"/[locale]/reserva/[token]">, "searchParams">
+  props: Omit<PageProps<"/[locale]/reserva/[token]">, "searchParams">,
 ): Promise<Metadata> {
   const { locale } = await props.params;
   const t = await getTranslations({ locale, namespace: "OrderResultPage" });
@@ -44,7 +43,6 @@ export default async function OrderResultPage({
 }: PageProps<"/[locale]/reserva/[token]">) {
   const { locale, token } = await params;
   setRequestLocale(locale);
-  const t = await getTranslations("OrderResultPage");
 
   // Les deux lectures sont indépendantes — les enchaîner ajoutait un aller-retour réseau complet
   // sur le chemin CHAUD de cet écran : au retour de Mercado Pago le visiteur a une session (posée
@@ -69,13 +67,14 @@ export default async function OrderResultPage({
   const resolvedSearchParams = await searchParams;
   const paymentParam = resolvedSearchParams?.payment;
   const paymentOutcome =
-    paymentParam === "approved" || paymentParam === "pending" || paymentParam === "rejected"
+    paymentParam === "approved" ||
+    paymentParam === "pending" ||
+    paymentParam === "rejected"
       ? paymentParam
       : null;
 
   return (
-    <PageShell variant="narrow" testId="order-result-page">
-      <Title as="h1">{t("title", { reference: order.reference })}</Title>
+    <PageShell variant="pagina" testId="order-result-page">
       <OrderResult
         order={order}
         locale={locale as Locale}

@@ -28,7 +28,9 @@ vi.mock("@hifago/supabase/client", () => ({
   createClient: () => ({
     rpc: (name: string, args: unknown) => {
       rpcMock(name, args);
-      return Promise.resolve(intentResponses.shift() ?? { data: null, error: { message: "épuisé" } });
+      return Promise.resolve(
+        intentResponses.shift() ?? { data: null, error: { message: "épuisé" } },
+      );
     },
   }),
 }));
@@ -68,7 +70,10 @@ const fetchMock = vi.fn();
 let reserveNightsResponse: () => Promise<Response>;
 
 function json(status: number, body: unknown) {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 beforeEach(() => {
@@ -81,7 +86,9 @@ beforeEach(() => {
   fetchMock.mockImplementation((url: string) =>
     url === "/api/pms/reserve-nights"
       ? reserveNightsResponse()
-      : Promise.resolve(json(503, { ok: false, reason: "mercadopago_unavailable" }))
+      : Promise.resolve(
+          json(503, { ok: false, reason: "mercadopago_unavailable" }),
+        ),
   );
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -90,10 +97,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function ecran(order: OrderForDisplay) {
+function ecran(order: OrderForDisplay, isRealAccount = true) {
   return (
     <NextIntlClientProvider locale="es" messages={loadMessages("es")}>
-      <OrderResult order={order} locale="es" isRealAccount paymentOutcome={null} />
+      <OrderResult
+        order={order}
+        locale="es"
+        isRealAccount={isRealAccount}
+        paymentOutcome={null}
+      />
     </NextIntlClientProvider>
   );
 }
@@ -107,7 +119,10 @@ const COMMANDE_DEFAITE: OrderForDisplay = {
   ...ORDER,
   totalCop: 0,
   acompteCop: 0,
-  lines: ORDER.lines.map((line) => ({ ...line, status: "cancelled_by_provider" })),
+  lines: ORDER.lines.map((line) => ({
+    ...line,
+    status: "cancelled_by_provider",
+  })),
 };
 
 async function payer(container: HTMLElement) {
@@ -116,22 +131,96 @@ async function payer(container: HTMLElement) {
   });
 }
 
-const appelsReserveNights = () => fetchMock.mock.calls.filter(([url]) => url === "/api/pms/reserve-nights");
-const appelsPaymentsCreate = () => fetchMock.mock.calls.filter(([url]) => url === "/api/payments/create");
-const manquant = { data: { ok: false, reason: "pms_booking_missing" }, error: null };
+const appelsReserveNights = () =>
+  fetchMock.mock.calls.filter(([url]) => url === "/api/pms/reserve-nights");
+const appelsPaymentsCreate = () =>
+  fetchMock.mock.calls.filter(([url]) => url === "/api/payments/create");
+const manquant = {
+  data: { ok: false, reason: "pms_booking_missing" },
+  error: null,
+};
+
+describe("OrderResult — charte P7", () => {
+  it("rend le bandeau, les états, les dates et les montants sans perdre les sélecteurs du parcours", () => {
+    const container = render(ecran(ORDER, false)).container;
+
+    expect(container.querySelectorAll("h1")).toHaveLength(1);
+    expect(container.querySelector("h1")?.textContent).toBe(
+      "Reserva HFG-000042",
+    );
+    expect(
+      container
+        .querySelector('[data-testid="order-status-unpaid"]')
+        ?.getAttribute("data-tono"),
+    ).toBe("alerta");
+
+    const avisoEstado = container.querySelector(
+      '[data-testid="order-state-unpaid"]',
+    );
+    expect(avisoEstado?.getAttribute("role")).toBe("status");
+    expect(avisoEstado?.getAttribute("data-tono")).toBe("alerta");
+    expect(
+      container.querySelector('[data-testid="pay-button"]'),
+    ).not.toBeNull();
+
+    expect(
+      container
+        .querySelector('[data-testid="line-status-ligne-1"]')
+        ?.getAttribute("data-tono"),
+    ).toBe("neutro");
+    expect(
+      container.querySelector('[data-testid="order-line-ligne-1"]')
+        ?.textContent,
+    ).toMatch(/1.*3.*abr/i);
+    expect(
+      container.querySelector('[data-testid="order-line-ligne-1"]')
+        ?.textContent,
+    ).not.toContain("2029-04");
+
+    const montant = container.querySelector(
+      '[data-testid="line-total-ligne-1"]',
+    )?.parentElement;
+    expect(montant?.className).toContain("font-semibold");
+    expect(montant?.className).toContain("text-right");
+    expect(
+      container.querySelector('[data-testid="order-total"]')?.closest("dl")
+        ?.className,
+    ).toContain("bg-[var(--default)]");
+
+    expect(container.querySelector("section dl")).not.toBeNull();
+    expect(
+      container
+        .querySelector('[data-testid="keep-link"]')
+        ?.getAttribute("data-tono"),
+    ).toBe("info");
+    expect(
+      container.querySelector('[data-testid="create-account-link"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="guest-cancel-hint"]'),
+    ).not.toBeNull();
+  });
+});
 
 describe("OrderResult — pms_booking_missing : reserve-nights, puis UN seul nouvel intent", () => {
   it("booking posé → un second intent, et le paiement part avec SON payment_id", async () => {
-    intentResponses = [manquant, { data: { ok: true, payment_id: "paiement-2" }, error: null }];
+    intentResponses = [
+      manquant,
+      { data: { ok: true, payment_id: "paiement-2" }, error: null },
+    ];
     reserveNightsResponse = async () => json(200, { ok: true });
     const container = rendre();
     await payer(container);
 
     expect(appelsReserveNights()).toHaveLength(1);
-    expect(JSON.parse(String(appelsReserveNights()[0][1].body))).toEqual({ orderId: "commande-1" });
+    expect(JSON.parse(String(appelsReserveNights()[0][1].body))).toEqual({
+      orderId: "commande-1",
+    });
     expect(rpcMock).toHaveBeenCalledTimes(2);
     expect(appelsPaymentsCreate()).toHaveLength(1);
-    expect(JSON.parse(String(appelsPaymentsCreate()[0][1].body))).toEqual({ paymentId: "paiement-2" });
+    expect(JSON.parse(String(appelsPaymentsCreate()[0][1].body))).toEqual({
+      paymentId: "paiement-2",
+    });
   });
 
   it("jamais de boucle : un second pms_booking_missing s'arrête sur « unknown »", async () => {
@@ -143,43 +232,59 @@ describe("OrderResult — pms_booking_missing : reserve-nights, puis UN seul nou
     expect(appelsReserveNights()).toHaveLength(1);
     expect(rpcMock).toHaveBeenCalledTimes(2);
     expect(appelsPaymentsCreate()).toHaveLength(0);
-    expect(container.querySelector('[data-testid="payment-error"]')?.textContent).toBe(es.errors.unknown);
+    expect(
+      container.querySelector('[data-testid="payment-error"]')?.textContent,
+    ).toBe(es.errors.unknown);
   });
 
   it("commande relâchée → relit l'écran avec la raison, sans l'état « failed » ni second intent", async () => {
     intentResponses = [manquant];
-    reserveNightsResponse = async () => json(409, { ok: false, reason: "pms_refused", released: true });
+    reserveNightsResponse = async () =>
+      json(409, { ok: false, reason: "pms_refused", released: true });
     const { container, rerender } = render(ecran(ORDER));
     await payer(container);
 
     expect(refreshMock).toHaveBeenCalledTimes(1);
     expect(rpcMock).toHaveBeenCalledTimes(1);
-    expect(container.querySelector('[data-testid="pms-notice"]')?.textContent).toBe(es.errors.pms_refused);
-    expect(container.querySelector('[data-testid="order-state-failed"]')).toBeNull();
+    expect(
+      container.querySelector('[data-testid="pms-notice"]')?.textContent,
+    ).toBe(es.errors.pms_refused);
+    expect(
+      container.querySelector('[data-testid="order-state-failed"]'),
+    ).toBeNull();
     expect(container.querySelector('[data-testid="payment-error"]')).toBeNull();
 
     // L'écran relu (ce que `router.refresh` rend) : la raison reste affichée au-dessus de l'état réel.
     await act(async () => {
       rerender(ecran(COMMANDE_DEFAITE));
     });
-    expect(container.querySelector('[data-testid="order-state-cancelled"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="pms-notice"]')?.textContent).toBe(es.errors.pms_refused);
+    expect(
+      container.querySelector('[data-testid="order-state-cancelled"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="pms-notice"]')?.textContent,
+    ).toBe(es.errors.pms_refused);
     expect(container.querySelector('[data-testid="pay-button"]')).toBeNull();
   });
 
   it("relâchement impossible → raison affichée, et plus de bouton : un nouvel essai rappellerait Lobby", async () => {
     intentResponses = [manquant];
-    reserveNightsResponse = async () => json(409, { ok: false, reason: "pms_refused", released: false });
+    reserveNightsResponse = async () =>
+      json(409, { ok: false, reason: "pms_refused", released: false });
     const container = rendre();
     await payer(container);
 
     expect(refreshMock).toHaveBeenCalledTimes(1);
-    expect(container.querySelector('[data-testid="pms-notice"]')?.textContent).toBe(
-      es.errors.pms_refused_pending
-    );
-    expect(container.querySelector('[data-testid="order-state-failed"]')).toBeNull();
+    expect(
+      container.querySelector('[data-testid="pms-notice"]')?.textContent,
+    ).toBe(es.errors.pms_refused_pending);
+    expect(
+      container.querySelector('[data-testid="order-state-failed"]'),
+    ).toBeNull();
     // La commande relue est toujours « à payer » (rien n'a été défait) : le bouton reste retiré.
-    expect(container.querySelector('[data-testid="order-state-unpaid"]')).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="order-state-unpaid"]'),
+    ).not.toBeNull();
     expect(container.querySelector('[data-testid="pay-button"]')).toBeNull();
     // …et l'écran ne dit plus « Paga el anticipo » sous une page sans bouton.
     expect(container.textContent).not.toContain(es.status.unpaidDetail);
@@ -195,11 +300,19 @@ describe("OrderResult — pms_booking_missing : reserve-nights, puis UN seul nou
     const container = rendre();
     await payer(container);
 
-    const bouton = container.querySelector('[data-testid="pay-button"]') as HTMLButtonElement;
+    const bouton = container.querySelector(
+      '[data-testid="pay-button"]',
+    ) as HTMLButtonElement;
     expect(bouton.textContent).toBe(es.confirmingBooking);
     expect(bouton.disabled).toBe(true);
     await act(async () => {
-      repondre(json(409, { ok: false, reason: "pms_claim_in_progress", released: false }));
+      repondre(
+        json(409, {
+          ok: false,
+          reason: "pms_claim_in_progress",
+          released: false,
+        }),
+      );
     });
     expect(bouton.textContent).toBe(es.pay);
   });
@@ -209,7 +322,11 @@ describe("OrderResult — pms_booking_missing : reserve-nights, puis UN seul nou
   it("bouton tenu pendant toute la relecture de l'écran", async () => {
     intentResponses = [manquant];
     reserveNightsResponse = async () =>
-      json(409, { ok: false, reason: "pms_claim_in_progress", released: false });
+      json(409, {
+        ok: false,
+        reason: "pms_claim_in_progress",
+        released: false,
+      });
     let liberer: () => void = () => undefined;
     const relecture = new Promise<void>((resolve) => {
       liberer = resolve;
@@ -233,7 +350,9 @@ describe("OrderResult — pms_booking_missing : reserve-nights, puis UN seul nou
     const { container } = render(<Banc />);
     await payer(container);
 
-    const bouton = container.querySelector('[data-testid="pay-button"]') as HTMLButtonElement;
+    const bouton = container.querySelector(
+      '[data-testid="pay-button"]',
+    ) as HTMLButtonElement;
     expect(refreshMock).toHaveBeenCalledTimes(1);
     expect(bouton.disabled).toBe(true);
     // La notice arrive AVEC l'écran relu, jamais au-dessus de l'ancien.
@@ -243,19 +362,34 @@ describe("OrderResult — pms_booking_missing : reserve-nights, puis UN seul nou
       liberer();
       await relecture;
     });
-    expect((container.querySelector('[data-testid="pay-button"]') as HTMLButtonElement).disabled).toBe(false);
-    expect(container.querySelector('[data-testid="pms-notice"]')?.textContent).toBe(
-      es.errors.pms_claim_in_progress
-    );
+    expect(
+      (
+        container.querySelector(
+          '[data-testid="pay-button"]',
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+    expect(
+      container.querySelector('[data-testid="pms-notice"]')?.textContent,
+    ).toBe(es.errors.pms_claim_in_progress);
   });
 
   it("une notice précédente s'efface au clic suivant", async () => {
-    intentResponses = [manquant, { data: { ok: true, payment_id: "paiement-2" }, error: null }];
+    intentResponses = [
+      manquant,
+      { data: { ok: true, payment_id: "paiement-2" }, error: null },
+    ];
     reserveNightsResponse = async () =>
-      json(409, { ok: false, reason: "pms_claim_in_progress", released: false });
+      json(409, {
+        ok: false,
+        reason: "pms_claim_in_progress",
+        released: false,
+      });
     const container = rendre();
     await payer(container);
-    expect(container.querySelector('[data-testid="pms-notice"]')).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="pms-notice"]'),
+    ).not.toBeNull();
 
     await payer(container);
     expect(container.querySelector('[data-testid="pms-notice"]')).toBeNull();
@@ -269,14 +403,19 @@ describe("OrderResult — pms_booking_missing : reserve-nights, puis UN seul nou
       await payer(container);
 
       expect(refreshMock).toHaveBeenCalledTimes(1);
-      expect(container.querySelector('[data-testid="order-state-failed"]')).toBeNull();
-      expect(container.querySelector('[data-testid="pms-notice"]')?.textContent).toBe(es.errors[reason]);
-    }
+      expect(
+        container.querySelector('[data-testid="order-state-failed"]'),
+      ).toBeNull();
+      expect(
+        container.querySelector('[data-testid="pms-notice"]')?.textContent,
+      ).toBe(es.errors[reason]);
+    },
   );
 
   it("commande déjà payée → relit l'écran, sans message ni paiement", async () => {
     intentResponses = [manquant];
-    reserveNightsResponse = async () => json(409, { ok: false, reason: "order_paid", released: false });
+    reserveNightsResponse = async () =>
+      json(409, { ok: false, reason: "order_paid", released: false });
     const container = rendre();
     await payer(container);
 
@@ -289,80 +428,163 @@ describe("OrderResult — pms_booking_missing : reserve-nights, puis UN seul nou
   it("claim tenu ailleurs → message d'attente, écran relu, bouton toujours là", async () => {
     intentResponses = [manquant];
     reserveNightsResponse = async () =>
-      json(409, { ok: false, reason: "pms_claim_in_progress", released: false });
+      json(409, {
+        ok: false,
+        reason: "pms_claim_in_progress",
+        released: false,
+      });
     const container = rendre();
     await payer(container);
 
     expect(refreshMock).toHaveBeenCalledTimes(1);
-    expect(container.querySelector('[data-testid="pms-notice"]')?.textContent).toBe(
-      es.errors.pms_claim_in_progress
-    );
-    expect(container.querySelector('[data-testid="order-state-failed"]')).toBeNull();
-    expect(container.querySelector('[data-testid="pay-button"]')).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="pms-notice"]')?.textContent,
+    ).toBe(es.errors.pms_claim_in_progress);
+    expect(
+      container.querySelector('[data-testid="order-state-failed"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-testid="pay-button"]'),
+    ).not.toBeNull();
   });
 
   it("réseau coupé pendant l'appel → issue inconnue, rien n'est payé", async () => {
     intentResponses = [manquant];
-    reserveNightsResponse = () => Promise.reject(new TypeError("Failed to fetch"));
+    reserveNightsResponse = () =>
+      Promise.reject(new TypeError("Failed to fetch"));
     const container = rendre();
     await payer(container);
 
     expect(appelsPaymentsCreate()).toHaveLength(0);
-    expect(container.querySelector('[data-testid="pms-notice"]')?.textContent).toBe(
-      es.errors.pms_unknown_outcome
-    );
+    expect(
+      container.querySelector('[data-testid="pms-notice"]')?.textContent,
+    ).toBe(es.errors.pms_unknown_outcome);
   });
 
   it("un intent ordinaire ne passe jamais par reserve-nights", async () => {
-    intentResponses = [{ data: { ok: true, payment_id: "paiement-1" }, error: null }];
+    intentResponses = [
+      { data: { ok: true, payment_id: "paiement-1" }, error: null },
+    ];
     reserveNightsResponse = async () => json(200, { ok: true });
     const container = rendre();
     await payer(container);
 
     expect(appelsReserveNights()).toHaveLength(0);
-    expect(JSON.parse(String(appelsPaymentsCreate()[0][1].body))).toEqual({ paymentId: "paiement-1" });
+    expect(JSON.parse(String(appelsPaymentsCreate()[0][1].body))).toEqual({
+      paymentId: "paiement-1",
+    });
   });
 });
 
 describe("bookingRecovery — chaque réponse de reserve-nights", () => {
-  const arret = (notice: string | null, blockPayment = false) => ({ kind: "stop", notice, blockPayment });
+  const arret = (notice: string | null, blockPayment = false) => ({
+    kind: "stop",
+    notice,
+    blockPayment,
+  });
   it.each([
     ["200", true, { ok: true }, { kind: "booked" }],
-    ["déjà payée", false, { reason: "order_paid", released: false }, arret(null)],
-    ["claim tenu", false, { reason: "pms_claim_in_progress", released: false }, arret("pms_claim_in_progress")],
-    ["refus, relâchée", false, { reason: "pms_refused", released: true }, arret("pms_refused")],
-    ["refus, relâchement impossible", false, { reason: "pms_refused", released: false }, arret("pms_refused_pending", true)],
-    ["connecteur coupé, relâchée", false, { reason: "pms_unavailable", released: true }, arret("pms_unavailable")],
-    ["connecteur coupé, relâchement impossible", false, { reason: "pms_unavailable", released: false }, arret("pms_release_pending", true)],
-    ["Lobby injoignable, relâchée", false, { reason: "pms_unreachable", released: true }, arret("pms_unreachable")],
-    ["Lobby injoignable, relâchement impossible", false, { reason: "pms_unreachable", released: false }, arret("pms_release_pending", true)],
-    ["déjà défaite", false, { reason: "order_not_active", released: true }, arret(null)],
+    [
+      "déjà payée",
+      false,
+      { reason: "order_paid", released: false },
+      arret(null),
+    ],
+    [
+      "claim tenu",
+      false,
+      { reason: "pms_claim_in_progress", released: false },
+      arret("pms_claim_in_progress"),
+    ],
+    [
+      "refus, relâchée",
+      false,
+      { reason: "pms_refused", released: true },
+      arret("pms_refused"),
+    ],
+    [
+      "refus, relâchement impossible",
+      false,
+      { reason: "pms_refused", released: false },
+      arret("pms_refused_pending", true),
+    ],
+    [
+      "connecteur coupé, relâchée",
+      false,
+      { reason: "pms_unavailable", released: true },
+      arret("pms_unavailable"),
+    ],
+    [
+      "connecteur coupé, relâchement impossible",
+      false,
+      { reason: "pms_unavailable", released: false },
+      arret("pms_release_pending", true),
+    ],
+    [
+      "Lobby injoignable, relâchée",
+      false,
+      { reason: "pms_unreachable", released: true },
+      arret("pms_unreachable"),
+    ],
+    [
+      "Lobby injoignable, relâchement impossible",
+      false,
+      { reason: "pms_unreachable", released: false },
+      arret("pms_release_pending", true),
+    ],
+    [
+      "déjà défaite",
+      false,
+      { reason: "order_not_active", released: true },
+      arret(null),
+    ],
     ["504 sans corps", false, null, arret("pms_unknown_outcome")],
-    ["erreur de base", false, { reason: "db_error", released: false }, arret("pms_unconfirmed")],
-    ["commande introuvable", false, { reason: "order_not_found", released: false }, arret("order_not_found")],
-    ["released absent", false, { reason: "pms_refused" }, arret("pms_refused_pending", true)],
+    [
+      "erreur de base",
+      false,
+      { reason: "db_error", released: false },
+      arret("pms_unconfirmed"),
+    ],
+    [
+      "commande introuvable",
+      false,
+      { reason: "order_not_found", released: false },
+      arret("order_not_found"),
+    ],
+    [
+      "released absent",
+      false,
+      { reason: "pms_refused" },
+      arret("pms_refused_pending", true),
+    ],
   ] as const)("%s", (_cas, httpOk, corps, attendu) => {
     expect(bookingRecovery(httpOk, corps)).toEqual(attendu);
   });
 
-  it.each(["es", "en"] as const)("chaque message possible existe en %s", (locale) => {
-    const page = loadMessages(locale).OrderResultPage as { errors: Record<string, string>; confirmingBooking: string };
-    expect(page.confirmingBooking).toBeTruthy();
-    for (const key of [
-      "pms_refused",
-      "pms_refused_pending",
-      "pms_release_pending",
-      "pms_unavailable",
-      "pms_unreachable",
-      "pms_claim_in_progress",
-      "pms_unknown_outcome",
-      "pms_unconfirmed",
-      "order_not_found",
-      "nothing_to_pay",
-      "already_paid",
-      "unknown",
-    ]) {
-      expect(page.errors[key], key).toBeTruthy();
-    }
-  });
+  it.each(["es", "en"] as const)(
+    "chaque message possible existe en %s",
+    (locale) => {
+      const page = loadMessages(locale).OrderResultPage as {
+        errors: Record<string, string>;
+        confirmingBooking: string;
+      };
+      expect(page.confirmingBooking).toBeTruthy();
+      for (const key of [
+        "pms_refused",
+        "pms_refused_pending",
+        "pms_release_pending",
+        "pms_unavailable",
+        "pms_unreachable",
+        "pms_claim_in_progress",
+        "pms_unknown_outcome",
+        "pms_unconfirmed",
+        "order_not_found",
+        "nothing_to_pay",
+        "already_paid",
+        "unknown",
+      ]) {
+        expect(page.errors[key], key).toBeTruthy();
+      }
+    },
+  );
 });

@@ -44,6 +44,8 @@ export type BandeauPaginaProps = {
   volver?: ReactNode;
   /** Le `<h1>` de la page, déjà traduit. */
   titulo: string;
+  /** Élément accolé au titre à partir de `sm`, puis placé dessous sur mobile (puce d'état). */
+  complementoTitulo?: ReactNode;
   /** Le point du titre à point. Vrai par défaut ; faux pour un nom propre (produit, établissement). */
   conPunto?: boolean;
   /** La phrase sous le titre, déjà traduite. */
@@ -67,6 +69,7 @@ export function BandeauPagina({
   migas,
   volver,
   titulo,
+  complementoTitulo,
   conPunto = true,
   chapo,
   chapoTestId,
@@ -76,7 +79,8 @@ export function BandeauPagina({
   variante,
   testId,
 }: BandeauPaginaProps) {
-  const sousId = (suffixe: string) => (testId ? `${testId}-${suffixe}` : undefined);
+  const sousId = (suffixe: string) =>
+    testId ? `${testId}-${suffixe}` : undefined;
 
   const contenu = (
     <div
@@ -96,14 +100,39 @@ export function BandeauPagina({
       <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
         {migas}
         {volver}
-        <TituloRubrica as="h1" texto={titulo} tamano="pagina" punto={conPunto} testId={sousId("titulo")} />
+        {complementoTitulo ? (
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <TituloRubrica
+              as="h1"
+              texto={titulo}
+              tamano="pagina"
+              punto={conPunto}
+              testId={sousId("titulo")}
+            />
+            {complementoTitulo}
+          </div>
+        ) : (
+          <TituloRubrica
+            as="h1"
+            texto={titulo}
+            tamano="pagina"
+            punto={conPunto}
+            testId={sousId("titulo")}
+          />
+        )}
         {chapo ? (
-          <p className="chapo max-w-[60ch]" data-testid={chapoTestId ?? sousId("chapo")}>
+          <p
+            className="chapo max-w-[60ch]"
+            data-testid={chapoTestId ?? sousId("chapo")}
+          >
             {chapo}
           </p>
         ) : null}
         {meta ? (
-          <div className="flex flex-wrap items-center gap-2" data-testid={sousId("meta")}>
+          <div
+            className="flex flex-wrap items-center gap-2"
+            data-testid={sousId("meta")}
+          >
             {meta}
           </div>
         ) : null}
@@ -111,7 +140,11 @@ export function BandeauPagina({
       </div>
       {imagen ? (
         // Décor : masqué sous `lg`, où il n'aurait pas de place à côté du texte.
-        <div aria-hidden="true" className="hidden lg:block" data-testid={sousId("imagen")}>
+        <div
+          aria-hidden="true"
+          className="hidden lg:block"
+          data-testid={sousId("imagen")}
+        >
           {imagen}
         </div>
       ) : null}

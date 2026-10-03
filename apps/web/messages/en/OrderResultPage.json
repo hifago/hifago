@@ -38,7 +38,7 @@
   "holderName": "Name",
   "holderPhone": "WhatsApp",
   "holderEmail": "Email",
-  "createAccount": "Create an account to find your bookings",
+  "createAccount": "Create an account",
   "viewOrders": "View my bookings",
   "lineStatus": {
     "reserved": "Booked",
