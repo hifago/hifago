@@ -1,4 +1,5 @@
 import { ultimoDiaCampIso } from "@/lib/cart/campMissingLodging";
+import { isoDateToLocalMidnight } from "@hifago/domain";
 
 // La date (ou la plage, ou le créneau) d'une ligne, rendue de la même façon partout.
 //
@@ -37,10 +38,36 @@ export function resolveDisplayEndDate({ date, endDate, durationDays }: LineSched
   return null;
 }
 
-/** `2026-11-01`, `2026-11-01 → 2026-11-03`, ou `2026-11-01 · 09:00` selon la forme de la ligne. */
-export function formatLineSchedule(line: LineSchedule): string {
+/**
+ * Date d'une ligne. Sans locale, conserve la forme ISO historique des écrans qui n'ont pas encore
+ * migré vers la charte. Avec locale, rend la forme courte et lisible du tunnel (plan 41, P5/P6).
+ */
+export function formatLineSchedule(line: LineSchedule, locale?: string): string {
   const resolvedEndDate = resolveDisplayEndDate(line);
-  if (resolvedEndDate) return `${line.date} → ${resolvedEndDate}`;
-  if (line.slotStartTime) return `${line.date} · ${line.slotStartTime}`;
-  return line.date;
+  if (!locale) {
+    if (resolvedEndDate) return `${line.date} → ${resolvedEndDate}`;
+    if (line.slotStartTime) return `${line.date} · ${line.slotStartTime}`;
+    return line.date;
+  }
+
+  const date = (iso: string, weekday = false) =>
+    new Intl.DateTimeFormat(locale, {
+      ...(weekday ? { weekday: "short" as const } : {}),
+      day: "numeric",
+      month: "short",
+    })
+      .format(isoDateToLocalMidnight(iso))
+      .replace(/\.$/, "");
+
+  if (resolvedEndDate) {
+    const start = isoDateToLocalMidnight(line.date);
+    const end = isoDateToLocalMidnight(resolvedEndDate);
+    const sameMonth = start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth();
+    const startLabel = sameMonth
+      ? new Intl.DateTimeFormat(locale, { day: "numeric" }).format(start)
+      : date(line.date);
+    return `${startLabel} → ${date(resolvedEndDate)}`;
+  }
+  if (line.slotStartTime) return `${date(line.date, true)} · ${line.slotStartTime}`;
+  return date(line.date, true);
 }

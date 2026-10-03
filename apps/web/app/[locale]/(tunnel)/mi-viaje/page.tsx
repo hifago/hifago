@@ -8,12 +8,17 @@ import {
 } from "@/lib/cart/campMissingLodging";
 import { getPendingOrdersForViewer } from "@/lib/orders/getPendingOrdersForViewer";
 import { CartSummary } from "@/components/organisms/CartSummary";
-import { LinkButton } from "@/components/atoms/LinkButton";
-import { Title } from "@/components/atoms/Title";
-// Jamais `Button` du barrel `@hifago/ui` ici : ce fichier est un Server Component (apps.md) —
-// seul l'atome `"use client"` peut être importé sans faire planter `next build`.
-import { Button } from "@/components/atoms/Button";
-import { hrefAlojamientosCompatibles } from "@/lib/catalog/criterios";
+import { BackLink } from "@/components/atoms/BackLink";
+import { EnlaceGo } from "@/components/atoms/EnlaceGo";
+import { PageShell } from "@/components/atoms/PageShell";
+import { EstadoVacio } from "@/components/molecules/EstadoVacio";
+import { BandeauPagina } from "@/components/organisms/BandeauPagina";
+import {
+  hrefAlojamientosCompatibles,
+  hrefRetornoCarrito,
+  leerCriterios,
+} from "@/lib/catalog/criterios";
+import { computeTripRange, formatTripLabel } from "@/lib/orders/tripRange";
 import { PendingOrdersNotice } from "../PendingOrdersNotice";
 import type { Locale } from "@/messages";
 
@@ -31,11 +36,17 @@ export async function generateMetadata(
   return { title: t("title"), robots: { index: false, follow: true } };
 }
 
-export default async function CartPage({ params }: PageProps<"/[locale]/mi-viaje">) {
-  const { locale } = await params;
+export default async function CartPage({ params, searchParams }: PageProps<"/[locale]/mi-viaje">) {
+  const [{ locale }, paramsBrutos] = await Promise.all([params, searchParams]);
   setRequestLocale(locale);
   const t = await getTranslations("CartPage");
   const lines = await getCartLines(locale as Locale);
+  const tripLabel =
+    lines.length > 0
+      ? formatTripLabel(computeTripRange(lines), locale, (key, values) =>
+          t(key === "trip.range" ? "tripRange" : "tripSingle", values)
+        )
+      : undefined;
 
   // create_order vide cart_items dès qu'elle réussit (spec 32) : un panier vide peut donc cacher
   // une commande déjà réservée, pas encore payée. Lu SEULEMENT sur ce chemin déjà froid — jamais
@@ -63,46 +74,50 @@ export default async function CartPage({ params }: PageProps<"/[locale]/mi-viaje
     : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-8">
-      <Title as="h1">{t("title")}</Title>
-      <CartSummary lines={lines} editable locale={locale as Locale} />
+    <PageShell variant="pagina" testId="mi-viaje-page">
+      <BandeauPagina
+        variante="contenido"
+        titulo={t("title")}
+        chapo={tripLabel}
+        volver={
+          <BackLink
+            href={hrefRetornoCarrito(leerCriterios(paramsBrutos))}
+            label={t("continueExploring")}
+            testId="continue-exploring"
+          />
+        }
+        testId="mi-viaje-banner"
+      />
+
       {lines.length > 0 ? (
-        campSinAlojamiento ? (
-          <div
-            className="flex flex-col gap-3 rounded-lg border border-border bg-surface-secondary p-4 text-sm"
-            data-testid="lodging-required-notice"
-          >
-            <p>{t("lodgingRequiredNotice", { count: campSinAlojamiento.nuits })}</p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              {/* Rendu, jamais masqué : l'état "pas encore prêt à payer" doit rester visible,
-                  pas disparaître (cf. le CTA juste à côté qui dit quoi faire). */}
-              <Button isDisabled size="lg" width="auto" testId="go-to-checkout">
-                {t("goToCheckout")}
-              </Button>
-              <LinkButton
-                href={campSinAlojamiento.href}
-                variant="outline"
-                // `neutral` : contour bleu moyen. En `accent` (le défaut), le contour était l'or sur
-                // fond clair, 1.96:1 pour 3:1 requis (plan 41, F4).
-                color="neutral"
-                width="auto"
-                testId="choose-lodging-button"
-              >
-                {t("chooseLodging")}
-              </LinkButton>
-            </div>
-          </div>
-        ) : (
-          <LinkButton href="/pago" size="lg" width="auto" testId="go-to-checkout">
-            {t("goToCheckout")}
-          </LinkButton>
-        )
-      ) : null}
+        <CartSummary
+          lines={lines}
+          editable
+          locale={locale as Locale}
+          presentation="trip"
+          lodgingRequirement={
+            campSinAlojamiento
+              ? {
+                  message: t("lodgingRequiredNotice", { count: campSinAlojamiento.nuits }),
+                  chooseHref: campSinAlojamiento.href,
+                  chooseLabel: t("chooseLodging"),
+                }
+              : null
+          }
+        />
+      ) : (
+        <EstadoVacio
+          titulo={t("emptyCart")}
+          descripcion={t("emptyCartDescription")}
+          accion={<EnlaceGo href="/" label={t("exploreActivities")} tamano="normal" />}
+          testId="empty-cart"
+        />
+      )}
       <PendingOrdersNotice
         orders={pendingOrders}
         title={t("pendingOrdersTitle")}
         linkLabel={(reference) => t("pendingOrderLink", { reference })}
       />
-    </main>
+    </PageShell>
   );
 }
