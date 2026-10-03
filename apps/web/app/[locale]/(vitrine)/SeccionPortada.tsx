@@ -1,4 +1,5 @@
 import NextImage from "next/image";
+import { EnlaceGo } from "@/components/atoms/EnlaceGo";
 import { Price } from "@/components/atoms/Price";
 import { TituloRubrica } from "@/components/molecules/TituloRubrica";
 import { Link } from "@/i18n/navigation";
@@ -297,43 +298,22 @@ export function SeccionPortada({
             </FilaPortada>
           </div>
 
-          {/* « GO → » : le lien vers la page du type, aligné sur le bord droit du conteneur. Le « GO »
-              est celui du LOGO (glyphes de la charte, recomposés en ligne : `go.webp`), la flèche est
-              au bleu poudre. Nom accessible : « GO » (le texte qu'on voit, WCAG 2.5.3) puis le libellé
-              complet, « GO Más actividades » — c'est aussi le texte d'ancre que lit un moteur.
-              ⚠️ Le `Link` de `@/i18n/navigation` : lui seul conserve le préfixe de langue.
+          {/* « GO → » : le lien vers la page du type, aligné sur le bord droit du conteneur — le
+              composant signature extrait de cette section (plan 41, S5), taille `portada`. Nom
+              accessible « GO Más actividades » ; flèche bleu poudre, celle de la surface or.
               ⚠️ SOUS `md`, LA POINTE DE LA FLÈCHE TOMBE SUR LE BORD DROIT DE LA PHOTO, pas du conteneur
               (Jérôme, 2026-10-02) : retrait de la marge intérieure (1,3cqw) MOINS le vide que la
               pointe laisse dans son propre `<svg>` — elle finit à x = 35 + 4,5 / 2 = 37,25 sur 40,
               soit 2,75 / 24 de la hauteur du `<svg>` (ratio 40 × 24), dont le `clamp` est repris tel
-              quel. Le `-mr-1` du lien annule son `p-1` : le bord du `<svg>` est celui de ce bloc. */}
+              quel de `EnlaceGo`. Le bord du `<svg>` est celui de ce bloc (`-mr-1` de `EnlaceGo`). */}
           {mostrarVerMas ? (
             <div className="mt-[2.4cqw] flex justify-end pr-[calc(1.3cqw_-_clamp(1.1rem,3.6cqw,2.25rem)*2.75/24)] md:pr-0">
-              <Link
+              <EnlaceGo
                 href={hrefVerMas}
-                className="group/go -mr-1 inline-flex min-h-11 items-center gap-[1.4cqw] rounded-full p-1 focus-visible:status-focused"
-                data-testid={testId ? `${testId}-ver-mas` : undefined}
-              >
-                <NextImage
-                  src="/brand/go.webp"
-                  alt="GO"
-                  width={214}
-                  height={116}
-                  className="h-[clamp(1.75rem,5.1cqw,3.25rem)] w-auto transition-transform duration-200 group-hover/go:scale-105 motion-reduce:transition-none"
-                />
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 40 24"
-                  fill="none"
-                  strokeWidth="4.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-[clamp(1.1rem,3.6cqw,2.25rem)] w-auto stroke-[var(--default)] transition-transform duration-200 group-hover/go:translate-x-1 motion-reduce:transition-none"
-                >
-                  <path d="M3 12h32M25 3l10 9-10 9" />
-                </svg>
-                <span className="sr-only">{labelVerMas}</span>
-              </Link>
+                label={labelVerMas}
+                tamano="portada"
+                testId={testId ? `${testId}-ver-mas` : undefined}
+              />
             </div>
           ) : null}
         </div>
