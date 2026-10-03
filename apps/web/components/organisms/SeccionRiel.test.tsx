@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { TarjetaOferta } from "@/lib/catalog/tipos";
-import { SeccionPortada, type SeccionPortadaProps } from "./SeccionPortada";
+import { SeccionRiel, type SeccionRielProps } from "./SeccionRiel";
 
 // Pas de @testing-library/jest-dom dans ce monorepo — assertions DOM natives uniquement.
 //
@@ -23,13 +23,13 @@ vi.mock("@/i18n/navigation", () => ({
 // `next/image` remplacé par un `<img>` nu : on observe QUELLE image la section demande (la
 // première photo, le « GO » du logo) et son `alt`, pas l'URL d'optimisation que fabrique Next.
 vi.mock("next/image", () => ({
-  default: ({ src, alt, sizes }: { src: string; alt: string; sizes?: string }) => (
+  default: ({ src, alt, sizes, priority }: { src: string; alt: string; sizes?: string; priority?: boolean }) => (
     // eslint-disable-next-line @next/next/no-img-element -- doublure de test de `next/image`
-    <img src={src} alt={alt} data-sizes={sizes} />
+    <img src={src} alt={alt} data-sizes={sizes} data-priority={priority ? "true" : "false"} />
   ),
 }));
 
-// La rangée (`FilaPortada`, client) observe sa taille pour ses voiles de bord : jsdom n'a pas de
+// La rangée (`FilaRiel`, client) observe sa taille pour ses voiles de bord : jsdom n'a pas de
 // `ResizeObserver`. Doublure inerte, comme `CarruselConSombra.test.tsx` — les voiles ont leur test.
 class ObservateurInerte {
   observe() {}
@@ -58,10 +58,11 @@ function carte(n: number, fotos: string[] = [`/mock/foto-${n}-a.jpg`, `/mock/fot
 
 const OCHO = Array.from({ length: 8 }, (_, i) => carte(i + 1));
 
-function rendu(props: Partial<SeccionPortadaProps> = {}) {
+function rendu(props: Partial<SeccionRielProps> = {}) {
   return render(
-    <SeccionPortada
+    <SeccionRiel
       titulo="Actividades"
+      tamanoTitulo="portada"
       hrefVerMas="/actividades"
       labelVerMas="Más actividades"
       mostrarVerMas
@@ -74,7 +75,10 @@ function rendu(props: Partial<SeccionPortadaProps> = {}) {
   ).container;
 }
 
-describe("SeccionPortada", () => {
+// Les tests de l'accueil (`SeccionPortada`, déplacé et renommé par le plan 41, item S3) : ils
+// tiennent toujours, l'accueil rendant ce rail en taille `portada`. Les nouveaux réglages (titre
+// `seccion`, motif, « GO » facultatif, priorité, planchers) sont en fin de fichier.
+describe("SeccionRiel", () => {
   // ⚠️ LE CONTRAT QUE LES E2E LISENT (`e2e/home.spec.ts`) : `main section[data-testid]`, puis
   // `seccion-<tipo>-titulo` en <h2>, puis `seccion-<tipo>-ver-mas`. Le changement de maquette ne
   // doit en casser aucun — c'est ce que vérifie ce test, pas l'apparence.
@@ -109,8 +113,9 @@ describe("SeccionPortada", () => {
   // nommées qui ne sont pas forcément dans les trois premières.
   it("sert les huit offres dans le HTML, chacune avec sa carte et son lien", () => {
     const html = renderToStaticMarkup(
-      <SeccionPortada
+      <SeccionRiel
         titulo="Actividades"
+        tamanoTitulo="portada"
         hrefVerMas="/actividades"
         labelVerMas="Más actividades"
         mostrarVerMas
@@ -216,7 +221,7 @@ describe("SeccionPortada", () => {
   it("ajuste le conteneur à ses photos, et place le motif par un padding — jamais une marge", () => {
     const container = rendu({ tarjetas: [carte(1), carte(2)] });
     const liste = container.querySelector("ul") as HTMLElement;
-    // ul → enveloppe des voiles (`FilaPortada`) → conteneur marine → bloc ajusté.
+    // ul → enveloppe des voiles (`FilaRiel`) → conteneur marine → bloc ajusté.
     const boite = liste.parentElement?.parentElement?.parentElement as HTMLElement;
     expect(boite.className).toContain("w-fit");
     // Liseré marine divisé par deux le 2026-10-02 : conteneur à sa taille d'origine, photos
@@ -236,11 +241,12 @@ describe("SeccionPortada", () => {
   // gauche. Quatre nombres répartis sur deux éléments doivent rester d'accord — le calcul est refait
   // ici sur les classes elles-mêmes, pour qu'un réglage de l'un sans les autres casse ce test.
   // Son intérieur (arrondi, cartouche, bulles, texte) est en `cqw` DE LA TUILE — sans `@container`
-  // sur le `<li>`, ces valeurs se résoudraient sur la section et tout serait 3,5 fois trop grand.
+  // sur la tuile (posé par `TeselaOferta` depuis S3, sur le `<li>` avant), ces valeurs se
+  // résoudraient sur la section et tout serait 3,5 fois trop grand.
   it("montre une seule photo sous md, centrée, trois au-dessus, et garde les proportions de la tuile", () => {
     const container = rendu();
     const liste = container.querySelector("ul") as HTMLElement;
-    // ul → enveloppe des voiles (`FilaPortada`) → conteneur marine → bloc décalé.
+    // ul → enveloppe des voiles (`FilaRiel`) → conteneur marine → bloc décalé.
     const marine = liste.parentElement?.parentElement as HTMLElement;
     const bloc = marine.parentElement as HTMLElement;
     // La valeur d'une classe de BASE (la variante mobile, sans `md:`) en cqw : `ml-[7.5cqw]` → 7.5.
@@ -257,7 +263,7 @@ describe("SeccionPortada", () => {
     for (const li of liste.querySelectorAll("li")) {
       const classes = li.className.split(/\s+/);
       expect(classes).toContain("md:w-[28.69cqw]");
-      expect(classes).toContain("@container");
+      expect(li.firstElementChild?.className.split(/\s+/)).toContain("@container");
       const largeur = cqw(li, "w");
       // Centrée : autant de marge à droite qu'à gauche, au centième près (arrondi à la baisse).
       expect(100 - bordGauche - largeur).toBeGreaterThanOrEqual(bordGauche);
@@ -269,7 +275,7 @@ describe("SeccionPortada", () => {
   });
 
   // ⚠️ Tuiles carrées arrondies à 16 px (Jérôme, 2026-10-02). Deux fichiers doivent rester d'accord :
-  // la tuile (`Tesela`) et les voiles de bord (`FilaPortada`), qui recouvrent son arrondi — un voile
+  // la tuile (`TeselaOferta`) et les voiles de bord (`FilaRiel`), qui recouvrent son arrondi — un voile
   // plus ou moins arrondi qu'elle déborderait sur le marine ou laisserait un coin net. Et pas
   // `rounded-2xl` : le thème vitrine le calcule à 8 px (2 × `--radius`, mesuré au rendu).
   it("rend des tuiles carrées arrondies à 16 px, et des voiles au même arrondi", () => {
@@ -291,8 +297,54 @@ describe("SeccionPortada", () => {
   // est servi tel quel — c'est lui que Google indexe. Vérifié sur le TEXTE du fichier : une règle
   // que rien ne vérifie n'est pas une règle (CLAUDE.md §11.20).
   it("reste un Server Component : ni \"use client\", ni @hifago/ui", () => {
-    const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "SeccionPortada.tsx"), "utf8");
+    const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "SeccionRiel.tsx"), "utf8");
     expect(source).not.toMatch(/^\s*["']use client["']/m);
     expect(source).not.toContain("@hifago/ui");
+  });
+
+  // ── Les réglages du rail réutilisable (plan 41, S3) ─────────────────────────────────────────────
+
+  it("titre en taille seccion : rôle titre-section, sans les cqw de l'accueil", () => {
+    const titre = rendu({ tamanoTitulo: "seccion" }).querySelector(
+      '[data-testid="seccion-activity-titulo"]'
+    ) as HTMLElement;
+    expect(titre.tagName).toBe("H2");
+    expect(titre.className.split(/\s+/)).toContain("titre-section");
+    expect(titre.className).not.toContain("cqw");
+  });
+
+  it("sans motif : le décor disparaît, et l'espace qu'il occupait avec lui", () => {
+    const avec = rendu();
+    const sans = rendu({ motivo: false });
+    const motif = (c: HTMLElement) => c.querySelector('[class*="motif-bleu-section"]');
+    expect(motif(avec)).not.toBeNull();
+    expect(motif(sans)).toBeNull();
+    // ul → voiles → conteneur marine → bloc décalé → bloc du motif.
+    const bloc = (c: HTMLElement) =>
+      c.querySelector("ul")?.parentElement?.parentElement?.parentElement?.parentElement?.className;
+    expect(bloc(avec)).toContain("pt-[6.3cqw]");
+    expect(bloc(sans)).toContain("pt-[2.4cqw]");
+  });
+
+  // Une fiche établissement n'a pas de page « voir tout » : pas de « GO » qui mènerait nulle part.
+  it("ne rend pas « GO → » sans page « voir tout »", () => {
+    const container = rendu({ hrefVerMas: undefined, labelVerMas: undefined });
+    expect(container.querySelector('[data-testid="seccion-activity-ver-mas"]')).toBeNull();
+  });
+
+  it("prioridad : la PREMIÈRE tuile seulement porte la priorité ; aucune par défaut", () => {
+    const prio = (c: HTMLElement) =>
+      Array.from(c.querySelectorAll("li img")).map((img) => img.getAttribute("data-priority"));
+    expect(prio(rendu({ prioridad: true }))).toEqual(["true", ...Array(7).fill("false")]);
+    expect(prio(rendu())).toEqual(Array(8).fill("false"));
+  });
+
+  // L'accueil garde ses tailles de texte validées (provisoire, en attente de Jérôme) ; tout autre
+  // rail prend les planchers de S4.
+  it("transmet les planchers de texte aux tuiles, ou les tailles de l'accueil", () => {
+    const nom = (c: HTMLElement) =>
+      (c.querySelector('[data-testid="tarjeta-oferta-1-link"]') as HTMLElement).className;
+    expect(nom(rendu())).toContain("text-[clamp(0.8125rem,");
+    expect(nom(rendu({ minimosTexto: false }))).toContain("text-[clamp(0.6875rem,");
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
-import { FilaPortada } from "./FilaPortada";
+import { FilaRiel } from "./FilaRiel";
 
 // Pas de @testing-library/jest-dom dans ce monorepo — assertions DOM natives uniquement.
 //
@@ -31,14 +31,14 @@ function definirDimensiones(
 
 function rendu() {
   return render(
-    <FilaPortada testId="fila">
+    <FilaRiel testId="fila">
       <li>Tuile 1</li>
       <li>Tuile 2</li>
-    </FilaPortada>
+    </FilaRiel>
   );
 }
 
-describe("FilaPortada", () => {
+describe("FilaRiel", () => {
   it("rend ses tuiles dans la liste qui défile", () => {
     const { container } = rendu();
     expect(container.querySelectorAll("ul > li").length).toBe(2);

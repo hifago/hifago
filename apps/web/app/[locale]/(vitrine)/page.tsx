@@ -4,6 +4,7 @@ import { todayInBogota } from "@hifago/domain";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { COLUMNA_PORTADA, PageShell } from "@/components/atoms/PageShell";
 import { EstadoVacio } from "@/components/molecules/EstadoVacio";
+import { SeccionRiel } from "@/components/organisms/SeccionRiel";
 import { buscarSecciones, hrefSeccion } from "@/lib/catalog/buscar";
 import { escribirCriterios, leerCriterios, leerDesdeCarrito } from "@/lib/catalog/criterios";
 import { esTipoOferta, type TipoOferta } from "@/lib/catalog/tipos";
@@ -16,7 +17,6 @@ import { BuscadorInicio } from "./BuscadorInicio";
 import { labelsBuscador } from "./labelsBuscador";
 import { MenuTiposPortada } from "./MenuTiposPortada";
 import { PortadaInicio } from "./PortadaInicio";
-import { SeccionPortada } from "./SeccionPortada";
 import { tiposDeBarra } from "./tiposDeBarra";
 
 // L'ACCUEIL, QUI EST AUSSI L'ÉCRAN DE RÉSULTATS (spec 28, Tranche 1 — 2026-09-08).
@@ -31,7 +31,7 @@ import { tiposDeBarra } from "./tiposDeBarra";
 // (`scripts/check-data-layer.sh`) : aucune requête Supabase dans un fichier de route, et aucun
 // import de `@hifago/ui` — tout passe par `lib/catalog/`, et tout le HeroUI vit derrière une
 // frontière `"use client"` (`BuscadorInicio` → `SearchPanel`). Les sections de la maquette du
-// 2026-10-01 (`SeccionPortada`) n'en ont plus besoin du tout : elles sont servies sans JavaScript.
+// 2026-10-01 (`SeccionRiel`, né `SeccionPortada`) n'en ont plus besoin : elles sont servies sans JavaScript.
 
 /** Plafond par section, cahier §2a. Il vaut AUSSI sous recherche — sinon l'accueil filtrée
  *  devient une page à rallonge et se confond avec les pages de listing (spec 28 §8). */
@@ -164,8 +164,15 @@ export default async function HomePage({ params, searchParams }: PageProps<"/[lo
             />
           ) : (
             secciones.map((seccion) => (
-              <SeccionPortada
+              // Le rail de la vitrine (plan 41, S3), en taille `portada`. Pas de `prioridad` : le
+              // LCP de l'accueil est l'illustration du héros, jamais une photo d'offre.
+              <SeccionRiel
                 key={seccion.tipo}
+                tamanoTitulo="portada"
+                // ⚠️ PROVISOIRE : les tuiles de l'accueil gardent leurs tailles de texte validées au
+                // pixel par Jérôme, sans les planchers de S4 (qui les grossiraient à 360 et 768 px).
+                // Retirer cette ligne s'il les veut ici aussi.
+                minimosTexto={false}
                 // Le titre dit la même chose que le menu du héros (« Alojamiento », « Retiros »…) :
                 // même clé, `tiposPortada` — voir `tiposDeBarra.ts`.
                 titulo={t(`tiposPortada.${seccion.tipo}`)}

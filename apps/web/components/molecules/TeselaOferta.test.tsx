@@ -165,6 +165,15 @@ describe("TeselaOferta", () => {
     expect(sous("precio")?.className).toContain("text-[clamp(0.6875rem,");
   });
 
+  // L'accueil garde provisoirement ses tailles validées au pixel (plan 41, S3) : seules les bornes
+  // basses changent, le reste de la tuile est le même.
+  it("minimosTexto={false} : les bornes basses de l'accueil (11, 10 et 10 px)", () => {
+    const { tuile, sous } = rendre({}, { minimosTexto: false });
+    expect(sous("link")?.className).toContain("text-[clamp(0.6875rem,5.23cqw,1rem)]");
+    expect(tuile.querySelector("p")?.className).toContain("text-[clamp(0.625rem,4.18cqw,0.8125rem)]");
+    expect(sous("precio")?.className).toContain("text-[clamp(0.625rem,4.01cqw,0.8125rem)]");
+  });
+
   it("garde le nom visible en permanence, dans le cartouche clair", () => {
     const lien = rendre().sous("link") as HTMLElement;
     expect(lien.className).not.toContain("opacity-0");

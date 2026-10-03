@@ -12,7 +12,7 @@ import { Link } from "@/i18n/navigation";
 //   - `portada` : les `clamp` en `cqw` de l'accueil, repris TELS QUELS (GO de 28 à 52 px) — l'accueil
 //     doit rester identique au pixel. ⚠️ `cqw` demande un ancêtre `@container` (la section). Le
 //     `-mr-1` annule le `p-1` du lien : le bord droit de la flèche est celui de son bloc, sur
-//     lequel l'accueil aligne la pointe (voir `SeccionPortada`) ;
+//     lequel l'accueil aligne la pointe (voir `SeccionRiel`) ;
 //   - `normal`  : GO de 32 px, flèche de 20 px, pour un lien posé dans une page.
 //
 // NOM ACCESSIBLE : « GO », le texte qu'on voit (WCAG 2.5.3), puis `label` en `sr-only` — « GO Más

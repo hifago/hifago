@@ -85,7 +85,7 @@ const DEGRADADO = {
 
 /**
  * Reste-t-il du contenu à faire défiler à gauche / à droite de `ref` ? Exporté le 2026-10-02 pour
- * les voiles flous de l'accueil (`FilaPortada.tsx`) : même mesure, un seul endroit.
+ * les voiles flous des rails (`FilaRiel.tsx`) : même mesure, un seul endroit.
  */
 export function useBordesDesplazables(ref: RefObject<HTMLElement | null>) {
   // `false` par défaut : tant que l'effet n'a pas mesuré le DOM réel, on ne peint aucun dégradé

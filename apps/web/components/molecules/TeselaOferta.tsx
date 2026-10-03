@@ -81,11 +81,32 @@ export type TeselaOfertaProps = {
   sizes: string;
   /** UNE SEULE tuile de la page : la première photo de contenu, quand elle est le LCP. */
   prioridad?: boolean;
+  /**
+   * Les planchers de texte de S4 (nom 13 px, établissement 12, bulles 11). Vrai par défaut. Faux sur
+   * l'ACCUEIL seulement, et provisoirement : ses tailles ont été validées au pixel par Jérôme, et les
+   * planchers les changeraient à 360 et 768 px — à lui de trancher (plan 41, S3).
+   */
+  minimosTexto?: boolean;
 };
 
 // Chaînes littérales complètes : Tailwind v4 ne génère pas une classe fabriquée par interpolation.
 const CLASE_BULLE =
-  "rounded-full border-[1.5px] border-white bg-black/55 px-[3.14cqw] py-[0.87cqw] text-[clamp(0.6875rem,4.01cqw,0.8125rem)] font-bold uppercase leading-tight text-white backdrop-blur-sm";
+  "rounded-full border-[1.5px] border-white bg-black/55 px-[3.14cqw] py-[0.87cqw] font-bold uppercase leading-tight text-white backdrop-blur-sm";
+
+// Les tailles de texte, en `cqw` de la tuile, bornées. Seule la borne BASSE diffère : les planchers
+// de S4, ou celle de l'accueil telle que Jérôme l'a validée (voir `minimosTexto`).
+const TAILLES_TEXTE = {
+  conMinimos: {
+    nombre: "text-[clamp(0.8125rem,5.23cqw,1rem)]",
+    subtitulo: "text-[clamp(0.75rem,4.18cqw,0.8125rem)]",
+    bulle: "text-[clamp(0.6875rem,4.01cqw,0.8125rem)]",
+  },
+  portada: {
+    nombre: "text-[clamp(0.6875rem,5.23cqw,1rem)]",
+    subtitulo: "text-[clamp(0.625rem,4.18cqw,0.8125rem)]",
+    bulle: "text-[clamp(0.625rem,4.01cqw,0.8125rem)]",
+  },
+} as const;
 
 export function TeselaOferta({
   oferta,
@@ -95,7 +116,9 @@ export function TeselaOferta({
   labelConteo,
   sizes,
   prioridad = false,
+  minimosTexto = true,
 }: TeselaOfertaProps) {
+  const tailles = TAILLES_TEXTE[minimosTexto ? "conMinimos" : "portada"];
   // La PREMIÈRE photo seulement (D6 = A) : une image par offre, pas un carrousel dans une vignette.
   const foto = oferta.fotos[0]?.url ?? null;
 
@@ -147,12 +170,12 @@ export function TeselaOferta({
           // Une bulle par information présente, à droite, retour à la ligne si la tuile est étroite.
           <div className="flex flex-wrap justify-end gap-[2.09cqw]">
             {bullePrecio !== null ? (
-              <span className={CLASE_BULLE} data-testid={`${oferta.testId}-precio`}>
+              <span className={`${CLASE_BULLE} ${tailles.bulle}`} data-testid={`${oferta.testId}-precio`}>
                 {bullePrecio}
               </span>
             ) : null}
             {bulleCapacidad !== null ? (
-              <span className={CLASE_BULLE} data-testid={`${oferta.testId}-capacidad`}>
+              <span className={`${CLASE_BULLE} ${tailles.bulle}`} data-testid={`${oferta.testId}-capacidad`}>
                 {bulleCapacidad}
               </span>
             ) : null}
@@ -161,13 +184,13 @@ export function TeselaOferta({
         <div className="w-full rounded-[4.88cqw] bg-[var(--background)] px-[4.18cqw] py-[3.14cqw] text-center leading-tight text-[var(--foreground)]">
           <Link
             href={oferta.href}
-            className="line-clamp-2 text-[clamp(0.8125rem,5.23cqw,1rem)] font-bold uppercase focus-visible:outline-none after:absolute after:inset-0 after:z-[1] after:content-[''] focus-visible:after:ring-4 focus-visible:after:ring-inset focus-visible:after:ring-[var(--accent)]"
+            className={`line-clamp-2 ${tailles.nombre} font-bold uppercase focus-visible:outline-none after:absolute after:inset-0 after:z-[1] after:content-[''] focus-visible:after:ring-4 focus-visible:after:ring-inset focus-visible:after:ring-[var(--accent)]`}
             data-testid={`${oferta.testId}-link`}
           >
             {oferta.nombre}
           </Link>
           {sousTitre ? (
-            <p className="mt-[0.7cqw] line-clamp-1 text-[clamp(0.75rem,4.18cqw,0.8125rem)] font-medium">
+            <p className={`mt-[0.7cqw] line-clamp-1 ${tailles.subtitulo} font-medium`}>
               {sousTitre}
             </p>
           ) : null}

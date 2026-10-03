@@ -4,15 +4,18 @@ import { useRef } from "react";
 import type { ReactNode } from "react";
 import { useBordesDesplazables } from "@/components/molecules/CarruselConSombra";
 
-// La rangée qui défile dans le conteneur marine de `SeccionPortada`, et ses deux VOILES FLOUS
+// La rangée qui défile dans le conteneur marine d'un rail (`SeccionRiel`), et ses deux VOILES FLOUS
 // (Jérôme, 2026-10-02 : « ajoute un flou aux extrémités du conteneur pour marquer qu'il y a
 // d'autres cartes à découvrir »).
+//
+// Née `FilaPortada`, à côté de l'accueil ; déplacée ici et renommée par le plan 41, item S3
+// (2026-10-02), quand le rail est devenu réutilisable (index par type, fiche établissement).
 //
 // POURQUOI UN COMPOSANT CLIENT À PART. Trois photos remplissent exactement le conteneur : aucune
 // amorce de la quatrième n'est visible, rien ne dit que la rangée défile. Le voile n'a de sens que
 // là où il RESTE des cartes — à droite au repos, à gauche après un défilement, nulle part avec trois
 // cartes ou moins. Le savoir exige de lire `scrollLeft`/`scrollWidth` : une donnée de navigateur.
-// `SeccionPortada` reste un Server Component (son dernier test le vérifie) ; seule cette rangée
+// `SeccionRiel` reste un Server Component (son dernier test le vérifie) ; seule cette rangée
 // porte l'état, et ses `children` — les tuiles — sont rendus et servis par le serveur comme avant
 // (même montage que `CarruselConSombra` dans `SeccionOfertas`).
 //
@@ -31,13 +34,13 @@ const CLASES_FILA =
 // milieu de la photo. Une teinte marine translucide (`/50`), sous le même masque, le fond dans le
 // conteneur sans masquer la photo.
 //   · `md:w-[6cqw]` de large, un cinquième de tuile : assez pour se voir, pas assez pour cacher le
-//     nom. Sous `md`, où UNE tuile remplit le conteneur (`CLASE_TESELA` de `SeccionPortada`), un
+//     nom. Sous `md`, où UNE tuile remplit le conteneur (`CLASE_TESELA` de `SeccionRiel`), un
 //     cinquième flouterait 58 px de la seule photo visible : `8cqw` (28 px à 390), le minimum pour
 //     porter l'arrondi de la tuile sans qu'il soit écrasé (un arrondi plus large que l'élément est
 //     réduit par le navigateur).
 //   · `rounded-*` : l'arrondi des tuiles, que le voile recouvre au bord — 16 px fixes à toute largeur
 //     depuis les tuiles carrées (2026-10-02 ; avant, 2,4cqw de section au-dessus de `md` et 6,9cqw
-//     en dessous). Suit `Tesela` de `SeccionPortada` ; `SeccionPortada.test.tsx` tient l'accord.
+//     en dessous). Suit `TeselaOferta` ; `SeccionRiel.test.tsx` tient l'accord.
 //   · `z-[2]` : au-dessus du calque de texte des tuiles (`z-[1]`) et du `::after` de leur lien.
 //   · `pointer-events-none` : un clic sur le bord flouté atteint toujours la tuile dessous.
 // Chaînes littérales complètes : Tailwind v4 ne génère pas une classe fabriquée par interpolation.
@@ -48,7 +51,7 @@ const VELO_IZQUIERDA =
 const VELO_DERECHA =
   "right-0 rounded-r-[16px] bg-gradient-to-l from-[var(--accent-foreground)]/50 [mask-image:linear-gradient(to_left,black_30%,transparent)]";
 
-export function FilaPortada({ children, testId }: { children: ReactNode; testId?: string }) {
+export function FilaRiel({ children, testId }: { children: ReactNode; testId?: string }) {
   const ref = useRef<HTMLUListElement>(null);
   const { puedeIzquierda, puedeDerecha } = useBordesDesplazables(ref);
 
