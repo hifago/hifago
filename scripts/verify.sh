@@ -83,6 +83,11 @@ lancer "Nommage kebab-case d'apps/admin/components"  bash scripts/check-admin-co
 # écran qui la réécrit autrement, un lien non localisé qu'à l'analytics d'un anglophone renvoyé en
 # espagnol.
 lancer "Jetons de couleur (vitrine)"                 bash scripts/check-tokens.sh
+
+# Bloquant depuis le 2026-10-02 (plan 41, item G1) — vérifié PAR MUTATION : chacune des six règles
+# rougit sur un fichier fautif, et le script sort en code 2 si une règle ne retrouve pas son témoin
+# synthétique (la première version passait au vert sans rien lire).
+lancer "Charte Hifago (titres, or, <main>, rayons)"  bash scripts/check-charte.sh
 lancer "Couche d'accès (pas de requête en route)"    bash scripts/check-data-layer.sh
 lancer "Panne ≠ absence (error lu, pas de loading)"  bash scripts/check-supabase-errors.sh
 lancer "Navigation localisée (@/i18n/navigation)"    bash scripts/check-i18n-links.sh

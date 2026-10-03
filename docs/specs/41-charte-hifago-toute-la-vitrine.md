@@ -2229,7 +2229,7 @@ remarque.
 | A5 | Logo horizontal large | à faire | | | demande au graphiste |
 | A6 | Découpes décoratives | à faire | | | |
 | A7 | Ménage de `public/` | à faire | | | |
-| G1 | `check-charte.sh` | à faire | | | |
+| G1 | `check-charte.sh` | fait | 2026-10-02 | « plan 41, G1 » | Les six contrôles du §6, branchés dans `npm run verify` (donc la CI et le pre-push), 5 s sous Windows. Périmètre : le code rendu d'`apps/web`, hors stories, tests et playground. La règle 1 lit tout le bloc `<hN>…</hN>` (une graisse sur un `<span>` du titre compte) ; exemption nommée : `PortadaInicio.tsx` (slogan). Règle 5 : exemptions nommées `PageShell`, `ErrorScreen`, `not-found` (P11), et **temporaires** les 5 pages d'auth (→ P10), Mi viaje (→ P5), Pago (→ P6), à retirer avec leur migration. Règle 3 : aucune surface marine déclarée (C2, S3 les nommeront). **Garde-fou ajouté** : un fichier témoin synthétique enfreint les six règles ; une règle qui ne le retrouve pas sort en code 2 (une première version passait au vert sans rien lire). Mutation : un fichier fautif fait rougir les six règles, `Title.tsx` aussi |
 | G2 | `.claude/rules/ui.md` | à faire | | | |
 | G3 | README des composants | à faire | | | |
 | G4 | Planche `Playground/Charte` | à faire | | | |
