@@ -86,8 +86,26 @@ export type SiteToasterProps = {
   testId?: string;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// 4. L'HABILLAGE (plan 41, item C4, 2026-10-02)
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+//
+// Surface blanche, bordure marine de 1 px, rayon de 12 px, une icône par ton. Mesuré avant :
+// fond blanc, 12 px et icônes étaient déjà ceux de HeroUI (`.toast`, `ToastIndicator`) — il
+// manquait la BORDURE, sans laquelle le toast ne tenait que par son ombre sur la page claire.
+// `--border` est marine sur le clair, et la région est portée au bout du <body> : elle lit donc
+// toujours les jetons du clair, même au-dessus du header or. Le rayon est écrit en valeur fixe
+// (§3.4 du plan : l'échelle `rounded-*` dérive de `--radius`), pour ne plus en dépendre.
+//
+// Posé par la `className` de la RÉGION, qui vise ses toasts (`[&_.toast]`) : `Toast.Provider` la
+// transmet, et ces utilitaires battent `.toast` (couche `components`). Aucune règle globale.
+//
+// Les barres d'action collantes du bas (D10, D11 : fiche, Mi viaje, Pago) ne sont jamais
+// recouvertes : la région est en HAUT (§3) — rien à décaler quand elles arriveront (P3, P5, P6).
+const HABILLAGE_TOASTS = "[&_.toast]:rounded-[12px] [&_.toast]:border [&_.toast]:border-[var(--border)] [&_.toast]:bg-surface";
+
 export function SiteToaster({ testId }: SiteToasterProps) {
   // `placement` explicite plutôt qu'implicite : le défaut de HeroUI est `bottom`, donc l'omettre
   // rendrait la décision du §3 invisible ET fausse.
-  return <Toast.Provider placement="top" data-testid={testId} />;
+  return <Toast.Provider placement="top" className={HABILLAGE_TOASTS} data-testid={testId} />;
 }
