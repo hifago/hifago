@@ -25,12 +25,11 @@ const indice = (
   opciones: { searchParams?: Record<string, string>; preparar?: () => void } = {}
 ) => historiaDePagina({ Page, grupo: "vitrine", ruta, ...opciones });
 
-// ⚠️ DÉFAUT RÉEL montré tel quel (relevé le 2026-10-01) : la catégorie de rattrapage « otras »
-// arrive ici avec un nom VIDE (`buscar.ts` le laisse à "", seule la page de catégorie le traduit),
-// d'où un `<h2>` vide sous la dernière section des activités.
+// La catégorie de rattrapage « otras » arrive avec un nom VIDE (`buscar.ts` ne traduit rien) : la
+// page lui donne « Otras actividades » (plan 41, P1 — c'était un `<h2>` vide jusque-là).
 export const Actividades: StoryObj = {
   ...indice(ActividadesPage, "/actividades"),
-  name: "Activités (dont « otras » au titre vide, défaut connu)",
+  name: "Activités (dont « Otras actividades »)",
 };
 
 export const Alojamientos: StoryObj = { ...indice(AlojamientosPage, "/alojamientos"), name: "Hébergements" };

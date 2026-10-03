@@ -33,6 +33,15 @@ export const Accueil1: StoryObj = etapa(1, "Accueil", Accueil.Defecto, async ({ 
   await conduceA(canvasElement, "/alojamientos");
 });
 
+// Variante d'exploration de l'étape 1 (fond marine #132f61, cartes or), placée juste dessous pour
+// passer de l'une à l'autre dans la barre latérale — même geste de sortie que l'étape 1.
+export const Accueil1Invertido: StoryObj = {
+  ...etapa(1, "Accueil", Accueil.DefectoColoresInvertidos, async ({ canvasElement }) => {
+    await conduceA(canvasElement, "/alojamientos");
+  }),
+  name: "1 bis · Accueil — fond marine, cartes or",
+};
+
 export const Alojamientos2: StoryObj = etapa(2, "Hébergements", Indices.Alojamientos, async ({ canvasElement }) => {
   await conduceA(canvasElement, "/establecimientos/casa-kayam");
 });

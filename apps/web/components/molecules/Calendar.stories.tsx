@@ -1,9 +1,9 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { enUS, es } from "date-fns/locale";
 import { PageShell } from "@/components/atoms/PageShell";
 import {
   Calendar,
+  localeCalendrier,
   type CalendarLibelles,
   type CalendarProps,
   type JourCalendrier,
@@ -69,7 +69,7 @@ const MOIS_ENTIEREMENT_COMPLET: JourCalendrier[] = TOUS_LES_JOURS.map((numero) =
 /** La locale et les libellés suivent le sélecteur de langue de la barre d'outils. */
 function contexte(globals: Record<string, unknown>) {
   const langue = globals.locale === "en" ? "en" : "es";
-  return { langue, locale: langue === "en" ? enUS : es, libelles: LIBELLES[langue] } as const;
+  return { langue, locale: localeCalendrier(langue), libelles: LIBELLES[langue] } as const;
 }
 
 // ⚠️ Composant NOMMÉ, jamais un `render` qui appellerait `useState` : un `render` de story n'est
@@ -201,7 +201,7 @@ export const DansUneCoquille: Story = {
   render: (args, { globals }) => {
     const { langue, locale, libelles } = contexte(globals);
     return (
-      <PageShell variant="narrow">
+      <PageShell variant="pagina">
         <h2 className="text-sm font-medium">Disponibilidad</h2>
         <Demo {...args} jours={joursDeReference(langue)} locale={locale} libelles={libelles} />
       </PageShell>

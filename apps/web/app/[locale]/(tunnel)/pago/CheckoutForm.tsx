@@ -6,8 +6,11 @@ import { isValidPhoneNumber } from "react-phone-number-input";
 import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
 import { useCart } from "@/lib/cart/CartContext";
-import { Button, Checkbox, Input, Label, TextField } from "@hifago/ui";
+import { Checkbox, Input, Label, TextField } from "@hifago/ui";
+import { Button } from "@/components/atoms/Button";
+import { Card } from "@/components/atoms/Card";
 import { PhoneField } from "@/components/atoms/PhoneField";
+import { Aviso } from "@/components/molecules/Aviso";
 
 // Raisons qui renvoient `line` (product_id/date de LA ligne fautive) — toujours un sous-ensemble
 // de KNOWN_REASONS ci-dessous (composé à partir de celui-ci, jamais recopié à la main : chaque
@@ -300,11 +303,28 @@ export function CheckoutForm({
     router.push(`/reserva/${orderRow.access_token}`);
   }
 
-  // Le panier (liste + total) est affiché juste au-dessus par `CartSummary` en lecture seule
+  // Le panier (liste + total) est affiché à côté par `CartSummary` en lecture seule
   // (`pago/page.tsx`) — ce formulaire ne porte plus que les coordonnées et le paiement (spec 32).
+  //
+  // Plan 41, P6 : « Tus datos » dans une carte, l'erreur EN TÊTE du formulaire (un `Aviso` erreur,
+  // même `role="alert"` et même `data-testid` qu'avant), le lien de reprise juste sous elle, la
+  // politique d'annulation dans un `Aviso` info, le CTA `lg` pleine largeur. Seul l'affichage
+  // change : `handleSubmit` ci-dessus est intact, appel pour appel.
   return (
-    <div className="flex flex-col gap-6">
-      <form onSubmit={handleSubmit} className="flex max-w-md flex-col gap-4">
+    <Card title={t("formTitle")} titleAs="h2" titleSize="bloque" padding="lg" contentGap="md">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {error ? (
+          <Aviso tono="error" rol="alert" testId="checkout-error">
+            {error}
+          </Aviso>
+        ) : null}
+        {/* Hors de l'`Aviso` : son `textContent` est lu tel quel (CheckoutForm.test.tsx). */}
+        {canResumeOrder ? (
+          <Link href="/mi-viaje" data-testid="resume-order-link" className="text-sm text-link underline underline-offset-2">
+            {t("resumeOrder")}
+          </Link>
+        ) : null}
+
         <TextField name="holder-name" value={holderName} onChange={setHolderName} isRequired>
           <Label>{t("holderName")}</Label>
           <Input />
@@ -336,21 +356,23 @@ export function CheckoutForm({
           </Checkbox.Content>
         </Checkbox>
 
-        <p className="text-xs text-muted">{tCommon("cancellationPolicy")}</p>
+        <Aviso tono="info" compacto>
+          {tCommon("cancellationPolicy")}
+        </Aviso>
 
-        {error ? (
-          <p role="alert" data-testid="checkout-error" className="text-sm text-danger">
-            {error}
-          </p>
-        ) : null}
-        {canResumeOrder ? (
-          <Link href="/mi-viaje" data-testid="resume-order-link" className="text-sm underline underline-offset-2">
-            {t("resumeOrder")}
-          </Link>
-        ) : null}
-
-        <Button type="submit" isDisabled={isSubmitting || isOrderPlaced} data-testid="submit-order-button">
-          {isSubmitting ? t("submitting") : t("submit")}
+        {/* `isPending` plutôt que `isDisabled` pendant l'envoi : le focus reste sur le bouton et
+            react-aria neutralise la soumission (atoms/Button.tsx). `isOrderPlaced` garde, lui, le
+            bouton réellement éteint après une commande créée. */}
+        <Button
+          type="submit"
+          size="lg"
+          width="full"
+          isPending={isSubmitting}
+          pendingLabel={t("submitting")}
+          isDisabled={isOrderPlaced}
+          testId="submit-order-button"
+        >
+          {t("submit")}
         </Button>
 
         {/* Discret, jamais devant le formulaire : le compte n'apporte qu'un confort en plus,
@@ -359,12 +381,12 @@ export function CheckoutForm({
           <Link
             href="/entrar?next=/pago"
             data-testid="login-link"
-            className="text-center text-sm text-muted hover:underline"
+            className="self-start text-sm text-link hover:underline"
           >
             {t("loginLink")}
           </Link>
         ) : null}
       </form>
-    </div>
+    </Card>
   );
 }

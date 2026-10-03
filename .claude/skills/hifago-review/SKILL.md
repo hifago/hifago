@@ -1,6 +1,6 @@
 ---
 name: hifago-review
-description: Audit de conformité d'une contribution au nouveau stack Hifago aux invariants de l'architecture avant de la considérer terminée — frontière RLS/RPC-only, pattern anti-survente, cohérence du design system unique, correction i18n/SEO, absence de fournisseur écarté. Usage — /hifago-review (complet), /hifago-review rls, /hifago-review anti-survente, /hifago-review i18n, /hifago-review design-system
+description: Audit de conformité d'une contribution au nouveau stack Hifago aux invariants de l'architecture avant de la considérer terminée — frontière RLS/RPC-only, pattern anti-survente, cohérence du design system unique, correction i18n/SEO, absence de fournisseur écarté. Invocation Codex — $hifago-review, $hifago-review rls, anti-survente, i18n ou design-system
 ---
 
 # /hifago-review — audit de conformité avant de considérer une tâche terminée

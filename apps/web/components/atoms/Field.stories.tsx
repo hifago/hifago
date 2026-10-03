@@ -16,8 +16,8 @@ import { Legende } from "../playground/Legende";
 // la story réimposait `email` juste après.
 //
 // Toutes les stories sont réellement saisissables : un champ figé ne montre ni le focus, ni ce que
-// devient un libellé long à côté d'une valeur longue. À regarder aux deux gabarits et dans les
-// deux modes.
+// devient un libellé long à côté d'une valeur longue. À regarder aux deux gabarits dans la charte
+// claire adoptée.
 const meta = {
   title: "Saisie/Field",
   component: Field,

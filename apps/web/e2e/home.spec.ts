@@ -108,9 +108,9 @@ test("l'accueil rend plusieurs sections, activités d'abord, chacune avec son <h
 }) => {
   await irAlInicio(page);
 
-  // ⚠️ INVARIANT DE LA SPEC 28 (§0.3) : un seul <h1> dans toute la page. Il est masqué
-  // VISUELLEMENT (`sr-only`) mais présent dans le DOM — d'où `toHaveCount`, qui n'exige pas la
-  // visibilité, et `textContent`, qui lit un texte que `innerText` ne rendrait pas.
+  // ⚠️ INVARIANT DE LA SPEC 28 (§0.3) : un seul <h1> dans toute la page. Masqué visuellement à
+  // l'origine, il est VISIBLE depuis la maquette du 2026-10-02 (« Guatapé merece más de un día. ») ;
+  // `toHaveCount` + `textContent` restent valables dans les deux cas.
   await expect(page.locator("h1")).toHaveCount(1);
   expect(((await page.locator("h1").textContent()) ?? "").trim().length).toBeGreaterThan(0);
 

@@ -3,7 +3,7 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { Legende } from "../playground/Legende";
 
 // Le sélecteur de langue, isolé. ⚠️ À voir OUVERT autant que fermé : c'est ouvert qu'on constate
-// s'il déborde à 390 px, et que les drapeaux se distinguent en mode sombre.
+// s'il déborde à 390 px, et que les drapeaux se distinguent sur les surfaces de la charte.
 //
 // Basculer la langue dans la barre d'outils change le libellé du bouton — c'est voulu : chaque
 // langue s'écrit dans la sienne, jamais traduite.
@@ -51,6 +51,19 @@ export const AlignementADroite: Story = {
   args: { testId: "lang" },
   render: (args) => (
     <div className="flex min-h-64 justify-end">
+      <LanguageSwitcher {...args} />
+    </div>
+  ),
+};
+
+// L'apparence `banderas` — « 🇪🇸 ESP  🇬🇧 ING », la rangée du header transparent de l'accueil
+// (maquette de Jérôme, 2026-10-01). Les deux langues en liens directs, sur l'or où elle vit.
+// Basculer la langue dans la barre d'outils : « ING » devient « ENG », l'abréviation est un libellé
+// d'interface, traduit — contrairement aux endonymes du menu.
+export const Banderas: Story = {
+  args: { apariencia: "banderas", testId: "lang" },
+  render: (args) => (
+    <div className="bg-accent p-4 text-accent-foreground">
       <LanguageSwitcher {...args} />
     </div>
   ),

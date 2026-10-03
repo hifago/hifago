@@ -10,8 +10,14 @@ import { CARRITO_UN_DIA } from "@/.storybook/support/fixtures/carrito";
 import { loadMessages, type Locale } from "@/messages";
 import HomePage from "./page";
 
-// L'accueil : sélecteur de types, bloc de recherche, un carrousel par type. Les états de la barre
-// de recherche (raccourcis, suggestions, calendrier, personnes) s'obtiennent en cliquant.
+// L'accueil de la maquette de Jérôme (2026-10-01) : header transparent, héros (la rue aux zócalos,
+// le grand logo, la navigation par type, la recherche), puis une section par type — titre, motif,
+// conteneur marine de trois photos, « GO → ». Les états de la barre de recherche (raccourcis,
+// suggestions, calendrier, personnes) s'obtiennent en cliquant.
+//
+// ⚠️ Plus d'état « Menu ouvert » : le header transparent de l'accueil n'a PAS de bouton de menu —
+// les langues, Mi viaje et Mi cuenta y sont visibles à toutes les largeurs. Cet état se regarde
+// désormais sur les autres écrans (`Coquille/SiteHeader`).
 const meta = { title: "Écrans/Accueil", id: "ecrans-accueil" } satisfies Meta;
 export default meta;
 
@@ -35,6 +41,58 @@ const pagina = (
 const SUGERENCIAS = "/api/catalogo/sugerencias";
 
 export const Defecto: StoryObj = { ...pagina(), name: "Accueil" };
+
+// Variante d'exploration (Jérôme, 2026-10-01) : fond de page et bandes en marine (#132f61, la
+// marine de la charte), conteneurs de cartes et bouton secondaire en or (#ddae09). La permutation
+// se fait sur les jetons `--accent` / `--default` au niveau de `<html>` (là où `--accent-hover`,
+// `--default-hover`… sont dérivés), via une `<style>` montée avec la story et retirée avec elle :
+// `globals.css` n'est pas touché. Même valeur dans les deux modes : c'est une maquette de couleur,
+// pas un thème. Les couleurs passent par les jetons bruts de la charte (`--charte-*`, `globals.css`)
+// et le mot-clé `white` — jamais un hex : `scripts/check-tokens.sh` le refuserait, stories comprises.
+//
+// Sur ce fond sombre, le texte du fond (`--accent-foreground` : header, langue, menu par type)
+// passe en blanc, et les TITRES DES SECTIONS en or — le couple marine / or du logo lui-même, l'or sur
+// fond SOMBRE n'étant pas l'interdit « or en texte sur fond clair » de la charte. La recherche, les
+// points des titres et les flèches suivent `--default`, donc l'or.
+//
+// ⚠️ Adaptée le 2026-10-01 à la maquette de l'accueil, qui a remplacé les bandes défilantes et le
+// petit logo du header : les conteneurs de photos portent `--accent-foreground` (le marine sur la
+// vraie page), donc BLANC ici ; et le grand logo du héros, marine, est passé en blanc par un filtre
+// — la charte n'a pas de déclinaison horizontale claire SANS or, et l'or s'y perdrait moins que le
+// marine sur ce fond. Une maquette de couleur, pas un thème : rien de ceci n'atteint la production.
+const PERMUTACION_ORO_AZUL = `
+  :root[data-theme="vitrine"] {
+    --accent: var(--charte-marine);
+    --accent-foreground: white;
+    --default: var(--charte-or);
+    --default-foreground: var(--charte-marine);
+  }
+  /* Les boutons TRANSPARENTS posés sur le fond (icônes du header, puces Fechas / Personas) teintent
+     leur texte au marine de --default-foreground : invisibles sur marine, constaté au rendu. */
+  :root[data-theme="vitrine"] body:has(main[data-fondo="acento"]) :is(header .button--ghost, header .button--outline, [data-testid^="buscador-"][data-testid$="-trigger"]) {
+    --btn-on-tint: white;
+    --btn-line: color-mix(in oklab, white 60%, transparent);
+  }
+  :root[data-theme="vitrine"] main[data-fondo="acento"] section h2 {
+    color: var(--charte-or);
+  }
+  :root[data-theme="vitrine"] main[data-fondo="acento"] h1 img {
+    filter: brightness(0) invert(1);
+  }
+`;
+
+export const DefectoColoresInvertidos: StoryObj = {
+  ...Defecto,
+  name: "Accueil — fond marine, cartes or",
+  decorators: [
+    (Historia) => (
+      <>
+        <style>{PERMUTACION_ORO_AZUL}</style>
+        <Historia />
+      </>
+    ),
+  ],
+};
 
 export const ConectadoConCarrito: StoryObj = {
   ...pagina({
@@ -64,14 +122,6 @@ export const DesdeElCarrito: StoryObj = {
   // Le vrai parcours affiche ce toast juste avant d'arriver ici (`useAddToCart`).
   play: async ({ globals }) => {
     toast.success(loadMessages((globals.locale as Locale) ?? "es").ProductPage.addedToCart);
-  },
-};
-
-export const MenuAbierto: StoryObj = {
-  ...pagina(),
-  name: "Menu ouvert",
-  play: async ({ canvasElement }) => {
-    await pulsar(canvasElement, "header button[aria-expanded]");
   },
 };
 

@@ -18,6 +18,8 @@
  *      archive/node_modules/build) désigne une section — et un sous-point — qui existe vraiment.
  *   5. Tout chemin `.md` cité entre backticks dans le corpus d'instructions (CLAUDE.md, règles,
  *      skills, backlog, AGENTS-PARALLELES.md) résout vers un fichier qui existe.
+ *   6. Tout skill de projet respecte le format commun Claude/Codex (`name` + `description`).
+ *   7. Toute règle de projet déclare au moins un motif YAML `paths:`.
  *
  * Appelé par le hook PostToolUse (`scripts/hooks/post-edit-check-instructions.mjs`) après chaque
  * édition, et par le job `lint` de la CI comme second filet.
@@ -39,7 +41,7 @@ const LIMITES = {
 // chargé automatiquement (journal, prompts livrés, skills archivés).
 const EXCLUS = new Set([
   'node_modules', '.git', '.next', '.vercel', 'dist', 'build', 'coverage',
-  'storybook-static', 'test-results', '.turbo',
+  'storybook-static', 'test-results', '.turbo', '.agents',
 ]);
 const EXCLUS_RACINE_RELATIFS = ['docs/journal', 'prompts', 'archive'];
 
@@ -146,6 +148,55 @@ function extraireCheminsMd(texte) {
   return chemins;
 }
 
+/** Parse le sous-ensemble YAML volontairement minimal utilisé par les frontmatters du projet. */
+function parserFrontmatter(texte) {
+  const lignes = texte.replace(/\r\n/g, '\n').split('\n');
+  if (lignes[0] !== '---') return null;
+  const fin = lignes.indexOf('---', 1);
+  if (fin === -1) return null;
+
+  const champs = new Map();
+  const doublons = new Set();
+  let cleCourante = null;
+  for (const ligne of lignes.slice(1, fin)) {
+    const definition = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/.exec(ligne);
+    if (definition) {
+      cleCourante = definition[1];
+      if (champs.has(cleCourante)) doublons.add(cleCourante);
+      champs.set(cleCourante, definition[2]);
+      continue;
+    }
+    const element = /^\s+-\s+(.+)$/.exec(ligne);
+    if (element && cleCourante) {
+      const valeur = champs.get(cleCourante);
+      champs.set(cleCourante, Array.isArray(valeur) ? [...valeur, element[1]] : [element[1]]);
+    }
+  }
+
+  return { champs, doublons, corps: lignes.slice(fin + 1).join('\n').trim() };
+}
+
+function valeurYamlScalaire(valeur) {
+  if (Array.isArray(valeur) || typeof valeur !== 'string') return '';
+  const propre = valeur.trim();
+  if (
+    propre.length >= 2 &&
+    ((propre.startsWith('"') && propre.endsWith('"')) ||
+      (propre.startsWith("'") && propre.endsWith("'")))
+  ) return propre.slice(1, -1).trim();
+  return propre;
+}
+
+function listeYaml(valeur) {
+  if (Array.isArray(valeur)) return valeur.map(valeurYamlScalaire).filter(Boolean);
+  const propre = valeurYamlScalaire(valeur);
+  if (!propre) return [];
+  if (propre.startsWith('[') && propre.endsWith(']')) {
+    return propre.slice(1, -1).split(',').map((item) => valeurYamlScalaire(item)).filter(Boolean);
+  }
+  return [propre];
+}
+
 function verifier() {
   const problemes = [];
 
@@ -173,13 +224,58 @@ function verifier() {
   if (fs.existsSync(reglesDir)) {
     for (const f of fs.readdirSync(reglesDir)) {
       if (!f.endsWith('.md')) continue;
-      const n = compterLignes(path.join(reglesDir, f));
+      const cheminRegle = path.join(reglesDir, f);
+      const n = compterLignes(cheminRegle);
       if (n > LIMITES.REGLE) {
         problemes.push(
           `.claude/rules/${f} fait ${n} lignes (> ${LIMITES.REGLE}) : le piège le plus ancien ` +
           `part au journal avec un lien depuis la règle.`
         );
       }
+
+      const frontmatter = parserFrontmatter(fs.readFileSync(cheminRegle, 'utf8'));
+      if (!frontmatter) {
+        problemes.push(`.claude/rules/${f} n'a pas de frontmatter YAML valide.`);
+      } else if (listeYaml(frontmatter.champs.get('paths')).length === 0) {
+        problemes.push(`.claude/rules/${f} doit déclarer au moins un motif dans \`paths:\`.`);
+      }
+    }
+  }
+
+  // 6. Skills portables entre Claude Code et Codex.
+  const skillsDir = path.join(ROOT, '.claude/skills');
+  if (fs.existsSync(skillsDir)) {
+    for (const s of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+      if (!s.isDirectory()) continue;
+      const cheminSkill = path.join(skillsDir, s.name, 'SKILL.md');
+      if (!fs.existsSync(cheminSkill)) continue;
+      const rel = `.claude/skills/${s.name}/SKILL.md`;
+      const frontmatter = parserFrontmatter(fs.readFileSync(cheminSkill, 'utf8'));
+      if (!frontmatter) {
+        problemes.push(`${rel} n'a pas de frontmatter YAML valide.`);
+        continue;
+      }
+
+      const cles = [...frontmatter.champs.keys()];
+      const interdites = cles.filter((cle) => !['name', 'description'].includes(cle));
+      const name = valeurYamlScalaire(frontmatter.champs.get('name'));
+      const description = valeurYamlScalaire(frontmatter.champs.get('description'));
+      if (frontmatter.doublons.size) {
+        problemes.push(`${rel} répète les clés : ${[...frontmatter.doublons].join(', ')}.`);
+      }
+      if (interdites.length) {
+        problemes.push(
+          `${rel} contient des clés non portables (${interdites.join(', ')}) ; seules \`name\` et ` +
+          '`description` sont admises.'
+        );
+      }
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name) || name !== s.name) {
+        problemes.push(`${rel} doit avoir \`name: ${s.name}\` (kebab-case identique au dossier).`);
+      }
+      if (!description || /[<>]/.test(description)) {
+        problemes.push(`${rel} doit avoir une \`description\` non vide, sans chevrons \`< >\`.`);
+      }
+      if (!frontmatter.corps) problemes.push(`${rel} doit contenir des instructions après le frontmatter.`);
     }
   }
 
@@ -223,7 +319,6 @@ function verifier() {
     'docs/backlog.md',
     ...(fs.existsSync(reglesDir) ? fs.readdirSync(reglesDir).filter((f) => f.endsWith('.md')).map((f) => `.claude/rules/${f}`) : []),
   ];
-  const skillsDir = path.join(ROOT, '.claude/skills');
   if (fs.existsSync(skillsDir)) {
     for (const s of fs.readdirSync(skillsDir, { withFileTypes: true })) {
       if (s.isDirectory() && fs.existsSync(path.join(skillsDir, s.name, 'SKILL.md'))) {

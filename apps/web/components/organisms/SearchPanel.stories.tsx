@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { es } from "date-fns/locale";
+import { localeCalendrier } from "@/components/molecules/Calendar";
 import { PageShell } from "@/components/atoms/PageShell";
 import type { SearchSuggestion } from "./SearchBar";
 import { SearchPanel, type SearchCriteria, type SearchPanelLabels } from "./SearchPanel";
@@ -53,7 +53,7 @@ const meta = {
     suggestions: SUGGESTIONS,
     onSuggestionSelect: () => {},
     aujourdIso: AUJOURDHUI,
-    locale: es,
+    locale: localeCalendrier("es"),
     labels: libelles(null),
     testId: "panneau",
   },
@@ -67,7 +67,7 @@ function Cadre({ initial = VIDE }: { initial?: SearchCriteria }) {
   const [journal, setJournal] = useState<string[]>([]);
 
   return (
-    <PageShell variant="large">
+    <PageShell variant="pagina">
       <SearchPanel
         criteria={criteres}
         onCriteriaChange={setCriteres}
@@ -82,7 +82,7 @@ function Cadre({ initial = VIDE }: { initial?: SearchCriteria }) {
         suggestions={SUGGESTIONS}
         onSuggestionSelect={(s) => setJournal((j) => [...j, `SUGGESTION → ${s.label}`])}
         aujourdIso={AUJOURDHUI}
-        locale={es}
+        locale={localeCalendrier("es")}
         labels={libelles(criteres.people)}
         testId="panneau"
       />

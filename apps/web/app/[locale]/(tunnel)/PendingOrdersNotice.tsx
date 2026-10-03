@@ -1,4 +1,5 @@
 import { Link } from "@/i18n/navigation";
+import { Aviso } from "@/components/molecules/Aviso";
 import type { PendingOrderForViewer } from "@/lib/orders/getPendingOrdersForViewer";
 
 // Partagé entre `/mi-viaje` et `/pago` : les deux affichent ce bloc dans les mêmes conditions
@@ -23,8 +24,7 @@ export function PendingOrdersNotice({ orders, title, linkLabel }: PendingOrdersN
   if (orders.length === 0) return null;
 
   return (
-    <div data-testid="pending-orders" className="flex flex-col gap-3 rounded-lg border p-4 text-sm">
-      <p className="font-medium">{title}</p>
+    <Aviso tono="info" titulo={title} testId="pending-orders">
       <ul className="flex flex-col gap-2">
         {orders.map((order) => (
           <li key={order.id}>
@@ -38,6 +38,6 @@ export function PendingOrdersNotice({ orders, title, linkLabel }: PendingOrdersN
           </li>
         ))}
       </ul>
-    </div>
+    </Aviso>
   );
 }

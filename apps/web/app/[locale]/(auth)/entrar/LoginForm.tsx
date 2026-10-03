@@ -9,7 +9,9 @@ import { useTranslations } from "next-intl";
 // visiblement, et c'est bien le problème.
 import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
-import { Button, Input, Label, TextField } from "@hifago/ui";
+import { Input, Label, TextField } from "@hifago/ui";
+import { Button } from "@/components/atoms/Button";
+import { Aviso } from "@/components/molecules/Aviso";
 import { OAuthSection } from "@/components/molecules/GoogleButton";
 
 // `callbackFailed` : posé par `page.tsx` depuis `?error=auth_callback_failed`. Cette redirection
@@ -97,24 +99,30 @@ export function LoginForm({ next, callbackFailed = false }: { next: string; call
         <Link
           href="/olvide-password"
           data-testid="forgot-password-link"
-          className="self-start text-xs text-muted underline"
+          className="self-start text-base text-link underline"
         >
           {t("forgotPasswordLink")}
         </Link>
         {error ? (
-          <p role="alert" data-testid="login-error" className="text-sm text-danger">
-            {error}
-          </p>
+          <Aviso tono="error" rol="alert" testId="login-error">
+            <p>{error}</p>
+          </Aviso>
         ) : null}
-        <Button type="submit" isDisabled={isSubmitting}>
-          {isSubmitting ? t("submitting") : t("submit")}
+        <Button
+          type="submit"
+          size="lg"
+          width="full"
+          isPending={isSubmitting}
+          pendingLabel={t("submitting")}
+        >
+          {t("submit")}
         </Button>
       </form>
 
       {/* Un client n'a besoin d'aucune capacité pour exister (contrairement à admin, où le
           point d'entrée self-service a été retiré le 2026-08-19 — décision propre à ce
           contexte-là, sans rapport ici) — lien discret vers l'inscription, jamais mis en avant. */}
-      <p className="text-center text-sm text-muted">
+      <p className="text-center text-base text-muted">
         <Link
           href={next !== "/" ? `/registro?next=${encodeURIComponent(next)}` : "/registro"}
           className="underline"

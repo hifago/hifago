@@ -1,3 +1,4 @@
+import { isoDateToLocalMidnight } from "@hifago/domain";
 import { ultimoDiaCampIso } from "@/lib/cart/campMissingLodging";
 
 // La date (ou la plage, ou le créneau) d'une ligne, rendue de la même façon partout.
@@ -37,10 +38,63 @@ export function resolveDisplayEndDate({ date, endDate, durationDays }: LineSched
   return null;
 }
 
-/** `2026-11-01`, `2026-11-01 → 2026-11-03`, ou `2026-11-01 · 09:00` selon la forme de la ligne. */
-export function formatLineSchedule(line: LineSchedule): string {
+/**
+ * Date d'une ligne. Sans locale, conserve la forme ISO historique des écrans qui n'ont pas encore
+ * migré vers la charte. Avec locale, rend la forme courte et lisible du tunnel (plan 41, P5/P6).
+ */
+export function formatLineSchedule(line: LineSchedule, locale?: string): string {
   const resolvedEndDate = resolveDisplayEndDate(line);
-  if (resolvedEndDate) return `${line.date} → ${resolvedEndDate}`;
-  if (line.slotStartTime) return `${line.date} · ${line.slotStartTime}`;
-  return line.date;
+  if (!locale) {
+    if (resolvedEndDate) return `${line.date} → ${resolvedEndDate}`;
+    if (line.slotStartTime) return `${line.date} · ${line.slotStartTime}`;
+    return line.date;
+  }
+
+  const date = (iso: string, weekday = false) =>
+    new Intl.DateTimeFormat(locale, {
+      ...(weekday ? { weekday: "short" as const } : {}),
+      day: "numeric",
+      month: "short",
+    })
+      .format(isoDateToLocalMidnight(iso))
+      .replace(/\.$/, "");
+
+  if (resolvedEndDate) {
+    const start = isoDateToLocalMidnight(line.date);
+    const end = isoDateToLocalMidnight(resolvedEndDate);
+    const sameMonth = start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth();
+    const startLabel = sameMonth
+      ? new Intl.DateTimeFormat(locale, { day: "numeric" }).format(start)
+      : date(line.date);
+    return `${startLabel} → ${date(resolvedEndDate)}`;
+  }
+  if (line.slotStartTime) return `${date(line.date, true)} · ${line.slotStartTime}`;
+  return date(line.date, true);
+}
+
+/**
+ * La même date, LISIBLE (plan 41, constat T13, défaut connu n° 7) : `jue, 15 oct`,
+ * `15 oct → 17 oct`, `jue, 15 oct · 10:00` — `Thu, Oct 15`… en anglais.
+ *
+ * ⚠️ À CÔTÉ de `formatLineSchedule`, pas à sa place : P5 à P7 utilisent désormais la surcharge
+ * localisée de la fonction historique, tandis que Mis reservas (P8) conserve cette variante qui
+ * répète le mois sur une plage et tronque explicitement l'heure à `HH:MM`. Mêmes trois formes,
+ * même priorité (une plage ne porte pas d'heure). Le jour de la semaine seulement sur une date
+ * seule : sur une plage, deux jours de semaine alourdiraient la ligne pour rien.
+ *
+ * Sans année, comme le titre « Tu viaje del… » (`formatTripLabel`) : une réservation se lit dans
+ * l'année, et le détail (`/reserva/<jeton>`) reste à un clic. L'heure garde `HH:MM` (la base rend
+ * `10:00:00`). `isoDateToLocalMidnight` et jamais `new Date(iso)`, lu en UTC (voir `tripRange.ts`).
+ */
+export function formatLineScheduleLisible(line: LineSchedule, locale: string): string {
+  const jour = (iso: string, options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat(locale, options).format(isoDateToLocalMidnight(iso));
+  const resolvedEndDate = resolveDisplayEndDate(line);
+  if (resolvedEndDate) {
+    const court: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+    return `${jour(line.date, court)} → ${jour(resolvedEndDate, court)}`;
+  }
+  const avecJour = jour(line.date, { weekday: "short", day: "numeric", month: "short" });
+  if (line.slotStartTime) return `${avecJour} · ${line.slotStartTime.slice(0, 5)}`;
+  return avecJour;
 }

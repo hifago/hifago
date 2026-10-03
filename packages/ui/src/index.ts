@@ -6,6 +6,7 @@ export { cn } from "./lib/utils";
 export * from "./components/app-nav-shell";
 export * from "./components/simple-table";
 export * from "./components/legacy-calendar";
+export * from "./components/calendar-locales";
 export * from "./components/pagination";
 export * from "./components/kpi-card";
 export * from "./components/chart-card";

@@ -25,6 +25,15 @@ export const Accueil1: StoryObj = etapa(1, "Accueil", Accueil.Defecto, async ({ 
   await conduceA(canvasElement, `/productos/${ACTIVIDAD_CAMINATA.slug}`);
 });
 
+// Variante d'exploration de l'étape 1 (fond marine #132f61, cartes or), placée juste dessous pour
+// passer de l'une à l'autre dans la barre latérale — même geste de sortie que l'étape 1.
+export const Accueil1Invertido: StoryObj = {
+  ...etapa(1, "Accueil", Accueil.DefectoColoresInvertidos, async ({ canvasElement }) => {
+    await conduceA(canvasElement, `/productos/${ACTIVIDAD_CAMINATA.slug}`);
+  }),
+  name: "1 bis · Accueil — fond marine, cartes or",
+};
+
 export const Ficha2: StoryObj = etapa(2, "Fiche : date choisie, ajout", Ficha.FechaElegida, async ({ canvasElement }) => {
   await pulsar(canvasElement, '[data-testid="add-to-cart-button"]');
   await waitFor(() => expect(carritoSimulado()).toHaveLength(1));

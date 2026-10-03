@@ -19,27 +19,35 @@ describe("Title", () => {
     expect(titre(<Title as="h3">Titre</Title>).tagName).toBe("H3");
   });
 
-  // ⚠️ Le test qui porte la décision : demander une autre taille ne change JAMAIS le niveau.
+  // ⚠️ Le test qui porte la décision : demander un autre rôle ne change JAMAIS le niveau.
   it("`size` ne change pas la balise", () => {
-    expect(titre(<Title as="h2" size="sm">Disponibilidad</Title>).tagName).toBe("H2");
-    expect(titre(<Title as="h2" size="lg">Disponibilidad</Title>).tagName).toBe("H2");
-    expect(titre(<Title as="h3" size="lg">Section</Title>).tagName).toBe("H3");
+    expect(titre(<Title as="h2" size="bloque">Disponibilidad</Title>).tagName).toBe("H2");
+    expect(titre(<Title as="h2" size="pagina">Disponibilidad</Title>).tagName).toBe("H2");
+    expect(titre(<Title as="h3" size="etiqueta">General</Title>).tagName).toBe("H3");
   });
 
-  it("dérive la taille par défaut du niveau : h1→lg, h2→md, h3→sm", () => {
-    expect(titre(<Title as="h1">Titre</Title>).className).toBe("text-2xl font-semibold");
-    expect(titre(<Title as="h2">Titre</Title>).className).toBe("text-lg font-medium");
-    expect(titre(<Title as="h3">Titre</Title>).className).toBe("text-sm font-medium");
+  // Les classes de rôle du plan 41 (F1), définies dans `packages/ui/src/styles/globals.css`.
+  it("dérive le rôle par défaut du niveau : h1→pagina, h2→seccion, h3→bloque", () => {
+    expect(titre(<Title as="h1">Titre</Title>).className).toBe("titre-page");
+    expect(titre(<Title as="h2">Titre</Title>).className).toBe("titre-section");
+    expect(titre(<Title as="h3">Titre</Title>).className).toBe("titre-bloc");
   });
 
-  it("applique la taille explicite quand elle est donnée", () => {
-    // Le cas réel : les <h2> « availabilityTitle » des trois formulaires de réservation.
-    expect(titre(<Title as="h2" size="sm">Disponibilidad</Title>).className).toBe(
-      "text-sm font-medium"
-    );
-    expect(titre(<Title as="h3" size="lg">Section</Title>).className).toBe(
-      "text-2xl font-semibold"
-    );
+  it("applique le rôle explicite quand il est donné", () => {
+    // Le cas réel : « Disponibilidad », un <h2> qui se lit comme un titre de bloc.
+    expect(titre(<Title as="h2" size="bloque">Disponibilidad</Title>).className).toBe("titre-bloc");
+    // Les catégories d'équipement : un <h3> en Poppins, jamais en police de titre à 14 px.
+    expect(titre(<Title as="h3" size="etiqueta">General</Title>).className).toBe("etiquette");
+    expect(titre(<Title as="h2" size="pagina">Titre</Title>).className).toBe("titre-page");
+  });
+
+  // ⚠️ Le défaut que F2 a supprimé : `font-semibold` sur Anton, qui n'existe qu'en 400, faisait
+  // synthétiser un faux gras au navigateur. Aucun rôle ne pose plus de graisse ni de taille en
+  // classe : elles vivent dans la définition CSS du rôle.
+  it("ne pose jamais de classe de graisse ni de taille Tailwind", () => {
+    for (const size of ["pagina", "seccion", "bloque", "etiqueta"] as const) {
+      expect(titre(<Title as="h2" size={size}>T</Title>).className).not.toMatch(/font-|text-/);
+    }
   });
 
   it("expose testId sur la balise de titre", () => {

@@ -155,8 +155,9 @@ describe("LinkButton", () => {
     expect(duBouton).toContain("button--full-width");
   });
 
-  it("prend la taille lg par défaut, comme Button (44 px de cible tactile sur mobile)", () => {
-    expect(lien(<LinkButton href="/x">A</LinkButton>).className).toContain("button--lg");
+  it("prend la taille md par défaut, comme Button (44 px à toute largeur, plan 41 F4)", () => {
+    expect(lien(<LinkButton href="/x">A</LinkButton>).className).toContain("button--md");
+    expect(lien(<LinkButton href="/x">A</LinkButton>).className).toContain("h-11");
   });
 
   // ─────────────────────────────────────────────────────────────────────────────────────────

@@ -48,6 +48,25 @@ const LABELS_POR_DEFECTO: CarouselLabels = {
   irA: (n) => `Ir a la foto ${n}`,
 };
 
+/**
+ * L'habillage des commandes (2026-10-03, plan 41 de la vitrine, item S9). ADDITIF : `defecto` est
+ * le rendu d'origine, au caractère près — l'admin (`catalog-card.tsx`) ne passe rien et ne change
+ * pas.
+ *
+ * `sobreFoto` — les commandes posées SUR la photo, lisibles quelle qu'elle soit (constat T15 : des
+ * boutons `outline` de 32 px à glyphe « ‹ » disparaissaient sur une photo sombre) :
+ *   - flèches : boutons ronds de 44 px (cible tactile), fond `--surface` à 90 %, flou d'arrière-plan
+ *     léger, ombre `--overlay-shadow`, chevron SVG à la couleur `--surface-foreground` (marine en
+ *     vitrine, et qui ne bascule pas avec les surfaces) ; à 12 px du bord, centrées verticalement ;
+ *   - au lieu des points de 8 px (cibles de 8 px, sous tous les seuils) : un COMPTEUR « 1 / 5 » en
+ *     bulle, en bas à droite — la bulle des tuiles photo, blanc sur voile noir à 55 % (4,74:1 au pire
+ *     cas, photo blanche). Décoratif pour un lecteur d'écran : le texte alternatif de chaque photo
+ *     dit déjà « foto i de n » côté vitrine ;
+ *   - l'arrondi de la photo est celui de la racine (`className`) : le cadre qui rogne les slides
+ *     prend `rounded-[inherit]`.
+ */
+export type CarouselControles = "defecto" | "sobreFoto";
+
 export type CarouselProps<T extends CarouselSlide> = {
   slides: T[];
   renderSlide: (slide: T, index: number) => React.ReactNode;
@@ -55,14 +74,41 @@ export type CarouselProps<T extends CarouselSlide> = {
   variant?: "gallery" | "hero";
   /** Voir `CarouselLabels`. Omise → espagnol, le comportement d'origine. */
   labels?: CarouselLabels;
+  /** Voir `CarouselControles`. Omise → `defecto`, le rendu d'origine. */
+  controles?: CarouselControles;
   className?: string;
 };
+
+// `sobreFoto` : chaînes littérales complètes (Tailwind ne génère pas une classe interpolée).
+const FLECHE_SUR_PHOTO =
+  "absolute top-1/2 z-[1] flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-surface/90 text-surface-foreground shadow-[var(--overlay-shadow)] backdrop-blur-sm outline-none transition-transform active:scale-95 focus-visible:status-focused motion-reduce:transition-none";
+const COMPTEUR_SUR_PHOTO =
+  "pointer-events-none absolute bottom-3 right-3 z-[1] rounded-full border-[1.5px] border-white bg-black/55 px-2.5 py-0.5 text-xs font-bold tabular-nums text-white backdrop-blur-sm";
+
+function Chevron({ sens }: { sens: "gauche" | "droite" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="size-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d={sens === "gauche" ? "M15 5l-7 7 7 7" : "M9 5l7 7-7 7"} />
+    </svg>
+  );
+}
 
 export function Carousel<T extends CarouselSlide>({
   slides,
   renderSlide,
   variant = "gallery",
   labels = LABELS_POR_DEFECTO,
+  controles = "defecto",
   className,
 }: CarouselProps<T>) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false });
@@ -86,6 +132,53 @@ export function Carousel<T extends CarouselSlide>({
   }
 
   if (slides.length === 0) return null;
+
+  if (controles === "sobreFoto") {
+    return (
+      <div
+        className={cn("relative", className)}
+        data-testid="carousel"
+        onKeyDown={handleKeyDown}
+        tabIndex={hasMultiple ? 0 : undefined}
+      >
+        <div className="overflow-hidden rounded-[inherit]" ref={emblaRef}>
+          <div className="flex touch-pan-y">
+            {slides.map((slide, index) => (
+              <div className="w-full min-w-0 shrink-0 grow-0" key={slide.id} data-testid="carousel-slide">
+                {renderSlide(slide, index)}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {hasMultiple ? (
+          <>
+            <button
+              type="button"
+              className={cn(FLECHE_SUR_PHOTO, "left-3")}
+              onClick={() => emblaApi?.scrollPrev()}
+              aria-label={labels.anterior}
+              data-testid="carousel-prev"
+            >
+              <Chevron sens="gauche" />
+            </button>
+            <button
+              type="button"
+              className={cn(FLECHE_SUR_PHOTO, "right-3")}
+              onClick={() => emblaApi?.scrollNext()}
+              aria-label={labels.siguiente}
+              data-testid="carousel-next"
+            >
+              <Chevron sens="droite" />
+            </button>
+            <span className={COMPTEUR_SUR_PHOTO} aria-hidden="true" data-testid="carousel-counter">
+              {selectedIndex + 1} / {slides.length}
+            </span>
+          </>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div

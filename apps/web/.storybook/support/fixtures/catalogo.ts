@@ -131,14 +131,16 @@ function categoria(
   slug: string,
   nombre: string,
   descripcion: string | null,
-  tarjetas: TarjetaOferta[]
+  tarjetas: TarjetaOferta[],
+  /** L'image saisie dans l'admin (`catalog_tags.image_path`) : décor du bandeau de la catégorie (D16). */
+  foto: string | null = null
 ): CategoriaConTarjetas {
   return {
     slug,
     href: `/${segmentoDeTipo(tipo)}/${slug}`,
     nombre,
     descripcion,
-    foto: null,
+    foto: foto ? { url: foto } : null,
     esSinTag: false,
     localesNativas: ["es"],
     tarjetas,
@@ -165,7 +167,7 @@ function otras(tipo: TipoOferta, tarjetas: TarjetaOferta[]): CategoriaConTarjeta
 
 export const CATEGORIAS_POR_TIPO: Record<TipoOferta, CategoriaConTarjetas[]> = {
   activity: [
-    categoria("activity", "agua", "Agua", "Kayak, jetski y paseos en lancha por el embalse.", [ACTIVIDADES.kayak, ACTIVIDADES.jetski, ACTIVIDADES.partyboat]),
+    categoria("activity", "agua", "Agua", "Kayak, jetski y paseos en lancha por el embalse.", [ACTIVIDADES.kayak, ACTIVIDADES.jetski, ACTIVIDADES.partyboat], "/mock/tags/kayak/photos/1.jpeg"),
     categoria("activity", "montana", "Montaña", "Senderos, escalada y miradores alrededor de la Piedra.", [ACTIVIDADES.caminata, ACTIVIDADES.escalada]),
     categoria("activity", "musica", "Música", null, [ACTIVIDADES.guitarra, ACTIVIDADES.estudio]),
     categoria("activity", "bienestar", "Bienestar", "Yoga, movilidad y descanso.", [ACTIVIDADES.yoga]),

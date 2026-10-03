@@ -2,15 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { Button } from "@/components/atoms/Button";
 import {
-  Button,
   DayPickerCalendar as Calendar,
   Input,
   Label,
   TextField,
   dateTaggedDayButtonComponents,
 } from "@hifago/ui";
+import {
+  CLASSE_CADRE_CALENDRIER,
+  CLASSE_CALENDRIER,
+  CLASSNAMES_CALENDRIER,
+  localeCalendrier,
+} from "@/components/molecules/Calendar";
 import { addDaysIso, startOfTodayInBogota } from "@hifago/domain";
 import { useCart } from "@/lib/cart/CartContext";
 import { useAddToCart } from "@/lib/cart/useAddToCart";
@@ -24,6 +30,7 @@ import {
   plazasRestantes,
 } from "@/lib/reservas/disponibilidad";
 import { usePrefillUltimosCriterios } from "@/lib/reservas/usePrefillUltimosCriterios";
+import { Title } from "@/components/atoms/Title";
 
 // Evento réservable en ligne (2026-09-15) — colocalisé comme SlotReservationForm/
 // LodgingReservationForm (un seul consommateur, FichaProducto.tsx), jamais dans components/.
@@ -73,6 +80,8 @@ export function EventoReservationForm({
   occurrences: EventoOccurrence[];
 }) {
   const t = useTranslations("ProductPage");
+  // La langue de la page, pour la grille (plan 41, S10).
+  const locale = useLocale();
   const { lines } = useCart();
   const addToCart = useAddToCart();
   // Même borne haute que les trois autres formulaires (six mois, décidé le 2026-08-28) — purement
@@ -182,9 +191,17 @@ export function EventoReservationForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="mb-2 text-sm font-medium">{t("availabilityTitle")}</h2>
+      <div className="flex flex-col gap-2">
+        <Title as="h2" size="bloque">
+          {t("availabilityTitle")}
+        </Title>
+        {/* Plan 41, S10 : la grille de la charte (cases à la largeur du panneau, mois en Anton,
+            jour choisi or et marine), dans son cadre, et dans la langue de la page — libellés
+            d'accessibilité compris. Purement visuel : prédicats et modificateurs inchangés. */}
         <Calendar
+          className={`${CLASSE_CALENDRIER} ${CLASSE_CADRE_CALENDRIER}`}
+          classNames={CLASSNAMES_CALENDRIER}
+          locale={localeCalendrier(locale)}
           mode="single"
           defaultMonth={defaultMonth}
           selected={selectedDate ? parseISO(selectedDate) : undefined}
@@ -228,7 +245,7 @@ export function EventoReservationForm({
         </p>
       ) : null}
 
-      <Button data-testid="add-to-cart-button" onPress={handleAddToCart} isDisabled={!selectedDate || isFull}>
+      <Button size="lg" width="full" testId="add-to-cart-button" onPress={handleAddToCart} isDisabled={!selectedDate || isFull}>
         {t("addToCart")}
       </Button>
     </div>

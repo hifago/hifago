@@ -6,7 +6,9 @@ import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
 import { buildAuthCallbackRedirect } from "@hifago/domain";
-import { Button, Input, Label, TextField } from "@hifago/ui";
+import { Input, Label, TextField } from "@hifago/ui";
+import { Button } from "@/components/atoms/Button";
+import { Aviso } from "@/components/molecules/Aviso";
 
 // Adapté d'apps/admin/app/forgot-password/ForgotPasswordForm.tsx (encore vivant côté admin, même
 // besoin ici), localisé via useTranslations, et en utilisant buildAuthCallbackRedirect
@@ -43,11 +45,11 @@ export function ForgotPasswordForm() {
 
   if (sent) {
     return (
-      <div className="flex max-w-sm flex-col items-center gap-3 text-center">
-        <p className="text-sm text-muted" data-testid="forgot-password-sent">
-          {t("sent")}
-        </p>
-        <Link href="/entrar" className="text-sm underline">
+      <div className="flex w-full max-w-sm flex-col gap-4">
+        <Aviso tono="exito" rol="status" testId="forgot-password-sent">
+          <p>{t("sent")}</p>
+        </Aviso>
+        <Link href="/entrar" className="self-center text-base text-link underline">
           {t("backToLogin")}
         </Link>
       </div>
@@ -60,10 +62,17 @@ export function ForgotPasswordForm() {
         <Label>{t("email")}</Label>
         <Input type="email" autoComplete="email" />
       </TextField>
-      <Button type="submit" isDisabled={isSubmitting} data-testid="forgot-password-submit">
-        {isSubmitting ? t("submitting") : t("submit")}
+      <Button
+        type="submit"
+        size="lg"
+        width="full"
+        isPending={isSubmitting}
+        pendingLabel={t("submitting")}
+        testId="forgot-password-submit"
+      >
+        {t("submit")}
       </Button>
-      <Link href="/entrar" className="self-center text-sm underline">
+      <Link href="/entrar" className="self-center text-base text-link underline">
         {t("backToLogin")}
       </Link>
     </form>

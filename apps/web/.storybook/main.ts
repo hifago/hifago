@@ -11,6 +11,7 @@ const support = (chemin: string) => fileURLToPath(new URL(`./support/${chemin}`,
 // agents créent des composants en parallèle dans le même répertoire de travail, et un registre
 // serait le fichier que tous éditeraient en même temps. Ajouter un composant au playground ne
 // demande donc de modifier AUCUN fichier partagé.
+
 const config: StorybookConfig = {
   stories: [
     "../components/**/*.stories.@(ts|tsx)",
@@ -26,7 +27,8 @@ const config: StorybookConfig = {
   features: { experimentalRSC: true },
   // Les vraies photos du catalogue de démonstration (`hifago/mockData/`, 82 fichiers) : on ne juge
   // pas un design sur des rectangles gris. Servies sous `/mock/…`, référencées par les fixtures de
-  // `.storybook/support/fixtures/`.
+  // `.storybook/support/fixtures/`. (La Sugo Pro Display d'essai n'est plus servie depuis que Jérôme
+  // a confirmé Anton, le 2026-10-02 : `preview-head.html`.)
   staticDirs: [{ from: "../../../mockData", to: "/mock" }],
   // Les PAQUETS que les stories d'écran remplacent (2026-10-01) — par alias, pas par `sb.mock` :
   // `sb.mock("next-intl/server")` visait un chemin que le navigateur ne résout pas (il prend la

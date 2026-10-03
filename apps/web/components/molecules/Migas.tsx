@@ -38,6 +38,47 @@ export type MigaItem = {
 // lecteur d'écran annoncera « lien désactivé »), mais c'est le comportement du design system : on
 // le documente, on ne le contourne pas avec un composant parallèle.
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// LE STYLE DU FIL (plan 41, item C3) — et la fin du débordement à 390 px
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+//
+// ⚠️ LE DÉFAUT CORRIGÉ, mesuré au navigateur le 2026-10-02 : HeroUI pose `shrink-0` sur chaque
+// élément et le fil n'avait aucun retour à la ligne. Un nom de fiche ou de catégorie un peu long
+// (contenu partenaire) poussait la page à 551, 803 et 407 px de large sur trois fiches, pour 390 px
+// d'écran — le premier défaut connu du plan (T12). D'où :
+//   - le retour à la ligne de la liste, 4 px entre deux lignes ;
+//   - des éléments qui rétrécissent (`shrink min-w-0`), et dont le texte passe à la ligne ;
+//   - SOUS `sm`, les niveaux intermédiaires tronqués à environ 14 caractères (ellipse) ;
+//   - le dernier niveau sur deux lignes au plus. Le texte reste entier dans le DOM, donc dans le
+//     nom accessible : seul l'affichage raccourcit — et le JSON-LD, construit par la page depuis la
+//     même liste, ne change pas (règle SEO 6).
+//
+// COULEURS, toutes lues sur la SURFACE (F3), jamais écrites : le fil sera posé sur le bandeau or des
+// pages intérieures (S2), et il est encore sur le clair d'ici là.
+//   - liens : `--link` (marine sur l'or, bleu moyen sur le clair), soulignés au survol et au focus ;
+//   - page courante : `--foreground` en 600 (marine sur les deux), sans lien (`aria-current`) ;
+//   - séparateurs : `--foreground` à 60 %, décoratifs.
+// Typographie : le rôle `meta` (Poppins 500, 14 px), celle que pose déjà HeroUI.
+//
+// MÉCANISME : des variantes arbitraires posées sur NOTRE `<nav>`, qui visent le balisage de HeroUI
+// (`li`, `a`, `[aria-current]`, `svg`) sans le réécrire — même principe que l'axe couleur de
+// `Button.tsx`. Elles vivent dans la couche `utilities` de Tailwind, et battent les classes
+// `.breadcrumbs__…` de HeroUI (couche `components`) quelle que soit leur spécificité.
+//
+// ⚠️ Chaînes écrites en toutes lettres : Tailwind lit ce fichier comme du texte.
+const STYLE_FIL =
+  "[&_ol]:flex-wrap [&_ol]:gap-y-1 [&_li]:min-w-0 [&_li]:shrink [&_a]:text-[var(--link)] [&_a]:underline-offset-4 [&_a:hover]:underline [&_a:focus-visible]:underline [&_[aria-current=page]]:font-semibold [&_[aria-current=page]]:text-foreground [&_svg]:text-[color-mix(in_oklab,var(--foreground)_60%,transparent)]";
+
+// Un niveau INTERMÉDIAIRE (ni le premier, ni le dernier) : tronqué sous `sm`. Le lien est l'enfant
+// direct de l'élément de liste que rend HeroUI. ⚠️ `block` : le lien de HeroUI est un `inline-flex`,
+// et `text-overflow` ne s'applique pas au texte d'un conteneur flex — vu au rendu, le nom était
+// coupé net au milieu d'une lettre, sans ellipse.
+const NIVEAU_INTERMEDIAIRE = "max-sm:[&>a]:block max-sm:[&>a]:max-w-[14ch] max-sm:[&>a]:truncate";
+
+// Le DERNIER niveau, la page courante : deux lignes au plus. `break-words` : un mot plus long que
+// la ligne (une URL, un nom composé) passe quand même à la ligne au lieu de déborder.
+const NIVEAU_COURANT = "[&>[aria-current=page]]:line-clamp-2 [&>[aria-current=page]]:break-words";
+
 export type MigasProps = {
   items: MigaItem[];
   /** Le nom accessible du `<nav>` — déjà traduit. Un repère de navigation sans nom n'en est pas un. */
@@ -57,14 +98,18 @@ export function Migas({ items, etiqueta, locale, testId }: MigasProps) {
     // landmarks sont du HTML, pas une option de composant.
     //
     // Ce n'est pas un second design system : c'est l'élément sémantique que le motif WAI-ARIA
-    // exige autour d'un fil d'Ariane. Le style, lui, reste entièrement celui de HeroUI.
-    <nav aria-label={etiqueta} data-testid={testId}>
+    // exige autour d'un fil d'Ariane. Le style est celui de HeroUI, recoloré par la surface
+    // (`STYLE_FIL`, plus haut).
+    <nav aria-label={etiqueta} className={STYLE_FIL} data-testid={testId}>
       <Breadcrumbs>
-        {items.map((item) => (
+        {items.map((item, rang) => (
           <Breadcrumbs.Item
             // Le chemin est unique dans un fil d'Ariane ; le dernier élément n'en a pas, mais il
             // est seul dans ce cas — son nom suffit à le distinguer.
             key={item.href ?? item.nombre}
+            className={
+              rang === items.length - 1 ? NIVEAU_COURANT : rang > 0 ? NIVEAU_INTERMEDIAIRE : undefined
+            }
             // ⚠️ LE PRÉFIXE DE LANGUE EST POSÉ À LA MAIN, et ce n'est pas un oubli du `Link`
             // localisé. `Breadcrumbs.Item` rend un `<a href>` NATIF (il étend `LinkProps` de
             // react-aria), pas le `Link` de `@/i18n/navigation` : sans ce préfixe, chaque lien

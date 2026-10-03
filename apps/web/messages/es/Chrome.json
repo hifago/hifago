@@ -1,13 +1,18 @@
 {
   "homeLabel": "Hifago, ir al inicio",
   "navLabel": "Cuenta y viaje",
-  "cartLabel": "{count, plural, =0 {Mi viaje, vacío} one {Mi viaje, # servicio} other {Mi viaje, # servicios}}",
+  "tripLabel": "Mi viaje<lugar> en Guatapé</lugar>",
+  "tripCount": "{count, plural, =0 {, vacío} one {, # servicio} other {, # servicios}}",
   "accountLabel": "Mi cuenta",
   "loginLabel": "Iniciar sesión",
   "menuOpenLabel": "Abrir el menú",
   "menuCloseLabel": "Cerrar el menú",
   "languageLabel": "Idioma",
   "languageCurrentLabel": "Idioma actual",
+  "idiomaCorto": {
+    "es": "ESP",
+    "en": "ING"
+  },
   "footerNavLabel": "Enlaces institucionales",
   "footerLegalNotice": "Aviso legal",
   "footerPrivacy": "Política de privacidad",

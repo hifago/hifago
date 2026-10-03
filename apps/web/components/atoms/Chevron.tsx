@@ -1,11 +1,12 @@
-// Le petit chevron rotatif d'un déclencheur ouvrant/fermant un panneau (`LanguageSwitcher`,
-// `SelectorTipo`) — extrait le 2026-09-15 : la même forme existait EN DOUBLE (une copie par
-// composant), et `SelectorTipo` en aurait fait une 3e. `components/README.md` : on ne remonte dans
-// `components/` que ce qui sert au moins deux endroits — condition remplie dès la 2e copie.
+// Le petit chevron rotatif d'un déclencheur ouvrant/fermant un panneau (`LanguageSwitcher`) —
+// extrait le 2026-09-15 : la même forme existait EN DOUBLE (une copie par composant), et
+// `SelectorTipo` en aurait fait une 3e. `components/README.md` : on ne remonte dans `components/`
+// que ce qui sert au moins deux endroits — condition remplie dès la 2e copie.
 //
-// ⚠️ Ne pas confondre avec le chevron STATIQUE de `DateRangeField.tsx` (`viewBox="0 0 24 24"`, pas
-// de prop `ouvert`, pas de rotation) : forme différente, usage différent, volontairement resté à
-// part.
+// ⚠️ Depuis le 2026-10-01, `LanguageSwitcher` est son SEUL consommateur : `SelectorTipo` a été
+// supprimé avec la maquette de l'accueil (remplacé par `MenuTiposPortada`, qui ne replie rien), et
+// le chevron statique de `DateRangeField` a disparu avec le restylage de « Fechas / Personas ». Laissé
+// ici plutôt que rapatrié : un atome stable, testé, que rien ne pousse à déplacer.
 export type ChevronProps = {
   ouvert: boolean;
   testId?: string;

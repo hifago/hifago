@@ -1,6 +1,6 @@
 ---
 name: hifago-seed
-description: Régénère/applique les données synthétiques de supabase/seed.sql pour le nouveau stack Hifago (établissements PMS/non-PMS, grilles tarifaires, comptes à statuts variés, commandes dans divers états, contenu multilingue d'exemple) — jamais de copie de production ni de PII réelle. Usage — /hifago-seed (local), /hifago-seed preprod
+description: Régénère ou applique les données synthétiques de supabase/seed.sql pour le nouveau stack Hifago (établissements PMS/non-PMS, grilles tarifaires, comptes à statuts variés, commandes dans divers états, contenu multilingue d'exemple) — jamais de copie de production ni de PII réelle. Invocation Codex — $hifago-seed ou $hifago-seed preprod
 ---
 
 # /hifago-seed — données synthétiques

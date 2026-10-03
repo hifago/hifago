@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { Button } from "@/components/atoms/Button";
 import {
-  Button,
   DayPickerCalendar as Calendar,
   Input,
   Label,
@@ -12,6 +12,12 @@ import {
   cn,
   dateTaggedDayButtonComponents,
 } from "@hifago/ui";
+import {
+  CLASSE_CADRE_CALENDRIER,
+  CLASSE_CALENDRIER,
+  CLASSNAMES_CALENDRIER,
+  localeCalendrier,
+} from "@/components/molecules/Calendar";
 import { startOfTodayInBogota } from "@hifago/domain";
 import { useCart } from "@/lib/cart/CartContext";
 import { useAddToCart } from "@/lib/cart/useAddToCart";
@@ -24,6 +30,7 @@ import {
   plazasRestantes,
 } from "@/lib/reservas/disponibilidad";
 import { usePrefillUltimosCriterios } from "@/lib/reservas/usePrefillUltimosCriterios";
+import { Title } from "@/components/atoms/Title";
 
 // Spec 18 §0 Tranche 1 : produit à créneaux horaires (product_slot_rules côté admin, ex. jetski —
 // cf. hifago/docs/journal/2026-08.md entrée 2026-08-18, motivé par un produit réel bloqué faute de
@@ -96,6 +103,8 @@ export function SlotReservationForm({
   maxQty: number;
 }) {
   const t = useTranslations("ProductPage");
+  // La langue de la page, pour la grille (plan 41, S10).
+  const locale = useLocale();
   const { lines } = useCart();
   const addToCart = useAddToCart();
   // Borne HAUTE de l'horizon produit (six mois, décidé le 2026-08-28). Le `useMemo` reste ici et
@@ -214,9 +223,17 @@ export function SlotReservationForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="mb-2 text-sm font-medium">{t("availabilityTitle")}</h2>
+      <div className="flex flex-col gap-2">
+        <Title as="h2" size="bloque">
+          {t("availabilityTitle")}
+        </Title>
+        {/* Plan 41, S10 : la grille de la charte (cases à la largeur du panneau, mois en Anton,
+            jour choisi or et marine), dans son cadre, et dans la langue de la page — libellés
+            d'accessibilité compris. Purement visuel : prédicats et modificateurs inchangés. */}
         <Calendar
+          className={`${CLASSE_CALENDRIER} ${CLASSE_CADRE_CALENDRIER}`}
+          classNames={CLASSNAMES_CALENDRIER}
+          locale={localeCalendrier(locale)}
           mode="single"
           defaultMonth={defaultMonth}
           selected={selectedDate}
@@ -308,7 +325,9 @@ export function SlotReservationForm({
       ) : null}
 
       <Button
-        data-testid="add-to-cart-button"
+        size="lg"
+        width="full"
+        testId="add-to-cart-button"
         onPress={handleAddToCart}
         isDisabled={!selectedSlot || slotRemaining < 1}
       >

@@ -3,13 +3,14 @@
 import { useMemo, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import { useTranslations } from "next-intl";
+import { Title } from "@/components/atoms/Title";
 // Calendar/CalendarDayButton restent volontairement sur react-day-picker (pas le Calendar HeroUI
 // v3, encore "in progress" et d'API CalendarDate totalement différente) : logique de
 // modifiers/disabled/DayButton custom (dates pleines/dernière place, attribut data-date ciblé par
 // plusieurs specs Playwright) qu'un remplacement ne pourrait pas reproduire à l'identique sans
 // risquer une régression — décision à trancher séparément (cf. hifago/CLAUDE.md, point ouvert).
+import { Button } from "@/components/atoms/Button";
 import {
-  Button,
   DayPickerCalendar as Calendar,
   Input,
   Label,
@@ -17,8 +18,15 @@ import {
   cn,
   dateTaggedDayButtonComponents,
 } from "@hifago/ui";
+import {
+  CLASSE_CADRE_CALENDRIER,
+  CLASSE_CALENDRIER,
+  CLASSNAMES_CALENDRIER,
+  localeCalendrier,
+} from "@/components/molecules/Calendar";
 import { startOfTodayInBogota } from "@hifago/domain";
 import { Price } from "@/components/atoms/Price";
+import { PuceEstado } from "@/components/atoms/PuceEstado";
 import { hrefAlojamientosCompatibles } from "@/lib/catalog/criterios";
 import { ultimoDiaCampIso } from "@/lib/cart/campMissingLodging";
 import { useCart } from "@/lib/cart/CartContext";
@@ -276,9 +284,17 @@ export function ReservationForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="mb-2 text-sm font-medium">{t("availabilityTitle")}</h2>
+      <div className="flex flex-col gap-2">
+        <Title as="h2" size="bloque">
+          {t("availabilityTitle")}
+        </Title>
+        {/* Plan 41, S10 : la grille de la charte (cases à la largeur du panneau, mois en Anton,
+            jour choisi or et marine), dans son cadre, et dans la langue de la page — libellés
+            d'accessibilité compris. Purement visuel : prédicats et modificateurs inchangés. */}
         <Calendar
+          className={`${CLASSE_CALENDRIER} ${CLASSE_CADRE_CALENDRIER}`}
+          classNames={CLASSNAMES_CALENDRIER}
+          locale={localeCalendrier(locale)}
           mode="single"
           defaultMonth={defaultMonth}
           selected={selectedDate}
@@ -304,7 +320,9 @@ export function ReservationForm({
 
       {afficherEditions ? (
         <div>
-          <h2 className="text-sm font-medium">{t("chooseEditionTitle")}</h2>
+          <Title as="h2" size="bloque">
+            {t("chooseEditionTitle")}
+          </Title>
           <p className="mb-2 text-xs text-muted">{t("chooseEditionSubtitle")}</p>
           <div className="flex flex-col gap-2" data-testid="edition-cards">
             {edicionesVisibles.map((row) => {
@@ -325,18 +343,25 @@ export function ReservationForm({
                   // `row.date` lui-même (la boucle qui le construit pose `i=0 → map.set(row.date,
                   // row.date)`), donc `handleSelectDate` retrouve exactement ce départ.
                   onClick={() => handleSelectDate(parseISO(row.date))}
+                  // Plan 41, F6 : une tuile pleine, plus une boîte bordée de marine dans la carte
+                  // bordée de marine. Le contour marine de 2 px (≈ 11:1 sur la tuile) dit le
+                  // survol et le choix ; il est réservé TRANSPARENT au repos pour que la tuile ne
+                  // bouge pas d'un pixel quand il apparaît. `rounded-[12px]` en valeur fixe :
+                  // l'échelle `rounded-*` dérive de `--radius` (plan 41 §3.4).
                   className={cn(
-                    "flex flex-col items-start gap-1 rounded-md border p-3 text-left transition-colors",
+                    "flex flex-col items-start gap-1 rounded-[12px] border-2 bg-surface-secondary p-3 text-left transition-colors",
                     isFull
-                      ? "cursor-not-allowed border-border opacity-50 line-through"
+                      ? "cursor-not-allowed border-transparent opacity-50 line-through"
                       : isSelected
-                        ? "border-accent bg-surface-secondary"
-                        : "border-border hover:bg-surface-secondary"
+                        ? "border-border"
+                        : "border-transparent hover:border-border"
                   )}
                 >
-                  <span className="text-xs font-medium text-muted">
+                  {/* Plan 41, P3 : la puce de statut (S7) — « N cupos » en `neutro`, « Completo » en
+                      `error`, les deux tons fixés par S7. Avant : un texte gris de 12 px. */}
+                  <PuceEstado tono={isFull ? "error" : "neutro"}>
                     {isFull ? t("full") : t("editionSpotsBadge", { count: remainingRow })}
-                  </span>
+                  </PuceEstado>
                   <span className="text-sm font-semibold">{dateLabel}</span>
                   <span className="text-xs text-muted">
                     {t("editionNights", { count: durationDays })}
@@ -357,16 +382,18 @@ export function ReservationForm({
             })}
           </div>
           {edicionesOcultasCount > 0 ? (
-            <Button
-              variant="outline"
-              className="mt-2 rounded-[4px]"
-              data-testid="show-more-editions"
-              onPress={() => setEdicionesVisiblesCount((count) => count + EDICIONES_VISIBLES_INICIALMENTE)}
-            >
-              {t("showMoreEditions", {
-                count: Math.min(EDICIONES_VISIBLES_INICIALMENTE, edicionesOcultasCount),
-              })}
-            </Button>
+            <div className="mt-2">
+              <Button
+                variant="outline"
+                color="neutral"
+                testId="show-more-editions"
+                onPress={() => setEdicionesVisiblesCount((count) => count + EDICIONES_VISIBLES_INICIALMENTE)}
+              >
+                {t("showMoreEditions", {
+                  count: Math.min(EDICIONES_VISIBLES_INICIALMENTE, edicionesOcultasCount),
+                })}
+              </Button>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -405,7 +432,9 @@ export function ReservationForm({
       ) : null}
 
       <Button
-        data-testid="add-to-cart-button"
+        size="lg"
+        width="full"
+        testId="add-to-cart-button"
         onPress={handleAddToCart}
         isDisabled={!selectedRow || remaining < 1}
       >

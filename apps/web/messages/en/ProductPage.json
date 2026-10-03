@@ -1,5 +1,5 @@
 {
-  "backToCatalog": "← Back to catalog",
+  "backToCatalog": "Back to catalog",
   "perPerson": "per person",
   "perHouse": "for the entire house",
   "lodgingKindDorm": "Dorm bed",
@@ -63,5 +63,9 @@
   "transportMapsNewTab": "View the route on Google Maps (opens in a new tab)",
   "programTitle": "The plan, day by day",
   "programDay": "Day {dia}",
-  "programDayWithDate": "Day {dia} · {fecha}"
+  "programDayWithDate": "Day {dia} · {fecha}",
+  "ofrecidoPor": "Offered by <enlace>{nombre}</enlace>",
+  "ofrecidoPorTitulo": "Offered by",
+  "verEstablecimiento": "See {nombre}",
+  "barraReservar": "Book"
 }

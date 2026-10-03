@@ -1,5 +1,5 @@
 {
-  "backToCatalog": "← Volver al catálogo",
+  "backToCatalog": "Volver al catálogo",
   "perPerson": "por persona",
   "perHouse": "por la casa entera",
   "lodgingKindDorm": "Cama en dormitorio",
@@ -63,5 +63,9 @@
   "transportMapsNewTab": "Ver el trayecto en Google Maps (se abre en una pestaña nueva)",
   "programTitle": "El plan, día a día",
   "programDay": "Día {dia}",
-  "programDayWithDate": "Día {dia} · {fecha}"
+  "programDayWithDate": "Día {dia} · {fecha}",
+  "ofrecidoPor": "Ofrecido por <enlace>{nombre}</enlace>",
+  "ofrecidoPorTitulo": "Ofrecido por",
+  "verEstablecimiento": "Ver {nombre}",
+  "barraReservar": "Reservar"
 }

@@ -20,9 +20,14 @@ import { CancelLineButton } from "./CancelLineButton";
 // montant (décision ⑧). Elle ne vaudrait rien si elle relisait la chaîne du fichier de messages —
 // elle vérifie donc l'absence de tout chiffre suivi d'un séparateur de milliers dans le bloc rendu.
 
+// La réponse de la RPC, réglable par test (`vi.hoisted` : le mock est remonté avant les imports).
+const reponse = vi.hoisted(() => ({
+  valeur: { data: { ok: true, remaining_active_lines: 0 } as unknown, error: null as unknown },
+}));
+
 vi.mock("@hifago/supabase/client", () => ({
   createClient: () => ({
-    rpc: () => Promise.resolve({ data: { ok: true, remaining_active_lines: 0 }, error: null }),
+    rpc: () => Promise.resolve(reponse.valeur),
   }),
 }));
 
@@ -92,5 +97,24 @@ describe("CancelLineButton", () => {
     });
     expect(container.querySelector('[data-testid="cancel-line-x-confirm"]')).toBeNull();
     expect(container.querySelector('[data-testid="cancel-line-x"]')).not.toBeNull();
+  });
+
+  // Défaut connu n° 4, corrigé par le plan 41, P8 : l'échec ne s'affichait qu'après « No ». Il
+  // doit apparaître dès la réponse, la confirmation restant ouverte pour réessayer.
+  it("affiche l'échec dès la réponse, sans qu'il faille répondre « No »", async () => {
+    reponse.valeur = { data: { ok: false, reason: "line_not_active" }, error: null };
+    try {
+      const container = rendre(false);
+      await ouvrirLaConfirmation(container);
+      const oui = container.querySelector('[data-testid="cancel-line-x-yes"]') as HTMLButtonElement;
+      await act(async () => {
+        fireEvent.click(oui);
+      });
+      expect(container.querySelector('[data-testid="cancel-line-x-confirm"]')).not.toBeNull();
+      const erreur = container.querySelector('[data-testid="cancel-line-x-error"]');
+      expect(erreur?.getAttribute("role")).toBe("alert");
+    } finally {
+      reponse.valeur = { data: { ok: true, remaining_active_lines: 0 }, error: null };
+    }
   });
 });

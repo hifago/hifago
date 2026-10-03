@@ -33,8 +33,8 @@ process.stdin.on('end', () => {
   const lignes = statut.split('\n').filter(Boolean);
   const chemins = lignes.map((l) => l.slice(3));
   const toucheDuTravail = chemins.some((c) =>
-    /^CLAUDE\.md$/.test(c) ||
-    c.startsWith('.claude/rules/') ||
+    /^(?:CLAUDE|AGENTS)\.md$/.test(c) ||
+    c.startsWith('.claude/rules/') || c.startsWith('.codex/') ||
     c.startsWith('apps/') || c.startsWith('packages/') || c.startsWith('supabase/') ||
     c.startsWith('docs/specs/'));
   const journalTouche = chemins.some((c) => c.startsWith('docs/journal/'));

@@ -86,6 +86,7 @@ export function ProfileForm({
       ) : null}
       <Button
         type="submit"
+        size="lg"
         isDisabled={!isDirty}
         isPending={isSubmitting}
         pendingLabel={t("saving")}

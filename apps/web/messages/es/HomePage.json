@@ -1,7 +1,8 @@
 {
   "title": "Hifago",
   "description": "Actividades y experiencias en Guatapé.",
-  "h1": "Actividades y alojamientos en Guatapé",
+  "h1": "Guatapé merece\nmás de un día.",
+  "lema": "Arma tu viaje y vívelo\na tu ritmo.",
   "emptyState": {
     "titulo": "No encontramos ofertas con esos criterios.",
     "descripcion": "Prueba con otras fechas, con menos personas o con una búsqueda más amplia."
@@ -10,25 +11,40 @@
     "activity": "Actividades",
     "lodging": "Alojamientos",
     "transport": "Transportes",
-    "camp": "Camps",
+    "camp": "Retiros",
+    "evento": "Eventos"
+  },
+  "tiposPortada": {
+    "activity": "Actividades",
+    "lodging": "Alojamiento",
+    "transport": "Transporte",
+    "camp": "Retiros",
     "evento": "Eventos"
   },
   "tiposSingular": {
     "activity": "Actividad",
     "lodging": "Alojamiento",
     "transport": "Transporte",
-    "camp": "Camp",
+    "camp": "Retiro",
     "evento": "Evento"
   },
   "verMas": "Ver más",
   "verMasTags": "Ver todas las categorías",
+  "masPorTipo": {
+    "activity": "Más actividades",
+    "lodging": "Más alojamientos",
+    "transport": "Más transportes",
+    "camp": "Más retiros",
+    "evento": "Más eventos"
+  },
   "precioDesde": "Desde",
   "fotoAlt": "{nombre}, foto {indice} de {total}",
   "buscar": {
     "label": "Buscar actividades y alojamientos",
     "placeholder": "¿Qué buscas en Guatapé?",
     "submitLabel": "Buscar",
-    "emptyLabel": "No hay sugerencias"
+    "emptyLabel": "No hay sugerencias",
+    "clearLabel": "Borrar la búsqueda"
   },
   "sugerencias": {
     "metaEstablecimiento": "Establecimiento",

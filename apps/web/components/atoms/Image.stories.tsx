@@ -1,10 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Image } from "./Image";
 
-// `/globe.svg` : le seul visuel réellement présent dans apps/web/public — la même source que la
-// story de CatalogBrowser. Pas d'URL distante : une story ne doit pas dépendre du réseau pour
-// s'afficher.
-const SRC = "/globe.svg";
+// Une vraie photo de `mockData/`, servie par Storybook sous `/mock` : pas d'URL distante et le
+// pipeline matriciel de `next/image` reste visible dans la story.
+const SRC = "/mock/activities/kayak1/photos/1.jpeg";
 
 // La valeur de `sizes` reprise de la production (CatalogBrowser.tsx:98) plutôt qu'inventée : c'est
 // celle d'une grille à une colonne sous 640 px, deux au-delà.

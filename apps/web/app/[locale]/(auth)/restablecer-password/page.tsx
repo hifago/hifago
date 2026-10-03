@@ -3,6 +3,8 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getViewerAccount } from "@/lib/auth/viewer";
 import { ResetPasswordForm } from "./ResetPasswordForm";
+import { AuthPage } from "../_components/AuthPage";
+import { Aviso } from "@/components/molecules/Aviso";
 
 export async function generateMetadata(
   props: Omit<PageProps<"/[locale]/restablecer-password">, "searchParams">
@@ -30,22 +32,20 @@ export default async function ResetPasswordPage({
   const account = await getViewerAccount();
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+    <AuthPage title={t("title")}>
       {account ? (
         <ResetPasswordForm />
       ) : (
-        <p
-          className="max-w-sm text-center text-sm text-danger"
-          data-testid="reset-password-no-session"
-        >
-          {t("noSession")}{" "}
-          <Link href="/olvide-password" className="underline">
-            {t("noSessionLink")}
-          </Link>
-          .
-        </p>
+        <Aviso tono="error" rol="alert" testId="reset-password-no-session">
+          <p>
+            {t("noSession")}{" "}
+            <Link href="/olvide-password" className="underline">
+              {t("noSessionLink")}
+            </Link>
+            .
+          </p>
+        </Aviso>
       )}
-    </main>
+    </AuthPage>
   );
 }

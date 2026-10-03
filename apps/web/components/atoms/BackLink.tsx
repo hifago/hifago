@@ -12,9 +12,13 @@ import { Link } from "@/i18n/navigation";
 //   2. Cible tactile ≥ 44 px (components/README.md) : le lien d'origine est une ligne de texte de
 //      14 px, impossible à viser au pouce. `min-h-11` = 44 px.
 //
-// Pas de flèche décorative : le motif d'origine n'en a pas, et le libellé (« Volver al catálogo »)
-// se suffit. Si on en ajoute une un jour, elle devra être aria-hidden ET le libellé rester
-// compréhensible sans elle.
+// LA FLÈCHE (plan 41, item C4, 2026-10-02) : un SVG décoratif de 16 px devant le libellé,
+// `aria-hidden` — le libellé (« Volver al catálogo ») reste compréhensible sans elle, et c'est lui
+// seul qui fait le nom accessible. Elle était jusque-là ÉCRITE dans le message (« ← Volver… ») :
+// un caractère que le lecteur d'écran prononce (« flèche gauche »), retiré des deux langues.
+//
+// Typographie et couleur de la charte : Poppins 500, 15 px ; `--link`, que la SURFACE règle —
+// marine sur l'or (le bandeau des pages intérieures, S2), bleu moyen sur le clair.
 //
 // ⚠️ `self-start` n'est pas de la mise en page empruntée au parent, c'est l'atome qui RÉAFFIRME sa
 // propre intention. Un enfant de conteneur flex voit son `inline-flex` blockifié, et
@@ -31,13 +35,31 @@ export type BackLinkProps = {
   testId?: string;
 };
 
+function FlecheRetour() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="size-4 shrink-0"
+    >
+      <path d="M19 12H5M11 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
 export function BackLink({ href, label, testId }: BackLinkProps) {
   return (
     <Link
       href={href}
-      className="inline-flex min-h-11 items-center self-start text-sm text-muted hover:underline"
+      className="inline-flex min-h-11 items-center gap-2 self-start text-[15px] font-medium text-link underline-offset-4 hover:underline"
       data-testid={testId}
     >
+      <FlecheRetour />
       {label}
     </Link>
   );

@@ -5,10 +5,16 @@ import { useTranslations } from "next-intl";
 import { Card } from "@/components/atoms/Card";
 import { Price } from "@/components/atoms/Price";
 import { PhotoStrip } from "@/components/molecules/PhotoStrip";
+import { TeselaOferta } from "@/components/molecules/TeselaOferta";
 import type { Locale } from "@/messages";
 import type { TarjetaOferta as OfertaTarjeta } from "@/lib/catalog/tipos";
 
 // La carte d'une offre dans l'accueil-résultats (2026-09-08, lot D — spec 28 §5, Tranche 1).
+//
+// ⚠️ DEPUIS LE PLAN 41, ITEM S4 (2026-10-02, arbitrage D6 = A) : en `grilla` et en `carrusel`, elle
+// rend la tuile photo de l'accueil, `TeselaOferta` — une seule photo décorative, sans carrousel ni
+// texte alternatif calculé, le nom dans un cartouche et non plus dans un `<h3>`. Elle ne fait plus
+// que lui traduire ses libellés. Ce qui suit ne vaut plus que pour la LIGNE (`lista`).
 //
 // Elle n'invente rien : elle CÂBLE trois briques déjà construites — `Card` (2026-09-02),
 // `PhotoStrip` (2026-09-04) et `Price` (2026-09-01) — sur une ligne de `search_catalog` telle que
@@ -51,9 +57,9 @@ import type { TarjetaOferta as OfertaTarjeta } from "@/lib/catalog/tipos";
 export type TarjetaOfertaProps = {
   oferta: OfertaTarjeta;
   /**
-   * "grilla" = carte empilée (photos à fleur de carte) ; "lista" = Card layout="row" ; "carrusel" =
-   * même carte qu'en "grilla", mais à largeur fixe dans une ligne qui défile horizontalement
-   * (`SeccionOfertas.tsx`).
+   * "grilla" = tuile photo dans une grille ; "lista" = Card layout="row" ; "carrusel" = même tuile
+   * qu'en "grilla", dans une ligne qui défile horizontalement (`SeccionOfertas.tsx`). Seul `sizes`
+   * distingue les deux tuiles.
    */
   variante: "grilla" | "lista" | "carrusel";
   /** UNE SEULE carte de la page la reçoit : la première de la première section (le LCP). */
@@ -64,16 +70,17 @@ export type TarjetaOfertaProps = {
 // Chaînes littérales complètes, jamais construites : Tailwind ne les compile pas, mais `sizes` est
 // lu par le navigateur et une valeur fausse sert l'image la plus grande à un téléphone.
 //
-// `SIZES_GRILLA` est repris tel quel de la spec 28 §5 (« `sizes` suit la grille ») et correspond
-// aux points de rupture de `SeccionOfertas`. `SIZES_LISTA` est la largeur EXACTE de la vignette de
-// `Card layout="row"` (`w-16`), donc 64 px — voir la réserve de l'en-tête : si le visuel de la
-// variante `row` est agrandi par le lot d'arbitrage, cette valeur doit bouger avec lui.
-const SIZES_GRILLA = "(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw";
+// `SIZES_GRILLA` : la grille de tuiles d'une page (une colonne, deux dès `md`, trois dès `lg`, dans
+// la colonne de 960 px), valeur du plan 41, item S4. `SIZES_LISTA` est la largeur EXACTE de la
+// vignette de `Card layout="row"` (`w-16`), donc 64 px — voir la réserve de l'en-tête : si le
+// visuel de la variante `row` est agrandi par le lot d'arbitrage, cette valeur doit bouger avec lui.
+const SIZES_GRILLA = "(min-width: 1024px) 300px, (min-width: 768px) 45vw, 90vw";
 const SIZES_LISTA = "64px";
-// ⚠️ Doit rester synchronisé avec `CLASE_CARTA_CARRUSEL` (`w-64`) de `SeccionOfertas.tsx` : une
-// carte de carrusel a une largeur FIXE, pas une fraction du viewport — lui servir `SIZES_GRILLA`
-// téléchargerait une image bien trop grande sur desktop.
-const SIZES_CARRUSEL = "256px";
+// ⚠️ Doit rester synchronisé avec `CLASE_CARTA_CARRUSEL` de `SeccionOfertas.tsx` : une rangée
+// montre EXACTEMENT trois cartes à partir de `md` (un tiers du conteneur) et une carte presque
+// pleine en dessous. La valeur suit donc le viewport, comme la grille — mais à ses propres
+// proportions, parce que le conteneur bleu poudre est en retrait des bords de l'écran.
+const SIZES_CARRUSEL = "(min-width: 768px) 32vw, 82vw";
 
 // Une table plutôt qu'une cascade de ternaires : c'est ce qui fait qu'ajouter une variante casse la
 // COMPILATION ici (le Record doit être exhaustif) au lieu de retomber silencieusement sur la
@@ -87,6 +94,31 @@ const SIZES_POR_VARIANTE: Record<TarjetaOfertaProps["variante"], string> = {
 export function TarjetaOferta({ oferta, variante, prioridad, locale }: TarjetaOfertaProps) {
   const t = useTranslations("HomePage");
 
+  // ── LA TUILE PHOTO (`grilla`, `carrusel`) : plan 41, S4 ─────────────────────────────────────
+  // La tuile de l'accueil, partout où une offre a sa photo (D6 = A). Elle ne traduit rien : ses
+  // trois libellés lui arrivent ici, résolus. Ni texte alternatif calculé (sa photo est
+  // décorative, le lien porte le nom), ni carrousel.
+  if (variante !== "lista") {
+    return (
+      <TeselaOferta
+        oferta={oferta}
+        locale={locale}
+        labelDesde={t("precioDesde")}
+        labelCapacidad={
+          oferta.capacidad !== null ? t("capacidadPersonas", { count: oferta.capacidad }) : undefined
+        }
+        labelConteo={
+          oferta.nAlojamientos !== null
+            ? t("conteoAlojamientos", { count: oferta.nAlojamientos })
+            : undefined
+        }
+        sizes={SIZES_POR_VARIANTE[variante]}
+        prioridad={prioridad}
+      />
+    );
+  }
+
+  // ── LA LIGNE (`lista`) : inchangée ───────────────────────────────────────────────────────────
   // `id` = le rang, et non l'URL : `search_catalog` peut servir deux fois la même photo (une carte
   // groupée reprend les médias du premier couchage), et le `Carousel` a besoin de clés distinctes.
   const fotos = oferta.fotos.map((foto, indice) => ({
@@ -127,11 +159,34 @@ export function TarjetaOferta({ oferta, variante, prioridad, locale }: TarjetaOf
     );
   }
 
-  // La CAPACITÉ, sur les seules cartes qui la portent — les chambres d'une fiche établissement
-  // (« photo · nom · capacité · prix », entretien du 2026-09-07). `search_catalog` ne la rend pas,
-  // donc elle est `null` sur l'accueil et les listings et la ligne n'y apparaît jamais.
+  // ⚠️ LE DÉCOMPTE PREND LA PLACE DU SOUS-TITRE, et les deux ne peuvent pas se disputer : une
+  // carte GROUPÉE représente l'établissement lui-même, donc `search_catalog` lui pose
+  // `establecimiento = null` (branche `es_establecimiento`), et c'est la seule qui porte
+  // `nAlojamientos`. Toute autre carte a l'inverse. Mutuellement exclusifs par construction,
+  // pas par convention.
   //
-  // Sous le prix et non à sa place : les deux se lisent ensemble pour choisir une chambre.
+  // Le rendu reproduit littéralement ce que le front d'août affichait — « Casa Kayam ·
+  // 6 alojamientos » (journal du 2026-08-15) — que la refonte avait perdu : sans lui, une
+  // carte unique qui représente six chambres ne dit pas qu'elle en représente six.
+  const subtitulo =
+    oferta.establecimiento ??
+    (oferta.nAlojamientos !== null
+      ? t("conteoAlojamientos", { count: oferta.nAlojamientos })
+      : undefined);
+
+  // Rendue même sans photo : `PhotoStrip` pose alors le substitut de l'atome `Image`, au même
+  // ratio — la carte garde sa forme au lieu de se tasser (spec 28 §0, « Offre sans photo »).
+  const media = (
+    <PhotoStrip
+      photos={fotos}
+      loading={prioridad ? "priority" : "lazy"}
+      sizes={SIZES_POR_VARIANTE[variante]}
+      ratio="4/3"
+      testId={`${oferta.testId}-fotos`}
+    />
+  );
+
+  // La capacité SOUS le prix et non à sa place — les deux se lisent ensemble.
   const contenidoCompleto =
     oferta.capacidad !== null ? (
       <span className="flex flex-col gap-0.5">
@@ -144,8 +199,8 @@ export function TarjetaOferta({ oferta, variante, prioridad, locale }: TarjetaOf
       // ⚠️ Une offre "vitrina" pure (external_booking_url sans price_cop ni price_label, ex. un
       // cours réservé par WhatsApp) laisse `contenido` à `undefined` — `Card` n'ouvre alors AUCUN
       // `Card.Content`, et sa carte devient plus basse qu'une carte voisine qui affiche un prix,
-      // dans la même ligne de grille. Un placeholder invisible réserve la même hauteur qu'une
-      // ligne de prix réelle, sans rien annoncer à l'assistance.
+      // dans la même liste. Un placeholder invisible réserve la même hauteur qu'une ligne de prix
+      // réelle, sans rien annoncer à l'assistance.
       (contenido ?? (
         <span className="invisible" aria-hidden="true">
           &nbsp;
@@ -158,33 +213,10 @@ export function TarjetaOferta({ oferta, variante, prioridad, locale }: TarjetaOf
       href={oferta.href}
       title={oferta.nombre}
       titleAs="h3"
-      // ⚠️ LE DÉCOMPTE PREND LA PLACE DU SOUS-TITRE, et les deux ne peuvent pas se disputer : une
-      // carte GROUPÉE représente l'établissement lui-même, donc `search_catalog` lui pose
-      // `establecimiento = null` (branche `es_establecimiento`), et c'est la seule qui porte
-      // `nAlojamientos`. Toute autre carte a l'inverse. Mutuellement exclusifs par construction,
-      // pas par convention.
-      //
-      // Le rendu reproduit littéralement ce que le front d'août affichait — « Casa Kayam ·
-      // 6 alojamientos » (journal du 2026-08-15) — que la refonte avait perdu : sans lui, une
-      // carte unique qui représente six chambres ne dit pas qu'elle en représente six.
-      subtitle={
-        oferta.establecimiento ??
-        (oferta.nAlojamientos !== null
-          ? t("conteoAlojamientos", { count: oferta.nAlojamientos })
-          : undefined)
-      }
-      layout={variante === "lista" ? "row" : "stack"}
+      subtitle={subtitulo}
+      layout="row"
       testId={oferta.testId}
-      media={
-        // Rendue même sans photo : `PhotoStrip` pose alors le substitut de l'atome `Image`, au même
-        // ratio — la carte garde sa forme au lieu de se tasser (spec 28 §0, « Offre sans photo »).
-        <PhotoStrip
-          photos={fotos}
-          loading={prioridad ? "priority" : "lazy"}
-          sizes={SIZES_POR_VARIANTE[variante]}
-          testId={`${oferta.testId}-fotos`}
-        />
-      }
+      media={media}
     >
       {contenidoCompleto}
     </Card>

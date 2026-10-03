@@ -3,12 +3,14 @@ import { Card } from "@/components/atoms/Card";
 import { Price } from "@/components/atoms/Price";
 import { PhotoStrip, type PhotoStripPhoto } from "./PhotoStrip";
 
-// Les visuels réellement présents dans apps/web/public — même règle que la story de l'atome
-// `Image` : une story ne doit pas dépendre du réseau pour s'afficher. Ce sont des SVG, donc
-// next/image les sert tels quels, sans `srcset` ; ça ne change rien à ce que ces stories montrent
-// (la mise en page), mais c'est à savoir avant d'y mesurer quoi que ce soit sur les tailles servies
-// — cette vérification-là vit dans PhotoStrip.test.tsx, sur des sources matricielles.
-const VISUELS = ["/globe.svg", "/window.svg", "/file.svg", "/vercel.svg"];
+// Vraies photos de `mockData/`, servies par Storybook sous `/mock` : les stories restent locales et
+// exercent aussi le pipeline matriciel de `next/image`.
+const VISUELS = [
+  "/mock/activities/kayak1/photos/1.jpeg",
+  "/mock/activities/partyboat1/photos/1.jpg",
+  "/mock/activities/yoga-session/photos/1.webp",
+  "/mock/establishments/bania/photos/1.jpeg",
+];
 
 // La valeur employée en production sur la fiche produit (ProductPhotos.tsx:26).
 const SIZES = "(max-width: 640px) 100vw, 640px";
@@ -50,9 +52,8 @@ export const UnePhoto: Story = { args: { photos: photos(1) } };
 // générique demandé par le §9 de docs/specs/04-gestion-images.md.
 export const AucunePhoto: Story = { args: { photos: [] } };
 
-// ⚠️ Un SVG très haut, écrit en `data:` plutôt qu'ajouté à public/ : aucun visuel de ce format n'y
-// existe, et un fichier d'exemple dans public/ serait servi en production pour une story. Le pendant
-// très large est `/next.svg` (394×80), un vrai fichier du dépôt.
+// ⚠️ Un SVG très haut, écrit en `data:` plutôt qu'ajouté à public/ : un fichier d'exemple
+// dans public/ serait servi en production pour une story. Le pendant large est une vraie photo.
 const TRES_HAUTE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 1200'%3E" +
   "%3Crect width='100' height='1200' fill='%23c7d2fe'/%3E" +
@@ -65,9 +66,9 @@ const TRES_HAUTE =
 export const FormatInattendu: Story = {
   args: {
     photos: [
-      { id: "large", alt: "Panorama très large du barrage", url: "/next.svg" },
+      { id: "large", alt: "Panorama très large du barrage", url: VISUELS[1] },
       { id: "haute", alt: "Le Peñón photographié en très haut format", url: TRES_HAUTE },
-      { id: "normale", alt: "Vue de la cabaña", url: "/globe.svg" },
+      { id: "normale", alt: "Vue de la cabaña", url: VISUELS[3] },
     ],
   },
 };

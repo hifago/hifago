@@ -73,14 +73,14 @@ describe("SiteFooter", () => {
     // ⚠️ RÉÉCRIT LE 2026-09-07. Ce test mesurait `min-h-11` sur les cinq liens institutionnels,
     // qui portaient cette classe eux-mêmes ; ils ont été retirés (pages inexistantes) et le test
     // n'avait plus de sujet. Le seul lien encore servi est le bouton WhatsApp, et il ne porte
-    // AUCUNE classe de hauteur : sa cible vient de la variante `button--lg` du design system,
-    // stylée par les jetons `[data-theme]`. Vérifier ici une classe Tailwind serait vérifier une
-    // implémentation que ce composant n'a pas — la garantie des 44 px appartient à l'atome Button
-    // et à ses propres tests.
+    // AUCUNE classe de hauteur : sa cible vient de la taille de l'atome (`md` par défaut, 44 px à
+    // toute largeur depuis le plan 41, item F4). Vérifier ici une classe Tailwind serait vérifier
+    // une implémentation que ce composant n'a pas — la garantie des 44 px appartient à l'atome
+    // Button et à ses propres tests.
     const { container } = rendu();
     const whatsapp = container.querySelector('[data-testid="footer-whatsapp"]') as HTMLElement;
     expect(whatsapp).not.toBeNull();
-    expect(whatsapp.className).toContain("button--lg");
+    expect(whatsapp.className).toContain("button--md");
   });
 
   // ⚠️ Le lien externe passe par `LinkButton`, qui impose `rel="noopener noreferrer"` (sa prop
@@ -129,17 +129,46 @@ describe("SiteFooter", () => {
     ).toContain("WhatsApp");
   });
 
-  // ⚠️ Aucune couleur en dur : cinq pistes de thème sont montées et aucune n'est adoptée. Le couple
-  // fond/texte vient du thème, donc sa lisibilité est garantie par lui — dans les cinq pistes et
-  // dans les deux modes.
-  // ⚠️ `--surface-tertiary` retenu après mesure des cinq candidats sur 5 pistes × 2 modes : c'est
-  // le plus marqué des jetons qui laissent intacts les composants posés dessus (LinkButton,
-  // LanguageSwitcher), dont les couleurs supposent un fond de surface claire.
-  it("prend sa bande de couleur dans les jetons, jamais en dur", () => {
+  // Plan 41, item C2 (arbitrage D3 = A) : le pied est MARINE, sur toutes les pages. La couleur ne
+  // s'écrit nulle part ici : la surface (`data-superficie`, globals.css) pose le fond ET les jetons
+  // de ce qui s'y lit. jsdom ne calcule pas les couleurs : le contraste se mesure au navigateur.
+  it("se pose sur la surface marine, sans couleur en dur", () => {
     const { pied } = rendu();
-    expect(pied.className).toContain("bg-[var(--surface-tertiary)]");
-    expect(pied.className).toContain("text-[var(--surface-tertiary-foreground)]");
-    expect(pied.className).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(pied.getAttribute("data-superficie")).toBe("marine");
+    // Le `<footer>` seul, pas son contenu : les drapeaux SVG du sélecteur de langue portent les
+    // seules couleurs en dur exemptées du dépôt (`check-tokens.sh`).
+    expect(pied.getAttribute("class") ?? "").not.toMatch(/#[0-9a-fA-F]{3,8}\b|bg-\[|text-\[/);
+    expect(pied.getAttribute("style")).toBeNull();
+  });
+
+  // Une seule image, la déclinaison explicitement prévue pour la surface marine.
+  it("porte le logo pour fond sombre sur la surface marine", () => {
+    const images = Array.from(rendu().pied.querySelectorAll("img:not([data-testid='footer-motif'])"));
+    expect(images).toHaveLength(1);
+    expect(images[0].getAttribute("src")).toContain("logo-header-sombre");
+    expect(images[0].className).not.toMatch(/logo-(clair|sombre)/);
+  });
+
+  it("rend la bande approuvée comme un décor différé, jamais comme contenu", () => {
+    const motif = rendu().pied.querySelector('[data-testid="footer-motif"]') as HTMLImageElement;
+    expect(motif.getAttribute("src")).toContain("motif-footer");
+    expect(motif.getAttribute("alt")).toBe("");
+    expect(motif.getAttribute("aria-hidden")).toBe("true");
+    expect(motif.getAttribute("loading")).toBe("lazy");
+  });
+
+  it("fait de WhatsApp l'action du pied : plein or, glyphe compris", () => {
+    const lien = rendu().container.querySelector('[data-testid="footer-whatsapp"]') as HTMLElement;
+    expect(lien.className).toContain("[--button-bg:var(--btn-fill)]");
+    expect(lien.className).toContain("[--btn-fill:var(--accent)]");
+    expect(lien.querySelector("svg")).not.toBeNull();
+  });
+
+  // Le popover du sélecteur est rendu DANS le pied : sans surface claire déclarée, il hériterait
+  // du texte blanc du marine — blanc sur blanc.
+  it("garde au panneau de langue une surface claire", () => {
+    const panneau = rendu().container.querySelector('[data-testid="footer-language-panneau"]') as HTMLElement;
+    expect(panneau.getAttribute("data-superficie")).toBe("clara");
   });
 
   it("livre tous ses liens dans le HTML SERVI", () => {

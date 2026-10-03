@@ -1,6 +1,6 @@
 ---
 name: hifago-dev
-description: Démarre/arrête l'environnement de dev quotidien du nouveau stack Hifago — Supabase local (Docker) + les deux apps Next.js du monorepo (web/admin) — gère port occupé et Docker non démarré. Usage — /hifago-dev (les deux), /hifago-dev web, /hifago-dev admin (ou /hifago-dev stop, /hifago-dev status)
+description: Démarre ou arrête l'environnement de dev quotidien du nouveau stack Hifago — Supabase local (Docker) et les deux apps Next.js du monorepo (web/admin) — gère port occupé et Docker non démarré. Invocation Codex — $hifago-dev, $hifago-dev web, admin, stop ou status
 ---
 
 # /hifago-dev — environnement de dev quotidien

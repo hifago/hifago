@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { buttonVariants } from "@hifago/ui";
 import { Link } from "@/i18n/navigation";
 import {
+  buttonSizeClasses,
   buttonToneClasses,
   HEROUI_VARIANT,
   RADIUS_CLASS,
@@ -47,7 +48,7 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 //
 // Les classes viennent des MÊMES sources que `Button` : `buttonVariants` de HeroUI pour la forme
-// et la taille, `buttonToneClasses` et `RADIUS_CLASS` pour les deux axes de la surcouche. Rien
+// et la taille, `buttonToneClasses`, `buttonSizeClasses` et `RADIUS_CLASS` pour la surcouche. Rien
 // n'est recopié — deux tables de couleurs qui divergent au premier ajout sont le défaut classique
 // de ce genre de paire, et `LinkButton.test.tsx` compare les deux rendus sur les 36 combinaisons
 // pour que la divergence casse un test plutôt que de se voir en production.
@@ -68,7 +69,7 @@ export type LinkButtonProps = {
   variant?: ButtonVariant;
   /** Le RÔLE : avancer (`accent`), accompagner (`neutral`), détruire (`danger`). */
   color?: ButtonColor;
-  /** Défaut `lg` comme `Button` : seul `lg` atteint les 44 px de cible tactile sur mobile. */
+  /** Défaut `md` comme `Button` (44 px) ; `lg` (48 px) pour les seuls CTA de conversion. */
   size?: ButtonSize;
   width?: "auto" | "full";
   /** Icône décorative, rendue `aria-hidden` : le libellé reste seul porteur du sens. */
@@ -111,7 +112,7 @@ export function LinkButton({
   newTabLabel,
   variant = "solid",
   color = "accent",
-  size = "lg",
+  size = "md",
   width = "auto",
   iconBefore,
   iconAfter,
@@ -127,6 +128,7 @@ export function LinkButton({
       fullWidth: width === "full",
     }),
     buttonToneClasses(variant, color),
+    buttonSizeClasses(size),
     RADIUS_CLASS,
     FOCUS_CLASS,
   ].join(" ");

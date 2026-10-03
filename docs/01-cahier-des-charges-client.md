@@ -3,7 +3,7 @@ id: refonte-cdc-client
 titre: "Cahier des charges — portail client (marketplace global, Guatapé = première localisation)"
 theme: cadrage
 statut: brouillon
-maj: 2026-09-22
+maj: 2026-10-03
 resume: >
   Comportement métier cible du portail de réservation client, dérivé du comportement réel actuel
   et challengé section par section avec Jérôme avant reprise dans la refonte.
@@ -60,6 +60,10 @@ repond_a:
   ⚠️ Elle ne rattache **que** des commandes appartenant encore à une identité anonyme — sans quoi un
   compte réel ayant saisi l'email d'un tiers perdrait sa commande le jour où ce tiers s'inscrit
   (arbitré par Jérôme le 2026-09-10).
+- **§2c et §2d — RÉVISÉS le 2026-09-11** par
+  `docs/specs/34-compte-mes-reservations.md` (statut `implemente`) : l'annulation depuis le compte
+  porte sur une prestation, pas sur toute la commande ; l'avertissement de non-remboursement de
+  l'acompte est aussi répété au moment de confirmer cette annulation, pas seulement au paiement.
 
 Ajoutés par la relecture intégrale du 2026-09-07 :
 

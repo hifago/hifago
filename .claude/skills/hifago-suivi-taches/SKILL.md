@@ -1,6 +1,6 @@
 ---
 name: hifago-suivi-taches
-description: Ajoute une tâche, ou marque une ligne existante comme faite/attribuée, sur la grille de suivi partagée Gabriel/Jérôme (com-dev/suivi-taches-beta-hifago/) — l'artifact Claude.ai publié. Usage — /hifago-suivi-taches "<texte>" (ajouter) ou /hifago-suivi-taches fait <id> [gabriel|jerome] (marquer)
+description: Ajoute une tâche, ou marque une ligne existante comme faite ou attribuée, sur la grille de suivi partagée Gabriel/Jérôme (com-dev/suivi-taches-beta-hifago/) — l'artifact Claude.ai publié. Invocation Codex — $hifago-suivi-taches [texte] ou $hifago-suivi-taches fait [id] [gabriel ou jerome]
 ---
 
 # /hifago-suivi-taches — grille de suivi partagée

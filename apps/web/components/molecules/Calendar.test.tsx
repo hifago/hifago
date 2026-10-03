@@ -1,8 +1,14 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
 import {
   Calendar,
+  CLASSE_CADRE_CALENDRIER,
+  CLASSNAMES_CALENDRIER,
+  localeCalendrier,
   type CalendarLibelles,
   type CalendarProps,
   type JourCalendrier,
@@ -215,4 +221,61 @@ describe("Calendar — la cible tactile de 44 px ne peut pas disparaître en sil
     expect(racine.className).toContain("[--cell-size:2.75rem]");
     expect(racine.className).toContain("max-w-sm");
   });
+});
+
+// ── Plan 41, S10 : la grille de la charte, partout ──────────────────────────────────────────────
+describe("Calendar — la charte et la langue (plan 41, S10)", () => {
+  it("pose la grille de la charte et le mois au rôle titre-bloc", () => {
+    const { container } = rendu();
+    const racine = container.querySelector('[data-slot="calendar"]')!;
+    // Le rayon des boutons (D4) pour le jour choisi, et des cases qui se partagent la largeur.
+    expect(racine.className).toContain("[--cell-radius:var(--rayon-bouton)]");
+    expect(racine.className).toContain("[&_button.rdp-day]:min-w-0");
+    expect(container.querySelector(".rdp-caption_label")?.className).toContain("titre-bloc");
+    expect(CLASSNAMES_CALENDRIER.caption_label).toContain("capitalize");
+  });
+
+  // Le wrapper vit dans le popover de `DateRangeField`, déjà un cadre : pas de second contour.
+  it("garde le cadre (bordure marine, 16 px, blanc) pour les calendriers posés dans une page", () => {
+    expect(CLASSE_CADRE_CALENDRIER).toContain("rounded-[16px]");
+    expect(CLASSE_CADRE_CALENDRIER).toContain("border-[var(--border)]");
+    const racine = rendu().container.querySelector('[data-slot="calendar"]')!;
+    expect(racine.className).not.toContain("rounded-[16px]");
+  });
+
+  // Une locale date-fns nue traduit les mois, pas les libellés de react-day-picker : un visiteur
+  // hispanophone entendait « Go to the Previous Month ».
+  it("donne la locale de la grille avec ses libellés d'accessibilité traduits", () => {
+    const es = localeCalendrier("es");
+    expect(es?.code).toBe("es");
+    expect(es && "labels" in es ? (es.labels as { labelPrevious?: string }).labelPrevious : null).toBe(
+      "Ir al mes anterior"
+    );
+    expect(localeCalendrier("en")?.code).toBe("en-US");
+  });
+
+  it("rend la navigation en espagnol avec la locale es", () => {
+    const { container } = rendu({ locale: localeCalendrier("es") });
+    expect(container.querySelector(".rdp-button_previous")?.getAttribute("aria-label")).toBe(
+      "Ir al mes anterior"
+    );
+  });
+
+  // ⚠️ LA CAUSE DU DÉFAUT D'ORIGINE : les quatre formulaires de la fiche montent `DayPickerCalendar`
+  // directement, sans ce wrapper — d'où des cases de 28 px en anglais en production. Ils doivent
+  // poser la grille, le cadre et la locale ; vérifié sur le TEXTE, parce qu'aucun rendu de ce
+  // fichier ne les monte (CLAUDE.md §11.20).
+  it.each(["ReservationForm", "SlotReservationForm", "LodgingReservationForm", "EventoReservationForm"])(
+    "%s pose la grille de la charte, son cadre et la locale",
+    (formulaire) => {
+      const ici = dirname(fileURLToPath(import.meta.url));
+      const source = readFileSync(
+        join(ici, "../../app/[locale]/(vitrine)/productos/[slug]", `${formulaire}.tsx`),
+        "utf8"
+      );
+      expect(source).toContain("className={`${CLASSE_CALENDRIER} ${CLASSE_CADRE_CALENDRIER}`}");
+      expect(source).toContain("classNames={CLASSNAMES_CALENDRIER}");
+      expect(source).toContain("locale={localeCalendrier(locale)}");
+    }
+  );
 });

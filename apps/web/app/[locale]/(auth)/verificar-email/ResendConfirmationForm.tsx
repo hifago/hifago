@@ -5,7 +5,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
 import { buildAuthCallbackRedirect } from "@hifago/domain";
-import { Button, toast } from "@hifago/ui";
+import { Button } from "@/components/atoms/Button";
+import { Aviso } from "@/components/molecules/Aviso";
 
 const COOLDOWN_SECONDS = 30;
 
@@ -16,6 +17,7 @@ export function ResendConfirmationForm({ email }: { email: string | null }) {
   const t = useTranslations("VerifyEmail");
   const locale = useLocale();
   const [cooldown, setCooldown] = useState(0);
+  const [feedback, setFeedback] = useState<"success" | "error" | null>(null);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -25,7 +27,7 @@ export function ResendConfirmationForm({ email }: { email: string | null }) {
 
   if (!email) {
     return (
-      <Link href="/entrar" className="text-sm underline">
+      <Link href="/entrar" className="text-base text-link underline">
         {t("backToLogin")}
       </Link>
     );
@@ -47,25 +49,35 @@ export function ResendConfirmationForm({ email }: { email: string | null }) {
       },
     });
     if (error) {
-      toast.danger(t("resendError"));
+      setFeedback("error");
     } else {
-      toast.success(t("resent"));
+      setFeedback("success");
     }
     setCooldown(COOLDOWN_SECONDS);
   }
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-4">
+      {feedback ? (
+        <Aviso
+          tono={feedback === "success" ? "exito" : "error"}
+          rol={feedback === "success" ? "status" : "alert"}
+          testId={`resend-confirmation-${feedback}`}
+        >
+          <p>{feedback === "success" ? t("resent") : t("resendError")}</p>
+        </Aviso>
+      ) : null}
       <Button
         type="button"
         variant="outline"
+        color="neutral"
         isDisabled={cooldown > 0}
         onPress={handleResend}
-        data-testid="resend-confirmation-button"
+        testId="resend-confirmation-button"
       >
         {cooldown > 0 ? t("resendCooldown", { seconds: cooldown }) : t("resend")}
       </Button>
-      <Link href="/entrar" className="text-sm underline">
+      <Link href="/entrar" className="text-base text-link underline">
         {t("backToLogin")}
       </Link>
     </div>

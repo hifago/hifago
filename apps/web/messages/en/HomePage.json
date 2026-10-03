@@ -1,7 +1,8 @@
 {
   "title": "Hifago",
   "description": "Activities and experiences in Guatapé.",
-  "h1": "Activities and places to stay in Guatapé",
+  "h1": "Guatapé is worth\nmore than a day.",
+  "lema": "Plan your trip and live it\nat your own pace.",
   "emptyState": {
     "titulo": "We found no offers matching those criteria.",
     "descripcion": "Try other dates, fewer people, or a broader search."
@@ -9,6 +10,13 @@
   "secciones": {
     "activity": "Activities",
     "lodging": "Places to stay",
+    "transport": "Transport",
+    "camp": "Camps",
+    "evento": "Events"
+  },
+  "tiposPortada": {
+    "activity": "Activities",
+    "lodging": "Accommodation",
     "transport": "Transport",
     "camp": "Camps",
     "evento": "Events"
@@ -22,13 +30,21 @@
   },
   "verMas": "See more",
   "verMasTags": "See all categories",
+  "masPorTipo": {
+    "activity": "More activities",
+    "lodging": "More places to stay",
+    "transport": "More transport",
+    "camp": "More camps",
+    "evento": "More events"
+  },
   "precioDesde": "From",
   "fotoAlt": "{nombre}, photo {indice} of {total}",
   "buscar": {
     "label": "Search activities and places to stay",
     "placeholder": "What are you looking for in Guatapé?",
     "submitLabel": "Search",
-    "emptyLabel": "No suggestions"
+    "emptyLabel": "No suggestions",
+    "clearLabel": "Clear the search"
   },
   "sugerencias": {
     "metaEstablecimiento": "Place to stay",

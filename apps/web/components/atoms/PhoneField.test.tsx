@@ -36,6 +36,21 @@ describe("PhoneField", () => {
     expect(select.getAttribute("aria-label")).toBe("Indicativo del país");
   });
 
+  // Plan 41, item S11 : indicatif et numéro forment UN groupe visuel — collés, arrondis seulement
+  // dehors, la bordure de l'indicatif servant de filet. Le rendu se mesure dans la story ; ici, le
+  // contrat des classes, et la hauteur de 48 px des champs.
+  it("colle l'indicatif et le numéro en un seul groupe, à 48 px", () => {
+    const { input, select } = rendu(
+      <PhoneField label="WhatsApp" countryLabel="País" value="" onChange={() => {}} />
+    );
+    expect(select.parentElement).toBe(input.parentElement);
+    expect(select.parentElement?.className).not.toContain("gap-");
+    expect(select.className).toContain("rounded-r-none");
+    expect(input.className).toContain("rounded-l-none");
+    expect(input.className).toContain("border-l-0");
+    expect(input.className).toContain("min-h-12");
+  });
+
   it("présélectionne le pays par défaut (Colombie, sauf indication contraire)", () => {
     const { select } = rendu(
       <PhoneField label="WhatsApp" countryLabel="País" value="" onChange={() => {}} />

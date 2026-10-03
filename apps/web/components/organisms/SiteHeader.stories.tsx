@@ -87,7 +87,7 @@ export const AuDessusDuContenu: Story = {
       <PanierPre lignes={3} />
       <div className="flex min-h-screen flex-col">
         <SiteHeader isAuthenticated={false} testId="header" />
-        <PageShell variant="large">
+        <PageShell variant="pagina">
           <Title as="h1">Alojamientos y actividades en Guatapé</Title>
           {Array.from({ length: 12 }, (_, i) => (
             <p key={i} className="text-sm">
@@ -95,6 +95,33 @@ export const AuDessusDuContenu: Story = {
               siendo legible sobre el contenido y que no tapa el título al volver arriba.
             </p>
           ))}
+        </PageShell>
+      </div>
+    </CartProvider>
+  ),
+};
+
+// LA VARIANTE TRANSPARENTE — le header de l'accueil, d'après la maquette de Jérôme (2026-10-01).
+// Posé PAR-DESSUS une page or : les langues en ligne à gauche (« ESP · ING »), Mi viaje et Mi cuenta
+// à droite, sans logo ni bouton de menu. ⚠️ Faire défiler : il est transparent en haut de page et
+// prend l'or (avec une ombre légère) dès qu'on le quitte — sinon les sections passeraient sous ses
+// icônes sans rien entre les deux. Le vrai rendu, illustration comprise, est dans `Écrans/Accueil`.
+export const Transparente: Story = {
+  args: { isAuthenticated: false, transparente: true },
+  render: () => (
+    <CartProvider>
+      <PanierPre lignes={2} />
+      <div className="min-h-[200vh] bg-accent text-accent-foreground">
+        <SiteHeader isAuthenticated={false} transparente testId="header" />
+        <PageShell variant="portada" fondo="acento">
+          <div className="px-5 pt-24 sm:px-8">
+            {Array.from({ length: 14 }, (_, i) => (
+              <p key={i} className="py-3 text-sm">
+                Párrafo {i + 1} — desplázate: arriba la barra es transparente, más abajo toma el oro
+                de la página para que el contenido no pase debajo de sus iconos.
+              </p>
+            ))}
+          </div>
         </PageShell>
       </div>
     </CartProvider>

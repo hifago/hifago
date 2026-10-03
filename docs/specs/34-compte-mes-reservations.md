@@ -181,7 +181,7 @@ prédicat que `list_clients` (cas `en_casa`), et c'est l'assertion qui rougit si
 `apps/web/e2e/cancel-order.spec.ts` · `supabase/tests/database/cancel_order.test.sql`.
 
 **Jamais touchés** (chantier de l'autre agent) : `(cuenta)/layout.tsx` · `cuenta/perfil/**` ·
-`components/organisms/SiteMenu.tsx` · `CoquillaVitrine.tsx` · `messages/{es,en}/Chrome.json` ·
+`components/organisms/SiteMenu.tsx` (supprimé par le plan 41, G5) · `CoquillaVitrine.tsx` · `messages/{es,en}/Chrome.json` ·
 `apps/web/messages/index.ts`.
 
 ---
