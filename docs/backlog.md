@@ -42,7 +42,6 @@ repond_a:
 - **Équipements structurés livrés le 2026-09-17** (`catalog_amenities`, ~56 items) : contenu final du référentiel et migration manuelle des 8 items `stay_rates.includes` de Bania restent à trancher — détail dans le journal du jour.
 - **Miroir de disponibilité LobbyPMS — back-end + invalidation événementielle LIVRÉS, EN ATTENTE DE VALIDATION JÉRÔME sur le principe** (copie en base, spec 24 §0 ; historique complet 2026-09-17/18 : `docs/journal/2026-09.md`) : `search_catalog`/la fiche/`reserve-nights` tiennent (repli par établissement ET par plage depuis le 2026-09-18) ; `reserve-nights`/`pms-cancel-bookings`/`pms-poll-bookings` invalident désormais le mois concerné au lieu d'attendre jusqu'à 24 h ; `fail_pms_sync` a un vrai backoff exponentiel. TESTLIVE contre le compte réel toujours en attente de l'accord de Gabriel au moment de le faire. ⚠️ Sens Lobby → hifago : ÉCARTÉ le 2026-09-17, ne pas rouvrir. Restent ouverts, non traités : mesurer si le seau de quota Lobby est par jeton ou par IP (accord Gabriel requis, §8.3) ; regrouper 3 mois par appel Lobby (≈93 nuits/page) si la mesure le justifie ; `pms-poll-bookings` sans intervalle de dû (relit chaque booking vivant toutes les 15 min) ; aucun signalement admin d'un connecteur en échec répété (`attempts`/`last_error` existent en base, rien ne les affiche).
 - Inscription par invitation : faut-il exiger la confirmation de l'e-mail saisi (compte aujourd'hui confirmé d'office) ? Décision produit (Jérôme) — soulevé par la remédiation de l'audit du 2026-09-28.
-
 - 🔴 **`npm audit` rouge depuis le 2026-10-02 : 5 avis `high` sur `braces`** (GHSA-vfj7-8cjw-p6xm, via `micromatch` → `fast-glob` → `eslint-config-next`) — `npm run verify` échoue donc, pre-push et CI compris, sans rapport avec le code ; le seul correctif proposé par npm rétrograde `eslint-config-next` en 14 (cassant). À trancher : `overrides`, attente d'un correctif amont, ou exception datée.
 
 ## Bloquants externes (action Jérôme)
@@ -54,9 +53,7 @@ repond_a:
 - Secret `service_role` legacy encore affiché en clair par `supabase projects api-keys` sans `--reveal` (3ᵉ occurrence constatée) — rotation à envisager, jamais faite.
 
 ## Dette connue, assumée, non corrigée
-Sortie d'ici le 2026-09-08 vers `docs/dette-technique.md` — ce fichier plafonne à 60 lignes et prescrit qu'un groupe entier parte quand il déborde. ⚠️ Rien n'y a été élagué : les deux groupes (dette technique, dette QA/UI mineure) y sont au complet. Un point qui s'y trouve est CONNU — ne pas le re-diagnostiquer.
-
-Data/config en écart sortie d'ici le 2026-09-19 vers `docs/dette-technique.md` (même motif : ce fichier était à 60/60 lignes, son propre plafond). Rien n'y a été élagué.
+Sortie d'ici le 2026-09-08 vers `docs/dette-technique.md` — ce fichier plafonne à 60 lignes et prescrit qu'un groupe entier parte quand il déborde. ⚠️ Rien n'y a été élagué : les deux groupes (dette technique, dette QA/UI mineure) y sont au complet. Un point qui s'y trouve est CONNU — ne pas le re-diagnostiquer. Data/config en écart sortie d'ici le 2026-09-19 vers `docs/dette-technique.md` (même motif : ce fichier était à 60/60 lignes, son propre plafond). Rien n'y a été élagué.
 
 Historique complet de chaque point (comment on y est arrivé) : `docs/journal/<mois>.md`. Une ligne
 retirée d'ici = un point refermé — jamais élagué en silence, dire quoi/quand dans le journal.
