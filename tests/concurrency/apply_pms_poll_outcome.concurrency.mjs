@@ -6,8 +6,17 @@
 // temps (barrière) qu'UN adversaire, à tour de rôle : cancel_order_line (le client annule l'activité :
 // la place reste prise, cahier §7/A3), modify_order_line (l'admin déplace l'activité : la place
 // change de date) ou expire_payment_order (la commande expire : les places reviennent). Tous prennent
-// la commande (ou la ligne) avant la capacité : ils sont sérialisés, dans un ordre quelconque. Deux
-// claim_pms_poll_batch partent dans la même barrière (ils prennent les lignes sans jamais attendre).
+// la commande (ou la ligne) avant la capacité : ils sont sérialisés.
+//
+// Deux phases par run :
+//   1. DÉTERMINISTE — chaque adversaire est servi dans les DEUX ordres, par construction : un
+//      coordinateur tient le verrou que les deux appels attendent (la ligne d'activité pour
+//      cancel_order_line, qui ne prend pas la commande ; la commande pour les autres), le premier
+//      appel part et sa mise en attente est constatée, puis le second, puis le coordinateur relâche —
+//      la file d'attente du verrou sert le premier arrivé. L'issue exacte de chacun est vérifiée.
+//   2. COURSE LIBRE — la RPC et un adversaire par commande, libérés ensemble par une barrière, avec
+//      deux claim_pms_poll_batch (ils prennent les lignes sans jamais attendre). L'ordre est celui de
+//      la machine : cette phase cherche les interblocages, pas la couverture des ordres.
 //
 // Attendu à chaque run, quel que soit l'ordre :
 //   - 0 interblocage (40P01), aucune erreur hors le refus attendu de modify_order_line quand la
@@ -16,9 +25,8 @@
 //     (`reserved`, ou `cancelled_by_client`, qui ne la rend pas) — jamais une place rendue deux fois,
 //     jamais une place perdue ;
 //   - plus aucune ligne `reserved` sur un booking, et exactement UNE annulation en file par booking.
-// Et sur l'ensemble des runs : chaque adversaire a été servi AVANT et APRÈS la RPC au moins une fois
-// (sinon le test n'a pas exercé ce qu'il prétend). Avant chaque barrière, une sonde DÉTERMINISTE : une
-// ligne sœur tenue par une autre transaction, le claim doit répondre sans l'attendre (skip locked).
+// Avant chaque run, une sonde DÉTERMINISTE : une ligne sœur tenue par une autre transaction, le claim
+// doit répondre sans l'attendre (skip locked).
 //
 // ⚠️ Nettoyage AVANT et APRÈS chaque run. Préfixe d'identifiants dédié : 6a000000-. Stack locale.
 import pg from "pg";
@@ -27,7 +35,17 @@ const { Client } = pg;
 const CONNECTION_STRING =
   process.env.PGURL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 const RUNS = 5;
-const ORDERS = 12;
+const ORDERS = 12; // course libre : commandes 1 à ORDERS
+// Phase déterministe : commandes ORDERS + 1 à ORDERS + 6, une par (adversaire, premier servi).
+const CASES = [
+  { kind: "cancel", first: "poll" },
+  { kind: "cancel", first: "opponent" },
+  { kind: "modify", first: "poll" },
+  { kind: "modify", first: "opponent" },
+  { kind: "expire", first: "poll" },
+  { kind: "expire", first: "opponent" },
+];
+const TOTAL = ORDERS + CASES.length;
 const P = "6a000000-0000-4000-8000-";
 const id = (n) => `${P}${String(n).padStart(12, "0")}`;
 const PARTNER_ID = id(1);
@@ -44,13 +62,24 @@ const activityLineId = (i) => id(3000 + i);
 const booking = (i) => `CONC-PO-${i}`;
 const OPPONENTS = ["cancel", "modify", "expire"];
 const CLAIMERS = 2;
-// Les deux issues de chaque adversaire : servi avant la RPC, ou après.
-const BOTH_ORDERS = {
-  cancel: ["cancel:ok", "cancel:line_not_active"],
-  modify: ["modify:ok", "modify:erreur"],
-  expire: ["expire:ok", "expire:not_candidate"],
+const MODIFY_REFUSED = /seule une ligne au statut reserved/;
+const gone = (lines) => (r) => r.ok && r.r?.ok === true && r.r?.outcome === "gone" && r.r?.lines === lines;
+// L'issue EXACTE attendue de chaque appel, selon qui est servi le premier.
+const EXPECTED = {
+  "cancel/poll": { poll: gone(2), opponent: (r) => r.ok && r.r?.reason === "line_not_active" },
+  "cancel/opponent": { poll: gone(1), opponent: (r) => r.ok && r.r?.ok === true },
+  // Le seul refus attendu de modify_order_line : la ligne n'est plus `reserved`.
+  "modify/poll": { poll: gone(2), opponent: (r) => !r.ok && MODIFY_REFUSED.test(r.message) },
+  "modify/opponent": { poll: gone(1), opponent: (r) => r.ok },
+  "expire/poll": { poll: gone(2), opponent: (r) => r.ok && r.r?.reason === "not_candidate" },
+  "expire/opponent": { poll: (r) => r.ok && r.r?.reason === "no_live_line", opponent: (r) => r.ok && r.r?.ok === true },
 };
-const totalTally = {};
+const QUERY_FRAGMENT = {
+  poll: "apply_pms_poll_outcome",
+  cancel: "cancel_order_line",
+  modify: "modify_order_line",
+  expire: "expire_payment_order",
+};
 
 async function connect() {
   const client = new Client({ connectionString: CONNECTION_STRING });
@@ -105,9 +134,9 @@ async function seedRun(seed) {
   // Chaque commande tient UNE place de l'activité à DATE.
   await seed.query(
     "insert into product_availability (product_id, date, capacity, booked) values ($1, $2, 100, $4), ($1, $3, 100, 0)",
-    [ACTIVITY_ID, DATE, DATE_MOVED, ORDERS]
+    [ACTIVITY_ID, DATE, DATE_MOVED, TOTAL]
   );
-  for (let i = 1; i <= ORDERS; i++) {
+  for (let i = 1; i <= TOTAL; i++) {
     await seed.query(
       `insert into orders (id, account_id, holder_name, holder_email, payment_status, created_at)
        values ($1, $2, 'Conc PO', 'conc-po-buyer@test.local', 'unpaid', now() - interval '40 minutes')`,
@@ -155,6 +184,56 @@ async function opponentClient(kind) {
   return asRole("service_role");
 }
 
+/** Attend qu'une session soit bloquée sur un verrou en exécutant `fragment` (paramètres invisibles). */
+async function waitForLockWait(seed, fragment) {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const { rows } = await seed.query(
+      "select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and query like $1",
+      [`%${fragment}%`]
+    );
+    if (rows[0].n > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`aucune attente de verrou constatée pour ${fragment}`);
+}
+
+/** Phase déterministe : sert la RPC et l'adversaire dans l'ordre demandé, sur la commande i. */
+async function serveInOrder(seed, { kind, first }, i) {
+  const coordinator = await connect();
+  const poller = await asRole("service_role");
+  const opponent = await opponentClient(kind);
+  try {
+    await coordinator.query("begin");
+    if (kind === "cancel") {
+      await coordinator.query("select 1 from order_lines where id = $1 for update", [activityLineId(i)]);
+    } else {
+      await coordinator.query("select 1 from orders where id = $1 for update", [orderId(i)]);
+    }
+    const launch = (who) =>
+      who === "poll"
+        ? run(poller, "select public.apply_pms_poll_outcome($1, 'gone', 'concurrence') as r", [nightLineId(i)])
+        : opponentCall(kind, opponent, i);
+    const order = first === "poll" ? ["poll", "opponent"] : ["opponent", "poll"];
+    const fragment = (who) => QUERY_FRAGMENT[who === "poll" ? "poll" : kind];
+    const firstCall = launch(order[0]);
+    await waitForLockWait(seed, fragment(order[0]));
+    const secondCall = launch(order[1]);
+    await waitForLockWait(seed, fragment(order[1]));
+    await coordinator.query("rollback");
+    const [a, b] = await Promise.all([firstCall, secondCall]);
+    const byWho = { [order[0]]: a, [order[1]]: b };
+    const expected = EXPECTED[`${kind}/${first}`];
+    const ok = expected.poll(byWho.poll) && expected.opponent(byWho.opponent);
+    if (!ok) {
+      console.error(`    ordre ${kind}/${first} (commande ${i}) : issue inattendue — poll ${JSON.stringify(byWho.poll)}, ${kind} ${JSON.stringify(byWho.opponent)}`);
+    }
+    return { ok, results: [{ i, who: "poll", ...byWho.poll }, { i, who: kind, ...byWho.opponent }] };
+  } finally {
+    await Promise.all([coordinator, poller, opponent].map((c) => c.end().catch(() => {})));
+  }
+}
+
 async function runOnce(runNumber, seed) {
   await seedRun(seed);
   // Sonde : l'activité de la commande 1 est tenue ailleurs ; sa nuit (même booking) est réclamable.
@@ -168,6 +247,13 @@ async function runOnce(runNumber, seed) {
   await Promise.all([holder, probe].map((c) => c.end().catch(() => {})));
   const probeOk = probeResult.ok;
   if (!probeOk) console.error(`    sonde : le claim a attendu une ligne sœur tenue ailleurs (${probeResult.code})`);
+
+  // Phase 1 — déterministe.
+  const deterministic = [];
+  for (const [k, c] of CASES.entries()) deterministic.push(await serveInOrder(seed, c, ORDERS + 1 + k));
+  const deterministicOk = deterministic.every((d) => d.ok);
+
+  // Phase 2 — course libre.
   const pollers = await Promise.all(Array.from({ length: ORDERS }, () => asRole("service_role")));
   const opponents = await Promise.all(
     Array.from({ length: ORDERS }, (_, k) => opponentClient(OPPONENTS[k % OPPONENTS.length]))
@@ -204,7 +290,7 @@ async function runOnce(runNumber, seed) {
   const deadlocks = results.filter((r) => !r.ok && r.code === "40P01");
   // Seul refus attendu : modify_order_line sur une ligne que la RPC a déjà annulée.
   const unexpected = results.filter(
-    (r) => !r.ok && r.code !== "40P01" && !(r.who === "modify" && /seule une ligne au statut reserved/.test(r.message))
+    (r) => !r.ok && r.code !== "40P01" && !(r.who === "modify" && MODIFY_REFUSED.test(r.message))
   );
   const { rows: capacity } = await seed.query(
     `select pa.date::text as date, pa.booked,
@@ -228,24 +314,25 @@ async function runOnce(runNumber, seed) {
     if (r.who === "claim") continue;
     const key = `${r.who}:${r.ok ? r.r?.reason ?? r.r?.outcome ?? "ok" : "erreur"}`;
     tally[key] = (tally[key] ?? 0) + 1;
-    totalTally[key] = (totalTally[key] ?? 0) + 1;
   }
   console.log(
-    `  run ${runNumber}: 40P01 ${deadlocks.length}, erreurs inattendues ${unexpected.length}, ` +
+    `  run ${runNumber}: ordres déterministes ${deterministic.filter((d) => d.ok).length}/${CASES.length}, ` +
+      `40P01 ${deadlocks.length}, erreurs inattendues ${unexpected.length}, ` +
       `capacité fausse ${badCapacity.length}/${capacity.length} dates, lignes vivantes sur booking ${liveOnBooking[0].n}, ` +
-      `bookings en file ${queue[0].exactly_one}/${ORDERS}, sonde sans attente ${probeOk ? "oui" : "NON"} — ${JSON.stringify(tally)}`
+      `bookings en file ${queue[0].exactly_one}/${TOTAL}, sonde sans attente ${probeOk ? "oui" : "NON"} — course libre ${JSON.stringify(tally)}`
   );
   for (const r of unexpected) console.error(`    erreur inattendue (${r.who}, commande ${r.i}) : ${r.code} ${r.message}`);
   for (const row of badCapacity) console.error(`    capacité ${row.date} : booked ${row.booked}, attendu ${row.expected}`);
   await purge(seed);
   return (
     probeOk &&
+    deterministicOk &&
     deadlocks.length === 0 &&
     unexpected.length === 0 &&
     badCapacity.length === 0 &&
     liveOnBooking[0].n === 0 &&
-    queue[0].bookings === ORDERS &&
-    queue[0].exactly_one === ORDERS
+    queue[0].bookings === TOTAL &&
+    queue[0].exactly_one === TOTAL
   );
 }
 
@@ -260,17 +347,13 @@ async function main() {
     await purge(seed);
     await seed.end();
   }
-  const missing = Object.values(BOTH_ORDERS).flat().filter((key) => !totalTally[key]);
-  console.log(`  ordres servis sur ${RUNS} runs : ${JSON.stringify(totalTally)}`);
-  if (missing.length > 0) {
-    console.error(`ÉCHEC : ordre jamais exercé (${missing.join(", ")}) — le test ne prouve pas les deux sérialisations.`);
-    process.exit(1);
-  }
   if (!clean) {
     console.error("ÉCHEC : l'issue « booking disparu » ne tient pas sous concurrence.");
     process.exit(1);
   }
-  console.log(`${RUNS} runs consécutifs propres — places rendues une seule fois, aucun interblocage, une annulation en file par booking.`);
+  console.log(
+    `${RUNS} runs consécutifs propres — chaque adversaire servi dans les deux ordres (par construction), places rendues une seule fois, aucun interblocage, une annulation en file par booking.`
+  );
 }
 
 main().catch((err) => {
