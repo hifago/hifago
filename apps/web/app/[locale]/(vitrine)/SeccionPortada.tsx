@@ -1,5 +1,6 @@
 import NextImage from "next/image";
 import { Price } from "@/components/atoms/Price";
+import { TituloRubrica } from "@/components/molecules/TituloRubrica";
 import { Link } from "@/i18n/navigation";
 import type { TarjetaOferta } from "@/lib/catalog/tipos";
 import type { Locale } from "@/messages";
@@ -241,24 +242,16 @@ export function SeccionPortada({
     // `aria-label` : une <section> sans nom n'est pas un repère de navigation. Le nom est le titre
     // visible, jamais un libellé parallèle qui divergerait.
     <section aria-label={titulo} className="@container" data-testid={testId}>
-      {/* Le titre prend la police de titre par la règle de base des `<h2>` (`globals.css`, avec son
-          interlettrage) : rien à poser ici. 6,3 % de la colonne, comme la maquette — borné à 28 px et
-          à 60 px (la taille que Jérôme a retenue pour les titres de l'accueil le 2026-10-01). Le
-          POINT est un bloc vide en ligne : sa base est son bord bas, il s'assied donc sur la ligne
-          de base du texte, comme sur la maquette. Décoratif. */}
-      <h2
-        className="text-[clamp(1.75rem,6.3cqw,3.75rem)] leading-none"
-        data-testid={testId ? `${testId}-titulo` : undefined}
-      >
-        {titulo}
-        <span
-          aria-hidden="true"
-          className="ml-[0.14em] inline-block size-[0.3em] rounded-full bg-[var(--default)]"
-        />
-      </h2>
-
-      {/* Le trait sous le titre : 68 % de la colonne, comme le motif qu'il surmonte. */}
-      <div aria-hidden="true" className="mt-[0.8cqw] h-[clamp(2px,0.5cqw,4px)] w-[68cqw] bg-current" />
+      {/* Le titre à point et son trait (68 % de la colonne, comme le motif qu'il surmonte) : le
+          composant signature extrait de cette section (plan 41, S1). 6,3 % de la colonne, comme la
+          maquette — borné à 28 px et à 60 px (la taille que Jérôme a retenue pour les titres de
+          l'accueil le 2026-10-01). Point bleu poudre et trait marine : ceux de la surface or. */}
+      <TituloRubrica
+        as="h2"
+        texto={titulo}
+        tamano="portada"
+        testId={testId ? `${testId}-titulo` : undefined}
+      />
 
       {/* `pt-[6.3cqw]` et non une marge sur le conteneur : une marge haute sur le premier enfant
           FUSIONNE avec celle de ce bloc (constaté au rendu — le motif démarrait au niveau du
