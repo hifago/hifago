@@ -6,9 +6,9 @@ import { SiteFooter } from "./SiteFooter";
 // Le footer de la vitrine.
 //
 // ⚠️ La story qui compte est `SousUnePage` : isolé, un footer ne dit rien — c'est sa relation au
-// contenu qui se juge (la bande se détache-t-elle du fond ? le pied colle-t-il au contenu quand la
-// page est courte ?). À regarder aux deux gabarits, dans les deux langues, et surtout sur les
-// CINQ pistes de la barre d'outils : la bande de couleur vient d'un jeton, elle change avec elles.
+// contenu qui se juge (le pied colle-t-il au contenu quand la page est courte ?). À regarder aux
+// deux gabarits et dans les deux langues. Depuis le plan 41 (item C2), le pied est la surface
+// MARINE de la charte : ouvrir aussi le menu de langue, dont le panneau doit rester blanc.
 const meta = {
   title: "Coquille/SiteFooter",
   component: SiteFooter,

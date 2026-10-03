@@ -186,7 +186,10 @@ export function LanguageSwitcher({ apariencia = "menu", testId }: LanguageSwitch
         // ⚠️ `min-h-11` : cible tactile de 44 px (components/README.md), comme toute la famille des
         // boutons. Un sélecteur de langue est une cible qu'on vise au pouce. Rayon : celui de tous
         // les boutons (`--rayon-bouton`, plan 41 F4), visible au survol.
-        className="inline-flex min-h-11 items-center gap-2 rounded-[var(--rayon-bouton)] px-3 text-sm font-medium hover:bg-default focus-visible:status-focused"
+        // ⚠️ `hover:text-default-foreground` (plan 41, C2) : le pied de page est MARINE, son texte
+        // blanc ; sans lui, le survol posait du blanc sur le bleu poudre de `bg-default` (1.6:1).
+        // Sur le clair, le texte était déjà marine : rien ne change.
+        className="inline-flex min-h-11 items-center gap-2 rounded-[var(--rayon-bouton)] px-3 text-sm font-medium hover:bg-default hover:text-default-foreground focus-visible:status-focused"
         aria-expanded={ouvert}
         aria-controls={idPanneau}
         onClick={() => setOuvert((etat) => !etat)}
@@ -202,9 +205,13 @@ export function LanguageSwitcher({ apariencia = "menu", testId }: LanguageSwitch
 
       {/* ⚠️ TOUJOURS rendu, seulement masqué : c'est ce qui met les liens `/en/…` dans le HTML que
           Googlebot reçoit. Un `{ouvert && …}` les en sortirait — voir le point 2 de l'en-tête. */}
+      {/* `data-superficie="clara"` (plan 41, C2) : le panneau est une surface BLANCHE, quel que soit
+          le fond du déclencheur — posé sous le pied marine, il en hériterait sinon le texte blanc
+          (blanc sur blanc), la bordure et le focus or. */}
       <div
         id={idPanneau}
         hidden={!ouvert}
+        data-superficie="clara"
         className="absolute right-0 top-full z-10 mt-1 flex min-w-44 flex-col rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-1 shadow-lg"
         data-testid={testId ? `${testId}-panneau` : undefined}
       >

@@ -3,6 +3,8 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { LinkButton } from "@/components/atoms/LinkButton";
+import { LogoHifago } from "@/components/atoms/LogoHifago";
+import { COLUMNA_PORTADA } from "@/components/atoms/PageShell";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { URL_WHATSAPP_HIFAGO } from "@/lib/contacto/whatsapp";
 
@@ -53,44 +55,89 @@ export type SiteFooterProps = {
   testId?: string;
 };
 
+// Le glyphe de WhatsApp, en `currentColor` (le texte marine du bouton or) : la marque se reconnaît
+// à sa forme, et une icône de marque recolorée au thème reste la convention des pieds de page.
+// Décoratif — le libellé du bouton dit déjà « WhatsApp ». Tracé du jeu Simple Icons (CC0).
+function GlypheWhatsApp() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z" />
+    </svg>
+  );
+}
+
 export function SiteFooter({ testId }: SiteFooterProps) {
   const t = useTranslations("Chrome");
 
   return (
     // ─────────────────────────────────────────────────────────────────────────────────────────
-    // ⚠️ LA BANDE DE COULEUR : `--surface-tertiary`, et le choix a été MESURÉ, pas jugé à l'œil
+    // LE PIED MARINE (plan 41, item C2 ; arbitrage D3 = A : marine partout, accueil compris)
     // ─────────────────────────────────────────────────────────────────────────────────────────
     //
-    // Aucune couleur en dur : cinq pistes de thème sont montées et aucune n'est adoptée
-    // (`Playground/Palette`). Une valeur codée serait fausse dans quatre cas sur cinq, et fausse en
-    // mode sombre.
+    // Jusqu'au 2026-10-02, une bande claire (`--surface-tertiary`) bordée d'un filet marine : elle
+    // fermait mal la page or de l'accueil. Le marine de la charte la ferme franchement, et reprend
+    // sa déclinaison sombre (logo or + bleu poudre, page 4 de la charte).
     //
-    // Cinq jetons mesurés (5 pistes × 2 modes, contraste de la bande contre `--background` et du
-    // texte contre la bande) :
+    // `data-superficie="marine"` (F3) : le fond, et les jetons de ce qui s'y lit — texte blanc
+    // (13.07:1), discret en bleu poudre (8.02:1), focus or (6.31:1). Aucune couleur ici : le
+    // bouton or garde ses propres jetons, le popover de langue se déclare surface claire.
     //
-    //   --surface              1.04–1.16 contre la page   → invisible
-    //   --surface-secondary    1.05–1.38                  → presque invisible
-    //   --surface-tertiary     1.10–1.66                  → retenu
-    //   --accent               3.38–16.79, MAIS texte à 3.59:1 sur les défauts HeroUI (< 4.5)
-    //   --background-inverse   12–20, franc — et inutilisable ici, voir plus bas
-    //
-    // ⚠️ POURQUOI PAS UN APLAT FRANC, qui serait plus proche de « une bande de couleur » :
-    // `--background-inverse` et `--accent` retournent le fond, et ce footer CONTIENT des composants
-    // dont les jetons supposent un fond de surface claire — le `LinkButton` WhatsApp rendrait son
-    // texte en `--default-foreground` (sombre) sur un fond sombre, et le panneau du
-    // `LanguageSwitcher` garde son `--surface`. Les reconfigurer pour un fond inversé est une
-    // décision de design system, pas un choix de ce lot : c'est remonté au coordinateur avec les
-    // chiffres. `--surface-tertiary` est le plus marqué des jetons qui laissent ces composants
-    // intacts.
-    //
-    // Le filet du haut n'est donc pas décoratif : à 1.10 d'écart avec la page, c'est LUI qui fait
-    // exister la bande. Même geste que le `border-b` du header.
-    <footer
-      className="border-t border-[var(--border)] bg-[var(--surface-tertiary)] text-[var(--surface-tertiary-foreground)]"
-      data-testid={testId}
-    >
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
-        <nav aria-label={t("footerNavLabel")} data-testid={testId ? `${testId}-nav` : undefined}>
+    // ⚠️ La raison pour laquelle l'ancienne version refusait un aplat franc — « le LinkButton
+    // rendrait son texte sombre sur un fond sombre, le panneau du LanguageSwitcher garde son
+    // `--surface` » — est levée par les surfaces : c'est exactement ce qu'elles règlent.
+    <footer data-superficie="marine" data-testid={testId}>
+      {/* La colonne de l'accueil, comme le header (C1) et le contenu (F7). 32 px en haut et 24 en
+          bas sur mobile, 40 et 32 à partir de `md`. */}
+      <div className={`${COLUMNA_PORTADA} flex flex-col gap-6 pt-8 pb-6 md:pt-10 md:pb-8`}>
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col items-start gap-2">
+            {/* Le logo pour fond sombre, FORCÉ quel que soit le mode (variante `sombre`). Il n'est
+                pas un lien : le logo du header mène déjà à l'accueil. 56 px : le WebP garde une
+                marge de 10 à 12 px, le dessin en fait ≈ 45. */}
+            <LogoHifago variante="sombre" hauteur="h-14" />
+            {/* La ligne d'identité, reprise du footer legacy (`public/index.html:503`). Bleu poudre
+                14 px (`--muted` de la surface marine, 8.02:1) : sur l'ancienne bande claire, le
+                discret tombait à 4.21:1 et la discrétion venait de la seule taille (12 px). */}
+            <p className="text-sm text-muted" data-testid={testId ? `${testId}-identity` : undefined}>
+              {t("footerIdentity")}
+            </p>
+          </div>
+
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+            {/* ⚠️ `LinkButton` avec `external`, pas un `<a>` écrit à la main : il impose
+                `rel="noopener noreferrer"` (la prop `rel` n'existe pas, donc rien à oublier) et
+                exige le libellé « nouvel onglet », rendu en sr-only. Plein or, texte marine
+                (6.31:1) : l'action du pied, à la couleur des actions de la charte. */}
+            <LinkButton
+              href={WHATSAPP_URL}
+              external
+              newTabLabel={t("footerWhatsAppNewTab")}
+              variant="solid"
+              color="accent"
+              iconBefore={<GlypheWhatsApp />}
+              testId={testId ? `${testId}-whatsapp` : undefined}
+            >
+              {t("footerWhatsApp")}
+            </LinkButton>
+
+            {/* ⚠️ Le MÊME `LanguageSwitcher` que le header, réutilisé tel quel — pas un second
+                sélecteur. Deux implémentations qui divergent (l'une qui navigue vraiment, l'autre
+                en JavaScript seul) est le défaut classique de la paire header/footer, et il
+                coûterait ici la découverte de la version anglaise. Variante menu : son texte suit
+                la surface (blanc), son panneau reste une surface claire. */}
+            <LanguageSwitcher testId={testId ? `${testId}-language` : undefined} />
+          </div>
+        </div>
+
+        {/* La navigation institutionnelle, VIDE tant que les pages n'existent pas (voir plus haut).
+            `has-[ul:empty]:hidden` : une liste vide ne laisse ni landmark muet ni l'écart de 24 px
+            d'un enfant sans hauteur — sans rien masquer selon la largeur. Le jour où le tableau se
+            remplit, elle réapparaît d'elle-même. */}
+        <nav
+          aria-label={t("footerNavLabel")}
+          className="has-[ul:empty]:hidden"
+          data-testid={testId ? `${testId}-nav` : undefined}
+        >
           {/* Mobile d'abord : la liste s'EMPILE à 390 px, elle ne se comprime pas — et rien n'est
               masqué selon la largeur, Google indexe le mobile. À partir de `sm` elle se replie sur
               deux ou trois colonnes de flux. */}
@@ -99,9 +146,9 @@ export function SiteFooter({ testId }: SiteFooterProps) {
               <li key={href}>
                 <Link
                   href={href}
-                  // `min-h-11` : 44 px de cible tactile (components/README.md). Sur une liste de
-                  // liens serrés, c'est ce qui les rend visables au pouce.
-                  className="inline-flex min-h-11 items-center rounded-[var(--radius)] text-sm underline-offset-4 hover:underline focus-visible:status-focused"
+                  // `min-h-11` : 44 px de cible tactile (components/README.md). Bleu poudre
+                  // (`--muted` de la surface marine), souligné au survol (plan 41, C2).
+                  className="inline-flex min-h-11 items-center rounded-[var(--radius)] text-sm text-muted underline-offset-4 hover:underline focus-visible:status-focused"
                   data-testid={testId ? `${testId}-${cle}` : undefined}
                 >
                   {t(cle)}
@@ -110,38 +157,6 @@ export function SiteFooter({ testId }: SiteFooterProps) {
             ))}
           </ul>
         </nav>
-
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          {/* ⚠️ `LinkButton` avec `external`, pas un `<a>` écrit à la main : il impose
-              `rel="noopener noreferrer"` (la prop `rel` n'existe pas, donc rien à oublier) et exige
-              le libellé « nouvel onglet », rendu en sr-only. C'est exactement ce que ce composant
-              existe pour rendre impossible à rater. */}
-          <LinkButton
-            href={WHATSAPP_URL}
-            external
-            newTabLabel={t("footerWhatsAppNewTab")}
-            variant="outline"
-            color="neutral"
-            testId={testId ? `${testId}-whatsapp` : undefined}
-          >
-            {t("footerWhatsApp")}
-          </LinkButton>
-
-          {/* ⚠️ Le MÊME `LanguageSwitcher` que le header, réutilisé tel quel — pas un second
-              sélecteur. Deux implémentations qui divergent (l'une qui navigue vraiment, l'autre en
-              JavaScript seul) est le défaut classique de la paire header/footer, et il coûterait
-              ici la découverte de la version anglaise. */}
-          <LanguageSwitcher testId={testId ? `${testId}-language` : undefined} />
-        </div>
-
-        {/* La ligne d'identité, reprise du footer legacy (`public/index.html:503`).
-            ⚠️ Pas de `text-muted` : mesuré à 4.21:1 sur cette bande avec les jetons de la
-            production actuelle — sous le seuil WCAG de 4.5. La discrétion vient donc de la TAILLE
-            et non de la couleur, et le texte hérite du `-foreground` de la bande, dont le thème
-            garantit lui-même la lisibilité (14.7 à 15.6:1 mesurés). */}
-        <p className="text-xs" data-testid={testId ? `${testId}-identity` : undefined}>
-          {t("footerIdentity")}
-        </p>
       </div>
     </footer>
   );

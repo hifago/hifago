@@ -183,8 +183,10 @@ echo "== 3. Pas de texte or (l'or est un aplat) =="
 OR_TEXTE='\btext-accent(?![-\w])|text-\[var\(--(?:accent|charte-or)\)\]|\[color:var\(--(?:accent|charte-or)\)\]'
 est_surface_marine() {
   case "$1" in
-    # Aucun fichier pour l'instant. Le pied de page marine arrive avec l'item C2 et les rails avec
-    # S3 : y nommer chaque fichier, un par un, avec sa raison — jamais un dossier entier.
+    # Aucun fichier pour l'instant. Le pied de page marine (item C2) n'en a pas eu besoin : il
+    # n'écrit pas d'or en texte (ses liens sont bleu poudre, son focus or vient de la surface). Les
+    # rails arrivent avec S3 : y nommer chaque fichier qui en écrit, un par un, avec sa raison —
+    # jamais un dossier entier.
     __aucun__) return 0 ;;
   esac
   return 1

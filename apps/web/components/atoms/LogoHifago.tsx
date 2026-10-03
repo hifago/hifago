@@ -38,8 +38,9 @@ type LogoHifagoProps = {
   /**
    * `auto` (défaut) : marine + or sur fond clair, or + bleu poudre sur fond sombre, basculés par
    * CSS. `sobre` : posé sur l'OR — le header de toutes les pages depuis le plan 41 (item C1).
+   * `sombre` : posé sur le MARINE, quel que soit le mode — le pied de page (item C2).
    */
-  variante?: "auto" | "sobre";
+  variante?: "auto" | "sobre" | "sombre";
 };
 
 export function LogoHifago({ hauteur = "h-12", variante = "auto" }: LogoHifagoProps) {
@@ -62,6 +63,24 @@ export function LogoHifago({ hauteur = "h-12", variante = "auto" }: LogoHifagoPr
         aria-hidden
         loading="eager"
         width={179}
+        height={96}
+        className={`w-auto ${hauteur}`}
+      />
+    );
+  }
+
+  if (variante === "sombre") {
+    return (
+      // ⚠️ FORCÉE, et donc sans les classes `logo-clair`/`logo-sombre` : celles-ci suivent le MODE
+      // (`globals.css`), et en mode clair la règle `.logo-sombre { display: none }` masquerait ce
+      // logo posé sur le marine. Une surface marine est marine dans les deux modes.
+      // Pas de `priority` : le pied est sous la ligne de flottaison, le chargement différé de
+      // `next/image` est le bon.
+      <Image
+        src="/brand/logo-header-sombre.webp"
+        alt=""
+        aria-hidden
+        width={158}
         height={96}
         className={`w-auto ${hauteur}`}
       />

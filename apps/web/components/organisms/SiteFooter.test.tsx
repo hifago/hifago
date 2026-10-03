@@ -129,17 +129,39 @@ describe("SiteFooter", () => {
     ).toContain("WhatsApp");
   });
 
-  // ⚠️ Aucune couleur en dur : cinq pistes de thème sont montées et aucune n'est adoptée. Le couple
-  // fond/texte vient du thème, donc sa lisibilité est garantie par lui — dans les cinq pistes et
-  // dans les deux modes.
-  // ⚠️ `--surface-tertiary` retenu après mesure des cinq candidats sur 5 pistes × 2 modes : c'est
-  // le plus marqué des jetons qui laissent intacts les composants posés dessus (LinkButton,
-  // LanguageSwitcher), dont les couleurs supposent un fond de surface claire.
-  it("prend sa bande de couleur dans les jetons, jamais en dur", () => {
+  // Plan 41, item C2 (arbitrage D3 = A) : le pied est MARINE, sur toutes les pages. La couleur ne
+  // s'écrit nulle part ici : la surface (`data-superficie`, globals.css) pose le fond ET les jetons
+  // de ce qui s'y lit. jsdom ne calcule pas les couleurs : le contraste se mesure au navigateur.
+  it("se pose sur la surface marine, sans couleur en dur", () => {
     const { pied } = rendu();
-    expect(pied.className).toContain("bg-[var(--surface-tertiary)]");
-    expect(pied.className).toContain("text-[var(--surface-tertiary-foreground)]");
-    expect(pied.className).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(pied.getAttribute("data-superficie")).toBe("marine");
+    // Le `<footer>` seul, pas son contenu : les drapeaux SVG du sélecteur de langue portent les
+    // seules couleurs en dur exemptées du dépôt (`check-tokens.sh`).
+    expect(pied.getAttribute("class") ?? "").not.toMatch(/#[0-9a-fA-F]{3,8}\b|bg-\[|text-\[/);
+    expect(pied.getAttribute("style")).toBeNull();
+  });
+
+  // ⚠️ FORCÉ : les classes `logo-clair`/`logo-sombre` suivent le MODE, et en mode clair la seconde
+  // est masquée — le logo du pied disparaîtrait. Une seule image, la déclinaison pour fond sombre.
+  it("porte le logo pour fond sombre, forcé quel que soit le mode", () => {
+    const images = Array.from(rendu().pied.querySelectorAll("img"));
+    expect(images).toHaveLength(1);
+    expect(images[0].getAttribute("src")).toContain("logo-header-sombre");
+    expect(images[0].className).not.toMatch(/logo-(clair|sombre)/);
+  });
+
+  it("fait de WhatsApp l'action du pied : plein or, glyphe compris", () => {
+    const lien = rendu().container.querySelector('[data-testid="footer-whatsapp"]') as HTMLElement;
+    expect(lien.className).toContain("[--button-bg:var(--btn-fill)]");
+    expect(lien.className).toContain("[--btn-fill:var(--accent)]");
+    expect(lien.querySelector("svg")).not.toBeNull();
+  });
+
+  // Le popover du sélecteur est rendu DANS le pied : sans surface claire déclarée, il hériterait
+  // du texte blanc du marine — blanc sur blanc.
+  it("garde au panneau de langue une surface claire", () => {
+    const panneau = rendu().container.querySelector('[data-testid="footer-language-panneau"]') as HTMLElement;
+    expect(panneau.getAttribute("data-superficie")).toBe("clara");
   });
 
   it("livre tous ses liens dans le HTML SERVI", () => {
