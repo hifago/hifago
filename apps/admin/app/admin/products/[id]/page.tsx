@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { asLocalizedField, formatCop, resolveLocalizedField } from "@hifago/domain";
 import { buttonVariants, Chip } from "@hifago/ui";
 import { DeleteProductButton } from "./DeleteProductButton";
@@ -10,14 +12,19 @@ import { DeleteProductButton } from "./DeleteProductButton";
 export default async function AdminProductDetailPage({
   params,
 }: PageProps<"/admin/products/[id]">) {
-  const { id } = await params;
+  const id = requireUuidParam((await params).id);
   const supabase = await createClient();
 
-  const { data: product } = await supabase
-    .from("products")
-    .select("id, name, type, price_cop, sellable, establishments(id, name)")
-    .eq("id", id)
-    .maybeSingle();
+  // Une panne LÈVE (lib/supabase/checkedRead.ts) : lue comme une absence, elle répondait
+  // « introuvable ».
+  const { data: product } = checkedRead(
+    await supabase
+      .from("products")
+      .select("id, name, type, price_cop, sellable, establishments(id, name)")
+      .eq("id", id)
+      .maybeSingle(),
+    "products",
+  );
 
   if (!product) {
     notFound();

@@ -1,7 +1,7 @@
 -- Feature 25 (Admin : audiences serveur + moteur de campagne, envoi simulé) —
 -- list_audience_members, create_campaign, process_campaign_batch.
 begin;
-select plan(29);
+select plan(32);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -227,6 +227,10 @@ select is(
   'completed',
   'campagne passe à completed une fois toutes les cibles pending traitées'
 );
+-- Identifiant gardé pour admin_campaign_target_counts, en fin de fichier : là, les autres campagnes
+-- du test existent aussi, et une RPC qui ne filtrerait plus par campagne serait détectée.
+create temp table tmp_campaign_clients_id as
+  select (result->>'campaign_id')::uuid as id from tmp_campaign_clients;
 drop table tmp_campaign_clients;
 
 -- process_campaign_batch : référent sans AUCUNE commande, jamais soumis au filtre de consentement -
@@ -285,6 +289,32 @@ select is(
   'capacité suspendue ENTRE création et traitement → skipped_ineligible (preuve de la revalidation à l''envoi)'
 );
 drop table tmp_campaign_to_suspend;
+
+-- admin_campaign_target_counts (20261002155922) : compteurs agrégés en SQL --------------------
+-- Comparés au décompte DIRECT de la table, jamais à des nombres absolus : l'audience `clients`
+-- inclut toute commande présente sur la base, seed compris.
+select is(
+  (select jsonb_object_agg(status, n order by status)
+     from admin_campaign_target_counts(array[(select id from tmp_campaign_clients_id)])),
+  (select jsonb_object_agg(status, c order by status)
+     from (select status, count(*) as c from comm_campaign_targets
+            where campaign_id = (select id from tmp_campaign_clients_id)
+            group by status) t),
+  'admin_campaign_target_counts rend, par statut, exactement le décompte de la table'
+);
+select ok(
+  (select count(distinct campaign_id) = 1 and count(*) = count(distinct status)
+     from admin_campaign_target_counts(array[(select id from tmp_campaign_clients_id)])),
+  'une seule campagne demandée, une ligne par statut (agrégée en SQL : rien que max_rows puisse tronquer)'
+);
+select test_login('dd110000-0000-4000-8000-000000000021'); -- référent, pas admin
+select is(
+  (select count(*)::int
+     from admin_campaign_target_counts(array[(select id from tmp_campaign_clients_id)])),
+  0,
+  'un non-admin obtient zéro ligne, pas une erreur : la RLS admin de comm_campaign_targets filtre (INVOKER)'
+);
+select test_login('dd110000-0000-4000-8000-000000000031'); -- admin, pour la suite du fichier
 
 -- process_campaign_batch : campagne introuvable ------------------------------------------------
 select throws_ok(

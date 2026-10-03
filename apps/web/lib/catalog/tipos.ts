@@ -258,6 +258,13 @@ export type DatosAlojamiento = {
   /** `type = 'lodging'` ET une catégorie Lobby : la disponibilité vient alors du PMS, pas de la base. */
   esPmsBacked: boolean;
   /**
+   * Faux pour un logement PMS dont l'établissement a son connecteur coupé ou pas de jeton —
+   * exactement la condition qui fait refuser la ligne par `create_order` (`pms_unavailable`,
+   * migration 20260929112240). La fiche n'offre alors aucun calendrier : elle renvoie vers
+   * l'établissement. Toujours vrai pour un logement qui n'est pas adossé au PMS.
+   */
+  reservableEnLinea: boolean;
+  /**
    * `product_amenity_assignments` (migration 20260917110000) — toujours `[]`, jamais `null` : pas
    * de garde supplémentaire côté composant. Référentiel fermé, peuplé par migration (décision
    * Jérôme du 2026-09-17), jamais de texte libre partenaire.
@@ -323,6 +330,12 @@ export type FichaProducto = {
    * garde son propre plancher fixé à 1 (spec 30 §7a, `lib/reservas/cantidad.ts`).
    */
   minQty: number;
+  /**
+   * `products.max_qty`, replié à 20 — le plafond par ligne que `create_order` applique à TOUT type
+   * (`coalesce(max_qty, 20)`, migration 20260929112240). Même valeur que `eventoReservable.maxQty`
+   * et `alojamiento.maxQty`, calculée une seule fois par la couche catalogue.
+   */
+  maxQty: number;
   modoReserva: ModoReserva;
   /** Non nul ⟺ `modoReserva === "vitrina"` — sauf pour un evento, qui l'est par son type. */
   urlExterna: string | null;

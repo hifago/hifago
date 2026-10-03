@@ -111,10 +111,12 @@ export function ModerateProductCreationProposalForm({
       p_rejection_reason: decision === "reject" ? rejectionReason.trim() : undefined,
     });
 
-    setIsSubmitting(false);
-
     const result = data as ModerateResult | null;
     if (rpcError || !result?.ok) {
+      // Échec seulement : sur un succès, le bouton reste inactif jusqu'à la navigation, qui
+      // démonte ce formulaire — le réactiver avant permettait un second envoi pendant le
+      // rechargement (2026-10-01).
+      setIsSubmitting(false);
       if (result?.reason === "already_handled") {
         toast.danger(
           `Esta propuesta ya fue procesada${result.reviewed_by_email ? ` por ${result.reviewed_by_email}` : ""} (estado: ${result.status}).`,

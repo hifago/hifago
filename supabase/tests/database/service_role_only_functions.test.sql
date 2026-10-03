@@ -80,7 +80,9 @@ select is(
         -- Le claim renvoie le JETON LOBBY en clair ; record et release écrivent la commande.
         'claim_order_for_pms_booking',
         'record_pms_booking',
-        'release_pms_reserve_claim'
+        'release_pms_reserve_claim',
+        -- Échéance de paiement (migration 20261001194704) : lue par les RPC qui en ont besoin.
+        'order_payment_deadline'
       )
       and (
         has_function_privilege('anon', p.oid, 'EXECUTE')
@@ -154,7 +156,9 @@ select is(
         
         'claim_order_for_pms_booking',
         'record_pms_booking',
-        'release_pms_reserve_claim'
+        'release_pms_reserve_claim',
+        -- Échéance de paiement (migration 20261001194704) : lue par les RPC qui en ont besoin.
+        'order_payment_deadline'
     ]) as n
     where not exists (
       select 1 from pg_proc p

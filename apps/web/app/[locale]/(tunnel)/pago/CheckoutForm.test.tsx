@@ -53,6 +53,9 @@ describe("reserveNightsErrorKey — un message juste pour chaque réponse de res
     ["connecteur coupé, commande défaite", { reason: "pms_unavailable", released: true }, "pms_unavailable"],
     ["commande déjà défaite (order_not_active)", { reason: "order_not_active", released: true }, "pms_unreachable"],
     ["corps sans `released` (400 invalid_body)", { reason: "invalid_body" }, "pms_unconfirmed_pending"],
+    // Migration 20261001194704 : inatteignable ici (la commande vient d'être créée, bien avant la limite
+    // de 23 min du claim) — épinglé pour qu'un repli reste fermé : commande non libérée, pas « réessaie ».
+    ["trop tard pour payer (inatteignable ici)", { reason: "order_expiring", released: false }, "pms_unconfirmed_pending"],
   ] as const)("%s → %s", (_cas, corps, attendu) => {
     expect(reserveNightsErrorKey(corps)).toBe(attendu);
   });
@@ -215,4 +218,24 @@ describe("CheckoutForm — le bouton reste tenu jusqu'à la fin de reserve-night
     expect(fetchMock).not.toHaveBeenCalled();
     expect(bouton.disabled).toBe(false);
   });
+
+  // Trois raisons que create_order renvoie avec la ligne fautive (migration 20260929112240) et qui
+  // retombaient jusqu'ici sur le message générique : le client ne savait pas quoi corriger.
+  it.each([["invalid_occurrence_date"], ["no_matching_tier"], ["price_missing"]])(
+    "affiche le message propre à %s, jamais le message générique",
+    async (reason) => {
+      createOrderMock.mockResolvedValue({
+        data: { ok: false, reason, line: { product_id: "p1", date: "2026-11-05" } },
+        error: null,
+      });
+      const { container, form } = rendre();
+      await act(async () => {
+        fireEvent.submit(form);
+      });
+      const erreurs = loadMessages("es").CheckoutPage.errors as Record<string, string>;
+      const texte = container.querySelector('[data-testid="checkout-error"]')?.textContent;
+      expect(texte).toBe(erreurs[reason]);
+      expect(texte).not.toBe(erreurs.unknown);
+    }
+  );
 });

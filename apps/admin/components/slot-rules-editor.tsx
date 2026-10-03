@@ -68,8 +68,9 @@ export function SlotRulesEditor({
                 </Checkbox>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4">
               <TextField
+                fullWidth
                 value={rule.startTime}
                 onChange={(value) => updateRule(index, { ...rule, startTime: value })}
               >
@@ -77,6 +78,7 @@ export function SlotRulesEditor({
                 <Input type="time" data-testid={`slot-rule-start-${index}`} />
               </TextField>
               <TextField
+                fullWidth
                 value={rule.endTime}
                 onChange={(value) => updateRule(index, { ...rule, endTime: value })}
               >
@@ -84,6 +86,7 @@ export function SlotRulesEditor({
                 <Input type="time" data-testid={`slot-rule-end-${index}`} />
               </TextField>
               <TextField
+                fullWidth
                 value={rule.slotDurationMinutes}
                 onChange={(value) => updateRule(index, { ...rule, slotDurationMinutes: value })}
               >
@@ -91,6 +94,7 @@ export function SlotRulesEditor({
                 <Input type="number" min={1} data-testid={`slot-rule-duration-${index}`} />
               </TextField>
               <TextField
+                fullWidth
                 value={rule.capacity}
                 onChange={(value) => updateRule(index, { ...rule, capacity: value })}
               >

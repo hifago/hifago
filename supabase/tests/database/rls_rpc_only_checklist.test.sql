@@ -9,7 +9,8 @@
 --   (3) auth.uid() enveloppé — toute comparaison DIRECTE avec auth.uid() dans une policy est
 --       wrappée en (select auth.uid()) ; un appel indirect (ex. is_admin(auth.uid())) n'est pas
 --       concerné par cette règle (convention déjà en usage dans tout le schéma).
---   (4) search_path='' — toute fonction SECURITY DEFINER de `public` le fixe sans exception.
+--   (4) search_path='' — toute fonction de `public`, SECURITY DEFINER ou INVOKER, le fixe sans
+--       exception (étendu aux INVOKER le 2026-10-02, 20261002123023).
 -- Les 2 points restants ne sont PAS automatisés ici :
 --   (1) "quelle table doit être RPC-only" est un jugement métier (capacité, audit, vue miroir) —
 --       seule une approximation de défense en profondeur est vérifiée (voir test grants ci-dessous).
@@ -20,14 +21,22 @@
 begin;
 select plan(4);
 
--- (4) Toute fonction SECURITY DEFINER de public fixe search_path='' -----------------------------
+-- (4) Toute fonction de public fixe search_path='' ---------------------------------------------
+-- DEFINER comme INVOKER : une fonction INVOKER sans search_path résout ses noms dans le chemin de
+-- l'appelant. Hors champ, à juste titre : les fonctions d'une extension (elle gère leur définition)
+-- et les fonctions en C ou internes (aucune résolution de nom SQL).
 select is(
   (
     select count(*)::int
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
+    join pg_language l on l.oid = p.prolang
     where n.nspname = 'public'
-      and p.prosecdef = true
+      and l.lanname not in ('c', 'internal')
+      and not exists (
+        select 1 from pg_depend d
+        where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e'
+      )
       and not exists (
         -- Postgres stocke `SET search_path = ''` sous forme de `search_path=""` dans proconfig
         -- (guillemets littéraux représentant la chaîne vide) — accepter aussi `search_path=` nu.
@@ -36,7 +45,7 @@ select is(
       )
   ),
   0,
-  'toute fonction SECURITY DEFINER de public fixe search_path=vide (hifago/CLAUDE.md §3.3)'
+  'toute fonction de public, DEFINER ou INVOKER, fixe search_path=vide (hifago/CLAUDE.md §3.3)'
 );
 
 -- (2) Toute fonction référencée dans une policy RLS n'est jamais VOLATILE -----------------------

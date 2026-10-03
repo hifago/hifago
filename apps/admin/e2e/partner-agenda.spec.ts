@@ -77,8 +77,12 @@ test.beforeEach(async () => {
       );
     }
 
-    // Puis les tables filles du produit, avant le produit lui-même.
+    // Puis les tables filles du produit, avant le produit lui-même. `cart_items` compris : elle
+    // référence products sans cascade, et ce parcours ajoute au panier avant le checkout — un run
+    // interrompu en laisse une ligne, qui bloquait ensuite `delete from products` (FK
+    // cart_items_product_id_fkey). Même liste que packages/e2e-support/src/cleanup.ts.
     for (const table of [
+      "cart_items",
       "product_availability",
       "product_calendar",
       "product_date_rates",

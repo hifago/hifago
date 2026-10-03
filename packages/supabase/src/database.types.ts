@@ -2488,6 +2488,14 @@ export type Database = {
         }
         Returns: string
       }
+      admin_campaign_target_counts: {
+        Args: { p_campaign_ids: string[] }
+        Returns: {
+          campaign_id: string
+          n: number
+          status: string
+        }[]
+      }
       admin_client_order_lines: {
         Args: { p_order_ids: string[] }
         Returns: {
@@ -2937,6 +2945,7 @@ export type Database = {
         Args: { p_error?: string; p_job: string; p_ok: boolean; p_stats?: Json }
         Returns: undefined
       }
+      html_text: { Args: { p_value: string }; Returns: string }
       invoke_payments_reconcile: { Args: never; Returns: undefined }
       invoke_pms_cancel_bookings: { Args: never; Returns: undefined }
       invoke_pms_nightly_contract_check: { Args: never; Returns: undefined }
@@ -3155,6 +3164,10 @@ export type Database = {
         Args: { p_order: Database["public"]["Tables"]["orders"]["Row"] }
         Returns: Json
       }
+      order_payment_deadline: {
+        Args: { p_created_at: string }
+        Returns: string
+      }
       partner_agenda_order_lines: {
         Args: { p_date_from: string; p_date_to: string }
         Returns: {
@@ -3253,6 +3266,10 @@ export type Database = {
         Args: { p_batch_size?: number; p_campaign_id: string }
         Returns: Json
       }
+      product_slug_from_name: {
+        Args: { p_exclude?: string; p_name: Json }
+        Returns: string
+      }
       provision_evento_availability: {
         Args: { p_horizon?: string; p_product_id: string }
         Returns: undefined
@@ -3304,6 +3321,10 @@ export type Database = {
           p_entity_type: string
           p_ordered_media_ids: string[]
         }
+        Returns: Json
+      }
+      replace_product_slot_rules: {
+        Args: { p_product_id: string; p_rules: Json }
         Returns: Json
       }
       request_payment_refund: {

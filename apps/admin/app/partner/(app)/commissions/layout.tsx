@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
 
 // Garde scopée à /partner/commissions, même patron que partner/products/layout.tsx : la vraie
-// barrière est la RLS (order_lines_select_referrer, feature 14), cette garde évite seulement
+// barrière est côté base — les RPC SECURITY DEFINER partner_commissions_list et
+// partner_commission_totals, bornées à l'organisation de l'appelant (`partner_id_for_account`) ;
+// order_lines n'est plus lisible directement depuis 20260922210000. Cette garde évite seulement
 // d'afficher un écran vide à un visiteur non authentifié.
 //
 // docs/specs/10-listes-standardisees-admin-socio.md §5.5 — le wrapper de largeur retiré ici était

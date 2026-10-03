@@ -503,8 +503,10 @@ export function LodgingReservationForm({
   // dans le même geste, et l'utilisateur repique une sortie dedans.
   function handleQtyChange(value: string) {
     const brut = Number(value);
-    // min fixé à 1, jamais products.min_qty : create_order ne le vérifie que hors lodging (le
-    // plafond lodging est l'agrégat lodging_cap_exceeded, sans rapport) — cf. lib/reservas/cantidad.ts.
+    // min fixé à 1, jamais products.min_qty : create_order ne vérifie le plancher que hors lodging.
+    // Le plafond, lui, vaut pour le lodging aussi depuis la migration 20260929112240
+    // (`coalesce(max_qty, 20)` par ligne, en plus de l'agrégat lodging_cap_exceeded) — c'est
+    // `qtyMax`, issu de `maxQty`. Cf. lib/reservas/cantidad.ts.
     const suivant = limitarCantidad(brut, 1, qtyMax);
     setQty(suivant);
     if (!range?.from) return;

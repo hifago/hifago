@@ -153,9 +153,9 @@ test("une ligne dépasse la capacité restante de sa ressource → message d'err
   // ce test vérifiait autrefois que la ligne fautive (tour-lancha, désormais complète) portait
   // `data-failed="true"` et la ligne valide (kayak) `data-failed="false"` — attribut disparu avec
   // la refonte du panier (spec 32) : `create_order` renvoie toujours `line.product_id`/`date`, mais
-  // CheckoutForm.tsx ne le lit plus nulle part, et CartSummary (qui affiche les lignes) est
-  // désormais un Server Component séparé, en lecture seule, sans lien avec le résultat du
-  // formulaire. Le client voit le message générique ci-dessus, mais ne sait plus repérer LAQUELLE
+  // CheckoutForm.tsx ne s'en sert pas pour marquer une ligne, et CartSummary (qui affiche les
+  // lignes) est un composant client séparé, alimenté par les lignes lues côté serveur
+  // (getCartLines), sans lien avec le résultat du formulaire. Le client voit le message générique ci-dessus, mais ne sait plus repérer LAQUELLE
   // de plusieurs lignes en est la cause. L'invariant tout-ou-rien, lui, reste garanti par
   // `create_order` elle-même (vérifié juste en dessous), indépendamment de cette perte d'affichage.
 

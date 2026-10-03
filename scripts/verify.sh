@@ -99,6 +99,20 @@ lancer "Navigation localisée (@/i18n/navigation)"    bash scripts/check-i18n-li
 # les commissions pendant une semaine.
 lancer "Lecture d'order_lines (jamais en session)"   bash scripts/check-order-lines-access.sh
 
+# Bloquant depuis le 2026-10-02 — vérifié PAR MUTATION (rouge sur les trois écritures directes
+# d'avant la RPC, dont une chaîne `.from(…)` / `.delete(` sur deux lignes ; muet sur les lectures et
+# les commentaires ; code 2 sans filtre). product_slot_rules est RPC-only en écriture : une écriture
+# directe échouerait en « permission denied », et replace_product_slot_rules est le seul chemin qui
+# remplace les règles en une transaction.
+lancer "Écriture de product_slot_rules (RPC seule)"  bash scripts/check-slot-rules-access.sh
+
+# Depuis le 2026-10-01 (migration 20261001194704) — vérifié PAR MUTATION (rouge sur 29 côté Deno, 27
+# côté SQL, une marge TS de 3, une migration plus récente qui redéfinit la fonction — en majuscules,
+# sans schéma ou entre guillemets ; code 2 sur une constante renommée, en double ou en secondes ; muet
+# sur un commentaire et sur un revoke/grant ultérieur). La limite de paiement (28 min) vit en
+# TypeScript, en Deno et en SQL : une copie qui bouge seule rouvre le booking Lobby impayable.
+lancer "Limite de paiement (TS, Deno, SQL)"          bash scripts/check-payment-deadline.sh
+
 # ⚠️ N'EST PAS redondant avec le job `functions` de la CI : `deno check` résout à la TypeScript et
 # passe au vert sur un import relatif sans extension, alors que le worker Edge, lui, ne boote pas
 # du tout (mesuré le 2026-09-17, BOOT_ERROR). Seul un boot réel — ou ce script — le révèle.
@@ -121,7 +135,10 @@ lancer "Corpus d'instructions (tailles, renvois)"    npm run check:instructions
 # remplie. L'étape « pour information seulement » qui doublait celle-ci en `|| true` est supprimée :
 # un signal qui ne peut pas échouer n'est pas lu, et celui-là avait masqué js-yaml et
 # @vitest/mocker, tous deux réparables.
-lancer "Dépendances sans vulnérabilité haute"        npm audit --audit-level=high
+# 2026-10-03 : un avis sans AUCUNE version corrigée (braces, outillage de lint) rendait ce contrôle
+# rouge partout sans geste possible → scripts/check-npm-audit.sh : production toujours à zéro, audit
+# complet hors exemptions NOMMÉES, et une exemption périmée fait échouer (la liste ne peut que rétrécir).
+lancer "Dépendances sans vulnérabilité haute"        bash scripts/check-npm-audit.sh
 
 # Le détail ne s'affiche que pour ce qui a échoué : un log qui imprime aussi les 11 contrôles verts
 # enterre les 2 lignes qui comptent, et c'est ce qui rendait le diagnostic long en CI.

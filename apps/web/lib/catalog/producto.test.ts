@@ -129,15 +129,18 @@ const fauxSupabase = vi.hoisted(() => {
     principale: null as unknown,
     nbRegles: 0,
     erreurs: {} as Record<string, { message: string }>,
+    listes: {} as Record<string, unknown[]>,
+    lectures: [] as string[],
   };
   const resultat = (cle: string, principale: boolean) => {
     const error = state.erreurs[cle] ?? null;
     if (error) return { data: null, count: null, error };
     return principale
       ? { data: state.principale, error: null }
-      : { data: [], count: state.nbRegles, error: null };
+      : { data: state.listes[cle] ?? [], count: state.nbRegles, error: null };
   };
   const consulta = (table: string, principale: string) => {
+    state.lectures.push(table);
     const q: Record<string, unknown> = {};
     for (const m of ["select", "eq", "gte", "lte", "order", "in"]) q[m] = () => q;
     q.maybeSingle = async () => resultat(table, table === principale);
@@ -185,6 +188,12 @@ describe("getProductoPorSlug — panne ≠ absence", () => {
     expect(await getProductoPorSlug("kayak", { locale: "es" })).not.toBeNull();
   });
 
+  it("porte le plafond par ligne de create_order : max_qty, replié à 20", async () => {
+    expect((await getProductoPorSlug("kayak", { locale: "es" }))?.maxQty).toBe(20);
+    fauxSupabase.state.principale = { ...ACTIVIDAD, max_qty: 4 };
+    expect((await getProductoPorSlug("kayak-4", { locale: "es" }))?.maxQty).toBe(4);
+  });
+
   it.each([
     ["products"],
     ["product_media"],
@@ -202,3 +211,64 @@ describe("getProductoPorSlug — panne ≠ absence", () => {
     await expect(getProductoPorSlug("kayak", { locale: "es" })).rejects.toBeTruthy();
   });
 });
+
+// C8 — un logement PMS dont le connecteur est coupé (ou sans jeton) : `create_order` le refuserait
+// (`pms_unavailable`, même condition). La fiche le marque non réservable en ligne, et le miroir
+// n'est jamais semé (un calendrier « frais » mènerait droit à ce refus).
+describe("getProductoPorSlug — logement PMS et état du connecteur", () => {
+  const ilYAUneHeure = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const LOGEMENT_PMS = {
+    id: "p9",
+    slug: "dormitorio",
+    name: { es: "Dormitorio" },
+    description: null,
+    price_cop: 60000,
+    type: "lodging",
+    lobby_category_id: 7,
+    lodging_kind: "dorm_bed",
+    capacity: 1,
+    external_booking_url: null,
+    transport_contact_phone: null,
+  };
+  const etablissement = (connecteur: boolean, jeton: boolean) => ({
+    id: "e9",
+    slug: "casa",
+    name: { es: "Casa" },
+    description: null,
+    address: null,
+    lobby_last_synced_at: ilYAUneHeure,
+    lobby_connector_active: connecteur,
+    lobby_has_token: jeton,
+  });
+
+  beforeEach(() => {
+    fauxSupabase.state.nbRegles = 0;
+    fauxSupabase.state.erreurs = {};
+    fauxSupabase.state.lectures = [];
+    fauxSupabase.state.listes = {
+      pms_availability_mirror: [
+        { date: "2026-11-05", available_units: 3, min_stay: null, max_stay: null, lead_days: null },
+      ],
+    };
+  });
+
+  it("connecteur actif avec jeton : réservable en ligne, miroir semé", async () => {
+    fauxSupabase.state.principale = { ...LOGEMENT_PMS, establishment: etablissement(true, true) };
+    const ficha = await getProductoPorSlug("dormitorio", { locale: "es" });
+    expect(ficha?.alojamiento?.reservableEnLinea).toBe(true);
+    expect(fauxSupabase.state.lectures).toContain("pms_availability_mirror");
+    expect(ficha?.disponibilidad).toHaveLength(1);
+  });
+
+  it.each([
+    ["connecteur coupé", false, true],
+    ["jeton absent", true, false],
+  ])("%s : non réservable en ligne, miroir jamais lu", async (_cas, connecteur, jeton) => {
+    fauxSupabase.state.principale = { ...LOGEMENT_PMS, establishment: etablissement(connecteur, jeton) };
+    const ficha = await getProductoPorSlug("dormitorio", { locale: "es" });
+    expect(ficha?.alojamiento?.reservableEnLinea).toBe(false);
+    expect(fauxSupabase.state.lectures).not.toContain("pms_availability_mirror");
+    expect(ficha?.disponibilidad).toEqual([]);
+  });
+});
+

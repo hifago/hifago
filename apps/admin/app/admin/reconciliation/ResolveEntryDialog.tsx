@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@hifago/supabase/client";
 import { Button, Label, Modal, TextArea, TextField, toast } from "@hifago/ui";
+import { rpcErrorMessage } from "@/lib/errors/rpcErrorMessage";
 
 // Même motif que ChangeStatusDialog (feature 10, apps/admin/app/admin/orders/ChangeStatusDialog.tsx) :
 // dialogue contrôlé, motif obligatoire vérifié côté client (message immédiat) ET côté
@@ -53,7 +54,7 @@ export function ResolveEntryDialog({
     setIsSubmitting(false);
 
     if (rpcError || !(data as { ok: boolean } | null)?.ok) {
-      toast.danger(rpcError?.message ?? "No se pudo resolver la entrada.");
+      toast.danger(rpcErrorMessage(rpcError, "No se pudo resolver la entrada."));
       return;
     }
 

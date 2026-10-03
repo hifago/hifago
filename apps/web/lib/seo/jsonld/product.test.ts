@@ -82,3 +82,28 @@ describe("buildProductJsonLd — evento", () => {
     expect(result).not.toHaveProperty("offers");
   });
 });
+
+// Un logement PMS à connecteur coupé reste en vente au sens du catalogue mais n'est pas réservable
+// en ligne : annoncer `InStock` serait faux. L'offre (le prix) reste, sa disponibilité est omise.
+describe("buildProductJsonLd — fiche non réservable en ligne", () => {
+  const base = {
+    siteUrl: "https://hifago.co",
+    locale: "es",
+    slug: "dormitorio",
+    name: "Dormitorio",
+    productType: "lodging",
+    priceCop: 60000,
+  };
+
+  it("annonce InStock par défaut", () => {
+    const offre = buildProductJsonLd(base).offers as Record<string, unknown>;
+    expect(offre.availability).toBe("https://schema.org/InStock");
+  });
+
+  it("omet availability quand la fiche n'est pas réservable en ligne, prix conservé", () => {
+    const offre = buildProductJsonLd({ ...base, reservableEnLinea: false }).offers as Record<string, unknown>;
+    expect(offre).not.toHaveProperty("availability");
+    expect(offre.price).toBe(60000);
+  });
+});
+

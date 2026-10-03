@@ -125,6 +125,7 @@ export default async function ProductoPage({ params }: PageProps<"/[locale]/prod
           location: ficha.establecimiento
             ? { name: ficha.establecimiento.nombre, address: ficha.establecimiento.direccion }
             : null,
+          reservableEnLinea: ficha.alojamiento?.reservableEnLinea ?? true,
         })}
       />
 

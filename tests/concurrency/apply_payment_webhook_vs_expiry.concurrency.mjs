@@ -149,9 +149,10 @@ async function runOnce(run) {
       ...webhooks.map(async (client, i) => {
         markReady();
         await go;
+        // Comme la route depuis 20261002021045 : apply_payment_webhook_checked, montant normalisé.
         const res = await client.query(
-          "select apply_payment_webhook($1, $2::uuid, 'approved', $3::jsonb) as result",
-          [`mp-conc-${run}-${i}`, paymentId(i), JSON.stringify({ id: `mp-conc-${run}-${i}` })]
+          "select apply_payment_webhook_checked($1, $2::uuid, 'approved', 17000, $3::jsonb) as result",
+          [`mp-conc-${run}-${i}`, paymentId(i), JSON.stringify({ mp_payment_id: `mp-conc-${run}-${i}`, transaction_amount: 17000, currency_id: "COP" })]
         );
         return { kind: "webhook", i, result: res.rows[0].result };
       }),
@@ -226,7 +227,7 @@ async function runOnce(run) {
 }
 
 async function main() {
-  console.log(`\n=== apply_payment_webhook vs expire_stale_payment_orders — ${RUNS} runs consécutifs requis ===`);
+  console.log(`\n=== apply_payment_webhook_checked vs expire_payment_order — ${RUNS} runs consécutifs requis ===`);
   for (let run = 1; run <= RUNS; run++) {
     let clean;
     try {

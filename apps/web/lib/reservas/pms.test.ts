@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { MOTIVOS_PMS, motivoPms } from "./pms";
+import { loadMessages } from "@/messages";
 
 describe("motivoPms", () => {
   it("pms_rate_limited est retentable ET porte son message propre", () => {
@@ -103,3 +104,16 @@ describe("la table couvre TOUS les motifs de /api/pms/night-availability", () =>
     ).toEqual([]);
   });
 });
+
+// Connecteur coupé : réessayer ne changera rien tant qu'un admin n'agit pas. Le texte ne doit donc
+// pas inviter à réessayer (il renvoie vers l'établissement), contrairement à une panne passagère.
+describe("motivoPms — texte du connecteur coupé", () => {
+  it("connector_inactive a son propre message, sans invitation à réessayer", () => {
+    const { claveI18n } = motivoPms("connector_inactive");
+    expect(claveI18n).toBe("pmsAvailabilityConnectorOff");
+    const es = loadMessages("es").ProductPage as unknown as Record<string, string>;
+    expect(es[claveI18n]).toBeTruthy();
+    expect(es[claveI18n]).not.toMatch(/intenta|inténtalo|de nuevo/i);
+  });
+});
+

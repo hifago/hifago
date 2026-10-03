@@ -30,6 +30,8 @@ const AVAILABILITY_ERRORS: Record<string, string> = {
   not_authenticated: "No se pudo verificar tu sesión. Vuelve a intentarlo.",
   product_not_found: "No se encontró la actividad.",
   capability_suspended: "Tu capacidad de operador para este establecimiento no está activa.",
+  // Capacité négative (20261001144546), même message que slot-availability-grid.tsx.
+  invalid_capacity: "La capacidad debe ser un número válido.",
 };
 
 function messageFor(result: SetAvailabilityResult | null): string {

@@ -148,7 +148,11 @@ test("l'accueil rend plusieurs sections, activités d'abord, chacune avec son <h
   // construction du href pour un autre type ne dépend que de la table testée dans
   // `segmentos.test.ts` (`segmentoDeTipo`) — pas besoin de la reprouver ici pour un type dont le
   // compte fluctue.
-  await expect(page.getByTestId("seccion-activity-ver-mas")).toHaveAttribute(
+  //
+  // ⚠️ `-link` : depuis le carrousel de l'accueil (2026-09-14), « Ver más » est une CARTE (`Card`),
+  // dont le `href` est porté par le lien interne `${testId}-link` (`atoms/Card.tsx`), jamais par la
+  // racine de la carte. Viser la racine faisait rougir ce test sans que le lien soit cassé.
+  await expect(page.getByTestId("seccion-activity-ver-mas-link")).toHaveAttribute(
     "href",
     "/es/actividades"
   );

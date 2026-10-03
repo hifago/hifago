@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { asLocalizedField, formatDateTimeInBogota, resolveLocalizedField } from "@hifago/domain";
 import { RenameTagButton } from "../RenameTagButton";
 import { DeleteTagButton } from "../DeleteTagButton";
@@ -12,12 +14,12 @@ import type { LocalizedValue } from "@/components/localized-text-field";
 // une action de ligne sur /admin/tags) ; Editar (renommer) reste disponible ici aussi, même
 // composant modal que sur la liste.
 export default async function AdminTagDetailPage({ params }: PageProps<"/admin/tags/[id]">) {
-  const { id } = await params;
+  const id = requireUuidParam((await params).id);
   const supabase = await createClient();
 
   // Les deux requêtes ne dépendent que du paramètre de route `id`, jamais l'une de l'autre —
   // lancées en concurrence plutôt qu'attendre `tag` avant de lancer `assignments`.
-  const [{ data: tag }, { data: assignments }] = await Promise.all([
+  const [tagResult, assignmentsResult] = await Promise.all([
     supabase
       .from("catalog_tags")
       .select("id, label, slug, created_at, description, image_path")
@@ -25,6 +27,10 @@ export default async function AdminTagDetailPage({ params }: PageProps<"/admin/t
       .maybeSingle(),
     supabase.from("product_tag_assignments").select("product:products(id, name)").eq("tag_id", id),
   ]);
+  // Une panne LÈVE (lib/supabase/checkedRead.ts) : lue comme une absence, elle répondait
+  // « introuvable », ou une étiquette sans activités.
+  const { data: tag } = checkedRead(tagResult, "catalog_tags");
+  const { data: assignments } = checkedRead(assignmentsResult, "product_tag_assignments");
 
   if (!tag) {
     notFound();

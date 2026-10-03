@@ -128,10 +128,12 @@ export function ModerateEstablishmentProposalForm({
       p_activate_pms_connector: decision === "approve" ? activatePmsConnector : undefined,
     });
 
-    setIsSubmitting(false);
-
     const result = data as ModerateResult | null;
     if (rpcError || !result?.ok) {
+      // Échec seulement : sur un succès, le bouton reste inactif jusqu'à la navigation, qui
+      // démonte ce formulaire — le réactiver avant permettait un second envoi pendant le
+      // rechargement (2026-10-01).
+      setIsSubmitting(false);
       if (result?.reason === "already_handled") {
         toast.danger(
           `Esta propuesta ya fue procesada${result.reviewed_by_email ? ` por ${result.reviewed_by_email}` : ""} (estado: ${result.status}).`,
@@ -281,7 +283,9 @@ export function ModerateEstablishmentProposalForm({
           <Input id="address" name="address" />
         </TextField>
 
-        <div className="grid grid-cols-2 gap-4">
+        {/* Empilé sous md (.claude/rules/ui.md, responsive) : deux champs côte à côte à 390 px
+            rognaient leurs libellés. */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <TextField value={lat} onChange={setLat}>
             <Label>Latitud</Label>
             <Input id="lat" name="lat" />

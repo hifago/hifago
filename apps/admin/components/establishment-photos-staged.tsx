@@ -1,6 +1,7 @@
 "use client";
 
 import { MediaGallery, type MediaGalleryPhoto } from "@hifago/ui";
+import { uploadCatalogBlob } from "@/lib/media/uploadCatalogBlob";
 
 const MAX_PHOTOS = 6;
 
@@ -21,17 +22,13 @@ export function StagedEstablishmentPhotos({
   onChange: (next: StagedPhoto[]) => void;
 }) {
   async function handleAddFile(blob: Blob) {
-    const formData = new FormData();
-    formData.append("file", blob, "photo.png");
-    const response = await fetch("/api/upload/establishment", { method: "POST", body: formData });
-    const result = (await response.json()) as
-      | { ok: true; storage_path: string }
-      | { ok: false; reason: string };
-
-    if (!result.ok) {
-      return { ok: false, reason: result.reason };
+    // Envoi commun aux six galeries (lib/media/uploadCatalogBlob.ts) : toute issue rend un
+    // résultat avec un message écrit pour l'écran, jamais une exception ni un code brut.
+    const upload = await uploadCatalogBlob("establishment", blob);
+    if (!upload.ok) {
+      return { ok: false, reason: upload.reason };
     }
-    onChange([...photos, { path: result.storage_path, url: URL.createObjectURL(blob) }]);
+    onChange([...photos, { path: upload.storagePath, url: URL.createObjectURL(blob) }]);
     return { ok: true };
   }
 

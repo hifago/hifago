@@ -58,6 +58,9 @@ interface EstablishmentRow {
 //   - `2026-00` : toutes les nuits étaient filtrées par la comparaison avec « aujourd'hui », donc
 //     `{ok:true, nights:[]}` — un SUCCÈS sur un mois qui n'existe pas, mis en cache par-dessus.
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+// Même motif que reserve-nights/route.ts : un identifiant malformé est une requête invalide (400),
+// jamais transmis à PostgREST — qui répondrait une ERREUR (22P02), lue sinon comme une panne.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Horizon : `isMonthWithinHorizon` (packages/domain), six mois, décidé le 2026-08-28. Ce garde
 // jouait jusqu'ici DEUX rôles avec un seul nombre volontairement très large (36 mois) : borner un
@@ -119,7 +122,7 @@ export async function GET(request: Request) {
   const productId = url.searchParams.get("productId");
   const month = url.searchParams.get("month");
 
-  if (!productId || !month || !MONTH_PATTERN.test(month)) {
+  if (!productId || !UUID_PATTERN.test(productId) || !month || !MONTH_PATTERN.test(month)) {
     return Response.json({ ok: false, reason: "invalid_params" }, { status: 400 });
   }
 
@@ -144,12 +147,19 @@ export async function GET(request: Request) {
   // (20260813190232) n'expose qu'un produit publié ; sans ce filtre, la disponibilité Lobby EN
   // DIRECT d'un logement non publié serait interrogeable par quiconque connaît son UUID. La
   // relecture autoritative doit reproduire la règle de la base, pas seulement s'y substituer.
-  const { data: product } = await service
+  const { data: product, error: productError } = await service
     .from("products")
     .select("id, type, lobby_category_id, establishment_id, lodging_kind, capacity")
     .eq("id", productId)
     .eq("sellable", true)
     .maybeSingle<ProductRow>();
+
+  // Une lecture en PANNE n'est jamais une absence : ni « produit introuvable » (404), ni plus bas
+  // « connecteur coupé » (non réessayable). 503, motif réessayable — le client propose de réessayer.
+  if (productError) {
+    console.error(`night-availability : lecture du produit échouée (${productId})`, productError);
+    return Response.json({ ok: false, reason: "availability_unavailable" }, { status: 503 });
+  }
 
   if (!product) {
     return Response.json({ ok: false, reason: "product_not_found" }, { status: 404 });
@@ -158,11 +168,19 @@ export async function GET(request: Request) {
     return Response.json({ ok: false, reason: "not_pms_backed" }, { status: 404 });
   }
 
-  const { data: establishment } = await service
+  const { data: establishment, error: establishmentError } = await service
     .from("establishments")
     .select("id, lobby_connector_active, lobby_api_token")
     .eq("id", product.establishment_id)
     .maybeSingle<EstablishmentRow>();
+
+  if (establishmentError) {
+    console.error(
+      `night-availability : lecture de l'établissement échouée (${product.establishment_id})`,
+      establishmentError
+    );
+    return Response.json({ ok: false, reason: "availability_unavailable" }, { status: 503 });
+  }
 
   if (!establishment?.lobby_connector_active || !establishment.lobby_api_token) {
     // État anticipé (connecteur désactivé/pas encore configuré), pas une panne — 200, pas 4xx/5xx.

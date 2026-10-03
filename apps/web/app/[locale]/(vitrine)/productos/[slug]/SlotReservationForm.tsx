@@ -89,11 +89,18 @@ export function SlotReservationForm({
   productId,
   slots,
   minQty = 1,
+  maxQty,
 }: {
   productId: string;
   slots: SlotRow[];
   /** `products.min_qty`, replié à 1 — cf. `lib/reservas/cantidad.ts`. */
   minQty?: number;
+  /**
+   * `products.max_qty`, déjà replié à 20 par la couche catalogue — le plafond par ligne que
+   * `create_order` applique à TOUT type (`coalesce(max_qty, 20)`, migration 20260929112240). Le
+   * champ ne propose jamais davantage, même s'il reste plus de places.
+   */
+  maxQty: number;
 }) {
   const t = useTranslations("ProductPage");
   // La langue de la page, pour la grille (plan 41, S10).
@@ -154,6 +161,8 @@ export function SlotReservationForm({
     ? daySlots.find((slot) => toHHMM(slot.slot_start_time) === selectedSlotStartTime)
     : undefined;
   const slotRemaining = selectedSlot ? remainingForSlot(selectedSlot, inCartByKey) : 0;
+  // Borne haute du champ : la place restante du créneau, jamais au-delà du plafond par ligne.
+  const qtyTope = Math.min(slotRemaining, maxQty);
 
   // UN SEUL prédicat « cette date est-elle refusée ? », passé tel quel au `disabled` du calendrier
   // ET appelé en tête de `handleSelectDate` — le pré-remplissage (spec 28 §4 point 3) appelle ce
@@ -299,14 +308,14 @@ export function SlotReservationForm({
         name="qty"
         value={String(qty)}
         isDisabled={!selectedSlot}
-        onChange={(value) => setQty(limitarCantidad(Number(value), minQty, slotRemaining))}
+        onChange={(value) => setQty(limitarCantidad(Number(value), minQty, qtyTope))}
       >
         <Label>{t("quantityLabel")}</Label>
         <Input
           id="qty"
           type="number"
-          min={pisoCantidad(minQty, slotRemaining)}
-          max={topeCantidad(slotRemaining)}
+          min={pisoCantidad(minQty, qtyTope)}
+          max={topeCantidad(qtyTope)}
         />
       </TextField>
       {minQty > 1 ? (

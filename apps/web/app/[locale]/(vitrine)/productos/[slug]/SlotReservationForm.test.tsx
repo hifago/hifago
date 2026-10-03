@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { SlotReservationForm } from "./SlotReservationForm";
 import { guardarUltimosCriterios } from "@/lib/catalog/ultimosCriterios";
@@ -27,15 +27,26 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function renderForm() {
+type Creneau = {
+  slot_date: string;
+  slot_start_time: string;
+  capacity: number;
+  booked: number;
+  slot_duration_minutes: number;
+};
+
+function renderForm(slotsOverride?: Creneau[], maxQty = 20) {
   return render(
     <NextIntlClientProvider locale="es" messages={{ ProductPage: messages.ProductPage, Common: messages.Common }}>
       <SlotReservationForm
         productId="p1"
-        slots={[
-          { slot_date: DAY_OPEN, slot_start_time: "09:00:00", capacity: 2, booked: 0, slot_duration_minutes: 60 },
-          { slot_date: DAY_FULL, slot_start_time: "09:00:00", capacity: 2, booked: 2, slot_duration_minutes: 60 },
-        ]}
+        slots={
+          slotsOverride ?? [
+            { slot_date: DAY_OPEN, slot_start_time: "09:00:00", capacity: 2, booked: 0, slot_duration_minutes: 60 },
+            { slot_date: DAY_FULL, slot_start_time: "09:00:00", capacity: 2, booked: 2, slot_duration_minutes: 60 },
+          ]
+        }
+        maxQty={maxQty}
       />
     </NextIntlClientProvider>
   );
@@ -57,5 +68,30 @@ describe("SlotReservationForm — pré-remplissage depuis la recherche (spec 28 
     renderForm();
 
     expect(screen.queryByTestId(`slot-chip-${DAY_FULL}-09:00`)).toBeNull();
+  });
+});
+
+// `create_order` plafonne chaque ligne à `coalesce(max_qty, 20)` pour TOUT type (migration
+// 20260929112240) : le champ ne propose jamais davantage, même s'il reste plus de places au créneau.
+describe("SlotReservationForm — max_qty", () => {
+  function choisirCreneau(capacity: number, booked: number, maxQty: number) {
+    guardarUltimosCriterios(`?desde=${DAY_OPEN}&hasta=${DAY_OPEN}`);
+    renderForm(
+      [{ slot_date: DAY_OPEN, slot_start_time: "09:00:00", capacity, booked, slot_duration_minutes: 60 }],
+      maxQty
+    );
+    fireEvent.click(screen.getByTestId(`slot-chip-${DAY_OPEN}-09:00`));
+    return document.getElementById("qty") as HTMLInputElement;
+  }
+
+  it("borne la quantité au plafond du produit quand il reste plus de places", () => {
+    const champ = choisirCreneau(10, 0, 4);
+    expect(champ.getAttribute("max")).toBe("4");
+    fireEvent.change(champ, { target: { value: "9" } });
+    expect(champ.value).toBe("4");
+  });
+
+  it("garde la place restante du créneau quand elle est sous le plafond", () => {
+    expect(choisirCreneau(10, 7, 6).getAttribute("max")).toBe("3");
   });
 });

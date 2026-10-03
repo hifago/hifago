@@ -171,6 +171,8 @@ export function FichaProducto({
     ? enlaceItinerarioGoogleMaps(transporte.salida, transporte.llegada)
     : null;
 
+  const pmsNoReservable = ficha.modoReserva === "lodging" && alojamiento !== null && !alojamiento.reservableEnLinea;
+
   // LE FORMULAIRE, selon le mode de réservation — logique inchangée, seulement nommée pour être
   // posée dans le panneau. `null` = rien à réserver ici (un evento sans lien, cul-de-sac nommé par
   // la spec 30 §10.5) : ni panneau d'action, ni barre mobile.
@@ -190,6 +192,20 @@ export function FichaProducto({
       ficha.urlExterna ? (
         <BotonContacto href={ficha.urlExterna} etiqueta={t("reserveExternal")} testId="vitrina-contact-link" />
       ) : null
+    ) : pmsNoReservable ? (
+      // Logement PMS à connecteur coupé : `create_order` le refuserait (`pms_unavailable`) et
+      // sa disponibilité ne peut pas être demandée. Aucun calendrier : la fiche le dit et
+      // renvoie vers l'établissement, dont la page porte le contact. Sans bordure : à partir de
+      // `lg` le panneau est déjà la carte, une seconde l'emboîterait.
+      <section className="flex flex-col gap-2" data-testid="pms-no-reservable">
+        <Title as="h2">{t("pmsNoReservableTitle")}</Title>
+        <p className="text-sm text-muted">{t("pmsNoReservableText")}</p>
+        {ficha.establecimiento?.slug ? (
+          <Link href={`/establecimientos/${ficha.establecimiento.slug}`} className="text-sm underline">
+            {t("pmsNoReservableContact", { establecimiento: ficha.establecimiento.nombre })}
+          </Link>
+        ) : null}
+      </section>
     ) : ficha.modoReserva === "lodging" && alojamiento ? (
       <LodgingReservationForm
         productId={ficha.id}
@@ -203,13 +219,19 @@ export function FichaProducto({
         rates={ficha.tarifas}
       />
     ) : ficha.modoReserva === "slot" ? (
-      <SlotReservationForm productId={ficha.id} slots={ficha.franjas} minQty={ficha.minQty} />
+      <SlotReservationForm
+        productId={ficha.id}
+        slots={ficha.franjas}
+        minQty={ficha.minQty}
+        maxQty={ficha.maxQty}
+      />
     ) : (
       <ReservationForm
         productId={ficha.id}
         availability={ficha.disponibilidad}
         durationDays={ficha.duracionDias ?? undefined}
         minQty={ficha.minQty}
+        maxQty={ficha.maxQty}
         groupDiscount={ficha.descuentoGrupo ?? undefined}
         precio={ficha.precio}
         unidad={ficha.unidad}
@@ -263,7 +285,8 @@ export function FichaProducto({
   );
 
   const conPanel = precio !== null || accionReserva !== null;
-  const conBarra = accionReserva !== null;
+  // Pas de barre « Reservar » vers un panneau qui dit justement qu'on ne réserve pas en ligne.
+  const conBarra = accionReserva !== null && !pmsNoReservable;
 
   // LE BANDEAU, sous le H1 : « Ofrecido por » · adresse, puis une puce par fait disponible.
   // ⚠️ Chaque groupe garde le `data-testid` de la ligne qu'il remplace, en `display: contents` pour

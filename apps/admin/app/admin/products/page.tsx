@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { asLocalizedField, resolveLocalizedField, resolveListParams } from "@hifago/domain";
 import { buttonVariants } from "@hifago/ui";
 import { ProductsList, type ProductRow } from "./ProductsList";
@@ -49,7 +50,7 @@ export default async function AdminProductsPage({
   // jamais : establishment_id (dropdown) prioritaire s'il est posé, sinon establishment_q (texte).
   // Les deux ne dépendent que du filtre "établissement" respectif, jamais l'un de l'autre —
   // lancées en concurrence (même idiome que la fiche client, [client_key]/page.tsx).
-  const [{ data: establishments }, { data: tags }] = await Promise.all([
+  const [establishmentsResult, tagsResult] = await Promise.all([
     supabase.from("establishments").select("id, name").order("name->>es", { ascending: true }).limit(10),
     // Revue admin étiquettes (Jérôme, 2026-08-20) — pas de plafond ni d'échappatoire texte
     // (contrairement à établissement, cf. commentaire ci-dessous) : catalog_tags est une
@@ -57,6 +58,9 @@ export default async function AdminProductsPage({
     // création d'établissement — un <select> simple suffit, même famille que "Tipo"/"Estado".
     supabase.from("catalog_tags").select("id, label").order("label->>es", { ascending: true }),
   ]);
+  // Une panne LÈVE (lib/supabase/checkedRead.ts) : des filtres vides la cacheraient.
+  const { data: establishments } = checkedRead(establishmentsResult, "establishments");
+  const { data: tags } = checkedRead(tagsResult, "catalog_tags");
   const establishmentOptions = (establishments ?? []).map((establishment) => ({
     value: establishment.id,
     label: resolveLocalizedField(asLocalizedField(establishment.name), "es") ?? establishment.id,
@@ -104,7 +108,7 @@ export default async function AdminProductsPage({
     query = query.eq("product_tag_assignments.tag_id", filters.tag_id);
   }
 
-  const { data: products, count } = await query.returns<ProductQueryRow[]>();
+  const { data: products, count } = checkedRead(await query.returns<ProductQueryRow[]>(), "products");
 
   const rows: ProductRow[] = (products ?? []).map((product) => ({
     id: product.id,

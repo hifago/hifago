@@ -3,8 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createCheckoutPreference,
   getMercadoPagoPayment,
+  ORDER_EXPIRY_MINUTES,
   PREFERENCE_DEADLINE_MS,
+  PREFERENCE_EXPIRY_MARGIN_MINUTES,
   PREFERENCE_REQUEST_BOUNDS,
+  PAYMENT_LOOKUP_BOUNDS,
+  PAYMENT_LOOKUP_DEADLINE_MS,
 } from "./client";
 
 // Les bornes de la création de préférence, prouvées contre le VRAI SDK `mercadopago` (aucun mock du
@@ -131,16 +135,86 @@ describe("createCheckoutPreference — bornes explicites (SDK réel)", () => {
     expect(PREFERENCE_DEADLINE_MS).toBeGreaterThan((b.maxRetries + 1) * b.timeout + b.maxRetries * b.maxDelay);
   });
 
-  // `Preference.create` fusionne ses options dans la config qu'on lui donne : sur la config partagée,
-  // le GET du webhook hériterait du délai de 8 s et de la nouvelle tentative. Il garde ici les valeurs
-  // du SDK — les borner relève de la route du webhook.
-  it("ne laisse pas ses bornes sur la config partagée qu'utilise le webhook", async () => {
+  // `Preference.create` fusionne ses options dans la config qu'on lui donne : la préférence et le GET
+  // ont chacun la leur, et la première ne déteint jamais sur le second.
+  it("ne déteint pas sur le GET du webhook, qui garde SES bornes", async () => {
     fetchMock.mockResolvedValueOnce(preferenceCreee());
     await createCheckoutPreference(INPUT);
 
     fetchMock.mockImplementation(silencieuse);
     void getMercadoPagoPayment("1").catch(() => undefined);
-    await vi.advanceTimersByTimeAsync(PREFERENCE_REQUEST_BOUNDS.timeout + PREFERENCE_REQUEST_BOUNDS.maxDelay + 1);
-    expect(fetchMock).toHaveBeenCalledTimes(2); // la préférence, puis UN SEUL GET encore en attente
+    await vi.advanceTimersByTimeAsync(PAYMENT_LOOKUP_BOUNDS.timeout - 1);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // la préférence, puis le GET encore dans sa 1re tentative
+    await vi.advanceTimersByTimeAsync(1 + ATTENTE_AVANT_NOUVEL_ESSAI_MS);
+    expect(fetchMock).toHaveBeenCalledTimes(3); // 6 s (pas 8) : ce sont bien les bornes du GET
+  });
+});
+
+// Le GET de re-confirmation du webhook (P5a) : borné comme la préférence, plus serré — Mercado Pago
+// n'attend pas longtemps la réponse d'un webhook, et un 502 rapide le fait retenter proprement.
+describe("getMercadoPagoPayment — bornes explicites (SDK réel)", () => {
+  function paiement() {
+    return new Response(JSON.stringify({ id: 1, status: "approved", transaction_amount: 17000 }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  it("abandonne après 2 tentatives de 6 s (13 s), jamais les 60 s × 4 du SDK", async () => {
+    fetchMock.mockImplementation(silencieuse);
+    const issue = getMercadoPagoPayment("1").then(
+      () => "résolue",
+      (error: Error) => error
+    );
+    await vi.advanceTimersByTimeAsync(PAYMENT_LOOKUP_BOUNDS.timeout - 1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1 + ATTENTE_AVANT_NOUVEL_ESSAI_MS);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(PAYMENT_LOOKUP_BOUNDS.timeout);
+    expect(await issue).toBeInstanceOf(Error);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("plafonne l'attente d'un 429 à 1 s même si Mercado Pago demande 30 s", async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response("{}", { status: 429, headers: { "Retry-After": "30" } }))
+      .mockResolvedValueOnce(paiement());
+    const issue = getMercadoPagoPayment("1");
+    await vi.advanceTimersByTimeAsync(PAYMENT_LOOKUP_BOUNDS.maxDelay);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await expect(issue).resolves.toMatchObject({ status: "approved", transaction_amount: 17000 });
+  });
+
+  it("abandonne à l'échéance globale de 15 s quand le corps ne vient jamais", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(new ReadableStream({ start() {} }), { status: 200, headers: { "Content-Type": "application/json" } })
+    );
+    const issue = getMercadoPagoPayment("1").then(
+      () => "résolue",
+      (error: Error) => error
+    );
+    await vi.advanceTimersByTimeAsync(PAYMENT_LOOKUP_DEADLINE_MS - 1);
+    let reglee = false;
+    void issue.then(() => {
+      reglee = true;
+    });
+    await Promise.resolve();
+    expect(reglee).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await issue).toBeInstanceOf(Error);
+  });
+
+  it("l'échéance globale ne coupe pas le pire cas légitime des bornes du GET", () => {
+    const b = PAYMENT_LOOKUP_BOUNDS;
+    expect(PAYMENT_LOOKUP_DEADLINE_MS).toBeGreaterThan((b.maxRetries + 1) * b.timeout + b.maxRetries * b.maxDelay);
+  });
+});
+
+// Contrat partagé avec la base : `public.order_payment_deadline` (migration 20261001194704) refuse
+// `order_expiring` à 28 min, dans create_payment_intent et (moins le bail) dans le claim Lobby.
+// scripts/check-payment-deadline.sh compare aussi la copie Deno ; ce test garde le côté TypeScript.
+describe("limite de paiement — contrat avec la base", () => {
+  it("30 − 2 = 28 min (le côté SQL est comparé par scripts/check-payment-deadline.sh)", () => {
+    expect(ORDER_EXPIRY_MINUTES - PREFERENCE_EXPIRY_MARGIN_MINUTES).toBe(28);
   });
 });

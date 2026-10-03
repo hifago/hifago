@@ -96,8 +96,11 @@ test("capacité épuisée entre l'ajout au panier et la validation → erreur cl
   await page.locator('input[name="holder-email"]').fill("cliente.reserve.full@example.com");
   await page.getByTestId("submit-order-button").click();
 
-  await expect(page.getByTestId("checkout-error")).toBeVisible();
-  await expect(page.getByTestId(/^cart-line-/)).toHaveAttribute("data-failed", "true");
+  // Message ciblé sur la VRAIE raison (« esta fecha ya está completa ») — même assertion que
+  // cart-multi-establishment.spec.ts. ⚠️ L'ancien marquage de la ligne fautive (`data-failed`) a
+  // disparu avec la spec 32 : régression CONNUE, arbitrée par Jérôme le 2026-09-15
+  // (docs/dette-technique.md) — ce test ne l'exige donc plus.
+  await expect(page.getByTestId("checkout-error")).toContainText("completa");
   // Spec 33 — l'équivalent de l'ancien « pas d'écran de succès » : une commande refusée ne fait
   // PAS quitter le tunnel. Assertion plus forte que la précédente, qui se contentait de constater
   // l'absence d'un testid (et serait restée verte même si celui-ci disparaissait pour une autre

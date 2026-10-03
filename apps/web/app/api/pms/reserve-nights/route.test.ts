@@ -157,6 +157,16 @@ describe("entrée et claim", () => {
     expect(appelsNommes("release_order_after_pms_refusal")).toEqual([]);
   });
 
+  // Migration 20261001194704 : passé limite de paiement − bail, le claim refuse. Rien n'a été réservé ;
+  // la commande n'est pas défaite ici (un relâchement écrirait un faux `cancelled_by_provider`).
+  it("trop tard pour payer → 409 order_expiring, released:false, rien d'autre n'est appelé", async () => {
+    claimResult = { data: { ok: false, reason: "order_expiring" }, error: null };
+    const response = await appeler();
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ ok: false, reason: "order_expiring", released: false });
+    expect(rpcAppels.map((appel) => appel.nom)).toEqual(["claim_order_for_pms_booking"]);
+  });
+
   it("connecteur coupé depuis create_order → commande relâchée, 409 pms_unavailable", async () => {
     claimResult = { data: { ok: false, reason: "pms_unavailable" }, error: null };
     const response = await appeler();

@@ -48,6 +48,7 @@ export default async function AdminHomePage({
     catalogDraftRes,
     catalogProposalPendingRes,
     catalogProposalRejectedRes,
+    recentClientsRes,
   ] = await Promise.all([
     supabase.rpc("admin_dashboard_totals", { p_today: todayIso }),
     supabase.rpc("admin_dashboard_referrer_commissions"),
@@ -79,6 +80,10 @@ export default async function AdminHomePage({
     supabase.from("products").select("id", { count: "exact", head: true }).eq("sellable", false),
     supabase.from("product_proposals").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("product_proposals").select("id", { count: "exact", head: true }).eq("status", "rejected"),
+    // « Clientes recientes » : les clients qui ont commandé le plus récemment, même RPC et même
+    // notion de client que /admin/clients (list_clients, réservée à l'admin) — le bloc était
+    // jusqu'ici une liste vide figée.
+    supabase.rpc("list_clients", { p_sort_key: "last_order_at", p_sort_desc: true, p_limit: 5 }),
   ]);
 
   for (const [name, res] of [
@@ -86,6 +91,7 @@ export default async function AdminHomePage({
     ["admin_dashboard_referrer_commissions", referrerCommissionsRes],
     ["admin_dashboard_daily_series", dailySeriesRes],
     ["admin_dashboard_top_partners", topPartnersRes],
+    ["list_clients", recentClientsRes],
   ] as const) {
     if (res.error) {
       throw new Error(`Lecture du tableau de bord impossible (${name}) : ${res.error.message}`);
@@ -214,7 +220,19 @@ export default async function AdminHomePage({
             href: `/admin/establishments/${establishment.id}`,
           }))}
         />
-        <RecentList title="Clientes recientes" href="/admin/clients" items={[]} emptyHint="Ver /admin/clients" />
+        <RecentList
+          title="Clientes recientes"
+          href="/admin/clients"
+          emptyHint="Ningún cliente todavía."
+          items={(recentClientsRes.data ?? []).map((client) => ({
+            id: client.client_key,
+            label: client.display_name ?? client.email ?? client.client_key,
+            sublabel: client.display_name ? client.email : null,
+            // client_key n'est pas un uuid (email ou téléphone en repli) : encodé, comme sur
+            // /admin/clients.
+            href: `/admin/clients/${encodeURIComponent(client.client_key)}`,
+          }))}
+        />
       </div>
     </div>
   );

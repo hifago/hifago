@@ -367,7 +367,8 @@ grâce ci-dessous) ; `supabase/tests/database/payments.test.sql` (41 assertions)
 + test (fonction pure, mappe le vocabulaire Mercado Pago — `approved/rejected/pending/in_process/
 authorized/in_mediation/cancelled/refunded/charged_back` — vers les 4 états `payments.status`) ;
 `apps/web/app/api/payments/create/route.ts`, `apps/web/app/api/payments/webhook/route.ts`,
-`apps/web/app/api/payments/[orderId]/status/route.ts` ; `apps/web/.env.example` :
+`apps/web/app/api/payments/[orderId]/status/route.ts` (supprimé le 2026-10-01 : aucun appelant, cf.
+spec 33 §10) ; `apps/web/.env.example` :
 `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET` (pas de variable côté `apps/admin`, pas de
 `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY`, cf. simplification SDK ci-dessus).
 

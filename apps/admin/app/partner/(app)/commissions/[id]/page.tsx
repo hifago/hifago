@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
 import { asLocalizedField, formatCop, resolveLocalizedField } from "@hifago/domain";
 import { COMMISSION_STATE_LABELS } from "../commissionStateLabels";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 
 // Fiche minimale (migration vers DataList, 2026-08-20, docs/specs/22-vue-referent-restreinte.md
 // addendum) — nécessaire parce que DataList pointe TOUJOURS sa 1re colonne vers
@@ -15,7 +16,8 @@ import { COMMISSION_STATE_LABELS } from "../commissionStateLabels";
 export default async function PartnerCommissionDetailPage({
   params,
 }: PageProps<"/partner/commissions/[id]">) {
-  const { id } = await params;
+  // Pas un UUID → 404 avant toute lecture (même garde que les autres fiches `[id]`).
+  const id = requireUuidParam((await params).id);
   const supabase = await createClient();
 
   // Même RPC que la liste (partner_commissions_list, 20260930211348), filtrée sur l'id : la fiche
@@ -29,9 +31,6 @@ export default async function PartnerCommissionDetailPage({
     p_limit: 1,
   });
   if (error) {
-    // 22P02 = `id` de l'URL qui n'est pas un uuid : une adresse inconnue, donc 404 comme avant,
-    // jamais une panne.
-    if (error.code === "22P02") notFound();
     throw new Error(`Lecture de la commission impossible (partner_commissions_list) : ${error.message}`);
   }
   const entry = entries[0];

@@ -53,8 +53,9 @@ export type OrderStateInput = {
   acompteCop: number;
   /**
    * Spec 39 D3 (2026-09-22) — le client a PAYÉ et rien n'est honoré (payé après expiration ou
-   * annulation, écart de montant) : une entrée `refund_required` est ouverte côté admin. Un double
-   * paiement ne lève PAS ce drapeau (sa réservation est honorée). Absent = faux.
+   * annulation, écart de montant ; nuit PMS sans booking, intent remplacé : migration
+   * 20261002185102) : une entrée `refund_required` est ouverte côté admin. Un double paiement ne lève
+   * PAS ce drapeau (sa réservation est honorée). Absent = faux.
    */
   paymentReceivedNotHonored?: boolean;
   /** Dernier remboursement lié : `pending` | `approved` | `rejected` | null. */

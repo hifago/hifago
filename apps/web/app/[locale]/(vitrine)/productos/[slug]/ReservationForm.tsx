@@ -58,6 +58,7 @@ export function ReservationForm({
   availability,
   durationDays = 1,
   minQty = 1,
+  maxQty,
   groupDiscount,
   precio = null,
   unidad = null,
@@ -86,6 +87,12 @@ export function ReservationForm({
   onSalidaChange?: (salidaIso: string | null) => void;
   /** `products.min_qty`, replié à 1 — cf. `lib/reservas/cantidad.ts`. */
   minQty?: number;
+  /**
+   * `products.max_qty`, déjà replié à 20 par la couche catalogue — le plafond par ligne que
+   * `create_order` applique à TOUT type (`coalesce(max_qty, 20)`, migration 20260929112240). Le
+   * champ ne propose jamais davantage, même s'il reste plus de places.
+   */
+  maxQty: number;
   /**
    * `products.group_discount_threshold_qty`/`group_discount_pct` (migration 20260914130000) —
    * non défini pour tout type autre que camp. Texte informatif statique seulement (décision
@@ -181,6 +188,8 @@ export function ReservationForm({
   const remaining = selectedRow
     ? plazasRestantes(selectedRow, inCartByDate.get(selectedRow.date) ?? 0)
     : 0;
+  // Borne haute du champ : la place restante, jamais au-delà du plafond par ligne du produit.
+  const qtyTope = Math.min(remaining, maxQty);
 
   // Ouvre le calendrier sur le mois de la première date configurée plutôt que sur le mois
   // courant — sans ça, un visiteur (ou un test e2e) devrait naviguer manuellement jusqu'à la
@@ -411,10 +420,10 @@ export function ReservationForm({
         name="qty"
         value={String(qty)}
         isDisabled={!selectedRow}
-        onChange={(value) => setQty(limitarCantidad(Number(value), minQty, remaining))}
+        onChange={(value) => setQty(limitarCantidad(Number(value), minQty, qtyTope))}
       >
         <Label>{t("quantityLabel")}</Label>
-        <Input id="qty" type="number" min={pisoCantidad(minQty, remaining)} max={topeCantidad(remaining)} />
+        <Input id="qty" type="number" min={pisoCantidad(minQty, qtyTope)} max={topeCantidad(qtyTope)} />
       </TextField>
       {minQty > 1 ? (
         <p className="text-xs text-muted" data-testid="min-qty-hint">

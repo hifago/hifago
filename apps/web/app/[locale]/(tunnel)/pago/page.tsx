@@ -75,13 +75,17 @@ export default async function CheckoutPage({
       initialHolderName = profile.fullName;
       initialHolderPhone = profile.phone;
     } else {
-      const { data: lastOrder } = await supabase
+      const { data: lastOrder, error: lastOrderError } = await supabase
         .from("orders")
         .select("holder_name, holder_phone")
         .eq("account_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      // Même règle que la lecture du profil juste au-dessus : une panne n'est jamais « aucune
+      // commande passée ». Elle lève, l'écran d'erreur de la zone (tunnel) prend le relais, au lieu
+      // d'un titulaire pré-rempli à vide sans le moindre signal.
+      if (lastOrderError) throw lastOrderError;
       initialHolderName = lastOrder?.holder_name ?? "";
       initialHolderPhone = lastOrder?.holder_phone ?? "";
     }

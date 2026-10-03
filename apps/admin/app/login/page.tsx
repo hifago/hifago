@@ -21,7 +21,8 @@ export default async function LoginPage({
   // Sans `next` explicite (arrivée directe sur /login, pas via une garde de page), la destination
   // par défaut est "/" — le dispatcher de app/page.tsx, qui aiguille selon le type d'utilisateur
   // une fois connecté. Jamais "/admin/establishments" en dur : un socio qui se connecterait sans
-  // contexte de départ atterrirait alors sur une page qui le renvoie aussitôt au login (pas admin).
+  // contexte de départ y serait renvoyé vers l'aiguillage `/` par la garde /admin — un détour
+  // inutile, et jusqu'au 2026-10-01 une boucle (la garde le renvoyait au login).
   const next = safeNextPath(nextParam);
 
   // Feature 31 (docs/specs/07-connexion-inscription-complete.md §5) : /auth/callback redirige ici

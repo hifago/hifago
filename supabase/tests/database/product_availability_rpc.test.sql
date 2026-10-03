@@ -8,10 +8,23 @@
 -- set_product_availability ci-dessous restent inchangés (feature 17 change son contrat de
 -- sortie, exception → jsonb {ok, reason}).
 begin;
-select plan(14);
+select plan(16);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
+$$;
+
+-- Motif de refus de set_product_availability, ou « sqlstate <code> » si elle lève : sans la garde
+-- invalid_capacity, une capacité négative sur une date neuve heurte la contrainte booked <= capacity
+-- (23514) — le helper en fait une valeur, l'assertion rougit sans interrompre le fichier (même
+-- dispositif que test_try_create_order, create_order_qty_guard.test.sql).
+create function test_try_set_availability(p_date date, p_capacity int) returns text
+language plpgsql as $$
+begin
+  return set_product_availability('c0000000-0000-4000-8000-000000000005', p_date, p_capacity)->>'reason';
+exception when others then
+  return 'sqlstate ' || sqlstate;
+end;
 $$;
 
 insert into partners (id, display_name) values
@@ -100,6 +113,20 @@ select is(
   (select set_product_availability('c0000000-0000-4000-8000-000000000005'::uuid, '2027-02-02'::date, 2)),
   jsonb_build_object('ok', false, 'reason', 'below_booked', 'booked', 3),
   'set_product_availability refuse une capacité inférieure aux places déjà vendues (below_booked)'
+);
+
+-- Capacité négative (20261001144546) : motif métier, avant tout autre contrôle, comme
+-- set_product_slot_capacity. Sur une date déjà configurée, sans la garde, below_booked masquait la
+-- vraie raison ; sur une date neuve, la contrainte booked <= capacity levait 23514.
+select is(
+  test_try_set_availability('2027-02-02', -1),
+  'invalid_capacity',
+  'capacité négative sur une date configurée : invalid_capacity, pas below_booked'
+);
+select is(
+  test_try_set_availability('2027-04-01', -1),
+  'invalid_capacity',
+  'capacité négative sur une date neuve : invalid_capacity, pas une erreur de contrainte'
 );
 select is(
   (select jsonb_build_object('capacity', capacity, 'booked', booked) from product_availability

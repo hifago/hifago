@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@hifago/supabase/client";
+import { rpcErrorMessage } from "@/lib/errors/rpcErrorMessage";
 import {
   Button,
   Input,
@@ -100,7 +101,7 @@ export function ModifyOrderLineDialog({
     setIsSubmitting(false);
 
     if (rpcError || !(data as { ok: boolean } | null)?.ok) {
-      toast.danger(rpcError?.message ?? "No se pudo modificar la reserva.");
+      toast.danger(rpcErrorMessage(rpcError, "No se pudo modificar la reserva."));
       return;
     }
 

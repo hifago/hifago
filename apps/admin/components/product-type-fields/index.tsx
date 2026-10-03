@@ -187,7 +187,7 @@ export function ProductTypeFields({
               }
             }}
           />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <TextField value={state.minQty} onChange={state.setMinQty}>
               <Label>{isLodging ? "Huéspedes mínimos — opcional" : "Cantidad mínima — opcional"}</Label>
               <Input type="number" min={1} data-testid="min-qty-input" />

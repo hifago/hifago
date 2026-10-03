@@ -8,11 +8,13 @@ import {
 import { isPaymentsMockEnabled } from "@/lib/mercadopago/mock";
 import { getSiteUrl, isProductionSite } from "@/lib/seo/siteUrl";
 
-// Plafond de la plateforme pour cette route. L'appel Mercado Pago est coupé à 20 s
-// (`PREFERENCE_DEADLINE_MS`, lib/mercadopago/client.ts) : il reste 10 s pour répondre
-// `mercadopago_unavailable` plutôt qu'une 504 sans corps. Les deux accès base, eux, ne sont pas
-// bornés ici — une base qui cale finit encore coupée par la plateforme.
-export const maxDuration = 30;
+// Plafond de la plateforme pour cette route : lecture en base (5 s) + Mercado Pago (20 s,
+// `PREFERENCE_DEADLINE_MS`, lib/mercadopago/client.ts) + écriture en base (5 s) = 30 s au pire, et
+// 10 s de marge pour répondre plutôt qu'une 504 sans corps.
+export const maxDuration = 40;
+
+/** Délai de chacun des deux accès base : une base qui cale répond en erreur, jamais en silence. */
+const DB_CALL_TIMEOUT_MS = 5_000;
 
 // Spec 19 §0 Tranche 1 — création de la préférence Checkout Pro. Le CLIENT appelle d'abord
 // create_payment_intent(order_id) directement via son propre client Supabase (RPC anon/
@@ -48,9 +50,16 @@ export async function POST(request: Request) {
     .from("payments")
     .select("id, order_id, amount_cop, payer_email, status, orders(access_token, created_at)")
     .eq("id", paymentId)
+    .abortSignal(AbortSignal.timeout(DB_CALL_TIMEOUT_MS))
     .maybeSingle();
 
-  if (readError || !payment) {
+  // Une panne (ou le délai ci-dessus) n'est jamais « paiement introuvable » : 503, le client peut
+  // retenter ; seule une lecture réussie et vide est un 404.
+  if (readError) {
+    console.error("payments/create : lecture de payments échouée", readError);
+    return Response.json({ ok: false, reason: "db_unavailable" }, { status: 503 });
+  }
+  if (!payment) {
     return Response.json({ ok: false, reason: "payment_not_found" }, { status: 404 });
   }
 
@@ -173,7 +182,8 @@ export async function POST(request: Request) {
     const { error: persistError } = await service
       .from("payments")
       .update({ mp_preference_id: preferenceId, mp_collector_id: collectorId })
-      .eq("id", payment.id);
+      .eq("id", payment.id)
+      .abortSignal(AbortSignal.timeout(DB_CALL_TIMEOUT_MS));
     if (persistError) {
       console.error("payments.mp_preference_id/mp_collector_id : écriture échouée", persistError);
     }
