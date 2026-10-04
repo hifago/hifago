@@ -400,8 +400,11 @@ select is(
   'record : la ligne morte garde la trace du booking, qui part en file d''annulation (une seule entrée)'
 );
 
--- Amendement du 30/09 : connecteur coupé ENTRE le claim et le record. Le trigger
--- enqueue_pms_cancellations filtre les connecteurs actifs — l'enfilage explicite doit tenir seul.
+-- Amendement du 30/09 : connecteur coupé ENTRE le claim et le record — le booking doit partir en
+-- file quand même. Jusqu'à la migration 20261003223900, le trigger enqueue_pms_cancellations
+-- filtrait les connecteurs actifs et seul l'enfilage explicite tenait ; il ne filtre plus, les deux
+-- enfilent désormais (l'index partiel absorbe le doublon) : ce cas prouve le résultat, plus le
+-- seul enfilage explicite.
 reset role;
 update establishments set lobby_connector_active = false where id = '9b930000-0000-4000-8000-000000000011';
 set local role service_role;

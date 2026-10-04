@@ -2644,6 +2644,10 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_pms_poll_outcome: {
+        Args: { p_detail?: string; p_order_line_id: string; p_outcome: string }
+        Returns: Json
+      }
       attach_orders_to_account: { Args: never; Returns: Json }
       cancel_order_line: { Args: { p_line_id: string }; Returns: Json }
       check_partner_invitation: { Args: { p_token: string }; Returns: Json }
@@ -2954,6 +2958,11 @@ export type Database = {
       invoke_send_notification_emails: { Args: never; Returns: undefined }
       is_admin: { Args: { uid: string }; Returns: boolean }
       is_anonymous_session: { Args: never; Returns: boolean }
+      job_watchdog: {
+        Args: { p_job: string; p_stale: string }
+        Returns: boolean
+      }
+      jobs_watchdog: { Args: never; Returns: undefined }
       list_audience_members: {
         Args: { p_audience: string }
         Returns: {
@@ -3302,6 +3311,10 @@ export type Database = {
           p_pms_booking_id: string
         }
         Returns: Json
+      }
+      release_notification_email_claim: {
+        Args: { p_ids: string[]; p_reason?: string }
+        Returns: number
       }
       release_order_after_pms_refusal: {
         Args: { p_order_id: string; p_reason: string }
