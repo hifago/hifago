@@ -1,4 +1,5 @@
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { asLocalizedField, formatCop, resolveLocalizedField } from "@hifago/domain";
 import { KpiCard } from "@hifago/ui";
 import { SalesChart } from "./charts/SalesChart";
@@ -86,17 +87,27 @@ export default async function AdminHomePage({
     supabase.rpc("list_clients", { p_sort_key: "last_order_at", p_sort_desc: true, p_limit: 5 }),
   ]);
 
-  for (const [name, res] of [
-    ["admin_dashboard_totals", totalsRes],
-    ["admin_dashboard_referrer_commissions", referrerCommissionsRes],
-    ["admin_dashboard_daily_series", dailySeriesRes],
-    ["admin_dashboard_top_partners", topPartnersRes],
-    ["list_clients", recentClientsRes],
-  ] as const) {
-    if (res.error) {
-      throw new Error(`Lecture du tableau de bord impossible (${name}) : ${res.error.message}`);
-    }
-  }
+  // TOUTES les lectures lèvent sur une panne (lib/supabase/checkedRead.ts), pas seulement les
+  // agrégats (2026-10-04) : les compteurs des alertes « Pendientes », de la santé du catalogue et
+  // les listes récentes étaient gardés en variables puis lus en `?? 0` sans leur `error` — une panne
+  // s'affichait « 0 propuestas » ou « nada que conciliar ». Les `?? 0` ci-dessous ne lisent donc
+  // plus jamais qu'une absence réelle.
+  checkedRead(totalsRes, "admin_dashboard_totals");
+  checkedRead(referrerCommissionsRes, "admin_dashboard_referrer_commissions");
+  checkedRead(establishmentsCountRes, "establishments (activos)");
+  checkedRead(dailySeriesRes, "admin_dashboard_daily_series");
+  checkedRead(topPartnersRes, "admin_dashboard_top_partners");
+  checkedRead(productProposalsPendingRes, "product_proposals (pendientes)");
+  checkedRead(establishmentProposalsPendingRes, "establishment_proposals (pendientes)");
+  checkedRead(reconciliationOpenRes, "pms_reconciliation_entries");
+  checkedRead(paymentReconciliationOpenRes, "payment_reconciliation_entries");
+  checkedRead(recentPartnersRes, "partners (recientes)");
+  checkedRead(recentEstablishmentsRes, "establishments (recientes)");
+  checkedRead(catalogSellableRes, "products (publicados)");
+  checkedRead(catalogDraftRes, "products (borradores)");
+  checkedRead(catalogProposalPendingRes, "product_proposals (catálogo, pendientes)");
+  checkedRead(catalogProposalRejectedRes, "product_proposals (rechazadas)");
+  checkedRead(recentClientsRes, "list_clients");
 
   const totals = totalsRes.data?.[0];
   const totalRevenue = totals?.revenue_cop ?? 0;
