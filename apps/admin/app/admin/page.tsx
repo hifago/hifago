@@ -47,7 +47,6 @@ export default async function AdminHomePage({
     recentEstablishmentsRes,
     catalogSellableRes,
     catalogDraftRes,
-    catalogProposalPendingRes,
     catalogProposalRejectedRes,
     recentClientsRes,
   ] = await Promise.all([
@@ -79,7 +78,8 @@ export default async function AdminHomePage({
       .limit(5),
     supabase.from("products").select("id", { count: "exact", head: true }).eq("sellable", true),
     supabase.from("products").select("id", { count: "exact", head: true }).eq("sellable", false),
-    supabase.from("product_proposals").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    // « En revisión » du catalogue = les propositions en attente déjà comptées pour l'alerte
+    // (productProposalsPendingRes) : la même requête n'est plus lancée deux fois.
     supabase.from("product_proposals").select("id", { count: "exact", head: true }).eq("status", "rejected"),
     // « Clientes recientes » : les clients qui ont commandé le plus récemment, même RPC et même
     // notion de client que /admin/clients (list_clients, réservée à l'admin) — le bloc était
@@ -105,7 +105,6 @@ export default async function AdminHomePage({
   checkedRead(recentEstablishmentsRes, "establishments (recientes)");
   checkedRead(catalogSellableRes, "products (publicados)");
   checkedRead(catalogDraftRes, "products (borradores)");
-  checkedRead(catalogProposalPendingRes, "product_proposals (catálogo, pendientes)");
   checkedRead(catalogProposalRejectedRes, "product_proposals (rechazadas)");
   checkedRead(recentClientsRes, "list_clients");
 
@@ -136,7 +135,7 @@ export default async function AdminHomePage({
   const catalogHealth = [
     { name: "Publicado", value: catalogSellableRes.count ?? 0 },
     { name: "Borrador", value: catalogDraftRes.count ?? 0 },
-    { name: "En revisión", value: catalogProposalPendingRes.count ?? 0 },
+    { name: "En revisión", value: productProposalsPendingRes.count ?? 0 },
     { name: "Rechazado", value: catalogProposalRejectedRes.count ?? 0 },
   ];
 

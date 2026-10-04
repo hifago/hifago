@@ -135,4 +135,14 @@ describe("/admin — chaque compteur et liste de l'accueil lève sur une panne",
     tablesEnPanne.add(cle);
     await expect(rendre()).rejects.toThrow(/Lecture impossible/);
   });
+
+  it.each([
+    ["admin_dashboard_totals"],
+    ["admin_dashboard_referrer_commissions"],
+    ["admin_dashboard_daily_series"],
+    ["admin_dashboard_top_partners"],
+  ])("agrégat %s en panne : la page lève, jamais un KPI à zéro", async (rpc) => {
+    rpcs[rpc] = { data: null, error: { message: "connection refused" } };
+    await expect(rendre()).rejects.toThrow(rpc);
+  });
 });

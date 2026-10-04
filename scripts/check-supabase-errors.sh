@@ -18,7 +18,10 @@
 #     (getCartLines, getOrderByToken) ;
 #   - un résultat gardé dans une variable puis lu en `x.count ?? …` / `x.data ?? …` sans que le
 #     fichier lise jamais `x.error` ni ne passe `x` à `checkedRead` (accueil admin, 2026-10-04 :
-#     « 0 propuestas », « nada que conciliar » sur une panne). Contrôle par variable, dans le fichier.
+#     « 0 propuestas », « nada que conciliar » sur une panne). Contrôle par NOM de variable, dans
+#     tout le fichier : deux variables homonymes dans deux fonctions, dont une seule contrôlée,
+#     passent. Formes de lecture non vues : `x?.data ??`, `x.data!`, `x.data || []`, `x["data"]`,
+#     `x.data?.[0]`, `const { data } = x` puis `data ?? …`.
 # Ce que le script ne voit PAS : une destructuration sur plusieurs lignes ; une destructuration EN
 # TABLEAU (`const [{ data: a }, { data: b }] = await Promise.all(…)`) ; un résultat gardé entier puis
 # lu sans son `error` sous une autre forme que `x.data ?? …` (`(await supabase.rpc(…)).data`,
@@ -133,16 +136,23 @@ VARIABLE_NON_CONTROLEE='
     print "$ligne:$v.$champ ?? (ni $v.error ni checkedRead($v))\n";
   }'
 
+# Les lignes fautives d'un fichier (les quatre motifs), vide s'il n'y en a aucune. Servie aux deux
+# boucles ci-dessous : une exemption « sans objet » se juge sur exactement la même détection.
+violations() { # fichier
+  local sans_commentaires hits variables
+  sans_commentaires="$(perl -0777 -p "$SANS_COMMENTAIRES" "$1")"
+  hits="$(printf '%s\n' "$sans_commentaires" | grep -nE "$MOTIF" || true)"
+  variables="$(printf '%s\n' "$sans_commentaires" | perl -0777 -ne "$VARIABLE_NON_CONTROLEE")"
+  printf '%s\n%s\n' "$hits" "$variables" | sed '/^$/d'
+}
+
 echo "== Résultat Supabase lu sans son error (apps/*/lib, apps/*/app) =="
 while IFS= read -r f; do
   est_exempte "$f" && continue
-  sans_commentaires="$(perl -0777 -p "$SANS_COMMENTAIRES" "$f")"
-  hits="$(printf '%s\n' "$sans_commentaires" | grep -nE "$MOTIF" || true)"
-  variables="$(printf '%s\n' "$sans_commentaires" | perl -0777 -ne "$VARIABLE_NON_CONTROLEE")"
-  [ -n "$variables" ] && hits="$(printf '%s\n%s' "$hits" "$variables" | sed '/^$/d')"
+  hits="$(violations "$f")"
   [ -z "$hits" ] && continue
   signale "$f" "$hits" \
-    "Lire aussi \`error\` et lever (motif de lib/catalog/buscar.ts, ou checkedRead côté admin) — ou rendre un échec explicite : une panne n'est jamais une absence."
+    "Lire aussi \`error\` et lever (motif de lib/catalog/buscar.ts, ou checkedRead côté admin) — ou rendre un échec explicite : une panne n'est jamais une absence. Si \`x\` n'est pas un résultat Supabase (\`fetch\`, ligne SQL agrégée), destructurer ou renommer."
 done < <(fichiers_lib)
 
 echo
@@ -152,8 +162,7 @@ for f in "${EXEMPTIONS[@]}"; do
     signale "$f" "(fichier absent)" "Retirer cette exemption de scripts/check-supabase-errors.sh."
     continue
   fi
-  hits="$(perl -0777 -p "$SANS_COMMENTAIRES" "$f" | grep -nE "$MOTIF" || true)"
-  [ -n "$hits" ] && continue
+  [ -n "$(violations "$f")" ] && continue
   signale "$f" "(plus aucune lecture concernée)" \
     "Bonne nouvelle : retirer cette exemption de scripts/check-supabase-errors.sh — la liste ne fait que rétrécir."
 done
