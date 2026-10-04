@@ -10,25 +10,39 @@ import type { RecentListProps } from "./RecentList";
 type Reponse = { data: unknown; error: { message: string } | null };
 
 let rpcs: Record<string, Reponse> = {};
+// Lecture de table en panne, désignée par sa table et ses valeurs de filtre (`products:true`,
+// `product_proposals:rejected`…) : trois lectures portent sur product_proposals, deux sur products.
+let tablesEnPanne = new Set<string>();
 const appelsRpc: { nom: string; args: unknown }[] = [];
 const listes: RecentListProps[] = [];
 
 vi.mock("@hifago/supabase/server", () => ({
   createClient: async () => {
-    const requete = {
-      select: () => requete,
-      eq: () => requete,
-      in: () => requete,
-      order: () => requete,
-      limit: () => requete,
-      then: (resoudre: (r: unknown) => unknown) => resoudre({ data: [], count: 0, error: null }),
+    const lecture = (table: string) => {
+      const valeurs: string[] = [];
+      const requete = {
+        select: () => requete,
+        eq: (_colonne: string, valeur: unknown) => (valeurs.push(String(valeur)), requete),
+        in: () => requete,
+        order: () => requete,
+        limit: () => requete,
+        then: (resoudre: (r: unknown) => unknown) => {
+          const cle = [table, ...valeurs].join(":");
+          return resoudre(
+            tablesEnPanne.has(cle)
+              ? { data: null, count: null, error: { message: "connection refused" } }
+              : { data: [], count: 0, error: null }
+          );
+        },
+      };
+      return requete;
     };
     return {
       rpc: async (nom: string, args: unknown) => {
         appelsRpc.push({ nom, args });
         return rpcs[nom] ?? { data: [], error: null };
       },
-      from: () => requete,
+      from: (table: string) => lecture(table),
     };
   },
 }));
@@ -59,6 +73,7 @@ describe("/admin — Clientes recientes", () => {
   beforeEach(() => {
     rpcs = {};
     appelsRpc.length = 0;
+    tablesEnPanne = new Set();
   });
 
   it("lit les 5 clients ayant commandé le plus récemment", async () => {
@@ -93,5 +108,41 @@ describe("/admin — Clientes recientes", () => {
   it("panne de list_clients : la page lève, jamais une liste vide", async () => {
     rpcs.list_clients = { data: null, error: { message: "connection refused" } };
     await expect(rendre()).rejects.toThrow(/list_clients/);
+  });
+});
+
+// Les compteurs et listes de l'accueil (alertes « Pendientes », santé du catalogue, établissements
+// actifs, listes récentes) étaient lus sans leur `error` : une panne s'affichait « 0 propuestas »,
+// « nada que conciliar », un catalogue vide. Chacune lève désormais, comme les agrégats.
+describe("/admin — chaque compteur et liste de l'accueil lève sur une panne", () => {
+  beforeEach(() => {
+    rpcs = {};
+    tablesEnPanne = new Set();
+  });
+
+  it.each([
+    ["establishments:active"],
+    ["product_proposals:pending"],
+    ["establishment_proposals:pending"],
+    ["pms_reconciliation_entries"],
+    ["payment_reconciliation_entries"],
+    ["partners"],
+    ["establishments"],
+    ["products:true"],
+    ["products:false"],
+    ["product_proposals:rejected"],
+  ])("lecture %s en panne : la page lève, jamais un zéro ou une liste vide", async (cle) => {
+    tablesEnPanne.add(cle);
+    await expect(rendre()).rejects.toThrow(/Lecture impossible/);
+  });
+
+  it.each([
+    ["admin_dashboard_totals"],
+    ["admin_dashboard_referrer_commissions"],
+    ["admin_dashboard_daily_series"],
+    ["admin_dashboard_top_partners"],
+  ])("agrégat %s en panne : la page lève, jamais un KPI à zéro", async (rpc) => {
+    rpcs[rpc] = { data: null, error: { message: "connection refused" } };
+    await expect(rendre()).rejects.toThrow(rpc);
   });
 });

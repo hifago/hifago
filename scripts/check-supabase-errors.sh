@@ -11,14 +11,21 @@
 # tout résultat Supabase attendu lit aussi son `error` (et lève, ou rend un échec explicite). Côté
 # admin, les pages passent par apps/admin/lib/supabase/checkedRead.ts, ou lèvent en ligne.
 #
-# Trois motifs, ceux par lesquels les sites corrigés étaient passés :
+# Quatre motifs, ceux par lesquels les sites corrigés étaient passés :
 #   - `const { data } = await …`, `const { data: x } = await …`, `const { count } = await …` ;
 #   - `.then(({ data }) => …)`, la même chose écrite en promesse ;
 #   - `if (error || …) return [];` / `return null;` — `error` lu, puis noyé dans l'absence
-#     (getCartLines, getOrderByToken).
+#     (getCartLines, getOrderByToken) ;
+#   - un résultat gardé dans une variable puis lu en `x.count ?? …` / `x.data ?? …` sans que le
+#     fichier lise jamais `x.error` ni ne passe `x` à `checkedRead` (accueil admin, 2026-10-04 :
+#     « 0 propuestas », « nada que conciliar » sur une panne). Contrôle par NOM de variable, dans
+#     tout le fichier : deux variables homonymes dans deux fonctions, dont une seule contrôlée,
+#     passent. Formes de lecture non vues : `x?.data ??`, `x.data!`, `x.data || []`, `x["data"]`,
+#     `x.data?.[0]`, `const { data } = x` puis `data ?? …`.
 # Ce que le script ne voit PAS : une destructuration sur plusieurs lignes ; une destructuration EN
 # TABLEAU (`const [{ data: a }, { data: b }] = await Promise.all(…)`) ; un résultat gardé entier puis
-# lu sans son `error` (`(await supabase.rpc(…)).data`, `error ? [] : data`) ; `{ data: x, count }`.
+# lu sans son `error` sous une autre forme que `x.data ?? …` (`(await supabase.rpc(…)).data`,
+# `error ? [] : data`) ; `{ data: x, count }`.
 # Chacune de ces formes a produit le même défaut sur apps/admin/app (corrigées le 2026-10-02) : la
 # revue reste le seul garde-fou pour elles. Il ferme les écritures qui ont réellement produit les
 # défauts, pas toutes celles qui pourraient en produire.
@@ -118,13 +125,34 @@ fichiers_lib() {
     ! -name '*.test.ts' ! -name '*.test.tsx' ! -name '*.stories.tsx' -print 2>/dev/null | sort
 }
 
+# 4ᵉ motif : `x.count ?? …` / `x.data ?? …` dont la variable `x` n'a jamais son `error` lu dans le
+# fichier, ni n'est passée à `checkedRead`. Ligne rapportée dans le texte sans commentaires.
+VARIABLE_NON_CONTROLEE='
+  my $s = $_;
+  while ($s =~ /\b([A-Za-z_]\w*)\.(count|data)\s*\?\?/g) {
+    my ($v, $champ, $pos) = ($1, $2, $-[0]);
+    next if $s =~ /\b\Q$v\E\.error\b/ || $s =~ /checkedRead\(\s*\Q$v\E\b/;
+    my $ligne = (substr($s, 0, $pos) =~ tr/\n//) + 1;
+    print "$ligne:$v.$champ ?? (ni $v.error ni checkedRead($v))\n";
+  }'
+
+# Les lignes fautives d'un fichier (les quatre motifs), vide s'il n'y en a aucune. Servie aux deux
+# boucles ci-dessous : une exemption « sans objet » se juge sur exactement la même détection.
+violations() { # fichier
+  local sans_commentaires hits variables
+  sans_commentaires="$(perl -0777 -p "$SANS_COMMENTAIRES" "$1")"
+  hits="$(printf '%s\n' "$sans_commentaires" | grep -nE "$MOTIF" || true)"
+  variables="$(printf '%s\n' "$sans_commentaires" | perl -0777 -ne "$VARIABLE_NON_CONTROLEE")"
+  printf '%s\n%s\n' "$hits" "$variables" | sed '/^$/d'
+}
+
 echo "== Résultat Supabase lu sans son error (apps/*/lib, apps/*/app) =="
 while IFS= read -r f; do
   est_exempte "$f" && continue
-  hits="$(perl -0777 -p "$SANS_COMMENTAIRES" "$f" | grep -nE "$MOTIF" || true)"
+  hits="$(violations "$f")"
   [ -z "$hits" ] && continue
   signale "$f" "$hits" \
-    "Lire aussi \`error\` et lever (motif de lib/catalog/buscar.ts) — ou rendre un échec explicite : une panne n'est jamais une absence."
+    "Lire aussi \`error\` et lever (motif de lib/catalog/buscar.ts, ou checkedRead côté admin) — ou rendre un échec explicite : une panne n'est jamais une absence. Si \`x\` n'est pas un résultat Supabase (\`fetch\`, ligne SQL agrégée), destructurer ou renommer."
 done < <(fichiers_lib)
 
 echo
@@ -134,8 +162,7 @@ for f in "${EXEMPTIONS[@]}"; do
     signale "$f" "(fichier absent)" "Retirer cette exemption de scripts/check-supabase-errors.sh."
     continue
   fi
-  hits="$(perl -0777 -p "$SANS_COMMENTAIRES" "$f" | grep -nE "$MOTIF" || true)"
-  [ -n "$hits" ] && continue
+  [ -n "$(violations "$f")" ] && continue
   signale "$f" "(plus aucune lecture concernée)" \
     "Bonne nouvelle : retirer cette exemption de scripts/check-supabase-errors.sh — la liste ne fait que rétrécir."
 done
