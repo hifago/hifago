@@ -1,6 +1,8 @@
 import type { ProductType } from "@/lib/products/productTypeGating";
 import { notFound } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { ModerateProposalForm } from "./ModerateProposalForm";
 import { PhotoModerationForm } from "./PhotoModerationForm";
@@ -11,7 +13,7 @@ export default async function AdminProposalDetailPage({
   params,
   searchParams,
 }: PageProps<"/admin/proposals/[id]">) {
-  const { id } = await params;
+  const id = requireUuidParam((await params).id);
   const resolvedSearchParams = await searchParams;
   const isEstablishment = resolvedSearchParams?.entity === "establishment";
   const supabase = await createClient();
@@ -28,13 +30,16 @@ export default async function AdminProposalDetailPage({
   // approuvée — product:products(...) ressort alors null, cf. garde ci-dessous).
   // Colonnes de products étendues (spec 15 bis, 2026-08-17) : parité de champs avec
   // ProductForm/ProductTypeFields côté "Valor actual" de ModerateProposalForm (branche content).
-  const { data: proposal } = await supabase
-    .from("product_proposals")
-    .select(
-      "id, status, version, payload, kind, type, establishment_id, rejection_reason, product:products(id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days), establishment:establishments(id, name, lobby_connector_active, lobby_has_token), partner:partners(display_name)"
-    )
-    .eq("id", id)
-    .maybeSingle();
+  const { data: proposal } = checkedRead(
+    await supabase
+      .from("product_proposals")
+      .select(
+        "id, status, version, payload, kind, type, establishment_id, rejection_reason, product:products(id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days), establishment:establishments(id, name, lobby_connector_active, lobby_has_token), partner:partners(display_name)"
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    "product_proposals",
+  );
 
   // Contrairement à avant la spec 15 : `!proposal.product` n'est plus un cas d'erreur, c'est
   // l'état normal d'une proposition kind='create' encore pending — seule l'absence de la
@@ -56,7 +61,10 @@ export default async function AdminProposalDetailPage({
       ? (resolveLocalizedField(asLocalizedField(proposal.establishment.name), "es") ?? proposal.establishment.id)
       : "—";
 
-    const { data: tagsRaw } = await supabase.from("catalog_tags").select("id, label").order("slug");
+    const { data: tagsRaw } = checkedRead(
+      await supabase.from("catalog_tags").select("id, label").order("slug"),
+      "catalog_tags",
+    );
     const availableTags = (tagsRaw ?? []).map((tag) => ({
       id: tag.id,
       label: resolveLocalizedField(asLocalizedField(tag.label), "es") ?? tag.id,
@@ -144,13 +152,16 @@ export default async function AdminProposalDetailPage({
 async function AdminEstablishmentProposalDetail({ id }: { id: string }) {
   const supabase = await createClient();
 
-  const { data: proposal } = await supabase
-    .from("establishment_proposals")
-    .select(
-      "id, status, version, payload, kind, rejection_reason, establishment:establishments(id, name, description, address, lat, lon), partner:partners(display_name)"
-    )
-    .eq("id", id)
-    .maybeSingle();
+  const { data: proposal } = checkedRead(
+    await supabase
+      .from("establishment_proposals")
+      .select(
+        "id, status, version, payload, kind, rejection_reason, establishment:establishments(id, name, description, address, lat, lon), partner:partners(display_name)"
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    "establishment_proposals",
+  );
 
   if (!proposal) {
     notFound();

@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import {
   buttonToneClasses,
   HEROUI_VARIANT,
+  ICON_SIZE_CLASS,
   RADIUS_CLASS,
   type ButtonColor,
   type ButtonSize,
@@ -52,7 +53,7 @@ export type IconLinkProps = {
   shape?: "circle" | "square";
   variant?: ButtonVariant;
   color?: ButtonColor;
-  /** Défaut `lg` : 44 px de cible tactile sur mobile, comme toute la famille. */
+  /** 44 × 44 px à toutes les tailles, comme IconButton : la taille ne règle que le glyphe. */
   size?: ButtonSize;
   testId?: string;
 };
@@ -77,6 +78,7 @@ export function IconLink({
     // l'obtient via la prop du même nom sur son <Button>.
     buttonVariants({ variant: HEROUI_VARIANT[variant], size, isIconOnly: true }),
     buttonToneClasses(variant, color),
+    ICON_SIZE_CLASS,
     SHAPE_CLASSES[shape],
     FOCUS_CLASS,
   ].join(" ");

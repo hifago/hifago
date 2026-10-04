@@ -6,7 +6,7 @@
 -- `anon`, une policy refuserait l'écriture AVANT que la contrainte n'ait son mot à dire, et le
 -- test prouverait la policy, pas la contrainte (leçon du slug réservé, spec 29 §10ter).
 begin;
-select plan(4);
+select plan(7);
 
 insert into partners (id, display_name) values
   ('88920000-0000-4000-8000-000000000001', 'Vitrine Test Partner');
@@ -65,6 +65,45 @@ select is(
       and conname = 'products_price_cop_required_unless_evento'),
   0,
   'l''ancienne contrainte a bien été retirée, pas seulement doublée'
+);
+
+-- Cas 5-7 — `products_external_booking_url_scheme` (20261001144546) : le lien est rendu tel quel
+-- dans la vitrine, seuls http et https sont admis. `throws_like` sur le NOM de la contrainte : un
+-- 23514 seul pourrait venir d'une autre contrainte de products et prouverait autre chose.
+select throws_like(
+  $$ insert into products (
+       partner_id, establishment_id, type, name, sellable, slug,
+       external_booking_url, price_label, price_cop
+     ) values (
+       '88920000-0000-4000-8000-000000000001', '88920000-0000-4000-8000-000000000011',
+       'activity', jsonb_build_object('es', 'Vitrina Esquema Ftp'), true, 'vitrina-esquema-ftp',
+       'ftp://reservas.example.com', 'Consultar', null
+     ) $$,
+  '%products_external_booking_url_scheme%',
+  'un lien externe dont le schéma n''est ni http ni https est refusé'
+);
+select throws_like(
+  $$ insert into products (
+       partner_id, establishment_id, type, name, sellable, slug,
+       external_booking_url, price_label, price_cop
+     ) values (
+       '88920000-0000-4000-8000-000000000001', '88920000-0000-4000-8000-000000000011',
+       'activity', jsonb_build_object('es', 'Vitrina Sin Esquema'), true, 'vitrina-sin-esquema',
+       'wa.me/573001234567', 'Consultar', null
+     ) $$,
+  '%products_external_booking_url_scheme%',
+  'un lien externe sans schéma est refusé'
+);
+select lives_ok(
+  $$ insert into products (
+       partner_id, establishment_id, type, name, sellable, slug,
+       external_booking_url, price_label, price_cop
+     ) values (
+       '88920000-0000-4000-8000-000000000001', '88920000-0000-4000-8000-000000000011',
+       'activity', jsonb_build_object('es', 'Vitrina Esquema Mayusculas'), true, 'vitrina-esquema-mayusculas',
+       'HTTPS://reservas.example.com', 'Consultar', null
+     ) $$,
+  'le schéma est reconnu quelle que soit sa casse'
 );
 
 select * from finish();

@@ -10,6 +10,7 @@ import { useAddressAutocomplete } from "@/components/use-address-autocomplete";
 import { TagsMultiSelect, type TagOption } from "@/components/tags-multiselect";
 import { useEstablishmentFieldsState } from "@/lib/establishments/useEstablishmentFieldsState";
 import { buildEstablishmentRpcParams } from "@/lib/establishments/establishmentPayload";
+import { uploadCatalogBlob } from "@/lib/media/uploadCatalogBlob";
 import { ActionConfirmation } from "@/components/action-confirmation";
 import { WizardStepper } from "@/components/wizard-stepper";
 
@@ -122,18 +123,15 @@ export function NewEstablishmentForm({
   async function handleCropConfirm(blob: Blob) {
     setIsUploadingPhotos(true);
     try {
-      const formData = new FormData();
-      formData.append("file", blob, "photo.png");
-      const response = await fetch("/api/upload/establishment", { method: "POST", body: formData });
-      const result = (await response.json()) as
-        | { ok: true; storage_path: string }
-        | { ok: false; reason: string };
-
-      if (!result.ok) {
-        toast.danger("No se pudo subir la foto.");
+      // Envoi commun aux galeries (lib/media/uploadCatalogBlob.ts) : toute issue rend un résultat
+      // avec un message écrit pour l'écran — l'ancien `response.json()` levait sur un 413 en texte
+      // de la plateforme, et la modale se fermait sans un mot.
+      const upload = await uploadCatalogBlob("establishment", blob);
+      if (!upload.ok) {
+        toast.danger(upload.reason);
         return;
       }
-      setPhotos((prev) => [...prev, { path: result.storage_path, url: URL.createObjectURL(blob) }]);
+      setPhotos((prev) => [...prev, { path: upload.storagePath, url: URL.createObjectURL(blob) }]);
       toast.success("Foto añadida.");
     } finally {
       if (pendingImage) URL.revokeObjectURL(pendingImage);
@@ -344,7 +342,7 @@ export function NewEstablishmentForm({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="lat">Latitud — detectada o manual</Label>
               <Input id="lat" value={fields.lat} onChange={(event) => fields.setLat(event.target.value)} data-testid="lat-input" />

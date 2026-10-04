@@ -1,8 +1,10 @@
 "use client";
 
+import { useRef } from "react";
 import { ComboBox, InputGroup, ListBox, Spinner } from "@hifago/ui";
 import { Button } from "@/components/atoms/Button";
 import { sousId } from "@/components/atoms/Field";
+import { IconButton } from "@/components/atoms/IconButton";
 
 // LA barre de recherche de la vitrine (2026-09-02, vague 7). Le composant le plus visible du site :
 // il vit dans le premier bloc sous le header, sur l'accueil (décision de Jérôme) — donc PAS dans le
@@ -133,12 +135,35 @@ export type SearchBarProps = {
   pendingLabel?: string;
   /** Ce qu'affiche la liste quand elle est vide, déjà traduit. */
   emptyLabel: string;
+  /**
+   * Nom du bouton « × » qui vide le champ, déjà traduit (maquette de l'accueil, 2026-10-01).
+   * Absent = pas de bouton. ⚠️ Il n'apparaît que lorsqu'il y a du TEXTE à effacer : la maquette le
+   * dessine dans un champ vide, mais une croix qui n'efface rien serait un bouton sans effet.
+   */
+  clearLabel?: string;
   /** Texte d'aide sous la barre, déjà traduit. Même vocabulaire que l'atome `Field`. */
   hint?: string;
   /** Message d'erreur, déjà traduit. Même vocabulaire que `Field` — rend la barre invalide. */
   error?: string;
   testId?: string;
 };
+
+// La croix du bouton qui vide le champ — même tracé que celle du menu du header.
+function CroixIcone() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      className="size-5 shrink-0"
+      aria-hidden="true"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
 
 function LoupeIcone() {
   return (
@@ -148,7 +173,7 @@ function LoupeIcone() {
       stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"
-      className="size-5 shrink-0 text-muted"
+      className="size-5 shrink-0"
       aria-hidden="true"
     >
       <circle cx="11" cy="11" r="7" />
@@ -169,6 +194,7 @@ export function SearchBar({
   isPending = false,
   pendingLabel,
   emptyLabel,
+  clearLabel,
   hint,
   error,
   testId,
@@ -177,6 +203,11 @@ export function SearchBar({
   // ComboBox lui-même et vaut exactement « l'utilisateur est descendu sur une option » : `null`
   // tant qu'il n'a pas pris les flèches, l'id de l'option ensuite. On lit donc l'état que le
   // composant expose déjà, plutôt que d'en tenir un second en parallèle, qui divergerait.
+  // Pour rendre le focus au CHAMP après un effacement : le bouton « × » disparaît avec le texte, et
+  // le focus tomberait sinon sur <body> — la tabulation repartirait du début de la page. Une ref sur
+  // la pilule plutôt que sur l'`<input>` : celui-ci est rendu par HeroUI, la pilule par ce fichier.
+  const pilule = useRef<HTMLDivElement>(null);
+
   function gererEntree(evenement: React.KeyboardEvent<HTMLInputElement>) {
     if (evenement.key !== "Enter") return;
     const champ = evenement.currentTarget;
@@ -196,11 +227,13 @@ export function SearchBar({
           segment un jour = ajouter un frère ici, entre le ComboBox et le bouton, sans toucher au
           reste. C'est aussi ce qui met le bouton HORS du ComboBox (voir le deuxième piège en tête
           de fichier). */}
-      {/* ⚠️ `py-3` et `text-xl` : « plus grand que les autres » est une demande explicite, et elle
-          se mesure. L'atome `Field` est à `min-h-11` (44 px) ; cette pilule fait 64 px de haut, et
-          elle prend toute la largeur de son bloc — la référence occupe 687 px sur 1280, soit plus
-          de la moitié de la page. Elle peut se le permettre parce qu'elle ne vit PAS dans le
-          header : aucune barre de navigation ne lui impose sa hauteur. */}
+      {/* ⚠️ LA PILULE DE LA MAQUETTE DE L'ACCUEIL (Jérôme, 2026-10-01) : un aplat BLEU POUDRE de la
+          charte (`--default`), sans bordure ni ombre, marine dessus (8.02:1), 44 px de haut — la
+          cible tactile minimale ; plus fine, comme sur la maquette, elle ne se viserait plus au pouce.
+          Elle remplace la grande pilule blanche bordée de 64 px du 2026-09-02 (« plus grand que les
+          autres ») : c'est la maquette qui fait foi désormais. Sans bordure, c'est le contraste de
+          l'aplat sur l'or qui la détache de la page — et c'est un champ que l'on repère à sa forme,
+          à sa loupe et à son texte, pas à un filet. */}
       {/* ⚠️ Les deux classes qui accompagnent `status-focused` ne sont pas décoratives : sans elles
           le focus dessine TROIS lignes concentriques (relevé par Jérôme, puis mesuré au
           `box-shadow` calculé) — la bordure teal du repos à 1 px, puis 2 px de fond, puis l'anneau
@@ -209,7 +242,10 @@ export function SearchBar({
           `ring-offset-0` supprime l'écart, `border-transparent` efface la bordure du repos : il ne
           reste que l'anneau, exactement à la place de la bordure qu'il REMPLACE. Ni l'un ni l'autre
           ne déplace quoi que ce soit — un anneau ne participe pas à la mise en page. */}
-      <div className="flex w-full items-center gap-2 rounded-full border border-border bg-surface py-3 px-2 shadow-sm has-[input:focus-visible]:status-focused has-[input:focus-visible]:border-transparent has-[input:focus-visible]:ring-offset-0">
+      <div
+        ref={pilule}
+        className="flex min-h-11 w-full items-center gap-1 rounded-full bg-[var(--default)] px-2 text-[var(--default-foreground)] has-[input:focus-visible]:status-focused has-[input:focus-visible]:ring-offset-0"
+      >
         <ComboBox
           className="min-w-0 flex-1"
           // ⚠️ Le nom accessible se pose sur la RACINE, pas sur le `<input>` : react-aria le
@@ -258,19 +294,24 @@ export function SearchBar({
               `--tw-shadow` — l'anneau vit dans `--tw-ring-shadow`, un autre emplacement de la même
               propriété composée (mesuré : `oklch(…) 0 0 0 2px` subsistait). C'est l'anneau de la
               PILULE qu'on garde : lui seul entoure aussi le bouton. */}
-          <InputGroup className="flex w-full items-center gap-3 !h-auto !border-0 !bg-transparent !shadow-none !ring-0 pl-3">
-            <InputGroup.Prefix>
+          <InputGroup className="flex w-full items-center gap-1.5 !h-auto !border-0 !bg-transparent !shadow-none !ring-0 pl-1">
+            {/* ⚠️ `!border-0` : le préfixe de HeroUI pose un FILET vertical entre la loupe et le
+                texte (`border-inline-end`, au bleu de `--field-border`) — absent de la maquette.
+                Marine, comme le texte : la loupe de la maquette n'est pas grisée. */}
+            <InputGroup.Prefix className="!border-0 !px-2 text-[var(--default-foreground)]">
               {/* `aria-hidden`, comme dans l'atome `Button` : `Spinner` publie son propre
                   `role="status" aria-label="Loading"` (anglais, non traduit) — la seule annonce
                   vivante reste la région `role="status"` de `BuscadorInicio`. */}
               {isPending ? (
-                <Spinner size="sm" color="current" aria-hidden="true" className="text-muted" />
+                <Spinner size="sm" color="current" aria-hidden="true" />
               ) : (
                 <LoupeIcone />
               )}
             </InputGroup.Prefix>
             <InputGroup.Input
-              className="min-w-0 flex-1 text-lg md:text-xl"
+              // Anton (`--font-sous-titre`), marine plein, placeholder compris : c'est le texte de
+              // la maquette (« ¿Qué buscas en Guatapé? »), composé dans la police des sous-titres.
+              className="min-w-0 flex-1 font-[family-name:var(--font-sous-titre)] text-base text-[var(--default-foreground)] placeholder:text-[var(--default-foreground)] sm:text-lg"
               placeholder={placeholder}
               // ⚠️ OBLIGATOIRE, pas décoratif : sous `md` le bouton est masqué (§4), donc la touche
               // de validation du clavier virtuel est le SEUL moyen visible de lancer la recherche.
@@ -327,6 +368,20 @@ export function SearchBar({
           </ComboBox.Popover>
         </ComboBox>
 
+        {/* La croix de la maquette : vide le champ et RAMÈNE le focus dans le champ (voir `pilule`).
+            Seulement quand il y a du texte — voir `clearLabel`. */}
+        {clearLabel && value !== "" ? (
+          <IconButton
+            icon={<CroixIcone />}
+            label={clearLabel}
+            onPress={() => {
+              onValueChange("");
+              pilule.current?.querySelector("input")?.focus();
+            }}
+            testId={sousId(testId, "clear")}
+          />
+        ) : null}
+
         {/* ⚠️ EXCEPTION ASSUMÉE à la règle « ne jamais masquer selon la largeur » du README. Cette
             règle protège le CONTENU INDEXABLE — Google indexe le mobile — et un bouton de
             soumission n'en est pas. Décision de Jérôme : pas de bouton sur mobile, le clavier
@@ -336,17 +391,17 @@ export function SearchBar({
             lecteur d'écran mobile ne présente pas la touche de validation du clavier comme un
             bouton, et quelqu'un qui referme son clavier en touchant ailleurs n'aurait plus rien
             pour soumettre. `focus-within:not-sr-only` le fait réapparaître dès qu'il reçoit le
-            focus, pour qu'un utilisateur clavier ne tabule jamais vers un contrôle invisible. */}
-        <div className="sr-only focus-within:not-sr-only md:not-sr-only">
+            focus, pour qu'un utilisateur clavier ne tabule jamais vers un contrôle invisible.
+            ⚠️ MASQUÉ À TOUTES LES LARGEURS depuis la maquette de l'accueil (2026-10-01), qui n'en
+            montre aucun, ordinateur compris : `Entrée` cherche, et le bouton réapparaît toujours au
+            focus clavier. Ce n'est plus une exception de largeur — il n'y a plus de largeur. */}
+        <div className="sr-only focus-within:not-sr-only">
           {/* ⚠️ `size="md"` et `shape="pill"` — demande de Jérôme du 2026-09-02 : plus bas et
               complètement arrondi, pour qu'il se loge dans la pilule au lieu de la contredire.
               `shape` a été ajouté à l'atome `Button` pour ça, son rayon y était figé dans une
               constante.
-              ⚠️ `md` mesure 36 px de haut au lieu des 44 px que components/README.md exige comme
-              cible tactile. C'est acceptable ICI, et seulement ici, parce que ce bouton n'est
-              visible qu'à partir de `md` (768 px) — sur téléphone, la cible tactile réelle est le
-              champ, qui fait 70 px. À savoir avant de recopier ce réglage sur un bouton visible
-              sur mobile. */}
+              `md` mesure 44 px depuis le plan 41 (item F4) : comme toute la famille, il ne descend
+              plus sous la cible tactile, à aucune largeur. */}
           <Button
             type="button"
             size="md"

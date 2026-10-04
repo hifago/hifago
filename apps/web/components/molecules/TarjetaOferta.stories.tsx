@@ -13,11 +13,13 @@ import { TarjetaOferta } from "./TarjetaOferta";
 // fait déborder un prix d'une carte étroite. Le test, lui, fournit ses messages en dur : il doit
 // dire quelle FORME de message le composant attend, ce qu'un fichier partagé ne montre plus.
 //
-// ⚠️ Les visuels sont ceux qui existent réellement dans `apps/web/public` (même règle que la story
-// de `PhotoStrip`) : une story ne doit pas dépendre du réseau pour s'afficher. Ce sont des SVG,
-// donc next/image les sert sans `srcset` — sans effet sur ce que ces stories montrent (la mise en
-// page), mais à savoir avant d'y mesurer quoi que ce soit sur les tailles servies.
-const VISUELS = ["/globe.svg", "/window.svg", "/file.svg", "/vercel.svg"];
+// Photos réelles de `mockData/`, servies localement par Storybook sous `/mock`.
+const VISUELS = [
+  "/mock/activities/kayak1/photos/1.jpeg",
+  "/mock/activities/partyboat1/photos/1.jpg",
+  "/mock/activities/yoga-session/photos/1.webp",
+  "/mock/establishments/bania/photos/1.jpeg",
+];
 
 // `decalage` fait démarrer chaque carte sur un visuel différent — dans une grille, des cartes qui
 // partagent leur première photo donnent l'illusion d'un composant qui ne varie pas.
@@ -52,7 +54,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// La variante des quatre sections non-activités : photos à fleur de carte, texte dessous.
+// La tuile photo de l'accueil (`TeselaOferta`, plan 41 S4) : une photo carrée arrondie à 16 px, le
+// nom dans un cartouche, le prix en bulle. Depuis S4, `grilla` et `carrusel` la rendent ; les
+// commentaires ci-dessous qui parlent de `Card` et de `PhotoStrip` ne valent plus que pour `lista`.
+// Les visuels sont les mêmes photos locales que la planche `TeselaOferta`.
 export const Grilla: Story = {};
 
 // ⚠️ POINT OUVERT DE LA SPEC 28 §10, à regarder avant d'arbitrer — c'est pour ça que cette story

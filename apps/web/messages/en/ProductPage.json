@@ -1,5 +1,5 @@
 {
-  "backToCatalog": "← Back to catalog",
+  "backToCatalog": "Back to catalog",
   "perPerson": "per person",
   "perHouse": "for the entire house",
   "lodgingKindDorm": "Dorm bed",
@@ -38,6 +38,10 @@
   "pmsAvailabilityError": "Could not check availability right now. Please try again later.",
   "pmsAvailabilityRetry": "Try again",
   "pmsAvailabilityRateLimited": "Too many requests in a row. Wait a moment and try again.",
+  "pmsAvailabilityConnectorOff": "This accommodation can't be booked online for now. Please contact the establishment.",
+  "pmsNoReservableTitle": "Online booking unavailable",
+  "pmsNoReservableText": "This accommodation can't be booked online for now. The establishment can help you directly.",
+  "pmsNoReservableContact": "Contact {establecimiento}",
   "estimatedTotal": "Estimated total",
   "groupDiscount": "Once {threshold, plural, one {# person has} other {# people have}} signed up for this departure, the price drops {pct}%.",
   "occurrence": {
@@ -59,5 +63,9 @@
   "transportMapsNewTab": "View the route on Google Maps (opens in a new tab)",
   "programTitle": "The plan, day by day",
   "programDay": "Day {dia}",
-  "programDayWithDate": "Day {dia} · {fecha}"
+  "programDayWithDate": "Day {dia} · {fecha}",
+  "ofrecidoPor": "Offered by <enlace>{nombre}</enlace>",
+  "ofrecidoPorTitulo": "Offered by",
+  "verEstablecimiento": "See {nombre}",
+  "barraReservar": "Book"
 }

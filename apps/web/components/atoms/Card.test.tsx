@@ -65,6 +65,15 @@ describe("Card", () => {
     expect(grand.querySelector("h2")?.className).toContain("text-2xl");
   });
 
+  // Plan 41, F2 : le titre d'une carte de CONTENU prend le rôle `titre-bloc` de la charte, qui porte
+  // police, taille et graisse 400 — aucune classe de taille ni de graisse Tailwind à côté.
+  it("`titleSize=\"bloque\"` pose le rôle `titre-bloc`, sans taille ni graisse Tailwind", () => {
+    const bloc = carte(<Card title="T" titleAs="h2" titleSize="bloque"><p>x</p></Card>);
+    const classes = bloc.querySelector("h2")?.className ?? "";
+    expect(classes).toContain("titre-bloc");
+    expect(classes).not.toMatch(/\b(text-(xs|sm|base|lg|xl|2xl)|font-(medium|semibold|bold))\b/);
+  });
+
   it("centre le titre (et l'en-tête qui le contient) seulement quand `titleAlign` le demande", () => {
     const parDefaut = carte(<Card title="T" titleAs="h2"><p>x</p></Card>);
     const centre = carte(<Card title="T" titleAs="h2" titleAlign="center"><p>x</p></Card>);
@@ -86,6 +95,16 @@ describe("Card", () => {
     // `.card__content` porte déjà `gap-1` : le défaut n'ajoute rien.
     expect(parDefaut.querySelector("[data-slot='card-content']")?.className.trim()).toBe("card__content");
     expect(aere.querySelector("[data-slot='card-content']")?.className).toContain("gap-6");
+  });
+
+  // Plan 41, F6 : les cartes de contenu prennent 20 → 24 px. Le défaut ne pose aucune classe, et
+  // c'est ce qui garde les tuiles et les fiches au `p-4` de HeroUI.
+  it("n'élargit le padding que quand on le demande", () => {
+    const parDefaut = carte(<Card title="T" titleAs="h2"><p>x</p></Card>);
+    const ample = carte(<Card title="T" titleAs="h2" padding="lg"><p>x</p></Card>);
+    expect(parDefaut.className).not.toMatch(/\bp-[56]\b/);
+    expect(ample.className).toContain("p-5");
+    expect(ample.className).toContain("sm:p-6");
   });
 
   it("ne rend ni en-tête ni contenu quand il n'y a rien à y mettre", () => {
@@ -267,6 +286,19 @@ describe("Card", () => {
     expect(enveloppe.className).toContain("-mt-4");
     expect(el.className).toContain("overflow-hidden");
     expect(enveloppe.querySelector("[data-testid='photo']")).not.toBeNull();
+  });
+
+  // Sans ce suivi, un visuel dans une carte `padding="lg"` resterait en retrait de 4 à 8 px.
+  it("garde le visuel à fleur de carte quand le padding s'élargit", () => {
+    const el = carte(
+      <Card title="T" titleAs="h2" padding="lg" media={<div />} testId="ample">
+        <p>x</p>
+      </Card>
+    );
+    const enveloppe = el.querySelector("[data-testid='ample-media']") as HTMLElement;
+    expect(enveloppe.className).toContain("-mx-5");
+    expect(enveloppe.className).toContain("sm:-mt-6");
+    expect(enveloppe.className).not.toContain("-mx-4");
   });
 
   it("ne rogne pas une carte sans visuel : l'overflow-visible de HeroUI est laissé en place", () => {

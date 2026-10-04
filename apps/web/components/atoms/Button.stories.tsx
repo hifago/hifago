@@ -8,8 +8,8 @@ import { Legende } from "../playground/Legende";
 // Le playground du bouton de la vitrine. Il est fait pour être REGARDÉ d'un coup d'œil, pas
 // manipulé contrôle par contrôle : chaque story montre un axe entier à la fois.
 //
-// À voir aux deux gabarits (Mobile 390 par défaut, Desktop 1280) : les hauteurs changent au
-// breakpoint `md`, et c'est là que se joue la règle des 44 px (voir la story `Tailles`).
+// À voir aux deux gabarits (Mobile 390 par défaut, Desktop 1280) : depuis le plan 41 (item F4),
+// les hauteurs NE changent PLUS au breakpoint `md` — 44 px au moins partout (story `Tailles`).
 const meta = {
   title: "Actions/Button",
   component: Button,
@@ -47,22 +47,22 @@ const Croix = () => (
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // Contraste mesuré EN DIRECT, pas recopié.
 //
-// ⚠️ Écrire les ratios en dur dans un commentaire les rend faux au premier changement de jeton —
-// et les jetons light/dark sont en cours d'écriture par un autre agent au moment où ceci est écrit
-// (2026-09-01). Mesuré ici, le chiffre affiché sous chaque bouton reste vrai par construction, et
-// dit immédiatement si un changement de thème casse une combinaison.
+// ⚠️ Écrire les ratios en dur dans un commentaire les rend faux au premier changement de jeton.
+// Mesuré ici, le chiffre affiché sous chaque bouton reste vrai par construction et dit
+// immédiatement si un changement de thème casse une combinaison.
 //
 // La composition (les fonds `soft` sont semi-transparents) est faite par le navigateur lui-même
 // via un canvas 1×1 : aucun parsing d'oklch/color-mix à écrire, et le résultat est celui affiché.
 function contrasteMesure(bouton: HTMLElement): number | null {
   // ⚠️ Le fond de référence est celui d'une PAGE de la vitrine (`--background`), pas celui du body
-  // de Storybook — le playground ne le peint pas, et en mode sombre on mesurerait du texte clair
-  // sur du blanc. `resoudre` le fait évaluer par le moteur sur un élément réel : lu en brut,
-  // `--background` vaut la chaîne `light-dark(clair, sombre)` entière, dont le canvas prendrait
-  // toujours la branche claire.
+  // de Storybook, que le playground ne peint pas. `resoudre` fait évaluer la custom property par
+  // le moteur sur un élément réel au lieu de transmettre son expression CSS brute au canvas.
+  // Posé sur une SURFACE (`data-superficie`, plan 41 F3), le fond de référence est le sien : le
+  // bouton marine se mesure sur l'or, pas sur le clair.
+  const surface = bouton.closest("[data-superficie]");
   const sonde = document.createElement("div");
   document.body.appendChild(sonde);
-  let fondPage = resoudre(sonde, "var(--background)");
+  let fondPage = surface ? getComputedStyle(surface).backgroundColor : resoudre(sonde, "var(--background)");
   sonde.remove();
   if (!fondPage || fondPage === "rgba(0, 0, 0, 0)") fondPage = "rgb(255,255,255)";
 
@@ -92,16 +92,15 @@ function AvecContraste({ legende, children }: { legende: string; children: React
       return window.setTimeout(mesurer, 250);
     };
     let minuteur = planifier();
-    // La barre d'outils pose `data-piste`/`data-mode` sur <html> APRÈS le montage : sans ce
-    // guetteur, un chiffre figé au premier rendu afficherait les contrastes des défauts HeroUI sur
-    // une story déjà passée à une autre piste.
+    // L'addon pose `data-theme` sur <html> APRÈS le montage : le contraste doit être recalculé si
+    // le thème vitrine/admin change dans la barre d'outils.
     const observateur = new MutationObserver(() => {
       window.clearTimeout(minuteur);
       minuteur = planifier();
     });
     observateur.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-piste", "data-mode", "data-theme", "class", "style"],
+      attributeFilter: ["data-theme"],
     });
     return () => {
       window.clearTimeout(minuteur);
@@ -142,19 +141,6 @@ export const Matrice: Story = {
         Le chiffre sous chaque bouton est son contraste WCAG mesuré au rendu, pas une valeur
         recopiée : il suit les jetons du thème. Seuil du texte : 4.5:1.
       </Legende>
-      {/* ⚠️ Constat du 2026-09-01, à ne pas confondre avec un défaut de ce composant. Mesuré sur
-          les quatre pistes × deux modes : avec « Aucune piste » (défauts HeroUI = production
-          actuelle), solid/accent rend 3.59:1 et solid/danger 3.48:1, sous le seuil. Avec chacune
-          des quatre pistes candidates de l'agent B (hifago, embalse, zócalo, cal), les douze
-          combinaisons passent, marge la plus serrée 5.84:1. La cible chiffrée pour corriger les défauts HeroUI (dichotomie sur le
-          rendu réel) : luminosité 0.5626 pour --accent et 0.5902 pour --danger. */}
-      <Legende>
-        Une case en rouge vient du THÈME, pas du bouton — la surcouche ne fait que consommer les
-        jetons. Sur « Aucune piste » (les défauts HeroUI, soit la production d&apos;aujourd&apos;hui),
-        solid/accent et solid/danger tombent à 3.59:1 et 3.48:1 : il faudrait descendre la
-        luminosité de --accent à 0.5626 et de --danger à 0.5902, chroma et teinte inchangés. Sur
-        chacune des pistes candidates, en clair comme en sombre, les douze cases passent.
-      </Legende>
       {VARIANTS.map((variant) => (
         <div key={variant} className="flex flex-col gap-2">
           <Legende>{variant}</Legende>
@@ -171,8 +157,8 @@ export const Matrice: Story = {
   ),
 };
 
-// Mesure la hauteur RENDUE plutôt que de l'écrire en dur : elle change au breakpoint `md`, et une
-// valeur recopiée deviendrait fausse en silence au premier changement de HeroUI.
+// Mesure la hauteur RENDUE plutôt que de l'écrire en dur : une valeur recopiée deviendrait fausse
+// en silence au premier changement de HeroUI ou des classes de taille.
 function AvecHauteur({ children }: { children: React.ReactNode }) {
   const conteneur = useRef<HTMLDivElement>(null);
   const [hauteur, setHauteur] = useState<number | null>(null);
@@ -193,9 +179,9 @@ function AvecHauteur({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ⚠️ La règle des 44 px de components/README.md, mise à l'épreuve. Basculer sur Desktop 1280 fait
-// perdre 4 px à chaque taille (HeroUI rétrécit à partir de `md`) : seul `lg` sur mobile atteint
-// réellement 44 px, ce qui est la raison du défaut `lg` de ce composant.
+// ⚠️ La règle des 44 px de components/README.md, mise à l'épreuve (plan 41, item F4). HeroUI
+// rétrécit chaque taille de 4 px à partir de `md` ; les classes de taille de l'atome l'en empêchent :
+// `sm` et `md` font 44 px, `lg` 48 px, sur Mobile 390 comme sur Desktop 1280. Même rayon partout.
 export const Tailles: Story = {
   args: { children: "Reservar" },
   render: (args) => (
@@ -207,12 +193,12 @@ export const Tailles: Story = {
       </AvecHauteur>
       <AvecHauteur>
         <Button {...args} size="md">
-          md
+          md (défaut)
         </Button>
       </AvecHauteur>
       <AvecHauteur>
         <Button {...args} size="lg">
-          lg (défaut)
+          lg (conversion)
         </Button>
       </AvecHauteur>
     </div>
@@ -267,6 +253,30 @@ export const Etats: Story = {
           </div>
         </div>
       ))}
+    </div>
+  ),
+};
+
+// La couleur `marine` (plan 41, item F4) : l'action principale posée sur une SURFACE OR, où un
+// bouton or disparaîtrait. Le chiffre est mesuré sur l'or (le fond de la surface), pas sur le clair.
+export const SurLOr: Story = {
+  args: { children: "Ver alojamientos" },
+  render: (args) => (
+    <div data-superficie="or" className="flex flex-col gap-6 rounded-[16px] p-6">
+      {VARIANTS.map((variant) => (
+        <div key={variant} className="flex flex-col gap-2">
+          <Legende>{variant}</Legende>
+          <div className="flex flex-wrap items-center gap-3">
+            <AvecContraste legende="marine">
+              <Button {...args} variant={variant} color="marine" />
+            </AvecContraste>
+          </div>
+        </div>
+      ))}
+      <Legende>
+        Sur l&apos;or, l&apos;action principale est marine + texte blanc ; un bouton or y perd son
+        contour. Sur une surface claire, elle reste or + texte marine (`accent`).
+      </Legende>
     </div>
   ),
 };

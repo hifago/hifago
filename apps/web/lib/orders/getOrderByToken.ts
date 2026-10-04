@@ -116,8 +116,10 @@ type RpcResult = {
 };
 
 /**
- * Rend `null` pour un jeton inconnu, malformé ou absent — la RPC ne distingue jamais les trois,
- * et l'appelant n'a qu'un seul geste à faire : `notFound()`.
+ * Rend `null` pour un jeton inconnu, malformé ou absent — la RPC ne distingue jamais les trois
+ * (elle répond `{ ok: false }`, sans erreur), et l'appelant n'a qu'un seul geste à faire :
+ * `notFound()`. Une ERREUR de lecture, elle, lève : l'écran est relu en boucle au retour de
+ * Mercado Pago, et une panne passagère ne doit jamais y devenir « cette page n'existe pas ».
  */
 export async function getOrderByToken(
   token: string,
@@ -126,8 +128,9 @@ export async function getOrderByToken(
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_order_by_token", { p_token: token });
 
+  if (error) throw error;
   const result = data as RpcResult | null;
-  if (error || !result?.ok || !result.order) return null;
+  if (!result?.ok || !result.order) return null;
 
   const order = result.order;
   return {

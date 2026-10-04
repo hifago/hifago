@@ -12,6 +12,7 @@ import {
 } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/server";
 import { createServiceRoleClient } from "@hifago/supabase/service";
+import { isUuid } from "@/lib/uuid";
 
 // Frontière d'accès aux données LobbyPMS d'un établissement, définie UNE fois (/simplify du
 // 2026-08-26). Les trois Route Handlers `api/pms/*` en portaient chacun leur copie : 38 lignes
@@ -90,7 +91,9 @@ export async function resolveLobbyEstablishment(
   establishmentId: string | null,
   options: { requireAdmin?: boolean } = {},
 ): Promise<LobbyEstablishmentAccess> {
-  if (!establishmentId) return deny("invalid_params", 400);
+  // Pas un UUID → 400 avant toute lecture : la lecture échouerait (22P02), et une lecture en échec
+  // répond ci-dessous 503 « autorisation indéterminable » — un faux 503 pour une faute de saisie.
+  if (!isUuid(establishmentId)) return deny("invalid_params", 400);
 
   const supabase = await createClient();
   const {
@@ -125,10 +128,17 @@ export async function resolveLobbyEstablishment(
   // isolé sur lobby-rooms pendant que lobby-services répondait 200, avec la même session et le même
   // établissement. Un 503 explicite est à la fois plus honnête et plus facile à diagnostiquer, et
   // reste fermé par défaut : on n'autorise jamais sur une réponse qu'on n'a pas obtenue.
-  if (adminResult.error || capabilityResult.error) {
+  //
+  // La lecture de l'établissement suit la même règle : sur une panne, `data` vaut null, que
+  // `lobbyCredentials` aurait lu « établissement introuvable » (404) — un faux refus de plus.
+  if (adminResult.error || capabilityResult.error || establishmentResult.error) {
     console.error(
       `resolveLobbyEstablishment : autorisation indéterminable (establishment ${establishmentId})`,
-      { isAdmin: adminResult.error?.message, hasCapability: capabilityResult.error?.message },
+      {
+        isAdmin: adminResult.error?.message,
+        hasCapability: capabilityResult.error?.message,
+        establishment: establishmentResult.error?.message,
+      },
     );
     return deny("authorization_unavailable", 503);
   }

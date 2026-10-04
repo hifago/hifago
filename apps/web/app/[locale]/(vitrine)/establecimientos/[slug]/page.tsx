@@ -65,8 +65,11 @@ export default async function EstablecimientoPage({
     { nombre: ficha.nombre },
   ];
 
+  // Plan 41, P4 : le gabarit des pages intérieures (`pagina`, la colonne de l'accueil). La fiche
+  // s'ouvre sur son bandeau or à fond perdu, que `FichaEstablecimiento` rend en premier enfant du
+  // `<main>`.
   return (
-    <PageShell variant="large">
+    <PageShell variant="pagina">
       <JsonLd
         data={buildEstablishmentJsonLd({
           siteUrl: getSiteUrl(),
@@ -90,9 +93,13 @@ export default async function EstablecimientoPage({
           `BreadcrumbList` de deux entrées sans afficher le moindre fil. */}
       <JsonLd data={buildBreadcrumbJsonLd(getSiteUrl(), migasParaJsonLd(migas, locale, rutaCanonica))} />
 
-      <Migas items={migas} etiqueta={t("migasEtiqueta")} locale={locale as Locale} testId="migas" />
-
-      <FichaEstablecimiento ficha={ficha} locale={locale as Locale} />
+      {/* Le fil visible part dans le bandeau de la fiche, déjà rendu : c'est toujours la liste
+          `migas` du JSON-LD ci-dessus. */}
+      <FichaEstablecimiento
+        ficha={ficha}
+        locale={locale as Locale}
+        migas={<Migas items={migas} etiqueta={t("migasEtiqueta")} locale={locale as Locale} testId="migas" />}
+      />
     </PageShell>
   );
 }

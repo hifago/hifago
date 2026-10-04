@@ -30,6 +30,7 @@ export async function labelsBuscador(locale: Locale): Promise<SearchPanelLabels>
       placeholder: t("buscar.placeholder"),
       submitLabel: t("buscar.submitLabel"),
       emptyLabel: t("buscar.emptyLabel"),
+      clearLabel: t("buscar.clearLabel"),
     },
     dates: {
       placeholderLabel: t("fechas.placeholderLabel"),

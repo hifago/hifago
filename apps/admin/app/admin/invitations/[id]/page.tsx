@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { RevokeInvitationButton } from "../RevokeInvitationButton";
 import { InvitationStatusChip } from "../InvitationStatusChip";
 import { ONBOARDING_PATH_LABELS } from "../invitationLabels";
@@ -13,16 +15,21 @@ import { formatDateTimeInBogota } from "@hifago/domain";
 export default async function AdminInvitationDetailPage({
   params,
 }: PageProps<"/admin/invitations/[id]">) {
-  const { id } = await params;
+  const id = requireUuidParam((await params).id);
   const supabase = await createClient();
 
-  const { data: invitation } = await supabase
-    .from("partner_invitations")
-    .select(
-      "id, promo_code, onboarding_path, status, partner_hint, expires_at, consumed_at, consumed_by_account_id, partner_id, created_by, created_at"
-    )
-    .eq("id", id)
-    .maybeSingle();
+  // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
+  // répondait « introuvable », ou un créateur inconnu.
+  const { data: invitation } = checkedRead(
+    await supabase
+      .from("partner_invitations")
+      .select(
+        "id, promo_code, onboarding_path, status, partner_hint, expires_at, consumed_at, consumed_by_account_id, partner_id, created_by, created_at"
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    "partner_invitations",
+  );
 
   if (!invitation) {
     notFound();
@@ -38,7 +45,7 @@ export default async function AdminInvitationDetailPage({
           .select("partners(display_name)")
           .eq("id", invitation.created_by)
           .maybeSingle()
-          .then(({ data }) => data?.partners?.display_name ?? null)
+          .then((result) => checkedRead(result, "partner_accounts").data?.partners?.display_name ?? null)
       : Promise.resolve(null),
   ]);
   const resolvedPartnerId = resolvedPartnerByInvitation.get(invitation.id) ?? null;

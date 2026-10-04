@@ -7,10 +7,10 @@
     "titulo": "No bookings yet",
     "descripcion": "Once you book something, you'll find it here."
   },
-  "emptyCta": "Discover Guatapé",
+  "emptyCta": "Explore activities",
   "loadError": "We could not load your bookings. Please try again in a moment.",
   "orderReference": "Booking {reference}",
-  "viewDetail": "View details",
+  "viewDetail": "View details of booking {reference}",
   "lineQty": "Quantity: {count}",
   "linePaid": "Paid",
   "lineTotal": "Total price",

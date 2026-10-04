@@ -11,6 +11,11 @@ import { toSlotRuleRows, validateSlotRules, type DraftSlotRule } from "@/lib/pro
 // aux tags (ajout/retrait incrémental), le jeu de règles est édité comme un tout : "Guardar
 // horarios" remplace toutes les lignes existantes par l'état courant (pas de diff ligne-à-ligne,
 // plus simple et suffisant pour le volume attendu — quelques règles par activité).
+//
+// Le remplacement passe par UNE RPC, replace_product_slot_rules (20261001235031) : le delete et
+// les inserts se font dans la même transaction. Avant, deux requêtes séparées depuis le
+// navigateur pouvaient laisser l'activité sans aucune règle — donc invendable — si la seconde
+// échouait.
 export function ProductSlotRulesBlock({
   productId,
   initialRules,
@@ -31,24 +36,14 @@ export function ProductSlotRulesBlock({
     setIsSaving(true);
     const supabase = createClient();
 
-    const { error: deleteError } = await supabase
-      .from("product_slot_rules")
-      .delete()
-      .eq("product_id", productId);
-    if (deleteError) {
+    const { data, error } = await supabase.rpc("replace_product_slot_rules", {
+      p_product_id: productId,
+      p_rules: toSlotRuleRows(rules),
+    });
+    if (error || !(data as { ok?: boolean } | null)?.ok) {
       toast.danger("No se pudo guardar los horarios.");
       setIsSaving(false);
       return;
-    }
-
-    if (rules.length > 0) {
-      const rows = toSlotRuleRows(rules).map((row) => ({ product_id: productId, ...row }));
-      const { error: insertError } = await supabase.from("product_slot_rules").insert(rows);
-      if (insertError) {
-        toast.danger("No se pudo guardar los horarios.");
-        setIsSaving(false);
-        return;
-      }
     }
 
     setIsSaving(false);

@@ -1,19 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { LedgerLinesTable } from "./LedgerLinesTable";
 import { formatDateInBogota } from "@hifago/domain";
 
 export default async function AdminOrderDetailPage({
   params,
 }: PageProps<"/admin/orders/[id]">) {
-  const { id } = await params;
+  const id = requireUuidParam((await params).id);
   const supabase = await createClient();
 
   // order et lines ne dépendent que de `id`, pas l'un de l'autre — un seul aller-retour réseau au
   // lieu de deux séquentiels. Aucune nouvelle policy : orders_select/order_lines_select (feature 6)
   // laissent déjà l'admin tout lire, cf. plan feature 12 ("aucun backend nouveau, comme la feature 9").
-  const [{ data: order }, { data: lines }] = await Promise.all([
+  const [orderResult, linesResult] = await Promise.all([
     supabase
       .from("orders")
       .select(
@@ -23,6 +25,10 @@ export default async function AdminOrderDetailPage({
       .maybeSingle(),
     supabase.rpc("admin_order_line_ledger", { p_order_id: id }),
   ]);
+  // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
+  // répondait « introuvable », ou une commande sans lignes ni réconciliation.
+  const { data: order } = checkedRead(orderResult, "orders");
+  const { data: lines } = checkedRead(linesResult, "admin_order_line_ledger");
 
   if (!order) {
     notFound();
@@ -32,14 +38,16 @@ export default async function AdminOrderDetailPage({
   // order_lines (pas de colonne order_id directe sur pms_reconciliation_entries). Silencieux si
   // aucune entrée — pas une anomalie pour la plupart des commandes.
   const lineIds = (lines ?? []).map((line) => line.id);
-  const { data: reconciliationEntries } =
+  const { data: reconciliationEntries } = checkedRead(
     lineIds.length > 0
       ? await supabase
           .from("pms_reconciliation_entries")
           .select("id")
           .in("order_line_id", lineIds)
           .limit(1)
-      : { data: null };
+      : { data: null, error: null },
+    "pms_reconciliation_entries",
+  );
   const hasReconciliationEntry = (reconciliationEntries?.length ?? 0) > 0;
 
   return (

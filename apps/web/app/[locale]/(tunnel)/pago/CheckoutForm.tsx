@@ -6,8 +6,11 @@ import { isValidPhoneNumber } from "react-phone-number-input";
 import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
 import { useCart } from "@/lib/cart/CartContext";
-import { Button, Checkbox, Input, Label, TextField } from "@hifago/ui";
+import { Checkbox, Input, Label, TextField } from "@hifago/ui";
+import { Button } from "@/components/atoms/Button";
+import { Card } from "@/components/atoms/Card";
 import { PhoneField } from "@/components/atoms/PhoneField";
+import { Aviso } from "@/components/molecules/Aviso";
 
 // Raisons qui renvoient `line` (product_id/date de LA ligne fautive) — toujours un sous-ensemble
 // de KNOWN_REASONS ci-dessous (composé à partir de celui-ci, jamais recopié à la main : chaque
@@ -45,13 +48,20 @@ const LINE_SCOPED_REASONS = [
   "qty_cap_exceeded",
   "date_range_required",
   "pms_unavailable",
+  // Migration 20260929112240, renvoyées avec la ligne fautive comme les autres : date qui n'est pas
+  // une représentation d'un evento réservable, quantité hors des paliers de prix, produit sans prix.
+  "invalid_occurrence_date",
+  "no_matching_tier",
+  "price_missing",
 ] as const;
 
 // Raisons de create_order qui ne visent PAS une ligne précise (visibles seulement au niveau de la
 // commande entière) — jamais dans LINE_SCOPED_REASONS ci-dessus, sans quoi une raison order-scopée
-// pointerait à tort sur une ligne du panier. not_authenticated n'apparaît nulle part ici : le
-// correctif réservation invité a retiré ce garde-fou de create_order, la RPC ne renvoie plus
-// jamais cette raison. resource_unavailable (feature 20, ligne-scopée) reste dans
+// pointerait à tort sur une ligne du panier. not_authenticated n'est pas mappée : create_order la
+// renvoie encore sans session (migration 20260929112240), mais le panier qui fait afficher ce
+// formulaire en suppose une (anonyme au besoin, ouverte par CartContext au premier ajout) — seule
+// une session perdue entre l'affichage et l'envoi y mène, et retombe sur "unknown".
+// resource_unavailable (feature 20, ligne-scopée) reste dans
 // LINE_SCOPED_REASONS ci-dessus, pas ici. Cahier des charges client §3e, révisé 2026-08-17 :
 // email_required/email_invalid — le champ HTML `isRequired` bloque déjà la soumission vide côté
 // front, ces deux raisons restent le filet côté serveur (RPC appelée directement, format invalide
@@ -77,6 +87,31 @@ function resolveKnownReason(raw: string | undefined): (typeof KNOWN_REASONS)[num
   return raw !== undefined && (KNOWN_REASONS as readonly string[]).includes(raw)
     ? (raw as (typeof KNOWN_REASONS)[number])
     : "unknown";
+}
+
+// Message d'un échec de /api/pms/reserve-nights, d'après son `reason` et son `released` (contrat de
+// la route depuis la migration 20260930221837). « Libéré » n'est dit QUE si la route l'a confirmé :
+// un corps illisible (500/504 de la plateforme), une erreur de base ou un relâchement impossible
+// laissent la commande en attente — elle expire d'elle-même, rien n'est encaissé. `order_paid` n'a
+// pas de message propre : inatteignable ici, la commande vient d'être créée et aucun paiement n'est
+// possible avant cette étape (à traiter par tout autre appelant de la route).
+type ReserveNightsErrorKey =
+  | "pms_refused"
+  | "pms_refused_pending"
+  | "pms_unavailable"
+  | "pms_unreachable"
+  | "pms_unconfirmed_pending"
+  | "pms_claim_in_progress";
+
+export function reserveNightsErrorKey(result: { reason?: string; released?: boolean } | null): ReserveNightsErrorKey {
+  if (result === null) return "pms_unconfirmed_pending";
+  if (result.reason === "pms_claim_in_progress") return "pms_claim_in_progress";
+  if (result.released !== true) {
+    return result.reason === "pms_refused" ? "pms_refused_pending" : "pms_unconfirmed_pending";
+  }
+  if (result.reason === "pms_refused") return "pms_refused";
+  if (result.reason === "pms_unavailable") return "pms_unavailable";
+  return "pms_unreachable";
 }
 
 type CreateOrderResult = {
@@ -118,6 +153,14 @@ export function CheckoutForm({
 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Vrai dès que create_order a réussi : il a vidé le panier, donc un nouvel envoi depuis ce
+  // formulaire ne peut plus rien donner qu'« empty_cart ». Le bouton reste éteint, quoi qu'il arrive
+  // ensuite ; le message dit la suite, et une commande encore vivante se retrouve par l'avis de
+  // commande en attente de /pago et /mi-viaje (`PendingOrdersNotice`).
+  const [isOrderPlaced, setIsOrderPlaced] = useState(false);
+  // La commande est encore vivante (ni payée ni défaite) : le lien vers /mi-viaje y mène, et
+  // OrderResult sait reprendre la confirmation chez Lobby avant le paiement.
+  const [canResumeOrder, setCanResumeOrder] = useState(false);
 
   // ⚠️ SPEC 33 — CE FORMULAIRE NE PORTE PLUS AUCUN ÉTAT DE PAIEMENT, et c'est tout le sujet du lot.
   //
@@ -134,6 +177,7 @@ export function CheckoutForm({
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    setCanResumeOrder(false);
 
     // `PhoneField` (2026-09-10) ne pose jamais l'attribut natif `required`/`type="tel"` bloquant —
     // par construction, comme `Field` (cf. son en-tête), pour ne jamais dépendre du `noValidate` du
@@ -149,7 +193,16 @@ export function CheckoutForm({
       return;
     }
 
+    // ⚠️ Le bouton reste désactivé jusqu'à la FIN : create_order PUIS reserve-nights, qui peut
+    // attendre Lobby près d'une minute. Le rendre dès le retour de create_order laissait un second
+    // clic relancer create_order sur un panier déjà vidé — « empty_cart » affiché pendant que la
+    // première commande se confirmait encore. Un refus de create_order le rend via `fail` ; après
+    // une commande créée, `isOrderPlaced` le garde éteint ; un succès part vers /reserva/<jeton>.
     setIsSubmitting(true);
+    const fail = (message: string) => {
+      setError(message);
+      setIsSubmitting(false);
+    };
 
     // Spec 32 (panier en base) : create_order lit désormais ses propres lignes (cart_items) et son
     // attribution (carts) pour auth.uid() côté serveur — plus de p_lines/p_attribution_code/
@@ -164,16 +217,18 @@ export function CheckoutForm({
       p_marketing_consent: marketingConsent,
     });
 
-    setIsSubmitting(false);
-
     const result = data as CreateOrderResult | null;
     if (rpcError || !result?.ok) {
       const reason = resolveKnownReason(result?.reason);
-      setError(t(`errors.${reason}`));
+      fail(t(`errors.${reason}`));
       return;
     }
 
     const orderId = result.order_id ?? "";
+    setIsOrderPlaced(true);
+    // Le panier est déjà vide côté serveur (create_order) : la pastille du header suit, quelle que
+    // soit l'issue de Lobby.
+    void refresh();
 
     // ⚠️ LOBBY D'ABORD — RÉORDONNÉ LE 2026-08-29, et ce n'est pas « un await de plus ».
     //
@@ -202,8 +257,10 @@ export function CheckoutForm({
     } catch {
       // Réseau coupé pendant l'appel : on ne sait pas si Lobby a réservé. Échec fermé — rien n'est
       // encaissé, et expire_stale_payment_orders reprendra la commande dans les 30 minutes (avec,
-      // au passage, l'annulation d'un booking qui aurait malgré tout été créé).
-      setError(t("errors.pms_unreachable"));
+      // au passage, l'annulation d'un booking qui aurait malgré tout été créé). Même message qu'un
+      // corps illisible : la commande n'est PAS libérée, réessayer tout de suite n'a pas de sens.
+      fail(t(`errors.${reserveNightsErrorKey(null)}`));
+      setCanResumeOrder(true);
       return;
     }
 
@@ -218,13 +275,11 @@ export function CheckoutForm({
       // réussit (spec 32 §0, atomique avec la création de la commande), le panier est déjà VIDE à
       // cet instant — release_order_after_pms_refusal défait la commande mais ne recrée aucune
       // ligne cart_items, ce n'est pas son rôle. Le client devra ressaisir sa sélection.
-      setError(t(pmsResult?.released === false ? "errors.pms_refused_pending" : "errors.pms_refused"));
+      const key = reserveNightsErrorKey(pmsResult);
+      fail(t(`errors.${key}`));
+      setCanResumeOrder(key === "pms_unconfirmed_pending" || key === "pms_claim_in_progress");
       return;
     }
-
-    // create_order a déjà vidé cart_items côté serveur (contrat spec 32 §0) — refresh() ne fait
-    // que resynchroniser la pastille du header avec cet état déjà réel, jamais une suppression.
-    void refresh();
 
     // Spec 33 — le jeton est lu en RLS DIRECTE, jamais renvoyé par `create_order` : `orders_select`
     // autorise déjà le propriétaire à lire sa propre ligne, et depuis la spec 31 l'invité EST un
@@ -237,20 +292,39 @@ export function CheckoutForm({
       .maybeSingle();
 
     if (!orderRow?.access_token) {
-      // Ne devrait jamais arriver (colonne NOT NULL). La commande EST prise et Lobby a accepté :
-      // on ne défait rien, on le dit — le client la retrouvera par son email de confirmation.
-      setError(t("errors.unknown"));
+      // Colonne NOT NULL : seul un échec de la lecture elle-même (réseau) mène ici. La commande EST
+      // prise et Lobby a accepté : on ne défait rien, on le dit — le client la retrouve par l'avis
+      // de commande en attente de /pago et /mi-viaje (aucun e-mail client avant le paiement).
+      fail(t("errors.order_placed_unreadable"));
+      setCanResumeOrder(true);
       return;
     }
 
     router.push(`/reserva/${orderRow.access_token}`);
   }
 
-  // Le panier (liste + total) est affiché juste au-dessus par `CartSummary` en lecture seule
+  // Le panier (liste + total) est affiché à côté par `CartSummary` en lecture seule
   // (`pago/page.tsx`) — ce formulaire ne porte plus que les coordonnées et le paiement (spec 32).
+  //
+  // Plan 41, P6 : « Tus datos » dans une carte, l'erreur EN TÊTE du formulaire (un `Aviso` erreur,
+  // même `role="alert"` et même `data-testid` qu'avant), le lien de reprise juste sous elle, la
+  // politique d'annulation dans un `Aviso` info, le CTA `lg` pleine largeur. Seul l'affichage
+  // change : `handleSubmit` ci-dessus est intact, appel pour appel.
   return (
-    <div className="flex flex-col gap-6">
-      <form onSubmit={handleSubmit} className="flex max-w-md flex-col gap-4">
+    <Card title={t("formTitle")} titleAs="h2" titleSize="bloque" padding="lg" contentGap="md">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {error ? (
+          <Aviso tono="error" rol="alert" testId="checkout-error">
+            {error}
+          </Aviso>
+        ) : null}
+        {/* Hors de l'`Aviso` : son `textContent` est lu tel quel (CheckoutForm.test.tsx). */}
+        {canResumeOrder ? (
+          <Link href="/mi-viaje" data-testid="resume-order-link" className="text-sm text-link underline underline-offset-2">
+            {t("resumeOrder")}
+          </Link>
+        ) : null}
+
         <TextField name="holder-name" value={holderName} onChange={setHolderName} isRequired>
           <Label>{t("holderName")}</Label>
           <Input />
@@ -282,16 +356,23 @@ export function CheckoutForm({
           </Checkbox.Content>
         </Checkbox>
 
-        <p className="text-xs text-muted">{tCommon("cancellationPolicy")}</p>
+        <Aviso tono="info" compacto>
+          {tCommon("cancellationPolicy")}
+        </Aviso>
 
-        {error ? (
-          <p role="alert" data-testid="checkout-error" className="text-sm text-danger">
-            {error}
-          </p>
-        ) : null}
-
-        <Button type="submit" isDisabled={isSubmitting} data-testid="submit-order-button">
-          {isSubmitting ? t("submitting") : t("submit")}
+        {/* `isPending` plutôt que `isDisabled` pendant l'envoi : le focus reste sur le bouton et
+            react-aria neutralise la soumission (atoms/Button.tsx). `isOrderPlaced` garde, lui, le
+            bouton réellement éteint après une commande créée. */}
+        <Button
+          type="submit"
+          size="lg"
+          width="full"
+          isPending={isSubmitting}
+          pendingLabel={t("submitting")}
+          isDisabled={isOrderPlaced}
+          testId="submit-order-button"
+        >
+          {t("submit")}
         </Button>
 
         {/* Discret, jamais devant le formulaire : le compte n'apporte qu'un confort en plus,
@@ -300,12 +381,12 @@ export function CheckoutForm({
           <Link
             href="/entrar?next=/pago"
             data-testid="login-link"
-            className="text-center text-sm text-muted hover:underline"
+            className="self-start text-sm text-link hover:underline"
           >
             {t("loginLink")}
           </Link>
         ) : null}
       </form>
-    </div>
+    </Card>
   );
 }

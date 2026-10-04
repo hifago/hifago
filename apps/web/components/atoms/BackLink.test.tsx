@@ -61,11 +61,15 @@ describe("BackLink", () => {
     expect(element.getAttribute("data-testid")).toBe("back-to-catalog");
   });
 
-  it("n'ajoute aucun contenu au-delà du libellé (pas de flèche décorative)", () => {
+  // Plan 41, item C4 : une flèche DESSINÉE, décorative, devant le libellé. Un lien dont le sens
+  // tiendrait dans un glyphe serait illisible pour un lecteur d'écran : elle est `aria-hidden`, et
+  // le texte du lien — son nom accessible — reste le libellé seul, sans « ← » prononcé.
+  it("dessine une flèche décorative, hors du nom accessible", () => {
     const element = lien(<BackLink href="/" label="Volver al catálogo" />);
-    // Un lien dont le sens tiendrait dans un glyphe serait illisible pour un lecteur d'écran ;
-    // s'il en apparaît un un jour, il devra être aria-hidden et ce test le rappellera.
-    expect(element.children.length).toBe(0);
+    const fleche = element.querySelector("svg") as SVGElement;
+    expect(fleche).not.toBeNull();
+    expect(fleche.getAttribute("aria-hidden")).toBe("true");
+    expect(element.firstElementChild).toBe(fleche);
     expect(element.textContent).toBe("Volver al catálogo");
   });
 });

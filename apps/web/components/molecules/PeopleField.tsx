@@ -22,17 +22,15 @@ import { FilterTrigger } from "./DateRangeField";
 
 function IconePersonnes() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      className="size-4 shrink-0"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
+    // Un GROUPE plein, comme sur la maquette : la personne du milieu devant deux autres. Plein et
+    // non au trait : il vit dans une pastille de 24 px, où un trait de 2 px se perdrait.
+    <svg viewBox="0 0 24 24" fill="currentColor" className="size-3.5 shrink-0" aria-hidden="true">
+      <circle cx="12" cy="7.5" r="3.6" />
+      <path d="M5.2 20.5c0-3.9 3-6.4 6.8-6.4s6.8 2.5 6.8 6.4z" />
+      <circle cx="4.6" cy="9.6" r="2.5" />
+      <path d="M0.4 18.6c0-2.9 1.8-4.8 4.3-4.8 0.9 0 1.7 0.2 2.4 0.7-1.4 1.2-2.3 2.6-2.6 4.1z" />
+      <circle cx="19.4" cy="9.6" r="2.5" />
+      <path d="M23.6 18.6c0-2.9-1.8-4.8-4.3-4.8-0.9 0-1.7 0.2-2.4 0.7 1.4 1.2 2.3 2.6 2.6 4.1z" />
     </svg>
   );
 }

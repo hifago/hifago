@@ -1,15 +1,27 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { CartProvider } from "@/lib/cart/CartContext";
 import { GoogleButton, OAuthSection } from "./GoogleButton";
 
-// ⚠️ À SAVOIR AVANT DE CLIQUER : le playground n'a pas de client Supabase. Un appui appelle
-// `createClient()`, qui lève faute d'URL/clé publique — l'état d'échec ne s'affichera donc PAS ici,
-// et ce n'est pas un défaut du composant. Cet état est tenu par `GoogleButton.test.tsx`, où le SDK
-// est mocké ; ces stories servent le reste : la place du logo, la cible tactile, le séparateur, et
-// le rendu du bloc dans les deux langues et les deux thèmes (barre d'outils Storybook).
+// ⚠️ À SAVOIR AVANT DE CLIQUER : le playground tourne sur un FAUX client Supabase
+// (`.storybook/support/supabaseFalso.ts`, depuis le 2026-10-01). Un appui « réussit » sans quitter
+// la page — il n'y a pas de Google derrière —, et l'état d'échec ne s'affiche pas ici. Cet état est
+// tenu par `GoogleButton.test.tsx` ; ces stories servent le reste : la place du logo, la cible
+// tactile, le séparateur, et le rendu du bloc dans les deux langues et les deux thèmes.
+//
+// `CartProvider` : le bouton lit le panier (`useCart`) pour le déposer avant la redirection OAuth.
+// Sans lui, les trois stories levaient « useCart doit être utilisé sous CartProvider » — relevé le
+// 2026-10-01 par le contrôle de toutes les stories, défaut antérieur au lot des écrans.
 const meta = {
   title: "Actions/GoogleButton",
   component: GoogleButton,
   parameters: { layout: "centered" },
+  decorators: [
+    (Story) => (
+      <CartProvider>
+        <Story />
+      </CartProvider>
+    ),
+  ],
 } satisfies Meta<typeof GoogleButton>;
 
 export default meta;

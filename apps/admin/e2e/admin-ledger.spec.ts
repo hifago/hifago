@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
-import { createSignedInClient } from "@hifago/e2e-support";
+import { createSignedInClient, withDb } from "@hifago/e2e-support";
 import { slugify } from "../lib/utils";
 
 // Spec 19 §0 Tranche 0 (Admin : ledger de règlement) — parcours écran. La logique de
@@ -83,11 +83,16 @@ test("admin marque une créance référent payée depuis /admin/ledger avec un m
   }
   const orderId = (orderResult as { order_id: string }).order_id;
 
-  const { data: orderLine } = await adminClient
-    .from("order_lines")
-    .select("id, commission_case")
-    .eq("order_id", orderId)
-    .single();
+  // Connexion directe (withDb), jamais le client de session : depuis le revoke du 2026-09-22
+  // (20260922210000), aucune session — admin comprise — ne lit `order_lines`. Ce n'est pas l'objet
+  // du test, seulement de son installation.
+  const orderLine = await withDb(async (client) => {
+    const { rows } = await client.query<{ id: string; commission_case: string }>(
+      "select id, commission_case from order_lines where order_id = $1",
+      [orderId]
+    );
+    return rows.length === 1 ? rows[0] : null;
+  });
   if (!orderLine || orderLine.commission_case !== "external_referrer") {
     throw new Error(
       `e2e setup: ligne inattendue (commission_case=${orderLine?.commission_case}) — attribution externe requise`

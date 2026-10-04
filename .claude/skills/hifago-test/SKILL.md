@@ -1,6 +1,6 @@
 ---
 name: hifago-test
-description: Lance les tests du nouveau stack Hifago — Vitest (unitaire), Playwright E2E, et la suite de concurrence anti-survente à barrière de synchronisation — toujours contre la stack Supabase locale, jamais un projet cloud partagé. Usage — /hifago-test (complet), /hifago-test unit, /hifago-test e2e, /hifago-test concurrence
+description: Lance les tests du nouveau stack Hifago — Vitest (unitaire), Playwright E2E, et la suite de concurrence anti-survente à barrière de synchronisation — toujours contre la stack Supabase locale, jamais un projet cloud partagé. Invocation Codex — $hifago-test, $hifago-test unit, e2e ou concurrence
 ---
 
 # /hifago-test — lancer les tests du nouveau stack

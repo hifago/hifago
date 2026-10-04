@@ -50,16 +50,32 @@ dans aucune ligne, signaler le cas précis plutôt qu'improviser. Un composant a
 ## Deux thèmes, un seul design system
 
 `data-theme="vitrine"` (`apps/web`) et `data-theme="admin"` (`apps/admin`) posés sur `<html>` ;
-tokens communs et les deux jeux de valeurs dans `packages/ui/src/styles/globals.css`. ⚠️ Le thème
-`vitrine` ne définit encore aucun token (il tourne sur les défauts HeroUI ; `admin` en définit ~37)
-— voir la story `Playground/Tokens`. Le `@source "../**/*.{ts,tsx}"` de `apps/web/app/globals.css`
-fait entrer les composants de l'app dans le scan Tailwind de `packages/ui` : sans lui, ils
-s'affichent SANS STYLE en silence.
+tokens communs et les deux jeux de valeurs dans `packages/ui/src/styles/globals.css`. Le
+`@source "../**/*.{ts,tsx}"` de `apps/web/app/globals.css` fait entrer les composants de l'app dans
+le scan Tailwind de `packages/ui` : sans lui, ils s'affichent SANS STYLE en silence.
+
+### Style Hifago 2026
+
+Le contrat complet est dans `docs/specs/41-charte-hifago-toute-la-vitrine.md` §0 ; les valeurs sont
+dans `globals.css`, section « LA CHARTE ». Trois surfaces : **or** (`#ddae09`, texte marine) pour la
+navigation et les bandeaux ; **claire** pour lire et agir ; **marine** (texte blanc, poudre ou or)
+pour les rails et le pied. Jamais de blanc sur l'or ni d'or sur clair ; le bleu ciel reste décoratif.
+Le slogan seul est en Poppins 800 ; titres de page, section et bloc sont en Anton 400 avec
+`--tracking-titre` ; le reste en Poppins. Anton n'est jamais rendu sous 20 px ni en faux gras.
+Tout `<h1>`–`<h3>` reçoit son interlettrage du jeton, jamais une classe `tracking-*` concurrente.
+Boutons et champs ont un rayon de 8 px ; les tuiles/conteneurs 16 px ; les pilules sont réservées à
+la recherche, aux puces et aux bulles. Les titres emploient la police de production dans Storybook
+comme dans Next : Anton est confirmé, aucune Sugo d'essai n'est servie.
+
+Storybook rend toujours la charte adoptée, en mode clair. La planche `Playground/Charte` sert de
+référence visuelle ; `Playground/Palette → Contrastes` mesure les couples de production.
 
 ## Composants de la vitrine (`apps/web/components/`)
 
-`atoms/` (ne traduit rien) · `molecules/` · `organisms/` · `seo/` · `playground/`. Un composant lié
+`atoms/` (ne traduit rien) · `molecules/` · `organisms/` · `seo/` · `playground/` · `parcours/`. Un composant lié
 à une seule route reste colocalisé dans `app/[locale]/…` ; on ne remonte dans `components/` que ce
 qui sert au moins deux endroits. **Aucun barrel `index.ts`, aucun registre de stories** (plusieurs
 agents y travaillent en parallèle). Storybook (`npm run storybook`, port 6006) est le playground
-tranché le 2026-09-01 ; ses stories sont découvertes par glob.
+tranché le 2026-09-01 ; ses stories sont découvertes par glob. Depuis le 2026-10-01 il rend aussi
+chaque PAGE entière dans chacun de ses états (`Écrans/`, `Parcours/`) : un écran qui gagne un état
+gagne sa story (mode d'emploi : `apps/web/components/README.md`, « Stories d'écran »).

@@ -1,7 +1,13 @@
 "use client";
 
 import { createContext, useContext, useMemo, type ComponentProps } from "react";
-import { cn, DayPickerCalendar, DayPickerCalendarDayButton } from "@hifago/ui";
+import {
+  cn,
+  DayPickerCalendar,
+  DayPickerCalendarDayButton,
+  localeCalendarioEn,
+  localeCalendarioEs,
+} from "@hifago/ui";
 import { isoDateToLocalMidnight } from "@hifago/domain";
 
 // Le calendrier de la vitrine, entré dans le design system le 2026-09-02 (vague 6).
@@ -93,8 +99,8 @@ type CalendarBase = {
   premierMoisIso?: string;
   dernierMoisIso?: string;
   /**
-   * Locale date-fns. ⚠️ Omise, la grille est en ANGLAIS : c'est le cas en production aujourd'hui,
-   * `LodgingReservationForm` ne la passe pas. Voir le §5 du rapport de vague.
+   * Locale de la grille : `localeCalendrier(code)`, qui porte aussi les libellés d'accessibilité.
+   * ⚠️ Omise, la grille est en ANGLAIS. Une locale date-fns nue traduit les mois, pas les libellés.
    */
   locale?: LocaleCalendrier;
   testId?: string;
@@ -110,21 +116,71 @@ export type CalendarProps = CalendarBase &
       }
   );
 
-// ⚠️ `--cell-size` vaut `--spacing(7)` = 28 px dans legacy-calendar, et `root` y vaut `w-fit` : la
-// grille se replie donc sur 7 × 28 px, soit des cases de 28 px — très en dessous des 44 px exigés
-// par components/README.md. Ce jeton pilote AUSSI la taille des deux boutons de navigation de mois,
-// qui étaient donc eux aussi à 28 px. Mesuré, pas supposé (voir Calendar.test.tsx et le rapport).
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// LE CALENDRIER À LA CHARTE — plan 41, item S10 (2026-10-03)
+// ─────────────────────────────────────────────────────────────────────────────────────────────
 //
+// ⚠️ CE QUE LE RENDU A MONTRÉ D'ABORD : les QUATRE formulaires de réservation de la fiche produit
+// (`ReservationForm`, `SlotReservationForm`, `LodgingReservationForm`, `EventoReservationForm`)
+// n'utilisent PAS ce wrapper — ils montent `DayPickerCalendar` de `@hifago/ui` directement, avec
+// leurs propres prédicats métier (nuits à sortie exclusive, `min_stay` ancré sur l'arrivée…). D'où,
+// mesuré en production : cases de 28 px, mois et libellés en anglais. Les faire passer par
+// `Calendar` aurait déplacé ces prédicats, ce que le plan exclut (« aucun comportement métier ») et
+// ce que l'anti-survente interdit. Les réglages de la charte sont donc des CONSTANTES exportées
+// d'ici, posées à la fois par ce wrapper et par les quatre formulaires — une seule définition.
+//
+// `CLASSE_CALENDRIER` — la grille, partout :
+//   - `--cell-size` 44 px (28 px dans legacy-calendar) : il dimensionne les boutons de mois et la
+//     hauteur de l'en-tête. Les CASES, elles, se partagent la largeur (`min-w-0` sur le bouton) :
+//     44 px dès que la place existe, mais le panneau de la fiche ne fait que 278 px à 360 de gabarit
+//     et 308 à 390 (mesuré), où sept cases de 44 px déborderaient — elles y font 36 et 40 px ;
+//   - `--cell-radius` = le rayon des boutons (D4, 8 px) : jour choisi, début et fin de plage ; les
+//     autres cases et les flèches de mois aussi (leur `rounded-lg` rendait 4 px : deux rayons
+//     mesurés), sauf le milieu de plage, qui reste une bande continue ;
+//   - jour choisi (seul, début, fin) : l'or et le marine de legacy-calendar (`bg-accent`,
+//     `text-accent-foreground`, 6,31:1), inchangés ; milieu de plage : bleu poudre et marine ;
+//   - jours de la semaine : Poppins 600 12 px, majuscules, bleu moyen (`--link`) ;
+//   - jour désactivé : lisible, en `--muted`, SANS les deux estompes empilées (voir plus bas,
+//     `CLASSES_CASE`) ; jour complet : le barré que les formulaires posent sur la CASE est aussi
+//     posé sur le BOUTON. Au rendu du 2026-10-03, Edge le propageait déjà jusqu'au chiffre ; la règle
+//     ne dépend plus de cette propagation, que l'en-tête de ce fichier a vue échouer ailleurs. Leur
+//     `opacity-60` est retiré pour la même raison de contraste que plus bas : avant, un jour
+//     complet s'affichait à 0,3 d'opacité, et une fin de séjour sur une nuit complète en or
+//     délavé ;
+//   - aujourd'hui : souligné, comme dans ce wrapper ;
+//   - prix et places sous le jour : 11 px, `--muted` hors sélection.
 // `w-full` bat `w-fit` par tailwind-merge : react-day-picker joint `classNames.root` puis le
-// `className` reçu (DayPicker.js:216), et `CalendarRoot` repasse le tout dans `cn()` — le dernier
-// gagne, et c'est le nôtre.
-//
-// ⚠️ `max-w-sm` n'est PAS une largeur en dur, c'est un PLAFOND, et il est aussi nécessaire que le
-// `w-full` : sans lui, à 1280 px la grille occupait toute la page et `aspect-square` donnait des
-// cases de 183 px de côté — un mur, mesuré en capture. `w-fit` réglait ce problème-là en créant
-// l'autre. 24 rem laissent 52,6 px par case sur grand écran, contre 46,6 px sous `PageShell` à
-// 390 px : la case ne varie qu'entre ces deux valeurs, quel que soit l'écran.
-const CLASSE_CALENDRIER = "w-full max-w-sm [--cell-size:2.75rem]";
+// `className` reçu (DayPicker.js:216), et `CalendarRoot` repasse le tout dans `cn()`.
+// ⚠️ `max-w-sm` n'est PAS une largeur en dur, c'est un PLAFOND : sans lui, à 1280 px la grille
+// occupait toute la page et `aspect-square` donnait des cases de 183 px de côté — mesuré.
+// ⚠️ `String.raw` : un `_` dans une variante arbitraire de Tailwind est une ESPACE ; les classes
+// `rdp-range_start`… s'écrivent donc `rdp-range\_start` (même forme que legacy-calendar).
+export const CLASSE_CALENDRIER = String.raw`w-full max-w-sm [--cell-size:2.75rem] [--cell-radius:var(--rayon-bouton)] [&_button.rdp-day]:min-w-0 [&_button.rdp-day]:text-base [&_button.rdp-day:not([data-range-middle=true])]:rounded-[var(--rayon-bouton)] [&_.rdp-button\_previous]:rounded-[var(--rayon-bouton)] [&_.rdp-button\_next]:rounded-[var(--rayon-bouton)] [&_.rdp-weekday]:text-xs [&_.rdp-weekday]:font-semibold [&_.rdp-weekday]:uppercase [&_.rdp-weekday]:text-link [&_.rdp-button\_previous_svg]:size-5 [&_.rdp-button\_next_svg]:size-5 [&_td.rdp-disabled]:opacity-100 [&_td.rdp-disabled_button]:opacity-100 [&_td.line-through]:opacity-100 [&_td.line-through_button]:line-through [&_td[data-today=true]:not([data-selected=true])_button]:underline [&_td[data-today=true]:not([data-selected=true])_button]:decoration-2 [&_td[data-today=true]:not([data-selected=true])_button]:underline-offset-4 [&_button[data-range-middle=true]]:bg-[var(--default)] [&_button[data-range-middle=true]]:text-[var(--default-foreground)] [&_td.rdp-range\_start]:bg-[var(--default)] [&_td.rdp-range\_start]:after:bg-[var(--default)] [&_td.rdp-range\_end]:bg-[var(--default)] [&_td.rdp-range\_end]:after:bg-[var(--default)] [&_button.rdp-day>span]:text-[11px] [&_button.rdp-day>span]:opacity-100 [&_button.rdp-day:not([data-selected-single=true]):not([data-range-start=true]):not([data-range-end=true])>span]:text-muted`;
+
+// `CLASSE_CADRE_CALENDRIER` — le cadre d'un calendrier POSÉ DANS UNE PAGE (les formulaires) : blanc,
+// bordure marine de 1 px, 16 px d'arrondi, 12 puis 16 px de marge. Pas dans ce wrapper : il vit
+// dans le popover de `DateRangeField`, qui est déjà un cadre — deux bordures s'y emboîteraient.
+// ⚠️ À partir de `lg`, plus de cadre (plan 41, P3) : les quatre formulaires, ses seuls appelants,
+// vivent alors dans le panneau de réservation de la fiche, carte blanche bordée de marine — même
+// raison que le popover. Le panneau rend aussi sa largeur aux cases : 360 px moins 2 × 24 de
+// padding laissent 310 px, sept cases de 44 px ; avec le cadre, elles tombaient à 36 px.
+export const CLASSE_CADRE_CALENDRIER =
+  "rounded-[16px] border border-[var(--border)] bg-surface p-3 sm:p-4 lg:rounded-none lg:border-0 lg:p-0";
+
+// Le mois en rôle `titre-bloc` (Anton, 20 → 22 px), majuscule initiale (« octubre 2026 » en
+// espagnol). ⚠️ `classNames.caption_label` REMPLACE celui de legacy-calendar (il n'est pas fusionné) :
+// `rdp-caption_label` est remis pour garder le crochet de la bibliothèque.
+export const CLASSNAMES_CALENDRIER = {
+  caption_label: "rdp-caption_label titre-bloc capitalize select-none",
+};
+
+/**
+ * La locale de la grille pour une langue de la vitrine : mois, jours, premier jour de semaine ET
+ * libellés d'accessibilité (« Ir al mes anterior »), que la locale date-fns seule laisse en anglais.
+ */
+export function localeCalendrier(codigo: string): LocaleCalendrier {
+  return codigo === "en" ? localeCalendarioEn : localeCalendarioEs;
+}
 
 // ⚠️ « Aujourd'hui » et « au milieu de la plage » peignent le MÊME `bg-surface-secondary` dans
 // legacy-calendar — l'un sur le `<td>`, l'autre sur le `<button>`. Sur une plage du 16 au 19 avec
@@ -337,6 +393,7 @@ export function Calendar(props: CalendarProps) {
     labels: libellesRdp,
     locale,
     className: CLASSE_CALENDRIER,
+    classNames: CLASSNAMES_CALENDRIER,
   };
 
   // La légende n'apparaît que si elle a quelque chose à expliquer. Un mois sans nuit pleine ne

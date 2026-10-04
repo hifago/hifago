@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { isRealAccount } from "@hifago/supabase/identity";
 import { getOperatorCapability } from "@/lib/agenda/activeOperatorEstablishments";
 import { PartnerAppNav } from "./PartnerAppNav";
 
@@ -17,7 +18,10 @@ export default async function PartnerAppLayout({ children }: LayoutProps<"/partn
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  // Une session ANONYME (posée par le panier de la vitrine — en local les deux apps partagent
+  // `localhost`, donc ses cookies) n'est pas un compte : elle va au login comme une absence de
+  // session, jamais vers l'espace socio (« sin rol »). `!user` reste écrit pour le typage.
+  if (!user || !isRealAccount(user)) {
     redirect("/login?next=/partner");
   }
 
@@ -29,7 +33,14 @@ export default async function PartnerAppLayout({ children }: LayoutProps<"/partn
   // cf. establishment/products/reservations layout.tsx pour la garde serveur réelle). Un admin
   // (jamais de partner_id) obtient hasOperatorCapability=false par construction — sans effet pour
   // lui, il ne passe jamais par la nav socio en pratique.
-  const { data: partnerId } = await supabase.rpc("partner_id_for_account", { uid: user.id });
+  // Échec fermé (2026-10-01) : une panne lève (app/error.tsx propose de réessayer) — lue comme
+  // « aucune organisation », elle rendait une nav amputée de tous les écrans d'operator.
+  const { data: partnerId, error: partnerIdError } = await supabase.rpc("partner_id_for_account", {
+    uid: user.id,
+  });
+  if (partnerIdError) {
+    throw new Error(`Lecture de l'organisation impossible (partner_id_for_account) : ${partnerIdError.message}`);
+  }
   const canOperate = await getOperatorCapability(supabase, partnerId);
 
   return (

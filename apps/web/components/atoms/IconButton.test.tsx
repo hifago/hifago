@@ -29,12 +29,13 @@ describe("IconButton", () => {
     expect(cache?.querySelector('[data-testid="icone"]')).not.toBeNull();
   });
 
-  // ⚠️ Depuis le passage du rayon à `var(--radius)` (8 px, 2026-09-02), `circle` est la seule
-  // façon d'obtenir un rond : le bouton d'icône ne l'est plus par accident de rabotage du rayon.
+  // ⚠️ Depuis le passage du rayon au jeton du thème (2026-09-02), `circle` est la seule façon
+  // d'obtenir un rond : le bouton d'icône ne l'est plus par accident de rabotage du rayon. En carré,
+  // il prend le rayon unique des boutons (`--rayon-bouton`, plan 41 F4).
   it("est rond par défaut, et suit le rayon du bouton texte en carré", () => {
     expect(bouton(<IconButton icon={<Croix />} label="C" />).className).toContain("rounded-full");
     const carre = bouton(<IconButton icon={<Croix />} label="C" shape="square" />).className;
-    expect(carre).toContain("rounded-[var(--radius)]");
+    expect(carre).toContain("rounded-[var(--rayon-bouton)]");
     expect(carre).not.toContain("rounded-full");
   });
 
@@ -42,6 +43,13 @@ describe("IconButton", () => {
     const el = bouton(<IconButton icon={<Croix />} label="C" />);
     expect(el.className).toContain("button--icon-only");
     expect(el.className).toContain("button--lg");
+  });
+
+  // Plan 41, item F4 : 44 × 44 px à toutes les tailles (HeroUI descendait à 32 px en `sm` desktop).
+  it("garde 44 × 44 px à toutes les tailles", () => {
+    for (const size of ["sm", "md", "lg"] as const) {
+      expect(bouton(<IconButton icon={<Croix />} label="C" size={size} />).className).toContain("size-11");
+    }
   });
 
   it("bascule son nom accessible pendant l'envoi", () => {

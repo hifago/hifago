@@ -19,7 +19,12 @@ import { ListadoInfinito } from "./ListadoInfinito";
 // Le contexte i18n vient du décorateur global de `.storybook/preview.tsx` — aucune story de ce
 // dépôt ne monte son propre `NextIntlClientProvider`.
 
-const VISUELS = ["/globe.svg", "/window.svg", "/file.svg", "/vercel.svg"];
+const VISUELS = [
+  "/mock/activities/kayak1/photos/1.jpeg",
+  "/mock/activities/partyboat1/photos/1.jpg",
+  "/mock/activities/yoga-session/photos/1.webp",
+  "/mock/establishments/bania/photos/1.jpeg",
+];
 
 const NOMBRES = [
   "Kayak en el Embalse de Guatapé",
@@ -59,8 +64,17 @@ function tarjetas(cantidad: number): OfertaTarjeta[] {
 const meta = {
   title: "Affichage/ListadoInfinito",
   component: ListadoInfinito,
+  // Sur l'or, sa seule page : la catégorie (plan 41, P2). Son bouton `marine` et son décompte marine
+  // s'y jugent, pas sur le clair.
+  decorators: [
+    (Story) => (
+      <div data-superficie="or" className="p-4 sm:p-6">
+        <Story />
+      </div>
+    ),
+  ],
   parameters: {
-    layout: "padded",
+    layout: "fullscreen",
     // Les cartes passent par le `Link` de next-intl, qui lit le contexte de route — `null` hors
     // d'une route Next, et rien ne s'afficherait. Même geste que `SeccionOfertas`.
     nextjs: { appDirectory: true, navigation: { pathname: "/alojamientos" } },

@@ -7,14 +7,17 @@ import { FichaEstablecimiento } from "./FichaEstablecimiento";
 
 const messages = loadMessages("es");
 
-// `TarjetaOferta` monte `PhotoStrip` → Embla, qui exige trois bouchons de navigateur en jsdom.
-// Neutralisée : ce fichier teste la FICHE, pas la carte (qui a ses propres tests).
+// La galerie monte Embla, qui exige trois bouchons de navigateur en jsdom. Neutralisée : ce fichier
+// teste la FICHE, pas le carrousel (qui a ses propres tests).
 vi.mock("@/components/molecules/PhotoStrip", () => ({ PhotoStrip: () => null }));
-vi.mock("@/components/molecules/TarjetaOferta", () => ({
-  TarjetaOferta: ({ oferta }: { oferta: TarjetaOferta }) => (
-    <div data-testid={oferta.testId}>{oferta.nombre}</div>
-  ),
-}));
+// Les rails (`SeccionRiel`, plan 41 P4) sont rendus pour de vrai : leur rangée (`FilaRiel`) observe sa
+// taille, et jsdom n'a pas de `ResizeObserver`. Doublure inerte, comme `SeccionRiel.test.tsx`.
+class ObservateurInerte {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+vi.stubGlobal("ResizeObserver", ObservateurInerte);
 vi.mock("@/i18n/navigation", () => ({
   Link: ({ href, children, ...props }: React.ComponentProps<"a">) => (
     <a href={href} {...props}>
@@ -172,5 +175,45 @@ describe("FichaEstablecimiento — ses produits", () => {
   it("ne rend pas une section vide", () => {
     renderFicha({ alojamientos: [habitacion] });
     expect(screen.queryByTestId("establishment-activities")).toBeNull();
+  });
+});
+
+// Plan 41, P4 (2026-10-03) : le bandeau or porte le SEUL `<h1>`, l'adresse, les horaires en puces
+// et le contact en bouton marine ; les offres sont des rails à titre à point, sans « GO → ». La
+// disposition (deux colonnes, rail, écarts) se prouve au rendu : jsdom n'applique pas les media
+// queries.
+describe("FichaEstablecimiento — la charte (plan 41, P4)", () => {
+  it("un seul <h1>, le nom, dans le bandeau, sans point ; adresse et horaires avec lui", () => {
+    renderFicha({ direccion: "Vereda El Roble", horaEntrada: "15:00:00", horaSalida: "11:00:00" });
+    const titres = document.querySelectorAll("h1");
+    expect(titres.length).toBe(1);
+    const bandeau = screen.getByTestId("ficha-bandeau");
+    expect(bandeau.contains(titres[0])).toBe(true);
+    expect(titres[0].querySelector("span")).toBeNull();
+    expect(bandeau.contains(screen.getByTestId("establishment-address"))).toBe(true);
+    const horarios = screen.getByTestId("establishment-hours");
+    expect(bandeau.contains(horarios)).toBe(true);
+    expect(horarios.querySelectorAll("[data-tono='neutro']").length).toBe(2);
+  });
+
+  it("met le contact dans le bandeau, en bouton marine", () => {
+    renderFicha({ contacto: "+573001234567" });
+    const lien = screen.getByTestId("establishment-contact-link");
+    expect(screen.getByTestId("ficha-bandeau").contains(lien)).toBe(true);
+    // La couleur `marine` de l'atome (F4) : ses jetons `--bouton-marine*`.
+    expect(lien.className).toContain("--bouton-marine");
+  });
+
+  it("rend les offres en rails à titre à point, avec prix et capacité, sans « GO »", () => {
+    renderFicha({ alojamientos: [habitacion], modo: "rooms" });
+    const rail = screen.getByTestId("establishment-lodgings");
+    expect(rail.tagName).toBe("SECTION");
+    const titre = screen.getByTestId("establishment-lodgings-titulo");
+    expect(titre.tagName).toBe("H2");
+    expect(titre.textContent).toContain("Habitaciones");
+    expect(titre.querySelector("span[aria-hidden='true']")).not.toBeNull();
+    expect(screen.getByTestId("tarjeta-cabana-precio")).toBeTruthy();
+    expect(rail.textContent).toContain("personas");
+    expect(screen.queryByTestId("establishment-lodgings-ver-mas")).toBeNull();
   });
 });

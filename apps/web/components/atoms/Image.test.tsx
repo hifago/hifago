@@ -52,7 +52,7 @@ describe("Image", () => {
     // que pour les images matricielles. Sur un SVG la prop est acceptée puis jetée en silence —
     // sans conséquence de bande passante (le vectoriel n'a pas de variantes de taille), mais toute
     // vérification faite sur un SVG mesurerait le vide.
-    const img = rendre({ src: "/globe.svg" }).querySelector("img");
+    const img = rendre({ src: "/vectoriel-test.svg" }).querySelector("img");
     expect(img?.getAttribute("sizes")).toBeNull();
     expect(img?.getAttribute("srcset")).toBeNull();
   });

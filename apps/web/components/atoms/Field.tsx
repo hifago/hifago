@@ -113,11 +113,13 @@ export const FIELD_WIDTH_CLASSES: Record<FieldWidth, string> = {
   grow: "min-w-48 flex-1",
 };
 
-// ⚠️ Cible tactile ≥ 44 px (components/README.md). `.input` de HeroUI ne fixe AUCUNE hauteur : il
-// vit de son `py-2` et de sa taille de texte, ce qui donne 42 px sur mobile et 38 px sur desktop —
-// mesuré, pas supposé. Le bouton a eu le même problème et son défaut est passé à `lg` pour ça ;
-// les champs n'ont pas de taille à changer, d'où ce plancher explicite, aligné sur lui.
-export const FIELD_MIN_HEIGHT = "min-h-11";
+// ⚠️ 48 px (plan 41, item S11 ; cible tactile ≥ 44 px, components/README.md). `.input` de HeroUI ne
+// fixe AUCUNE hauteur : il vit de son `py-2` et de sa taille de texte, ce qui donne 42 px sur mobile
+// et 38 px sur desktop — mesuré, pas supposé. Le thème vitrine pose les mêmes 48 px sur toutes les
+// classes de champ HeroUI (`globals.css`, « Les champs de formulaire »), pour les écrans qui
+// composent encore les primitives brutes ; ce plancher le redit pour les atomes, où un utilitaire
+// l'emporte sur le thème.
+export const FIELD_MIN_HEIGHT = "min-h-12";
 
 /**
  * Le `data-testid` d'un enfant, selon la convention du README (`${testId}-hint`).

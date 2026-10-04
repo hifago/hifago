@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { PartnerCodeEntry } from "./PartnerCodeEntry";
 
 // /r/[code] vit dans apps/web (vitrine), pas dans cette app — le lien de parrainage doit donc
@@ -27,18 +28,29 @@ export default async function PartnerToolsPage() {
   }
 
   // partner_id_for_account (même RPC que partner/products/page.tsx et partner/commissions/page.tsx).
-  const { data: partnerId } = await supabase.rpc("partner_id_for_account", { uid: user.id });
+  // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
+  // affichait « aucun code » à un référent qui en a.
+  const { data: partnerId } = checkedRead(
+    await supabase.rpc("partner_id_for_account", { uid: user.id }),
+    "partner_id_for_account",
+  );
 
   // partner_codes_select_public (lecture déjà publique, Tranche 1) — scopée ici au partenaire
   // connecté (pas tous les codes existants, cf. plan feature 18). active=true seulement : un
   // partenaire ne doit distribuer que des codes qui résolvent réellement une attribution, même
   // filtre que /r/[code] et que create_order côté résolution.
-  const { data: codes } = await supabase
-    .from("partner_codes")
-    .select("code")
-    .eq("partner_id", partnerId ?? "")
-    .eq("active", true)
-    .order("code");
+  // Sans organisation, rien à lire — jamais un filtre sur un identifiant vide, qui échouerait.
+  const { data: codes } = checkedRead(
+    partnerId
+      ? await supabase
+          .from("partner_codes")
+          .select("code")
+          .eq("partner_id", partnerId)
+          .eq("active", true)
+          .order("code")
+      : { data: [] as { code: string }[], error: null },
+    "partner_codes",
+  );
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">

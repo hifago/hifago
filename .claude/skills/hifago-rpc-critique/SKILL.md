@@ -1,6 +1,6 @@
 ---
 name: hifago-rpc-critique
-description: Écrit une nouvelle RPC anti-survente pour le nouveau stack Hifago en reproduisant le squelette validé le 2026-08-12 (SECURITY DEFINER, SET search_path='', SELECT...FOR UPDATE) et génère son test de concurrence à barrière de synchronisation dans le même geste. Usage — /hifago-rpc-critique <nom_operation>
+description: Écrit une nouvelle RPC anti-survente pour le nouveau stack Hifago en reproduisant le squelette validé le 2026-08-12 (SECURITY DEFINER, SET search_path='', SELECT...FOR UPDATE) et génère son test de concurrence à barrière de synchronisation dans le même geste. Invocation Codex — $hifago-rpc-critique [nom_operation]
 ---
 
 # /hifago-rpc-critique — nouvelle opération critique (anti-survente)

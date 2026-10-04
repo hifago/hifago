@@ -6,6 +6,15 @@ import {
   PREFERENCE_EXPIRY_MARGIN_MINUTES,
 } from "@/lib/mercadopago/client";
 import { isPaymentsMockEnabled } from "@/lib/mercadopago/mock";
+import { getSiteUrl, isProductionSite } from "@/lib/seo/siteUrl";
+
+// Plafond de la plateforme pour cette route : lecture en base (5 s) + Mercado Pago (20 s,
+// `PREFERENCE_DEADLINE_MS`, lib/mercadopago/client.ts) + écriture en base (5 s) = 30 s au pire, et
+// 10 s de marge pour répondre plutôt qu'une 504 sans corps.
+export const maxDuration = 40;
+
+/** Délai de chacun des deux accès base : une base qui cale répond en erreur, jamais en silence. */
+const DB_CALL_TIMEOUT_MS = 5_000;
 
 // Spec 19 §0 Tranche 1 — création de la préférence Checkout Pro. Le CLIENT appelle d'abord
 // create_payment_intent(order_id) directement via son propre client Supabase (RPC anon/
@@ -41,9 +50,16 @@ export async function POST(request: Request) {
     .from("payments")
     .select("id, order_id, amount_cop, payer_email, status, orders(access_token, created_at)")
     .eq("id", paymentId)
+    .abortSignal(AbortSignal.timeout(DB_CALL_TIMEOUT_MS))
     .maybeSingle();
 
-  if (readError || !payment) {
+  // Une panne (ou le délai ci-dessus) n'est jamais « paiement introuvable » : 503, le client peut
+  // retenter ; seule une lecture réussie et vide est un 404.
+  if (readError) {
+    console.error("payments/create : lecture de payments échouée", readError);
+    return Response.json({ ok: false, reason: "db_unavailable" }, { status: 503 });
+  }
+  if (!payment) {
     return Response.json({ ok: false, reason: "payment_not_found" }, { status: 404 });
   }
 
@@ -82,11 +98,23 @@ export async function POST(request: Request) {
   // `notification_url` construits dessus pointaient vers une adresse injoignable depuis Mercado
   // Pago, silencieusement. Extrait dans @hifago/domain (packages/domain/src/http/resolveOrigin.ts) :
   // le même besoin existe ailleurs (apps/web/app/auth/callback/route.ts).
+  //
+  // ⚠️ LE RETOUR DU CLIENT SUIT L'HÔTE DE LA REQUÊTE, jamais l'URL configurée : sa session Supabase
+  // est liée à l'hôte sur lequel il a commandé. Le renvoyer ailleurs (préprod depuis une preview,
+  // domaine final depuis un alias *.vercel.app de la prod) l'y ferait arriver sans session — plus de
+  // nouvel essai de paiement possible (`create_payment_intent` → order_not_found). Sur Vercel, ces
+  // en-têtes sont posés par la plateforme.
   const origin = resolveOrigin({
     requestUrl: request.url,
     forwardedHost: request.headers.get("x-forwarded-host"),
     forwardedProto: request.headers.get("x-forwarded-proto"),
   });
+  // La NOTIFICATION, elle, n'a pas de session à préserver : en production elle part sur l'URL
+  // configurée (audit 2026-09-28), stable quel que soit l'hôte servi. Hors production, l'hôte de la
+  // requête : une preview peut porter l'URL de la préprod, et son webhook y serait livré au lieu
+  // d'elle. ⚠️ À la bascule de domaine : ne poser la nouvelle valeur qu'une fois le DNS actif.
+  const notificationOrigin =
+    isProductionSite() && process.env.NEXT_PUBLIC_WEB_APP_URL?.trim() ? getSiteUrl() : origin;
   const returnUrl = `${origin}/reserva/${order.access_token}`;
 
   // EXPIRATION DE LA PRÉFÉRENCE — ancrée sur la création de la COMMANDE (incident du 2026-09-20).
@@ -138,7 +166,13 @@ export async function POST(request: Request) {
       successUrl: withPaymentOutcome("approved"),
       pendingUrl: withPaymentOutcome("pending"),
       failureUrl: withPaymentOutcome("rejected"),
-      notificationUrl: `${origin}/api/payments/webhook`,
+      // `source_news=webhooks` : sans lui, Mercado Pago peut livrer à cette URL au format IPN
+      // (`?topic=payment&id=…`), dont le `x-signature` n'est PAS vérifiable avec la clé secrète
+      // (doc MP « IPN ») — la route le rejetait en SignatureMismatch, ouvrait une entrée de
+      // réconciliation et e-mailait tous les admins, le paiement n'étant rattrapé que par le job
+      // 2 à 4 min plus tard (vécu le 2026-09-30, première préprod du compte hifago). Le paramètre
+      // restreint les livraisons au format Webhooks (`?type=payment&data.id=…`), le seul signé.
+      notificationUrl: `${notificationOrigin}/api/payments/webhook?source_news=webhooks`,
       expiresAt,
     });
     // Spec 39 (2026-09-21) : la préférence et le compte qui ENCAISSE sont persistés. Le job de
@@ -148,7 +182,8 @@ export async function POST(request: Request) {
     const { error: persistError } = await service
       .from("payments")
       .update({ mp_preference_id: preferenceId, mp_collector_id: collectorId })
-      .eq("id", payment.id);
+      .eq("id", payment.id)
+      .abortSignal(AbortSignal.timeout(DB_CALL_TIMEOUT_MS));
     if (persistError) {
       console.error("payments.mp_preference_id/mp_collector_id : écriture échouée", persistError);
     }

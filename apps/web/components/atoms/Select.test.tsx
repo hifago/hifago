@@ -109,10 +109,10 @@ describe("Select", () => {
     expect(decrits).toContain(erreur.id);
   });
 
-  it("garde une cible tactile d'au moins 44 px sur son déclencheur", () => {
+  it("garde une cible tactile d'au moins 44 px sur son déclencheur (48 px, plan 41 S11)", () => {
     // `.select__trigger` de HeroUI plafonne à `min-h-9`, soit 36 px — sous la règle du README.
     const { declencheur } = rendu(<Select label="Tipo" options={TYPES} value="" onChange={() => {}} />);
-    expect(declencheur.className).toContain("min-h-11");
+    expect(declencheur.className).toContain("min-h-12");
   });
 
   it("se désactive", () => {

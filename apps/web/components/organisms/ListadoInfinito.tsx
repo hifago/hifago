@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/atoms/Button";
+import { Aviso } from "@/components/molecules/Aviso";
 import { TarjetaOferta } from "@/components/molecules/TarjetaOferta";
 import type { Locale } from "@/messages";
 import type { TarjetaOferta as OfertaTarjeta } from "@/lib/catalog/tipos";
@@ -160,10 +161,12 @@ export function ListadoInfinito({
 
   return (
     <div className="flex flex-col gap-4" data-testid={testId}>
-      {/* Mêmes classes que `SeccionOfertas`, écrites EN TOUTES LETTRES : Tailwind v4 scanne le
-          texte source, une classe fabriquée par interpolation n'est pas générée et la grille
-          retombe en une colonne sans que rien ne le signale. */}
-      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* La grille de tuiles de la charte (plan 41, P2) : 1, 2 puis 3 colonnes, 16 px d'écart puis
+          24 à partir de `lg`, dans la colonne de 960 px — c'est ce que suppose `SIZES_GRILLA` de
+          `TarjetaOferta`. Classes écrites EN TOUTES LETTRES : Tailwind v4 scanne le texte source,
+          une classe fabriquée par interpolation n'est pas générée et la grille retombe en une
+          colonne sans que rien ne le signale. */}
+      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
         {tarjetas.map((tarjeta, index) => (
           // La clé vient de la donnée, jamais de l'index : une page ajoutée réordonnerait les
           // cartes et React réutiliserait les mauvaises.
@@ -186,19 +189,18 @@ export function ListadoInfinito({
       {/* ⚠️ RENDUE EN PERMANENCE, VIDE AU REPOS. Un `role="status"` monté au moment où il a quelque
           chose à dire n'est jamais annoncé : la région doit exister AVANT que son contenu change.
           C'est la faute classique du motif, invisible à l'œil comme au typecheck — spec 28
-          §10quater, où elle avait déjà été commise puis corrigée. */}
-      <p
-        role="status"
-        aria-live="polite"
-        className="text-center text-sm text-muted"
-        data-testid={`${testId}-estado`}
-      >
-        {cargando
-          ? t("cargando")
-          : fallo
-            ? t("errorCarga")
-            : t("conteo", { cargadas: tarjetas.length, total })}
-      </p>
+          §10quater, où elle avait déjà été commise puis corrigée.
+          Plan 41, P2 : le décompte au rôle `meta` (Poppins 500, 14 px), marine sur l'or ; l'échec
+          dans l'encadré d'erreur de la charte (S6), DANS la région, qui reste la même. */}
+      <div role="status" aria-live="polite" data-testid={`${testId}-estado`}>
+        {fallo && !cargando ? (
+          <Aviso tono="error">{t("errorCarga")}</Aviso>
+        ) : (
+          <p className="text-center text-sm font-medium text-muted">
+            {cargando ? t("cargando") : t("conteo", { cargadas: tarjetas.length, total })}
+          </p>
+        )}
+      </div>
 
       {hayMas ? (
         <div className="flex justify-center">
@@ -206,8 +208,13 @@ export function ListadoInfinito({
               raison compte ici plus qu'ailleurs : un bouton désactivé PERD LE FOCUS. Le visiteur
               qui vient de l'activer au clavier serait renvoyé en haut du document à chaque page
               chargée, c'est-à-dire à chaque fois qu'il utilise le seul chemin qui lui est garanti.
-              `isPending` neutralise l'action, garde le focus et annonce le changement. */}
+              `isPending` neutralise l'action, garde le focus et annonce le changement.
+              ⚠️ Et il reste À SA PLACE en cas d'échec, sous l'encadré, au lieu d'entrer dans son
+              `accion` : déplacé, React le remonterait, et le focus serait perdu au pire moment.
+              `marine` : la page est or, un bouton or y disparaîtrait (F4) ; `lg` : 48 px. */}
           <Button
+            color="marine"
+            size="lg"
             onPress={() => void cargarMas()}
             isPending={cargando}
             pendingLabel={t("cargando")}

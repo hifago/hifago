@@ -44,7 +44,7 @@ export function ProgramaCamp({
     <section className="flex flex-col gap-3" data-testid={testId}>
       {/* h2 via l'atome, jamais Card.Title : celui de HeroUI rend un h3 et rouvrirait le saut de
           hiérarchie que la fiche vient de corriger (spec 30). */}
-      <Title as="h2" size="md">
+      <Title as="h2" size="bloque">
         {titulo}
       </Title>
 

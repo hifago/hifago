@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { buttonVariants } from "@hifago/ui";
 import { EmptyStateCta } from "@/components/EmptyStateCta";
@@ -41,8 +42,13 @@ export default async function PartnerEstablishmentPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
+  // affichait « aucun établissement », ou des fiches sans photos ni propositions.
   const partnerId = user
-    ? (await supabase.rpc("partner_id_for_account", { uid: user.id })).data
+    ? checkedRead(
+        await supabase.rpc("partner_id_for_account", { uid: user.id }),
+        "partner_id_for_account",
+      ).data
     : null;
 
   // Pas de pagination pour ce lot (échelle du métier jugée faible — un prestataire gère rarement
@@ -52,11 +58,11 @@ export default async function PartnerEstablishmentPage() {
   // l'autre — lancées en parallèle plutôt qu'attendues séquentiellement, même raisonnement que
   // l'ancien establishment/page.tsx.
   const [
-    { data: establishments },
-    { data: pendingEstablishmentEdits },
-    { data: pendingEstablishmentCreations },
-    { data: products },
-    { data: pendingProductCreationsRaw },
+    establishmentsResult,
+    pendingEstablishmentEditsResult,
+    pendingEstablishmentCreationsResult,
+    productsResult,
+    pendingProductCreationsResult,
   ] = await Promise.all([
     partnerId
       ? supabase
@@ -64,7 +70,7 @@ export default async function PartnerEstablishmentPage() {
           .select("id, name, status")
           .eq("partner_id", partnerId)
           .order("created_at", { ascending: false })
-      : { data: null as { id: string; name: unknown; status: string }[] | null },
+      : { data: null as { id: string; name: unknown; status: string }[] | null, error: null },
     partnerId
       ? supabase
           .from("establishment_proposals")
@@ -72,7 +78,7 @@ export default async function PartnerEstablishmentPage() {
           .eq("partner_id", partnerId)
           .eq("kind", "edit")
           .eq("status", "pending")
-      : { data: null as { id: string; establishment_id: string }[] | null },
+      : { data: null as { id: string; establishment_id: string }[] | null, error: null },
     // Refonte 2026-08-19 (retrait du plafond "1 pending", migration
     // 20260819220000_establishment_creation_no_pending_cap.sql) : un partenaire peut désormais
     // avoir PLUSIEURS propositions de création pending en parallèle — liste, jamais .maybeSingle()
@@ -85,7 +91,7 @@ export default async function PartnerEstablishmentPage() {
           .eq("kind", "create")
           .eq("status", "pending")
           .order("created_at", { ascending: false })
-      : { data: null as { id: string; payload: unknown; created_at: string }[] | null },
+      : { data: null as { id: string; payload: unknown; created_at: string }[] | null, error: null },
     partnerId
       ? supabase
           .from("products")
@@ -95,7 +101,7 @@ export default async function PartnerEstablishmentPage() {
           .eq("partner_id", partnerId)
           .order("created_at", { ascending: false })
           .returns<ProductQueryRow[]>()
-      : { data: null as ProductQueryRow[] | null },
+      : { data: null as ProductQueryRow[] | null, error: null },
     partnerId
       ? supabase
           .from("product_proposals")
@@ -105,15 +111,23 @@ export default async function PartnerEstablishmentPage() {
           .eq("status", "pending")
           .order("created_at", { ascending: false })
           .returns<PendingCreationProposalRow[]>()
-      : { data: null as PendingCreationProposalRow[] | null },
+      : { data: null as PendingCreationProposalRow[] | null, error: null },
   ]);
+  const { data: establishments } = checkedRead(establishmentsResult, "establishments");
+  const { data: pendingEstablishmentEdits } = checkedRead(pendingEstablishmentEditsResult, "establishment_proposals");
+  const { data: pendingEstablishmentCreations } = checkedRead(
+    pendingEstablishmentCreationsResult,
+    "establishment_proposals",
+  );
+  const { data: products } = checkedRead(productsResult, "products");
+  const { data: pendingProductCreationsRaw } = checkedRead(pendingProductCreationsResult, "product_proposals");
 
   const establishmentIds = (establishments ?? []).map((e) => e.id);
   const productIds = (products ?? []).map((p) => p.id);
 
   // 3 vagues dépendantes des ids ci-dessus (établissements/produits de cette page), jamais lancées
   // à vide — même idiome que l'ancien products/page.tsx.
-  const [{ data: establishmentMediaRaw }, { data: productMediaRaw }, { data: pendingProductEditsRaw }, { data: slotRulesRaw }] =
+  const [establishmentMediaResult, productMediaResult, pendingProductEditsResult, slotRulesResult] =
     await Promise.all([
       establishmentIds.length > 0
         ? supabase
@@ -121,14 +135,14 @@ export default async function PartnerEstablishmentPage() {
             .select("id, establishment_id, storage_path")
             .in("establishment_id", establishmentIds)
             .order("sort", { ascending: true })
-        : Promise.resolve({ data: [] as { id: string; establishment_id: string; storage_path: string }[] }),
+        : Promise.resolve({ data: [] as { id: string; establishment_id: string; storage_path: string }[], error: null }),
       productIds.length > 0
         ? supabase
             .from("product_media")
             .select("id, product_id, storage_path")
             .in("product_id", productIds)
             .order("sort", { ascending: true })
-        : Promise.resolve({ data: [] as { id: string; product_id: string; storage_path: string }[] }),
+        : Promise.resolve({ data: [] as { id: string; product_id: string; storage_path: string }[], error: null }),
       productIds.length > 0
         ? supabase
             .from("product_proposals")
@@ -136,11 +150,15 @@ export default async function PartnerEstablishmentPage() {
             .in("product_id", productIds)
             .eq("kind", "content")
             .eq("status", "pending")
-        : Promise.resolve({ data: [] as { product_id: string | null }[] }),
+        : Promise.resolve({ data: [] as { product_id: string | null }[], error: null }),
       productIds.length > 0
         ? supabase.from("product_slot_rules").select("product_id").in("product_id", productIds)
-        : Promise.resolve({ data: [] as { product_id: string }[] }),
+        : Promise.resolve({ data: [] as { product_id: string }[], error: null }),
     ]);
+  const { data: establishmentMediaRaw } = checkedRead(establishmentMediaResult, "establishment_media");
+  const { data: productMediaRaw } = checkedRead(productMediaResult, "product_media");
+  const { data: pendingProductEditsRaw } = checkedRead(pendingProductEditsResult, "product_proposals");
+  const { data: slotRulesRaw } = checkedRead(slotRulesResult, "product_slot_rules");
 
   const photosByEstablishment = new Map<string, { id: string; url: string }[]>();
   for (const media of establishmentMediaRaw ?? []) {

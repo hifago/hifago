@@ -121,6 +121,18 @@ describe("SiteToaster", () => {
     expect(classes).not.toContain("toast-region--bottom");
   });
 
+  // Plan 41, item C4 : la bordure marine, et le rayon écrit en valeur fixe. jsdom ne calcule pas le
+  // rendu : on vérifie que la région habille SES toasts (le rendu est mesuré au navigateur).
+  it("habille ses toasts : bordure du thème, rayon de 12 px, surface", () => {
+    render(<SiteToaster />);
+    act(() => {
+      toast.success("Correo reenviado.");
+    });
+    const classes = region()?.className ?? "";
+    expect(classes).toContain("[&_.toast]:border-[var(--border)]");
+    expect(classes).toContain("[&_.toast]:rounded-[12px]");
+  });
+
   it("expose testId en data-testid sur la région, et rien quand il est absent", () => {
     render(<SiteToaster testId="toaster" />);
     act(() => {

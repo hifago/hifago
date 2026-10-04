@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@hifago/supabase/client";
 import { Button, Label, Modal, TextArea, TextField, toast } from "@hifago/ui";
+import { rpcErrorMessage } from "@/lib/errors/rpcErrorMessage";
 
 // Spec 39 D3 — « Reembolsar » : l'admin ne parle JAMAIS à Mercado Pago depuis ici (apps/admin n'a ni
 // SDK ni token). La RPC request_payment_refund met la demande en file (payment_refunds `pending`) ;
@@ -43,7 +44,7 @@ export function RefundDialog({
     });
     setIsSubmitting(false);
     if (rpcError || !(data as { ok: boolean } | null)?.ok) {
-      toast.danger(rpcError?.message ?? "No se pudo solicitar el reembolso.");
+      toast.danger(rpcErrorMessage(rpcError, "No se pudo solicitar el reembolso."));
       return;
     }
     toast.success("Reembolso solicitado: se ejecuta en los próximos minutos.");

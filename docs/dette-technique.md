@@ -4,7 +4,7 @@ titre: "Dette technique et QA/UI connue — hifago"
 theme: journal
 statut: vivant
 langue: fr
-maj: 2026-09-22
+maj: 2026-10-01
 resume: >
   Dette signalée et non corrigée du chantier hifago — technique, puis QA/UI mineure. Sortie de
   docs/backlog.md le 2026-09-08 : ce fichier-là plafonne à 60 lignes et prescrit lui-même qu'un
@@ -161,6 +161,18 @@ Historique complet de chaque point (comment on y est arrivé) : `docs/journal/<m
   visuel. Trouvé en extrayant `product-type-fields/index.tsx` en sous-composants (revue de
   packaging admin) — préservé à l'identique dans l'extraction (pure, zéro changement de
   comportement), documenté en tête du fichier hôte plutôt que corrigé en silence.
+
+## Dette trouvée en montant les écrans entiers dans Storybook, le 2026-10-01
+Chacun est VISIBLE dans une story `Écrans/…` (c'est le but : Jérôme les voit en décidant du design).
+Récit et méthode : journal du 2026-10-01.
+- **Fil d'Ariane à 4 niveaux déborde à 390 px** (fiche d'un hébergement : Inicio › Alojamientos › établissement › chambre) : la page défile horizontalement (capture à 497 px de large), contraire à `.claude/rules/ui.md`.
+- **Calendrier de réservation en ANGLAIS** sur une page espagnole (« October 2026 », Su Mo Tu…) : les formulaires ne passent pas de `locale` à `Calendar` — déjà écrit dans `Calendar.tsx`, jamais reporté ici.
+- **`CheckoutForm` sans `noValidate`** : un WhatsApp vide est bloqué par l'infobulle NATIVE du navigateur, jamais par `checkout-error` (`.claude/rules/apps.md` prescrit `noValidate`).
+- **`CancelLineButton` : l'échec d'annulation est invisible** — la confirmation revient à la normale sans message ; « No se pudo anular » n'apparaît qu'après un clic sur « No ».
+- **Index par type : la catégorie « otras » a un `<h2>` VIDE** (`buscar.ts` laisse `nombre: ""`, seule la page de catégorie le traduit).
+- **Prix à 4 chiffres sans séparateur** (« 8000 COP » à côté de « 15.000 COP ») : `Intl` en espagnol ne groupe qu'à partir de 5 chiffres.
+- **Lignes du panier et du résultat en dates ISO brutes** (« 2026-10-08 → 2026-10-12 ») et heures avec secondes (« 10:00:00 ») sur `/reserva/<jeton>`.
+- **Tunnel, écarts relevés en lisant le code** : `?payment=rejected` masque même une commande payée ; `partially_refunded` non traité par `deriveOrderState` ; estimation « Total » à 0 pour un hébergement à prix libre ; « N noches obligatorias » (camp, `durationDays`) contre N−1 sur `/mi-viaje` ; bouton de `/pago` réactivé pendant `reserve-nights` (double clic possible) ; date complète cliquable dans `ReservationForm`, désactivée dans `SlotReservationForm` ; `maxStay` PMS appliqué nulle part.
 
 ## Data/config en écart, déplacée du backlog le 2026-09-19
 Même motif que les déplacements des 2026-09-08 et 2026-09-10 : `docs/backlog.md` avait atteint

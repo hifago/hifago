@@ -65,10 +65,12 @@ function Harnais({
   suggestions = SUGGESTIONS,
   onSubmit = () => {},
   onSuggestionSelect = () => {},
+  clearLabel,
 }: {
   suggestions?: SearchSuggestion[];
   onSubmit?: (q: string) => void;
   onSuggestionSelect?: (s: SearchSuggestion) => void;
+  clearLabel?: string;
 }) {
   const [texte, setTexte] = useState("");
   return (
@@ -79,6 +81,7 @@ function Harnais({
       suggestions={suggestions}
       onSubmit={onSubmit}
       onSuggestionSelect={onSuggestionSelect}
+      clearLabel={clearLabel}
       testId="recherche"
     />
   );
@@ -259,5 +262,47 @@ describe("SearchBar", () => {
     expect(container.firstElementChild?.getAttribute("data-testid")).toBe("recherche");
     expect(document.querySelector('[data-testid="recherche-input"]')).not.toBeNull();
     expect(document.querySelector('[data-testid="recherche-submit"]')).not.toBeNull();
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────────────────────
+  // LA CROIX DE LA MAQUETTE DE L'ACCUEIL (2026-10-01)
+  // ─────────────────────────────────────────────────────────────────────────────────────────────
+  //
+  // ⚠️ La maquette la dessine dans un champ VIDE ; elle n'apparaît ici qu'avec du texte, parce
+  // qu'une croix qui n'efface rien serait un bouton sans effet. C'est ce choix que ces tests tiennent.
+  const croix = () => document.querySelector<HTMLButtonElement>('[data-testid="recherche-clear"]');
+
+  it("n'affiche la croix qu'avec du texte à effacer", () => {
+    render(<Harnais clearLabel="Borrar la búsqueda" />);
+    expect(croix()).toBeNull();
+    act(() => {
+      fireEvent.change(champ(), { target: { value: "kay" } });
+    });
+    expect(croix()).not.toBeNull();
+    expect(croix()?.getAttribute("aria-label")).toBe("Borrar la búsqueda");
+  });
+
+  it("sans libellé, pas de croix du tout — même avec du texte", () => {
+    render(<Harnais />);
+    act(() => {
+      fireEvent.change(champ(), { target: { value: "kay" } });
+    });
+    expect(croix()).toBeNull();
+  });
+
+  // ⚠️ Le focus REVIENT au champ : la croix disparaît avec le texte, et sans ce retour le focus
+  // tomberait sur <body> — la tabulation repartirait du début de la page.
+  it("vide le champ et rend le focus au champ", () => {
+    render(<Harnais clearLabel="Borrar la búsqueda" />);
+    act(() => {
+      champ().focus();
+      fireEvent.change(champ(), { target: { value: "kayak" } });
+    });
+    act(() => {
+      fireEvent.click(croix() as HTMLButtonElement);
+    });
+    expect(champ().value).toBe("");
+    expect(document.activeElement).toBe(champ());
+    expect(croix()).toBeNull();
   });
 });

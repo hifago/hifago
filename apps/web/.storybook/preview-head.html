@@ -1,0 +1,34 @@
+<!--
+  Les polices de la charte, POUR LE PLAYGROUND SEULEMENT.
+
+  En production c'est `app/[locale]/layout.tsx` qui les charge, via `next/font/google`, et qui pose
+  `--font-poppins` / `--font-anton` sur <html>. Storybook ne monte pas ce layout — et `next/font`
+  est une transformation du compilateur Next, qui n'existe pas sous Vite : sans ce fichier, le
+  playground rendrait toute la vitrine en pile système, et la typographie de la charte serait
+  invisible exactement là où on vient la regarder.
+
+  ⚠️ Les noms de variables doivent correspondre EXACTEMENT à ceux que `next/font` produit en
+  production (`--font-poppins`, `--font-anton`), sinon le playground et le site divergent en
+  silence — c'est la version Storybook du piège qui a laissé la vitrine en pile système pendant des
+  mois (cf. `packages/ui/src/styles/globals.css`, section « LES POLICES DE LA CHARTE »).
+
+  ANTON CONFIRMÉE POUR LES TITRES (Jérôme, 2026-10-02, arbitrage D5 du plan
+  `docs/specs/41-charte-hifago-toute-la-vitrine.md`) : la Sugo Pro Display que la charte demande ne
+  sera pas licenciée. Sa VERSION D'ESSAI, que ce fichier chargeait depuis le 2026-10-01 sur la seule
+  machine de Jérôme, n'est donc plus chargée : elle faisait juger les titres dans une police que le
+  site n'affichera jamais, et remplaçait les chiffres par des glyphes de filigrane (« Reserva
+  HFG-▓▓▓ »). Le playground affiche désormais exactement la police de production — ne pas réintroduire
+  de surcharge de `--font-titre` ici.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@300;400;500;600;700;800&display=swap"
+  rel="stylesheet"
+/>
+<style>
+  :root {
+    --font-poppins: "Poppins";
+    --font-anton: "Anton";
+  }
+</style>

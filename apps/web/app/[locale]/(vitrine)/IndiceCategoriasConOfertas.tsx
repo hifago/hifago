@@ -3,10 +3,11 @@ import { getTranslations } from "next-intl/server";
 import { todayInBogota } from "@hifago/domain";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { PageShell } from "@/components/atoms/PageShell";
-import { Title } from "@/components/atoms/Title";
+import { Aviso } from "@/components/molecules/Aviso";
 import { Migas } from "@/components/molecules/Migas";
 import { EstadoVacio } from "@/components/molecules/EstadoVacio";
-import { SeccionOfertas } from "@/components/organisms/SeccionOfertas";
+import { BandeauPagina } from "@/components/organisms/BandeauPagina";
+import { SeccionRiel } from "@/components/organisms/SeccionRiel";
 import { buscarCategorias, hrefCategoria } from "@/lib/catalog/buscar";
 import {
   escribirCriterios,
@@ -34,28 +35,26 @@ import { labelsBuscador } from "./labelsBuscador";
 // `ListadoTipo.tsx`, à côté duquel il vit : il appelle `lib/catalog/` (réservé au serveur) et
 // traduit — un `page.tsx` n'importe donc AUCUNE requête ici non plus (`scripts/check-data-layer.sh`).
 //
-// ⚠️ CHAQUE CATÉGORIE EST UNE SECTION « COMME L'ACCUEIL » — littéralement le même composant,
-// `SeccionOfertas` : un titre, une grille/liste de `POR_CATEGORIA` cartes, un « Ver más » qui ne
-// se rend QUE si la catégorie a plus d'offres que celles montrées (`mostrarVerMas`). C'est la
-// différence avec l'accueil, qui rend son « Ver más » inconditionnellement — une section de
-// l'accueil a TOUJOURS plus d'offres du type qu'elle n'en montre, une catégorie pas forcément.
+// ⚠️ CHAQUE CATÉGORIE EST UN RAIL « COMME L'ACCUEIL » — littéralement le même composant,
+// `SeccionRiel` (plan 41, P1, 2026-10-03 ; arbitrage D7 = A) : un titre à point, le motif, le
+// conteneur marine et ses tuiles, un « GO → » qui ne se rend QUE si la catégorie a plus d'offres que
+// celles montrées (`mostrarVerMas`). C'est la différence avec l'accueil, qui rend son « GO »
+// inconditionnellement — une section de l'accueil a TOUJOURS plus d'offres du type qu'elle n'en
+// montre, une catégorie pas forcément.
 const POR_CATEGORIA = 6;
 
-/**
- * Le fil d'Ariane et le titre partagent la même source que les listings (`ListadoTipo.tsx`).
- *
- * ⚠️ `verMas` vient de `HomePage`, PAS de `ListadoPage` : c'est le MÊME libellé que le « Ver más »
- * d'une section de l'accueil (`page.tsx`), pas un texte propre à cet écran — `ListadoPage.json` ne
- * porte que des libellés spécifiques au listing (état vide, pagination). Une seconde clé au même
- * texte aurait divergé à la première retouche.
- */
+/** Le fil d'Ariane et le titre partagent la même source que les listings (`ListadoTipo.tsx`). */
 async function libelles(tipo: TipoOferta, locale: Locale) {
   const tHome = await getTranslations({ locale, namespace: "HomePage" });
   const tCommon = await getTranslations({ locale, namespace: "Common" });
   return {
     seccion: tHome(`secciones.${tipo}`),
-    verMas: tHome("verMas"),
     inicio: tCommon("breadcrumbHome"),
+    // Les libellés des tuiles : ceux de l'accueil et des cartes de listing (`TarjetaOferta`), jamais
+    // une seconde clé au même texte.
+    desde: tHome("precioDesde"),
+    conteoAlojamientos: (count: number) => tHome("conteoAlojamientos", { count }),
+    capacidadPersonas: (count: number) => tHome("capacidadPersonas", { count }),
   };
 }
 
@@ -69,7 +68,7 @@ export async function IndiceCategoriasConOfertas({
   searchParams: ParamsBrutos;
 }) {
   const t = await getTranslations({ locale, namespace: "ListadoPage" });
-  const { seccion, verMas, inicio } = await libelles(tipo, locale);
+  const { seccion, inicio, desde, conteoAlojamientos, capacidadPersonas } = await libelles(tipo, locale);
 
   const criterios = leerCriterios(searchParams);
   const sufijoCriterios = escribirCriterios(criterios);
@@ -116,7 +115,10 @@ export async function IndiceCategoriasConOfertas({
   const labels = await labelsBuscador(locale);
 
   return (
-    <PageShell variant="large">
+    // LA PAGE OR ENTIÈRE, comme l'accueil (plan 41, P1 ; arbitrage D1 = A : on parcourt sur l'or).
+    // `pagina` : la colonne de l'accueil (F7) ; `acento` : la surface or, header compris, sans bande
+    // claire entre les sections.
+    <PageShell variant="pagina" fondo="acento">
       {/* Règle SEO 6 : le JSON-LD est rendu côté serveur par la route, jamais par `Migas`. */}
       <JsonLd
         data={buildBreadcrumbJsonLd(
@@ -125,39 +127,44 @@ export async function IndiceCategoriasConOfertas({
         )}
       />
 
-      <Migas items={migasVisibles} etiqueta={t("migasEtiqueta")} locale={locale} testId="migas" />
-
-      {/* VISIBLE, contrairement au `<h1>` masqué de l'accueil (décision 5, spec 29) : un titre
-          masqué laisserait le visiteur deviner où il a atterri. */}
-      <Title as="h1">{seccion}</Title>
-
-      {/* ⚠️ `atajosTipo={[]}` : la page ne connaît qu'un type et n'a compté aucun autre. Ce
-          composant navigue vers `/`, pas vers la page courante — décision 10, le site n'a qu'UN
-          écran de résultats. */}
-      <BuscadorInicio
-        criteriosIniciales={criterios}
-        aujourdIso={todayInBogota()}
-        localeCodigo={locale}
-        labels={labels}
-        atajosTipo={[]}
+      {/* Le bandeau (S2), variante `navegacion` : la page est déjà or, il n'a pas de fond propre.
+          Il porte le SEUL `<h1>`, VISIBLE, contrairement à l'ancien `<h1>` masqué de l'accueil
+          (décision 5, spec 29) : un titre masqué laisserait le visiteur deviner où il a atterri.
+          Pas encore de chapô : D14 dit oui, mais les textes (40 à 60 mots par type, `es` et `en`)
+          sont à rédiger par Jérôme — ils iront dans `chapo`, clé `ListadoPage.chapo.<tipo>`. */}
+      <BandeauPagina
+        variante="navegacion"
+        migas={<Migas items={migasVisibles} etiqueta={t("migasEtiqueta")} locale={locale} testId="migas" />}
+        titulo={seccion}
+        accion={
+          <div className="flex flex-col gap-4">
+            {/* ⚠️ `atajosTipo={[]}` : la page ne connaît qu'un type et n'a compté aucun autre. Ce
+                composant navigue vers `/`, pas vers la page courante — décision 10, le site n'a
+                qu'UN écran de résultats. */}
+            <BuscadorInicio
+              criteriosIniciales={criterios}
+              aujourdIso={todayInBogota()}
+              localeCodigo={locale}
+              labels={labels}
+              atajosTipo={[]}
+            />
+            {avisoAlojamiento ? (
+              // L'encadré info de la charte (S6), blanc sur l'or, sous la recherche dont il explique
+              // les dates : plus visible qu'une phrase noyée sous la barre (retour Jérôme : « il faut
+              // que ce soit plus visible »). Côté evento, aucun bloc bloquant équivalent sur
+              // `/mi-viaje` (jamais décidé) : informatif.
+              <Aviso tono="info" testId={avisoAlojamiento.testId}>
+                {avisoAlojamiento.texto}
+              </Aviso>
+            ) : null}
+          </div>
+        }
       />
-
-      {avisoAlojamiento ? (
-        // Même habillage que le bloc bloquant de `/mi-viaje` (`lodging-required-notice`) — un
-        // visiteur doit reconnaître le même message aux deux endroits, pas une simple phrase grise
-        // noyée sous la barre de recherche (retour Jérôme : « il faut que ce soit plus visible »).
-        // Côté evento, aucun bloc bloquant équivalent sur `/mi-viaje` (jamais décidé) : informatif.
-        <div
-          className="rounded-lg border border-border bg-surface-secondary p-4 text-sm"
-          data-testid={avisoAlojamiento.testId}
-        >
-          {avisoAlojamiento.texto}
-        </div>
-      ) : null}
 
       {categorias.length === 0 ? (
         // Deux états vides distincts : « ta recherche ne donne rien » n'est pas « il n'y a pas
         // encore d'offres ». Le second n'invite pas à changer des critères qui n'existent pas.
+        // Sans action : la recherche juste au-dessus en est une (S8).
         <EstadoVacio
           titulo={hayCriterios(criterios) ? t("emptyState.titulo") : t("sinOfertas.titulo")}
           descripcion={
@@ -166,29 +173,37 @@ export async function IndiceCategoriasConOfertas({
           testId="estado-vacio"
         />
       ) : (
-        categorias.map((categoria, indice) => (
-          <SeccionOfertas
-            key={categoria.slug}
-            titulo={categoria.nombre}
-            tituloAs="h2"
-            hrefVerMas={hrefCategoria(tipo, categoria.slug, sufijoCriterios)}
-            labelVerMas={verMas}
-            // ⚠️ Toutes les catégories dans la même carte (photo pleine largeur, 2026-09-14, retour
-            // explicite de Jérôme) — cf. `page.tsx` pour le raisonnement complet : les activités
-            // utilisaient `variante="lista"` par choix esthétique de Jérôme (spec 28 §5), jamais une
-            // contrainte fonctionnelle, avec un défaut visuel non résolu (spec 28 §10bis). Cohérent
-            // avec toutes les autres catégories.
-            //
-            // `variante="carrusel"` (et non plus "grilla") : même changement que `page.tsx` — ligne
-            // scrollable horizontalement plutôt qu'une grille empilée sur mobile.
-            variante="carrusel"
-            tarjetas={categoria.tarjetas}
-            locale={locale}
-            prioridad={indice === 0}
-            mostrarVerMas={categoria.total > categoria.tarjetas.length}
-            testId={`categoria-${categoria.slug}`}
-          />
-        ))
+        // L'écart entre deux rails est celui de l'accueil (32 → 72 px), en `cqw` de la colonne :
+        // `@container` ici, comme la colonne des sections de l'accueil (`page.tsx`).
+        <div className="@container">
+          <div className="flex flex-col gap-y-[clamp(2rem,6cqw,4.5rem)]">
+            {categorias.map((categoria, indice) => {
+              // La catégorie de rattrapage arrive SANS nom (`buscar.ts` ne traduit rien) : son
+              // libellé est d'interface, il vient d'ici — défaut connu n° 5, un `<h2>` vide.
+              const nombre = categoria.esSinTag ? t(`sinTag.${tipo}.nombre`) : categoria.nombre;
+              return (
+                <SeccionRiel
+                  key={categoria.slug}
+                  tamanoTitulo="seccion"
+                  titulo={nombre}
+                  hrefVerMas={hrefCategoria(tipo, categoria.slug, sufijoCriterios)}
+                  // Le nom accessible du « GO → » nomme SA catégorie (« Ver todo: Agua ») : le même
+                  // « Más actividades » répété sous chaque rail ne disait pas où il menait.
+                  labelVerMas={t("verCategoria", { categoria: nombre })}
+                  mostrarVerMas={categoria.total > categoria.tarjetas.length}
+                  tarjetas={categoria.tarjetas}
+                  locale={locale}
+                  labelDesde={desde}
+                  conteoAlojamientos={conteoAlojamientos}
+                  capacidadPersonas={capacidadPersonas}
+                  // Le LCP : la première tuile du premier rail, et elle seule.
+                  prioridad={indice === 0}
+                  testId={`categoria-${categoria.slug}`}
+                />
+              );
+            })}
+          </div>
+        </div>
       )}
     </PageShell>
   );

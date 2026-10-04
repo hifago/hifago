@@ -38,6 +38,9 @@ test("le sitemap est servi, non vide, et porte x-default sur chaque entrée", as
 
   expect(body).toContain('hreflang="x-default"');
   expect(body).toContain("/es</loc>");
+  // Spec 29 §8.3 : les listings entrent au sitemap dans les deux locales (libellés d'interface).
+  expect(body).toContain("/es/actividades</loc>");
+  expect(body).toContain("/en/actividades</loc>");
   // localePrefix vaut "always" : aucune URL sans préfixe de locale ne doit apparaître.
   expect(body).not.toMatch(/<loc>https?:\/\/[^/]+\/?<\/loc>/);
 });

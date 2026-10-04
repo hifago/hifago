@@ -1,7 +1,11 @@
 import { Price } from "@/components/atoms/Price";
 import type { Locale } from "@/messages";
 
-export type MontanteLigne = { label: string; amountCop: number; testId: string };
+export type MontanteLigne = {
+  label: string;
+  amountCop: number;
+  testId: string;
+};
 
 /**
  * Les montants d'UNE prestation, en colonne à droite de son identité : une `<dl>` parce que ce
@@ -17,6 +21,10 @@ export type MontanteLigne = { label: string; amountCop: number; testId: string }
  * ⚠️ Deux montants, jamais trois : un troisième alourdirait une carte qui en porte déjà deux par
  * prestation (décision ④). Rien ne l'interdit techniquement — c'est une règle de lisibilité.
  *
+ * Plan 41, P8 : 14 px au lieu de 12, libellé discret, montant en Poppins 600 (chiffres tabulaires,
+ * posés par `Price`) — c'est le montant qu'on cherche, pas le libellé. Le résultat de
+ * réservation (P7) en hérite.
+ *
  * Les libellés arrivent DÉJÀ TRADUITS : une molécule ne traduit rien (convention du dépôt, cf.
  * `atoms/Field.tsx`), les deux écrans n'utilisant d'ailleurs pas le même namespace.
  */
@@ -28,12 +36,19 @@ export function MontantsLigne({
   locale: Locale;
 }) {
   return (
-    <dl className="flex shrink-0 flex-col gap-0.5 text-xs sm:text-right">
+    <dl className="flex shrink-0 flex-col gap-1 sm:text-right">
       {montants.map((montant) => (
-        <div key={montant.testId} className="flex gap-2 sm:justify-end">
-          <dt className="text-muted">{montant.label}</dt>
-          <dd>
-            <Price amountCop={montant.amountCop} locale={locale} testId={montant.testId} />
+        <div
+          key={montant.testId}
+          className="flex items-baseline justify-between gap-4 sm:justify-end"
+        >
+          <dt className="text-sm font-medium text-muted">{montant.label}</dt>
+          <dd className="text-right font-semibold tabular-nums">
+            <Price
+              amountCop={montant.amountCop}
+              locale={locale}
+              testId={montant.testId}
+            />
           </dd>
         </div>
       ))}

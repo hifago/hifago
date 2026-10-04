@@ -1,5 +1,5 @@
 {
-  "backToCatalog": "← Volver al catálogo",
+  "backToCatalog": "Volver al catálogo",
   "perPerson": "por persona",
   "perHouse": "por la casa entera",
   "lodgingKindDorm": "Cama en dormitorio",
@@ -38,6 +38,10 @@
   "pmsAvailabilityError": "No se pudo consultar la disponibilidad en este momento. Intenta de nuevo más tarde.",
   "pmsAvailabilityRetry": "Reintentar",
   "pmsAvailabilityRateLimited": "Demasiadas consultas seguidas. Espera un momento y vuelve a intentarlo.",
+  "pmsAvailabilityConnectorOff": "Este alojamiento no se puede reservar en línea por ahora. Contacta al establecimiento.",
+  "pmsNoReservableTitle": "Reserva en línea no disponible",
+  "pmsNoReservableText": "Este alojamiento no se puede reservar en línea por ahora. El establecimiento puede atenderte directamente.",
+  "pmsNoReservableContact": "Contactar a {establecimiento}",
   "estimatedTotal": "Total estimado",
   "groupDiscount": "A partir de {threshold, plural, one {# persona anotada} other {# personas anotadas}} en esta salida, el precio baja un {pct}%.",
   "occurrence": {
@@ -59,5 +63,9 @@
   "transportMapsNewTab": "Ver el trayecto en Google Maps (se abre en una pestaña nueva)",
   "programTitle": "El plan, día a día",
   "programDay": "Día {dia}",
-  "programDayWithDate": "Día {dia} · {fecha}"
+  "programDayWithDate": "Día {dia} · {fecha}",
+  "ofrecidoPor": "Ofrecido por <enlace>{nombre}</enlace>",
+  "ofrecidoPorTitulo": "Ofrecido por",
+  "verEstablecimiento": "Ver {nombre}",
+  "barraReservar": "Reservar"
 }

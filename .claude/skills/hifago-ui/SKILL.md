@@ -1,6 +1,6 @@
 ---
 name: hifago-ui
-description: Scaffold ou vérifie un écran/composant du nouveau stack Hifago selon le design system déjà tranché — HeroUI v3 comme socle unique, bibliothèque exacte par besoin, jamais de second design system ni de dépendance UI hors périmètre. Usage — /hifago-ui <écran> (ou /hifago-ui check)
+description: Scaffold ou vérifie un écran ou composant du nouveau stack Hifago selon le design system déjà tranché — HeroUI v3 comme socle unique, bibliothèque exacte par besoin, jamais de second design system ni de dépendance UI hors périmètre. Invocation Codex — $hifago-ui [écran] ou $hifago-ui check
 ---
 
 # /hifago-ui — construire un écran selon le design system tranché

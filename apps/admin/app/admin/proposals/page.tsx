@@ -1,4 +1,5 @@
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { ProposalsTable } from "./ProposalsTable";
 
@@ -10,23 +11,29 @@ export default async function AdminProposalsPage() {
   // valeur actuelle/proposée champ par champ vit sur l'écran de détail, pas ici. product est null
   // pour une proposition kind='create' pas encore approuvée (spec 15, le produit n'existe pas
   // encore) : repli sur le nom proposé (payload), même patron que establishmentProposals ci-dessous.
-  const { data: productProposals } = await supabase
-    .from("product_proposals")
-    .select("id, created_at, kind, payload, product:products(name), partner:partners(display_name)")
-    .eq("status", "pending")
-    .order("created_at", { ascending: true });
+  const { data: productProposals } = checkedRead(
+    await supabase
+      .from("product_proposals")
+      .select("id, created_at, kind, payload, product:products(name), partner:partners(display_name)")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true }),
+    "product_proposals",
+  );
 
   // establishment_proposals_select_admin (docs/specs/06-gestion-etablissement.md) — même écran de
   // modération que product_proposals, fusionné et trié par date, jamais un second écran séparé.
   // establishment est null pour une proposition kind='create' pas encore approuvée (l'établissement
   // n'existe pas encore) : repli sur le nom proposé (payload) dans ce cas.
-  const { data: establishmentProposals } = await supabase
-    .from("establishment_proposals")
-    .select(
-      "id, created_at, kind, payload, establishment:establishments(name), partner:partners(display_name)",
-    )
-    .eq("status", "pending")
-    .order("created_at", { ascending: true });
+  const { data: establishmentProposals } = checkedRead(
+    await supabase
+      .from("establishment_proposals")
+      .select(
+        "id, created_at, kind, payload, establishment:establishments(name), partner:partners(display_name)",
+      )
+      .eq("status", "pending")
+      .order("created_at", { ascending: true }),
+    "establishment_proposals",
+  );
 
   const rows = [
     ...(productProposals ?? []).map((p) => ({

@@ -29,6 +29,7 @@ export * from "./products/reservationHorizon";
 export * from "./http/resolveOrigin";
 export * from "./http/buildAuthCallbackRedirect";
 export * from "./http/safeNextPath";
+export * from "./attribution/refCode";
 // Fuseau de l'exploitation (America/Bogota) — `todayInBogota()` et ses variantes sont l'UNIQUE
 // échappatoire autorisée à la règle de lint no-restricted-syntax des deux apps et au garde-fou
 // scripts/check-timezone.sh. Un seul module depuis la fusion du 2026-08-28.

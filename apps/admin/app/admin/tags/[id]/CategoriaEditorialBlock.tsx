@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@hifago/supabase/client";
 import { Button, MediaGallery, toast, type MediaGalleryPhoto } from "@hifago/ui";
+import { uploadCatalogBlob } from "@/lib/media/uploadCatalogBlob";
 import { LocalizedTextField, type LocalizedValue } from "@/components/localized-text-field";
 import { limpiarDescripcion } from "@/lib/tags/descripcionEditorial";
 
@@ -71,19 +72,15 @@ export function CategoriaEditorialBlock({
   }
 
   async function handleAddFile(blob: Blob) {
-    const formData = new FormData();
-    formData.append("file", blob, "categoria.png");
-    const uploadResponse = await fetch("/api/upload/tag", { method: "POST", body: formData });
-    const uploadResult = (await uploadResponse.json()) as
-      | { ok: true; storage_path: string }
-      | { ok: false; reason: string };
-
-    if (!uploadResult.ok) return { ok: false, reason: uploadResult.reason };
+    // Envoi commun aux six galeries (lib/media/uploadCatalogBlob.ts) : toute issue rend un
+    // résultat avec un message écrit pour l'écran, jamais une exception ni un code brut.
+    const upload = await uploadCatalogBlob("tag", blob);
+    if (!upload.ok) return { ok: false, reason: upload.reason };
 
     const supabase = createClient();
     const { error } = await supabase
       .from("catalog_tags")
-      .update({ image_path: uploadResult.storage_path })
+      .update({ image_path: upload.storagePath })
       .eq("id", tagId);
 
     // ⚠️ Si l'écriture échoue, le fichier reste dans le bucket sans être référencé. On ne le
@@ -92,7 +89,7 @@ export function CategoriaEditorialBlock({
     // remplacement — dette globale du module images, portée au backlog.
     if (error) return { ok: false, reason: "No se pudo asociar la imagen a la categoría." };
 
-    setImagePath(uploadResult.storage_path);
+    setImagePath(upload.storagePath);
     router.refresh();
     return { ok: true };
   }
@@ -104,7 +101,8 @@ export function CategoriaEditorialBlock({
       .update({ image_path: null })
       .eq("id", tagId);
 
-    if (error) return { ok: false, reason: error.message };
+    // Jamais `error.message` à l'écran : un texte technique, pas un message pour l'utilisateur.
+    if (error) return { ok: false, reason: "No se pudo quitar la imagen de la categoría." };
 
     // ⚠️ L'objet reste dans le bucket : on retire la RÉFÉRENCE, pas le fichier. Même comportement
     // que partout ailleurs dans le module images, et même dette.

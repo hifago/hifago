@@ -2,16 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { format, parseISO } from "date-fns";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { DateRange } from "react-day-picker";
+import { Button } from "@/components/atoms/Button";
 import {
-  Button,
   DayPickerCalendar as Calendar,
   DayPickerCalendarDayButton,
   Input,
   Label,
   TextField,
 } from "@hifago/ui";
+import {
+  CLASSE_CADRE_CALENDRIER,
+  CLASSE_CALENDRIER,
+  CLASSNAMES_CALENDRIER,
+  localeCalendrier,
+} from "@/components/molecules/Calendar";
+import { Aviso } from "@/components/molecules/Aviso";
 import {
   addMonthsIso,
   formatCop,
@@ -44,6 +51,7 @@ import { limitarCantidad, topeCantidad } from "@/lib/reservas/cantidad";
 import { plazasRestantes } from "@/lib/reservas/disponibilidad";
 import { motivoPms } from "@/lib/reservas/pms";
 import { usePrefillUltimosCriterios } from "@/lib/reservas/usePrefillUltimosCriterios";
+import { Title } from "@/components/atoms/Title";
 
 // Spec 17 §0 Tranche 2, §10 point 6 — react-day-picker mode="range", tranché sur prototype réel
 // (cf. docs/journal/2026-08.md). Une seule entité tarifée : le produit lui-même, via
@@ -114,6 +122,8 @@ export function LodgingReservationForm({
   rates: RateRow[];
 }) {
   const t = useTranslations("ProductPage");
+  // La langue de la page, pour la grille (plan 41, S10).
+  const locale = useLocale();
   const { lines } = useCart();
   const addToCart = useAddToCart();
 
@@ -493,8 +503,10 @@ export function LodgingReservationForm({
   // dans le même geste, et l'utilisateur repique une sortie dedans.
   function handleQtyChange(value: string) {
     const brut = Number(value);
-    // min fixé à 1, jamais products.min_qty : create_order ne le vérifie que hors lodging (le
-    // plafond lodging est l'agrégat lodging_cap_exceeded, sans rapport) — cf. lib/reservas/cantidad.ts.
+    // min fixé à 1, jamais products.min_qty : create_order ne vérifie le plancher que hors lodging.
+    // Le plafond, lui, vaut pour le lodging aussi depuis la migration 20260929112240
+    // (`coalesce(max_qty, 20)` par ligne, en plus de l'agrégat lodging_cap_exceeded) — c'est
+    // `qtyMax`, issu de `maxQty`. Cf. lib/reservas/cantidad.ts.
     const suivant = limitarCantidad(brut, 1, qtyMax);
     setQty(suivant);
     if (!range?.from) return;
@@ -540,29 +552,41 @@ export function LodgingReservationForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="mb-2 text-sm font-medium">{t("availabilityTitle")}</h2>
+      <div className="flex flex-col gap-2">
+        <Title as="h2" size="bloque">
+          {t("availabilityTitle")}
+        </Title>
+        {/* Plan 41, P3 : les états du PMS (injoignable, quota, connecteur coupé, lecture en cours)
+            en `Aviso` dans le panneau — erreur pour ce qui empêche de réserver, info pour l'attente.
+            Rôles et `data-testid` gardés sur l'encadré : `role="alert"` pour l'échec, `role="status"`
+            (annonce polie, l'équivalent de l'`aria-live="polite"` d'avant) pour la lecture. */}
         {monthState?.status === "error" ? (
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <p className="text-sm text-danger" role="alert" data-testid="pms-availability-error">
-              {t(motivo?.claveI18n ?? "pmsAvailabilityError")}
-            </p>
-            {motivo?.reintentable ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                data-testid="pms-availability-retry"
-                onPress={() => setAttempt((value) => value + 1)}
-              >
-                {t("pmsAvailabilityRetry")}
-              </Button>
-            ) : null}
-          </div>
+          <Aviso
+            tono="error"
+            compacto
+            rol="alert"
+            testId="pms-availability-error"
+            accion={
+              motivo?.reintentable ? (
+                <Button
+                  size="sm"
+                  variant="solid"
+                  color="neutral"
+                  testId="pms-availability-retry"
+                  onPress={() => setAttempt((value) => value + 1)}
+                >
+                  {t("pmsAvailabilityRetry")}
+                </Button>
+              ) : undefined
+            }
+          >
+            {t(motivo?.claveI18n ?? "pmsAvailabilityError")}
+          </Aviso>
         ) : null}
         {cargando ? (
-          <p className="mb-2 text-sm text-muted" aria-live="polite" data-testid="pms-availability-loading">
+          <Aviso tono="info" compacto rol="status" testId="pms-availability-loading">
             {t("pmsAvailabilityLoading")}
-          </p>
+          </Aviso>
         ) : null}
         {/* ⚠️ LE CLIC PERDU, corrigé le 2026-09-17. Pendant qu'un mois est en vol, tous ses jours
             sont `disabled` (une nuit absente n'est pas réservable — fail-closed du 2026-08-28) :
@@ -575,7 +599,13 @@ export function LodgingReservationForm({
             clic perdu. `aria-busy` porte l'information pour un lecteur d'écran, l'opacité pour
             les autres. */}
         <div aria-busy={cargando} className={cargando ? "transition-opacity opacity-60" : "transition-opacity"}>
+          {/* Plan 41, S10 : la grille de la charte (cases à la largeur du panneau, mois en Anton,
+              jour choisi or et marine), dans son cadre, et dans la langue de la page — libellés
+              d'accessibilité compris. Purement visuel : prédicats et modificateurs inchangés. */}
           <Calendar
+            className={`${CLASSE_CALENDRIER} ${CLASSE_CADRE_CALENDRIER}`}
+            classNames={CLASSNAMES_CALENDRIER}
+            locale={localeCalendrier(locale)}
             mode="range"
             selected={range}
             onSelect={handleSelectRange}
@@ -658,7 +688,7 @@ export function LodgingReservationForm({
         </p>
       ) : null}
 
-      <Button data-testid="add-to-cart-button" onPress={handleAddToCart} isDisabled={!canAdd}>
+      <Button size="lg" width="full" testId="add-to-cart-button" onPress={handleAddToCart} isDisabled={!canAdd}>
         {t("addToCart")}
       </Button>
     </div>

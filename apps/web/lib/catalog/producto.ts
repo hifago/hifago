@@ -58,7 +58,7 @@ function recortarHora(hora: string | null): string | null {
 //
 // `establishment(...)` ne demande JAMAIS `photo_urls` : la colonne est hors du GRANT SELECT public
 // (20260819110000), et la demander ferait échouer la requête ENTIÈRE — pas seulement ce champ.
-const COLUMNAS_PRODUCTO = `id, slug, name, description, price_cop, price_tiers, min_qty, max_qty, unit, capacity, unit_count, lodging_kind, type, price_label, external_booking_url, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, duration_days, program, group_discount_threshold_qty, group_discount_pct, lobby_category_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, establishment:establishments(id, slug, name, description, address, lobby_last_synced_at)`;
+const COLUMNAS_PRODUCTO = `id, slug, name, description, price_cop, price_tiers, min_qty, max_qty, unit, capacity, unit_count, lodging_kind, type, price_label, external_booking_url, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, duration_days, program, group_discount_threshold_qty, group_discount_pct, lobby_category_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, establishment:establishments(id, slug, name, description, address, lobby_last_synced_at, lobby_connector_active, lobby_has_token)`;
 
 /**
  * ⚠️ Mémoïsé par `cache` de React, et ce n'est pas une optimisation : `generateMetadata` et le
@@ -69,12 +69,15 @@ export const getProductoPorSlug = cache(
   async (slug: string, { locale }: { locale: string }): Promise<FichaProducto | null> => {
     const supabase = createPublicClient();
 
-    const { data: producto } = await supabase
+    const { data: producto, error } = await supabase
       .from("products")
       .select(COLUMNAS_PRODUCTO)
       .eq("slug", slug)
       .maybeSingle();
 
+    // Une lecture en ÉCHEC n'est jamais une absence : elle lève, la page rend 500 + noindex (même
+    // geste que buscar.ts). Un 404 ici, sur une simple panne, dirait aux moteurs de désindexer.
+    if (error) throw error;
     // `null` plutôt qu'une exception : la page appelle `notFound()`. Un produit non publié est
     // invisible à `anon` (RLS), donc il arrive ici exactement comme un slug inconnu — c'est la
     // même 404 pour le visiteur, et c'est voulu (jamais un « soft 404 » vers la catégorie).
@@ -110,6 +113,16 @@ export const getProductoPorSlug = cache(
     // ci-dessous) pour être testée sans mock de Supabase — même idiome que `resolverUrlContacto`.
     const miroirFresco = esMiroirFresco(producto.establishment?.lobby_last_synced_at ?? null, Date.now());
 
+    // Connecteur coupé ou sans jeton : `create_order` refuse la ligne (`pms_unavailable`, même
+    // condition que `lobby_connector_active and lobby_api_token is not null` — `lobby_has_token` en
+    // est le reflet public) et `night-availability` ne peut rien demander. Le logement n'est alors
+    // PAS réservable en ligne, et le miroir n'est jamais semé : un calendrier « frais » mènerait
+    // droit à ce refus. Les deux colonnes sont accordées à `anon` (20260819110000).
+    const conectorPmsActivo = Boolean(
+      producto.establishment?.lobby_connector_active && producto.establishment?.lobby_has_token
+    );
+    const reservableEnLinea = !esPmsBacked || conectorPmsActivo;
+
     // « Aujourd'hui » = le jour civil à GUATAPÉ, jamais celui d'UTC. Un serveur réglé en UTC fait
     // basculer la date à 19 h heure locale : les `gte("date", …)` retiraient alors du catalogue les
     // créneaux et tarifs de la soirée en cours (lot fuseau, 2026-08-28). Dérivé UNE fois, réutilisé
@@ -136,7 +149,7 @@ export const getProductoPorSlug = cache(
       esEvento
         ? { data: [] }
         : esPmsBacked
-          ? miroirFresco
+          ? miroirFresco && conectorPmsActivo
             ? await supabase
                 .from("pms_availability_mirror")
                 .select("date, available_units, min_stay, max_stay, lead_days")
@@ -209,16 +222,7 @@ export const getProductoPorSlug = cache(
           })
         : { data: [] };
 
-    const [
-      { data: disponibilidad },
-      { count: nbReglasFranja },
-      { data: tarifas },
-      { data: fotosProducto },
-      { data: fotosEstablecimiento },
-      { data: ocurrenciasEvento },
-      { data: rsvpEvento },
-      { data: amenidadesRaw },
-    ] = await Promise.all([
+    const lecturas = await Promise.all([
       leerDisponibilidad(),
       contarReglasDeFranja(),
       leerTarifas(),
@@ -236,6 +240,19 @@ export const getProductoPorSlug = cache(
       leerRsvpEvento(),
       leerAmenidades(),
     ]);
+    // Une sous-lecture en échec lève comme la principale : jamais une fiche amputée (sans photos,
+    // calendrier vide) présentée comme complète.
+    for (const lectura of lecturas) if ("error" in lectura && lectura.error) throw lectura.error;
+    const [
+      { data: disponibilidad },
+      { count: nbReglasFranja },
+      { data: tarifas },
+      { data: fotosProducto },
+      { data: fotosEstablecimiento },
+      { data: ocurrenciasEvento },
+      { data: rsvpEvento },
+      { data: amenidadesRaw },
+    ] = lecturas;
 
     const amenidades = agruparAmenidadesPorCategoria((amenidadesRaw ?? []) as FilaAmenidad[], locale);
 
@@ -250,7 +267,7 @@ export const getProductoPorSlug = cache(
     // La SEULE attente séquentielle du module, et elle est structurelle : on ne sait qu'ici si le
     // produit est à créneaux. La grouper avec le `Promise.all` demanderait de compter les règles
     // deux fois.
-    const { data: franjas } =
+    const lecturaFranjas =
       modoReserva === "slot"
         ? await supabase.rpc("get_product_slots", {
             p_product_id: producto.id,
@@ -258,6 +275,8 @@ export const getProductoPorSlug = cache(
             p_to: lastBookableDateIso(hoyIso),
           })
         : { data: [] };
+    if ("error" in lecturaFranjas && lecturaFranjas.error) throw lecturaFranjas.error;
+    const { data: franjas } = lecturaFranjas;
 
     // Une Map construite UNE fois, jamais un `.find()` par occurrence : l'horizon evento va jusqu'à
     // six mois, soit ~180 occurrences pour un evento quotidien, et la jointure linéaire refaisait
@@ -270,6 +289,9 @@ export const getProductoPorSlug = cache(
       supabase.storage.from(BUCKET_MEDIA).getPublicUrl(ruta).data.publicUrl;
 
     const establecimiento = producto.establishment;
+    // Plafond par ligne, le même que `create_order` (`coalesce(max_qty, 20)`) : un produit sans
+    // plafond saisi reste réservable, borné à 20. Calculé une fois pour tous les formulaires.
+    const maxQty = producto.max_qty ?? 20;
 
     return {
       id: producto.id,
@@ -284,6 +306,7 @@ export const getProductoPorSlug = cache(
       precio: resolverPrecio(producto.price_label, producto.price_cop),
       unidad: producto.unit,
       minQty: producto.min_qty ?? 1,
+      maxQty,
       modoReserva,
       urlExterna: urlContacto,
       // Renseignée pour tout evento, INDÉPENDAMMENT du mode : la date d'un événement est une
@@ -310,7 +333,7 @@ export const getProductoPorSlug = cache(
               booked: fila.booked,
               registeredQty: rsvpPorFecha.get(fila.occurrence_date) ?? null,
             })),
-            maxQty: producto.max_qty ?? 20,
+            maxQty,
           }
         : null,
       alojamiento: esAlojamiento
@@ -321,8 +344,9 @@ export const getProductoPorSlug = cache(
             priceTiers: producto.price_tiers,
             // Le même défaut que l'écran d'origine : un hébergement sans plafond saisi reste
             // réservable, borné à 20.
-            maxQty: producto.max_qty ?? 20,
+            maxQty,
             esPmsBacked,
+            reservableEnLinea,
             amenidades,
           }
         : null,

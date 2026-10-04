@@ -43,7 +43,8 @@ type Occurrence = {
 function renderForm(
   capacityMode: "unlimited" | "metered" | "rsvp",
   occurrences: Occurrence[],
-  minQty?: number
+  minQty?: number,
+  maxQty = 20
 ) {
   return render(
     <NextIntlClientProvider locale="es" messages={{ ProductPage: messages.ProductPage, Common: messages.Common }}>
@@ -51,7 +52,7 @@ function renderForm(
         productId="p1"
         // Le repli de `products.max_qty` posé par la couche catalogue — la vraie valeur, jamais une
         // constante propre au formulaire.
-        maxQty={20}
+        maxQty={maxQty}
         capacityMode={capacityMode}
         occurrences={occurrences}
         minQty={minQty}
@@ -108,6 +109,21 @@ describe("EventoReservationForm — capacityMode 'metered' (cupo dur, décompte 
 
     fireEvent.click(document.querySelector('[data-date="2026-06-17"]')!);
     expect(screen.getByTestId("add-to-cart-button").hasAttribute("disabled")).toBe(false);
+  });
+});
+
+// Mode mesuré : la place restante peut dépasser le plafond par ligne de `create_order`
+// (`coalesce(max_qty, 20)`) — le champ ne propose jamais davantage, et l'affichage des places reste
+// celui de la capacité réelle.
+describe("EventoReservationForm — capacityMode 'metered' et max_qty", () => {
+  it("borne la quantité au plafond du produit quand il reste plus de places", () => {
+    renderForm("metered", [{ date: OCCURRENCE_A, capacity: 50, booked: 0, registeredQty: null }], 1, 4);
+    fireEvent.click(document.querySelector('[data-date="2026-06-10"]')!);
+    const champ = document.getElementById("qty") as HTMLInputElement;
+
+    expect(champ.getAttribute("max")).toBe("4");
+    fireEvent.change(champ, { target: { value: "9" } });
+    expect(champ.value).toBe("4");
   });
 });
 

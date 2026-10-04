@@ -2,10 +2,22 @@
 -- Parallèle à set_product_availability (feature 5/17) mais sur une clé établissement+date, sans
 -- notion 'open' — cf. plan.
 begin;
-select plan(10);
+select plan(12);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
+$$;
+
+-- Motif de refus, ou « sqlstate <code> » si la RPC lève : sans la garde invalid_capacity, une
+-- capacité négative sur une date neuve heurte la contrainte booked <= capacity (23514) — le helper
+-- en fait une valeur, l'assertion rougit sans interrompre le fichier.
+create function test_try_set_resource_capacity(p_date date, p_capacity int) returns text
+language plpgsql as $$
+begin
+  return set_provider_resource_capacity('cc110000-0000-4000-8000-000000000011', p_date, p_capacity)->>'reason';
+exception when others then
+  return 'sqlstate ' || sqlstate;
+end;
 $$;
 
 -- Fixtures : 1 partenaire/établissement, 1 admin, 1 non-admin. Une ligne provider_resource_calendar
@@ -66,6 +78,20 @@ select is(
     where establishment_id = 'cc110000-0000-4000-8000-000000000011' and slot_date = '2028-06-01'),
   5,
   'capacité inchangée (toujours 5) après un refus below_booked'
+);
+
+-- Capacité négative (20261001144546) : motif invalid_capacity avant tout autre contrôle, comme
+-- set_product_slot_capacity — sur une date configurée (sinon below_booked) et sur une date neuve
+-- (sinon erreur de contrainte booked <= capacity).
+select is(
+  test_try_set_resource_capacity('2028-06-01', -1),
+  'invalid_capacity',
+  'capacité négative sur une date configurée : invalid_capacity, pas below_booked'
+);
+select is(
+  test_try_set_resource_capacity('2028-07-01', -1),
+  'invalid_capacity',
+  'capacité négative sur une date neuve : invalid_capacity, pas une erreur de contrainte'
 );
 
 -- Admin valide, ligne déjà existante → mise à jour + audit_log -----------------------------------

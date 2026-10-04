@@ -5,8 +5,11 @@ import { getOperatorCapability } from "@/lib/agenda/activeOperatorEstablishments
 
 // Garde scopée à /partner/reservations — même patron que products/layout.tsx (spec 15) et
 // establishment/layout.tsx : garde serveur, jamais un simple masquage client. La vraie barrière de
-// données est la RLS (order_lines_select_operator, spec 17 §0 Tranche 1) ; cette garde évite
-// seulement d'afficher un écran vide à un visiteur non authentifié ou sans capacité d'aucune sorte.
+// données est côté base : les RPC SECURITY DEFINER partner_reservations_list et
+// partner_reservation_detail ne rendent que les lignes des établissements où l'appelant a la
+// capacité operator (`has_capability`) — order_lines n'est plus lisible directement depuis
+// 20260922210000. Cette garde évite seulement d'afficher un écran vide à un visiteur non
+// authentifié ou sans capacité d'aucune sorte.
 export default async function PartnerReservationsLayout({
   children,
 }: LayoutProps<"/partner/reservations">) {

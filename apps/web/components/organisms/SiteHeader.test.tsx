@@ -106,7 +106,9 @@ const ligne = (id: string): AddToCartInput => ({
 // (marge au-dessus des quatre nécessaires) avant que le container ne soit rendu à l'appelant —
 // suffisant même pour les N appels concurrents de `RemplitLePanier` (aucun n'est chaîné à un
 // autre, donc N ne rallonge pas la profondeur, seulement la largeur de chaque palier).
-async function rendu(props: { isAuthenticated?: boolean; lignes?: AddToCartInput[]; locale?: Locale } = {}) {
+async function rendu(
+  props: { isAuthenticated?: boolean; lignes?: AddToCartInput[]; locale?: Locale; transparente?: boolean } = {}
+) {
   // Chaque appel isole son propre panier : sans ce reset, les lignes ajoutées par un test
   // précédent (table en mémoire du mock, cf. tête de fichier) fausseraient le compte du suivant.
   cartRows = [];
@@ -114,7 +116,11 @@ async function rendu(props: { isAuthenticated?: boolean; lignes?: AddToCartInput
   await act(async () => {
     ({ container } = render(
       <Entoure locale={props.locale} lignes={props.lignes}>
-        <SiteHeader isAuthenticated={props.isAuthenticated ?? false} testId="header" />
+        <SiteHeader
+          isAuthenticated={props.isAuthenticated ?? false}
+          transparente={props.transparente}
+          testId="header"
+        />
       </Entoure>
     ));
     for (let i = 0; i < 6; i += 1) {
@@ -132,15 +138,65 @@ describe("SiteHeader", () => {
   });
   afterEach(() => {
     window.history.pushState({}, "", "/");
+    // La variante transparente lit `scrollY` : un test qui fait défiler ne doit pas laisser la page
+    // défilée au suivant.
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
   });
 
   it("introduit les landmarks que l'app n'avait pas", async () => {
     const container = await rendu();
     const header = container.querySelector("header") as HTMLElement;
     expect(header).not.toBeNull();
-    expect(header.querySelectorAll("nav").length).toBe(1);
+    // Deux `<nav>` VOISINS et nommés : les langues, puis la navigation (Mi viaje, compte). Jamais
+    // l'un dans l'autre — deux landmarks imbriqués s'annoncent mal.
+    const navs = Array.from(header.querySelectorAll("nav"));
+    expect(navs.map((nav) => nav.getAttribute("aria-label"))).toEqual([
+      messages.Chrome.languageLabel,
+      messages.Chrome.navLabel,
+    ]);
+    expect(navs[0].contains(navs[1]) || navs[1].contains(navs[0])).toBe(false);
     // ⚠️ Le logo n'est PAS un <h1> : le titre appartient à la page, pas à la marque.
     expect(header.querySelector("h1")).toBeNull();
+  });
+
+  // Plan 41, item C1 (arbitrage D2 = A) : UN header, l'or de l'accueil, sur toutes les pages.
+  it("pose le header or sur toutes les pages : collant, sans bordure basse", async () => {
+    const header = (await rendu()).querySelector("header") as HTMLElement;
+    expect(header.getAttribute("data-superficie")).toBe("or");
+    expect(header.className).toContain("sticky");
+    expect(header.className).toContain("bg-accent");
+    expect(header.className).not.toMatch(/\bborder-b\b/);
+  });
+
+  // La déclinaison SANS or (asset A1) : le « GO » or des deux autres disparaîtrait sur l'or. Une
+  // seule image, pas les deux basculées par le mode.
+  it("porte le logo sur or, et lui seul", async () => {
+    const logo = (await rendu()).querySelector('[data-testid="header-home"]') as HTMLElement;
+    const images = Array.from(logo.querySelectorAll("img"));
+    expect(images).toHaveLength(1);
+    expect(images[0].getAttribute("src")).toContain("logo-header-sur-or");
+  });
+
+  it("prend son ombre une fois la page défilée, et la rend en remontant", async () => {
+    const header = (await rendu()).querySelector("header") as HTMLElement;
+    expect(header.hasAttribute("data-defile")).toBe(false);
+    expect(header.className).not.toContain("shadow-");
+
+    await act(async () => {
+      Object.defineProperty(window, "scrollY", { configurable: true, value: 120 });
+      window.dispatchEvent(new Event("scroll"));
+    });
+    expect(header.hasAttribute("data-defile")).toBe(true);
+    expect(header.className).toContain("shadow-");
+    // L'or ne dépend pas du défilement, hors de l'accueil.
+    expect(header.className).toContain("bg-accent");
+
+    await act(async () => {
+      Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+      window.dispatchEvent(new Event("scroll"));
+    });
+    expect(header.hasAttribute("data-defile")).toBe(false);
+    expect(header.className).not.toContain("shadow-");
   });
 
   it("fait du logo un lien vers l'accueil, nommé", async () => {
@@ -172,22 +228,53 @@ describe("SiteHeader", () => {
       expect(pastille.textContent).toBe("3");
     });
 
-    // ⚠️ Un nombre affiché ne suffit pas à un lecteur d'écran : « 3 » à côté de « panier » peut
+    // ⚠️ Marine, chiffre blanc (plan 41, C1) : une pastille or posée sur l'or n'avait plus de forme.
+    // jsdom ne calcule pas les couleurs : on vérifie qu'elle lit les jetons du bouton marine.
+    it("pose une pastille marine, qui se détache sur l'or", async () => {
+      const container = await rendu({ lignes: [ligne("a")] });
+      const pastille = container.querySelector(".badge") as HTMLElement;
+      expect(pastille.className).toContain("[--badge-bg:var(--bouton-marine)]");
+      expect(pastille.className).toContain("[--badge-fg:var(--bouton-marine-texte)]");
+    });
+
+    // Demande de Jérôme (2026-10-02) : un bouton bien visible, l'icône ET le texte. Le libellé est
+    // vérifié VISIBLE — hors du `sr-only` qui porte le compte.
+    it("affiche « Mi viaje en Guatapé » en toutes lettres, dans un bouton", async () => {
+      const panier = (await rendu()).querySelector('[data-testid="header-cart"]') as HTMLElement;
+      const visible = Array.from(panier.childNodes)
+        .filter((noeud) => !(noeud instanceof HTMLElement && noeud.classList.contains("sr-only")))
+        .map((noeud) => noeud.textContent)
+        .join("");
+      expect(visible).toBe("Mi viaje en Guatapé");
+      expect(panier.querySelector("svg")).not.toBeNull();
+      // Pas d'`aria-label` : il écraserait le texte visible (WCAG 2.5.3).
+      expect(panier.hasAttribute("aria-label")).toBe(false);
+    });
+
+    // Vue mobile (Jérôme, 2026-10-02) : « Mi viaje » seul sous `md`. jsdom n'applique pas Tailwind :
+    // ce qui est vérifié, c'est que « en Guatapé », et lui seul, porte la classe qui le masque.
+    it("réserve « en Guatapé » aux écrans `md` et plus", async () => {
+      const panier = (await rendu()).querySelector('[data-testid="header-cart"]') as HTMLElement;
+      const lieu = panier.querySelector(".hidden.md\\:inline") as HTMLElement;
+      expect(lieu.textContent).toBe(" en Guatapé");
+    });
+
+    // ⚠️ Un nombre affiché ne suffit pas à un lecteur d'écran : « 3 » dans une pastille peut
     // s'annoncer n'importe comment. Le compte est donc DANS le nom accessible, au pluriel de la
     // langue (ICU de next-intl), jamais concaténé.
     it("annonce le compte en toutes lettres, avec le bon pluriel", async () => {
       const vide = (await rendu()).querySelector('[data-testid="header-cart"]') as HTMLElement;
-      expect(vide.getAttribute("aria-label")).toBe("Mi viaje, vacío");
+      expect(vide.textContent).toBe("Mi viaje en Guatapé, vacío");
 
       const un = (await rendu({ lignes: [ligne("a")] })).querySelector(
         '[data-testid="header-cart"]'
       ) as HTMLElement;
-      expect(un.getAttribute("aria-label")).toBe("Mi viaje, 1 servicio");
+      expect(un.textContent).toBe("Mi viaje en Guatapé, 1 servicio");
 
       const deux = (await rendu({ lignes: [ligne("a"), ligne("b")] })).querySelector(
         '[data-testid="header-cart"]'
       ) as HTMLElement;
-      expect(deux.getAttribute("aria-label")).toBe("Mi viaje, 2 servicios");
+      expect(deux.textContent).toBe("Mi viaje en Guatapé, 2 servicios");
     });
 
     it("n'affiche aucune pastille quand le panier est vide", async () => {
@@ -199,9 +286,9 @@ describe("SiteHeader", () => {
       const cent = Array.from({ length: 100 }, (_, i) => ligne(String(i)));
       const container = await rendu({ lignes: cent });
       expect((container.querySelector(".badge__label") as HTMLElement).textContent).toBe("99+");
-      expect(
-        (container.querySelector('[data-testid="header-cart"]') as HTMLElement).getAttribute("aria-label")
-      ).toBe("Mi viaje, 100 servicios");
+      expect((container.querySelector('[data-testid="header-cart"]') as HTMLElement).textContent).toBe(
+        "Mi viaje en Guatapé, 100 servicios"
+      );
     });
 
     // Un lien, pas un bouton : le panier s'ouvre au clic du milieu, se copie, se met en favori.
@@ -212,56 +299,37 @@ describe("SiteHeader", () => {
     });
   });
 
-  // ⚠️ Le compte vit dans `SiteMenu` depuis le 2026-09-02 (le menu est devenu une liste d'entrées
-  // avec libellés visibles). Ce qui est vérifié ici est le CÂBLAGE — que le header transmette bien
-  // l'état de connexion ; le rendu de l'entrée elle-même appartient à SiteMenu.test.tsx.
-  describe("le compte, transmis au menu", () => {
+  describe("le compte", () => {
     it("mène à la connexion quand le visiteur est déconnecté", async () => {
       const lien = (await rendu({ isAuthenticated: false })).querySelector(
-        '[data-testid="header-menu-account"]'
+        '[data-testid="header-account"]'
       ) as HTMLAnchorElement;
       expect(lien.getAttribute("href")).toBe("/entrar");
-      expect(lien.textContent).toBe(messages.Chrome.loginLabel);
+      expect(lien.getAttribute("aria-label")).toBe(messages.Chrome.loginLabel);
     });
 
     it("mène à la page du compte quand il est connecté", async () => {
       const lien = (await rendu({ isAuthenticated: true })).querySelector(
-        '[data-testid="header-menu-account"]'
+        '[data-testid="header-account"]'
       ) as HTMLAnchorElement;
       expect(lien.getAttribute("href")).toBe("/cuenta/perfil");
-      expect(lien.textContent).toBe(messages.Chrome.accountLabel);
+      expect(lien.getAttribute("aria-label")).toBe(messages.Chrome.accountLabel);
     });
   });
 
-  describe("le menu mobile", () => {
-    it("annonce son état et ce qu'il commande", async () => {
-      const container = await rendu();
-      const bouton = container.querySelector('[data-testid="header-menu-toggle"]') as HTMLButtonElement;
-      const menu = container.querySelector('[data-testid="header-menu"]') as HTMLElement;
-      expect(bouton.getAttribute("aria-expanded")).toBe("false");
-      expect(bouton.getAttribute("aria-controls")).toBe(menu.id);
-
-      fireEvent.click(bouton);
-      expect(bouton.getAttribute("aria-expanded")).toBe("true");
+  // Plus de menu burger depuis le plan 41 (C1) : tout est en ligne, à toutes les largeurs.
+  describe("sans menu à déplier", () => {
+    it("n'a aucun bouton de menu, à aucune largeur", async () => {
+      const header = (await rendu()).querySelector("header") as HTMLElement;
+      expect(header.querySelector("button[aria-expanded]")).toBeNull();
+      expect(header.querySelector('[data-testid="header-menu-toggle"]')).toBeNull();
     });
 
-    it("se ferme par Échap, et rend le focus au bouton", async () => {
-      const container = await rendu();
-      const bouton = container.querySelector('[data-testid="header-menu-toggle"]') as HTMLButtonElement;
-      fireEvent.click(bouton);
-      expect(bouton.getAttribute("aria-expanded")).toBe("true");
-
-      fireEvent.keyDown(document, { key: "Escape" });
-      expect(bouton.getAttribute("aria-expanded")).toBe("false");
-      // Sans ce retour, le focus reste sur un élément masqué et la tabulation repart du début.
-      expect(document.activeElement).toBe(bouton);
-    });
-
-    // ⚠️ LE test du lot. Google indexe la version MOBILE : si le menu était monté à la demande
-    // (`{ouvert && …}`), les liens `/en/…` du sélecteur de langue — ce qui fait découvrir la
-    // version anglaise — seraient absents du seul HTML que Googlebot voit. On vérifie donc le HTML
-    // SERVI, pas le DOM après hydratation : les deux ne disent pas la même chose.
-    it("laisse les liens de langue dans le HTML SERVI, menu fermé", () => {
+    // ⚠️ LE test du header. Google indexe la version MOBILE : les liens `/en/…` du sélecteur de
+    // langue — ce qui fait découvrir la version anglaise — doivent être dans le HTML SERVI, pas
+    // seulement dans le DOM après hydratation. Ils l'étaient dans un panneau replié ; ils le sont
+    // désormais en ligne. On vérifie le HTML serveur : c'est celui que Googlebot reçoit.
+    it("laisse les liens de langue et de compte dans le HTML SERVI", () => {
       const html = renderToStaticMarkup(
         <NextIntlClientProvider locale="es" messages={messages}>
           <CartProvider>
@@ -269,24 +337,19 @@ describe("SiteHeader", () => {
           </CartProvider>
         </NextIntlClientProvider>
       );
-      // Le panneau est bien fermé dans ce HTML…
-      expect(html).toContain('aria-expanded="false"');
-      // …et pourtant les deux liens de langue y sont, avec leur préfixe.
-      // ⚠️ Portée exacte de cette assertion : le préfixe vient du mock ci-dessus, pas du vrai
-      // `Link`. Ce que le test prouve n'est donc pas la forme de l'URL — c'est que le panneau est
-      // RENDU et non conditionné, donc que ses liens existent dans le HTML servi. C'est le point
-      // qui casserait au premier `{ouvert && …}`.
+      // ⚠️ Portée exacte : le préfixe vient du mock ci-dessus, pas du vrai `Link`. Ce que le test
+      // prouve, c'est que les liens sont RENDUS dès le serveur, pas la forme de l'URL.
       expect(html).toContain('href="/es/productos/kayak"');
       expect(html).toContain('href="/en/productos/kayak"');
-      // …ainsi que le lien du compte, qui vit dans le même panneau.
       expect(html).toContain('href="/entrar"');
+      expect(html).toContain('href="/mi-viaje"');
     });
   });
 
   it("traduit tout ce qu'il affiche, dans les deux langues", async () => {
     const en = await rendu({ locale: "en", lignes: [ligne("a")] });
-    expect((en.querySelector('[data-testid="header-cart"]') as HTMLElement).getAttribute("aria-label")).toBe(
-      "My trip, 1 item"
+    expect((en.querySelector('[data-testid="header-cart"]') as HTMLElement).textContent).toBe(
+      "My trip in Guatapé, 1 item"
     );
     expect((en.querySelector('[data-testid="header-home"]') as HTMLElement).getAttribute("aria-label")).toBe(
       "Hifago, go to home"
@@ -306,11 +369,106 @@ describe("SiteHeader", () => {
       </NextIntlClientProvider>
     );
     const client = await rendu();
-    const panierServeur = serveur.match(/aria-label="([^"]*Mi viaje[^"]*)"/)?.[1];
-    const panierClient = (client.querySelector('[data-testid="header-cart"]') as HTMLElement).getAttribute(
-      "aria-label"
-    );
+    const panierServeur = new DOMParser()
+      .parseFromString(serveur, "text/html")
+      .querySelector('[data-testid="header-cart"]')?.textContent;
+    const panierClient = (client.querySelector('[data-testid="header-cart"]') as HTMLElement).textContent;
     expect(panierServeur).toBe(panierClient);
-    expect(panierServeur).toBe("Mi viaje, vacío");
+    expect(panierServeur).toBe("Mi viaje en Guatapé, vacío");
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────────────────────
+  // LA VARIANTE TRANSPARENTE — l'accueil de la maquette de Jérôme (2026-10-01)
+  // ─────────────────────────────────────────────────────────────────────────────────────────────
+  describe("variante transparente (l'accueil)", () => {
+    async function defiler(jusqua: number) {
+      await act(async () => {
+        Object.defineProperty(window, "scrollY", { configurable: true, value: jusqua });
+        window.dispatchEvent(new Event("scroll"));
+      });
+    }
+
+    // La demande de Jérôme, mot pour mot : « que le header soit transparent et comporte bien
+    // l'accès à mi viaje ainsi que mon compte ». Les deux liens sont vérifiés PAR LEUR CIBLE, pas
+    // seulement par leur présence : un lien de compte qui mènerait au panier passerait sinon.
+    it("porte Mi viaje, Mi cuenta et les deux langues en ligne — sans logo ni bouton de menu", async () => {
+      const container = await rendu({ transparente: true });
+      const header = container.querySelector("header") as HTMLElement;
+
+      expect(header.querySelector('[data-testid="header-cart"]')?.getAttribute("href")).toBe("/mi-viaje");
+      const compte = header.querySelector('[data-testid="header-account"]') as HTMLAnchorElement;
+      expect(compte.getAttribute("href")).toBe("/entrar");
+      expect(compte.getAttribute("aria-label")).toBe(messages.Chrome.loginLabel);
+
+      // Les langues : deux vrais liens, posés dans le header, sans panneau à ouvrir.
+      expect(header.querySelector('[data-testid="header-language-es"]')?.getAttribute("href")).toBe(
+        "/es/productos/kayak"
+      );
+      expect(header.querySelector('[data-testid="header-language-en"]')?.getAttribute("href")).toBe(
+        "/en/productos/kayak"
+      );
+
+      // Le grand logo du héros tient le rôle du logo : pas de second logo dans le header. Et rien
+      // à replier : aucun bouton de menu, à aucune largeur.
+      expect(header.querySelector('[data-testid="header-home"]')).toBeNull();
+      expect(header.querySelector("button[aria-expanded]")).toBeNull();
+    });
+
+    it("mène à « Mi cuenta » une fois connecté", async () => {
+      const container = await rendu({ transparente: true, isAuthenticated: true });
+      const compte = container.querySelector('[data-testid="header-account"]') as HTMLAnchorElement;
+      expect(compte.getAttribute("href")).toBe("/cuenta/perfil");
+      expect(compte.getAttribute("aria-label")).toBe(messages.Chrome.accountLabel);
+    });
+
+    // ⚠️ Transparent ET collant, le header ferait défiler les sections SOUS ses icônes, sans rien
+    // entre les deux. Il ne l'est donc qu'en haut de page — et le redevient en y revenant.
+    it("est transparent en haut de page, prend l'or une fois défilé, et le rend en remontant", async () => {
+      const container = await rendu({ transparente: true });
+      const header = container.querySelector("header") as HTMLElement;
+      expect(header.className).toContain("bg-transparent");
+      expect(header.hasAttribute("data-defile")).toBe(false);
+
+      await defiler(120);
+      expect(header.className).toContain("bg-accent");
+      expect(header.className).not.toContain("bg-transparent");
+      expect(header.hasAttribute("data-defile")).toBe(true);
+
+      await defiler(0);
+      expect(header.className).toContain("bg-transparent");
+      expect(header.hasAttribute("data-defile")).toBe(false);
+    });
+
+    // Le HTML SERVI est celui du haut de page : transparent, et avec ses liens. Même raison que le
+    // test du menu plus haut — c'est ce HTML que Googlebot reçoit, et les liens `/en/…` y font
+    // découvrir la version anglaise.
+    it("sert le haut de page : transparent, langues et compte dans le HTML", () => {
+      const html = renderToStaticMarkup(
+        <NextIntlClientProvider locale="es" messages={messages}>
+          <CartProvider>
+            <SiteHeader isAuthenticated={false} transparente testId="header" />
+          </CartProvider>
+        </NextIntlClientProvider>
+      );
+      expect(html).toContain("bg-transparent");
+      // Posé sur l'or, défilé ou non : il en porte la surface (plan 41, F3) — c'est elle qui passe
+      // son contour et son focus au marine. Déclarée sur le header lui-même, jamais sur le <body>.
+      expect(html).toContain('data-superficie="or"');
+      expect(html).toContain('href="/es/productos/kayak"');
+      expect(html).toContain('href="/en/productos/kayak"');
+      expect(html).toContain('href="/entrar"');
+      expect(html).toContain('href="/mi-viaje"');
+    });
+
+    it("garde la pastille du panier, avec le compte exact dans le nom accessible", async () => {
+      const container = await rendu({ transparente: true, lignes: [ligne("a"), ligne("b")] });
+      const panier = container.querySelector('[data-testid="header-cart"]') as HTMLElement;
+      expect(panier.textContent).toBe("Mi viaje en Guatapé, 2 servicios");
+      expect(container.querySelector("header")?.textContent).toContain("2");
+      // Marine sur l'accueil aussi : c'est là, sur le bouton en contour mobile, qu'elle disparaissait.
+      expect((container.querySelector(".badge") as HTMLElement).className).toContain(
+        "[--badge-bg:var(--bouton-marine)]"
+      );
+    });
   });
 });

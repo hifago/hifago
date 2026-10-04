@@ -13,7 +13,13 @@ export async function POST(request: Request) {
   if (!user) {
     return Response.json({ ok: false, reason: "not_authenticated" }, { status: 401 });
   }
-  const { data: isAdmin } = await supabase.rpc("is_admin", { uid: user.id });
+  // Échec fermé (2026-10-01), motif de lib/pms/lobbyEstablishment.ts : un rôle illisible répond
+  // 503, jamais 403 « pas admin ».
+  const { data: isAdmin, error: isAdminError } = await supabase.rpc("is_admin", { uid: user.id });
+  if (isAdminError) {
+    console.error("test-connection : rôle indéterminable", isAdminError.message);
+    return Response.json({ ok: false, reason: "authorization_unavailable" }, { status: 503 });
+  }
   if (!isAdmin) {
     return Response.json({ ok: false, reason: "not_admin" }, { status: 403 });
   }

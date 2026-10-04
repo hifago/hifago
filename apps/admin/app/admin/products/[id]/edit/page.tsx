@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { buttonVariants } from "@hifago/ui";
 import { ProductForm } from "@/components/product-form";
@@ -29,11 +31,14 @@ function toTimeInputValue(time: string): string {
 export default async function EditProductPage({
   params,
 }: PageProps<"/admin/products/[id]/edit">) {
-  const { id } = await params;
+  const id = requireUuidParam((await params).id);
   const supabase = await createClient();
 
   // RLS (products_select_public) : l'admin voit aussi les activités non publiées.
-  const { data: productRow } = await supabase
+  // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
+  // répondait « introuvable », ou une fiche sans photos, catégories ni créneaux — qu'un
+  // enregistrement aurait ensuite écrasés.
+  const productResult = await supabase
     .from("products")
     .select(
       // `program` (2026-09-16, spec 37) : lu ICI **et** réécrit par l'update() de ProductForm — les
@@ -58,6 +63,7 @@ export default async function EditProductPage({
     )
     .eq("id", id)
     .maybeSingle();
+  const { data: productRow } = checkedRead(productResult, "products");
 
   if (!productRow) {
     notFound();
@@ -87,12 +93,12 @@ export default async function EditProductPage({
   // product.type déjà connus) — lancées en parallèle plutôt qu'en séquence, le TTFB de la page tombe
   // au max des 5 allers-retours Supabase au lieu de leur somme.
   const [
-    { data: media },
-    { data: tagsRaw },
-    { data: assignments },
-    { data: amenitiesRaw },
-    { data: amenityAssignments },
-    { data: slotRulesRaw },
+    mediaResult,
+    tagsResult,
+    assignmentsResult,
+    amenitiesResult,
+    amenityAssignmentsResult,
+    slotRulesResult,
   ] = await Promise.all([
     supabase
       .from("product_media")
@@ -101,18 +107,18 @@ export default async function EditProductPage({
       .order("sort", { ascending: true }),
     hasTags
       ? supabase.from("catalog_tags").select("id, label").order("slug")
-      : Promise.resolve({ data: [] as { id: string; label: unknown }[] }),
+      : Promise.resolve({ data: [] as { id: string; label: unknown }[], error: null }),
     hasTags
       ? supabase.from("product_tag_assignments").select("tag_id").eq("product_id", product.id)
-      : Promise.resolve({ data: [] as { tag_id: string }[] }),
+      : Promise.resolve({ data: [] as { tag_id: string }[], error: null }),
     // Équipements structurés (migration 20260917110000) — même patron que tags juste au-dessus,
     // table dédiée `catalog_amenities`, gating `hasAmenities` (lodging uniquement).
     hasAmenities
       ? supabase.from("catalog_amenities").select("id, label, category_key").order("category_key").order("sort_order")
-      : Promise.resolve({ data: [] as { id: string; label: unknown; category_key: string }[] }),
+      : Promise.resolve({ data: [] as { id: string; label: unknown; category_key: string }[], error: null }),
     hasAmenities
       ? supabase.from("product_amenity_assignments").select("amenity_id").eq("product_id", product.id)
-      : Promise.resolve({ data: [] as { amenity_id: string }[] }),
+      : Promise.resolve({ data: [] as { amenity_id: string }[], error: null }),
     // Spec 11 — règles de créneaux : réservées à "activity", même gating que tags/tramos.
     isActivity
       ? supabase
@@ -120,8 +126,14 @@ export default async function EditProductPage({
           .select("weekdays, start_time, end_time, slot_duration_minutes, capacity")
           .eq("product_id", product.id)
           .order("start_time")
-      : Promise.resolve({ data: [] as never[] }),
+      : Promise.resolve({ data: [] as never[], error: null }),
   ]);
+  const { data: media } = checkedRead(mediaResult, "product_media");
+  const { data: tagsRaw } = checkedRead(tagsResult, "catalog_tags");
+  const { data: assignments } = checkedRead(assignmentsResult, "product_tag_assignments");
+  const { data: amenitiesRaw } = checkedRead(amenitiesResult, "catalog_amenities");
+  const { data: amenityAssignments } = checkedRead(amenityAssignmentsResult, "product_amenity_assignments");
+  const { data: slotRulesRaw } = checkedRead(slotRulesResult, "product_slot_rules");
 
   // Spec 17 §0 Tranche 0 (générique) + Spec 18 Tranche 1 (créneaux) — SEULE définition de ce
   // gating avec ProductsGrid.tsx (apps/admin/app/partner/(app)/products/ProductsGrid.tsx), via

@@ -1,6 +1,6 @@
 ---
 name: hifago-dev
-description: Démarre/arrête l'environnement de dev quotidien du nouveau stack Hifago — Supabase local (Docker) + les deux apps Next.js du monorepo (web/admin) — gère port occupé et Docker non démarré. Usage — /hifago-dev (les deux), /hifago-dev web, /hifago-dev admin (ou /hifago-dev stop, /hifago-dev status)
+description: Démarre ou arrête l'environnement de dev quotidien du nouveau stack Hifago — Supabase local (Docker) et les deux apps Next.js du monorepo (web/admin) — gère port occupé et Docker non démarré. Invocation Codex — $hifago-dev, $hifago-dev web, admin, stop ou status
 ---
 
 # /hifago-dev — environnement de dev quotidien
@@ -19,6 +19,9 @@ Supabase cloud (cf. `CLAUDE.md` § 8). Monorepo à deux apps depuis le 2026-08-1
 | `status` | Affiche l'état (Docker up/down, ports 3100/3101 occupés ou libres) |
 
 ## Pièges connus
+- **Machine Windows** : tout tourne dans WSL 2 (bash Ubuntu, clone sous `~`, jamais `/mnt/c`) avec
+  Docker Desktop — installation, base de démo, comptes et dépannage propres à Windows dans
+  `DEMARRAGE-LOCAL-WINDOWS.md` (partie H pour l'IA).
 - **Docker non démarré** : `supabase start` échoue avec une erreur peu claire côté Docker — lancer
   Docker Desktop d'abord, ne pas re-diagnostiquer ce symptôme à chaque fois.
 - **Port 3100 ou 3101 déjà occupé** : un serveur Next.js précédent tourne encore (crash sans

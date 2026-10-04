@@ -196,7 +196,7 @@ utilisent déjà — il sort du lot, comme la convention l'exige.
 ### Fichiers touchés
 
 **Créés** : `app/[locale]/(vitrine)/page.tsx` · `app/[locale]/(vitrine)/BuscadorInicio.tsx` ·
-`components/organisms/SeccionOfertas.tsx` · `components/molecules/TarjetaOferta.tsx` ·
+`components/organisms/SeccionOfertas.tsx` (supprimé par le plan 41, G5) · `components/molecules/TarjetaOferta.tsx` ·
 `components/molecules/EstadoVacio.tsx` (chacun + test + story) · `lib/catalog/criterios.ts` · `lib/catalog/segmentos.ts` (table `tipo` → segment d'URL) ·
 `e2e/home.spec.ts` · `supabase/migrations/<ts>_search_catalog_fotos_y_precios.sql`.
 **Modifiés** : `messages/{es,en}/HomePage.json` · `lib/catalog/buscar.ts` ·
@@ -285,6 +285,9 @@ faute d'accessibilité comme de référencement. Masquer **visuellement** n'est 
 md:block` interdit, qui retire le contenu de l'index mobile.
 **État de transition** : Jérôme a indiqué qu'un **bloc titré** viendra plus tard au-dessus du bloc
 de recherche ; le jour où il existe, la seule chose à retirer est la classe de masquage.
+**Levé le 2026-10-02** (seconde maquette de l'accueil) : le bloc titré existe — « Guatapé merece
+más de un día. » est le `<h1>` VISIBLE de `PortadaInicio`, suivi d'un sous-titre (`HomePage.lema`) ;
+le logo du héros est redevenu un décor. Journal `docs/journal/2026-10.md`, même date.
 
 **`BuscadorInicio` — l'hôte client.** ⚠️ Sans lui, l'écran ne compile pas : toutes les props de
 `SearchPanel` (`onSubmit`, `onCriteriaChange`, `onSuggestionSelect`) sont des fonctions, et un

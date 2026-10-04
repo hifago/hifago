@@ -106,11 +106,11 @@ describe("Field", () => {
     expect(large).toContain("flex-1");
   });
 
-  it("garde une cible tactile d'au moins 44 px", () => {
+  it("garde une cible tactile d'au moins 44 px (48 px, plan 41 S11)", () => {
     // `.input` de HeroUI ne fixe aucune hauteur : sans ce plancher, le champ mesure 42 px sur
     // mobile et 38 px sur desktop (mesuré au rendu : 16 px de texte + py-2 + bordures, puis 14 px
-    // de texte à partir de `sm`), sous la règle du README.
-    expect(rendu(<Field label="A" value="" onChange={() => {}} />).input.className).toContain("min-h-11");
+    // de texte à partir de `sm`), sous la règle du README. Le champ de la charte fait 48 px.
+    expect(rendu(<Field label="A" value="" onChange={() => {}} />).input.className).toContain("min-h-12");
   });
 
   it("ouvre le clavier numérique et porte les bornes pour un champ de quantité", () => {

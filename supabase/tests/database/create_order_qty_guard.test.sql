@@ -39,9 +39,21 @@ insert into auth.users (id, email) values
   ('89930000-0000-4000-8000-000000000021', 'qty-guard-buyer@test.local');
 
 -- 031 : logement local (nuits posées ci-dessous) ; 032 : logement PMS-backed (connecteur actif) ;
--- 033 : activité à min_qty = 0 (aucune contrainte produit ne l'interdit) — sans la garde
--- universelle, qty 0 y passait la borne min_qty ; 034 : activité ordinaire, commande valide de
--- référence (contraintes order_lines) et support des lignes créneau/ressource.
+-- 033 : activité à min_qty = 0 — sans la garde universelle, qty 0 y passait la borne min_qty ;
+-- 034 : activité ordinaire, commande valide de référence (contraintes order_lines) et support des
+-- lignes créneau/ressource.
+--
+-- ⚠️ Depuis 20261001144546, products_min_qty_positive interdit min_qty = 0 : un produit ne peut plus
+-- porter cette borne. La garde universelle de create_order reste pourtant à prouver (cas 4d) : sans
+-- elle, la seule borne serait celle du produit. Même raisonnement et même technique que pour
+-- cart_items_qty_positive plus bas — la contrainte est retirée DANS la transaction du test (annulé
+-- par le rollback final), sinon la mutation « garde supprimée » ne pourrait plus rougir. Verrou
+-- ACCESS EXCLUSIVE sur products jusqu'à la fin du fichier : sans effet en CI ; sur une base locale
+-- partagée, les lectures de products attendent quelques secondes ; lock_timeout borne l'attente
+-- inverse.
+set local lock_timeout = '5s';
+alter table public.products drop constraint products_min_qty_positive;
+reset lock_timeout;
 insert into products (
   id, partner_id, establishment_id, type, name, price_cop, sellable, slug,
   lobby_category_id, min_qty, default_capacity

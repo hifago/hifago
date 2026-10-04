@@ -7,10 +7,10 @@
     "titulo": "Aún no tienes reservas",
     "descripcion": "Cuando reserves algo, lo encontrarás aquí."
   },
-  "emptyCta": "Descubrir Guatapé",
+  "emptyCta": "Explorar actividades",
   "loadError": "No pudimos cargar tus reservas. Inténtalo de nuevo en unos instantes.",
   "orderReference": "Reserva {reference}",
-  "viewDetail": "Ver detalle",
+  "viewDetail": "Ver detalle de la reserva {reference}",
   "lineQty": "Cantidad: {count}",
   "linePaid": "Pagado",
   "lineTotal": "Precio total",

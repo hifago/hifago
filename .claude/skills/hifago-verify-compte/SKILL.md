@@ -1,6 +1,6 @@
 ---
 name: hifago-verify-compte
-description: Vérifie explicitement à quel compte/organisation cloud (Supabase, Vercel) un token ou une session MCP est rattaché avant toute action non locale sur le projet Hifago, et bloque en cas de doute. Usage — /hifago-verify-compte
+description: Vérifie explicitement à quel compte ou organisation cloud (Supabase, Vercel) un token ou une session MCP est rattaché avant toute action non locale sur le projet Hifago, et bloque en cas de doute. Invocation Codex — $hifago-verify-compte
 ---
 
 # /hifago-verify-compte — vérification de compte avant action cloud

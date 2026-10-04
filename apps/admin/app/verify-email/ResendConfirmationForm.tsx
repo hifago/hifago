@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { buildAuthCallbackRedirect } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/client";
 import { Button, toast } from "@hifago/ui";
 
@@ -29,7 +30,17 @@ export function ResendConfirmationForm({ email }: { email: string | null }) {
 
   async function handleResend() {
     const supabase = createClient();
-    const { error } = await supabase.auth.resend({ type: "signup", email: email as string });
+    // ⚠️ `emailRedirectTo` obligatoire : le lien de l'email est `{{ .RedirectTo }}&token_hash=…`
+    // (supabase/templates/confirmation.html), et sans lui `.RedirectTo` retombe sur le site_url NU
+    // — le lien renvoyé ne mènerait nulle part. `next: "/"` : le dispatcher d'app/page.tsx aiguille
+    // ensuite selon le type de compte, comme après /login.
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email as string,
+      options: {
+        emailRedirectTo: buildAuthCallbackRedirect({ origin: window.location.origin, next: "/" }),
+      },
+    });
     if (error) {
       toast.danger("No se pudo reenviar el correo. Inténtalo de nuevo en unos segundos.");
     } else {

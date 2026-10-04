@@ -46,25 +46,30 @@ export default async function AdminCampaignsPage({
   if (filters.channel) {
     query = query.eq("channel", filters.channel);
   }
-  const { data: campaigns, count } = await query;
+  // Une panne LÈVE (app/error.tsx) : lue comme une absence, elle affichait « aucune campagne ».
+  const { data: campaigns, count, error: campaignsError } = await query;
+  if (campaignsError) {
+    throw new Error(`Lecture des campagnes impossible (comm_campaigns) : ${campaignsError.message}`);
+  }
 
   const campaignIds = (campaigns ?? []).map((campaign) => campaign.id);
-  // Progression d'envoi par campagne : même donnée que campaigns/[id]/page.tsx (comptage des
-  // statuts de comm_campaign_targets en JS), mais une seule requête groupée sur la page courante
-  // plutôt qu'une requête par ligne.
+  // Progression d'envoi par campagne : même donnée que campaigns/[id]/page.tsx, un seul appel pour
+  // toute la page. Agrégée en SQL (admin_campaign_target_counts, 20261002155922) : une ligne par
+  // (campagne, statut). L'ancienne lecture rendait une ligne par destinataire, comptée ici en JS et
+  // tronquée par `max_rows` au-delà de 1000 — une campagne d'audience `all` suffisait à fausser les
+  // compteurs sans aucun signal.
   const targetCounts: Record<string, { total: number; sent: number }> = {};
   if (campaignIds.length > 0) {
-    const { data: targets } = await supabase
-      .from("comm_campaign_targets")
-      .select("campaign_id, status")
-      .in("campaign_id", campaignIds);
-    for (const target of targets ?? []) {
-      if (!targetCounts[target.campaign_id]) {
-        targetCounts[target.campaign_id] = { total: 0, sent: 0 };
-      }
-      const bucket = targetCounts[target.campaign_id];
-      bucket.total += 1;
-      if (target.status === "sent") bucket.sent += 1;
+    const { data: counts, error: countsError } = await supabase.rpc("admin_campaign_target_counts", {
+      p_campaign_ids: campaignIds,
+    });
+    if (countsError) {
+      throw new Error(`Lecture des destinataires impossible (admin_campaign_target_counts) : ${countsError.message}`);
+    }
+    for (const row of counts) {
+      const bucket = (targetCounts[row.campaign_id] ??= { total: 0, sent: 0 });
+      bucket.total += row.n;
+      if (row.status === "sent") bucket.sent += row.n;
     }
   }
 

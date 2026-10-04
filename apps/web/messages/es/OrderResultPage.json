@@ -25,6 +25,7 @@
   "pay": "Pagar el anticipo",
   "retryPayment": "Reintentar pago",
   "paying": "Redirigiendo a Mercado Pago…",
+  "confirmingBooking": "Confirmando con el alojamiento…",
   "trip": {
     "range": "Tu viaje del {start} al {end}",
     "single": "Tu viaje del {start}"
@@ -37,7 +38,7 @@
   "holderName": "Nombre",
   "holderPhone": "WhatsApp",
   "holderEmail": "Correo electrónico",
-  "createAccount": "Crear una cuenta para encontrar tus reservas",
+  "createAccount": "Crear una cuenta",
   "viewOrders": "Ver mis reservas",
   "lineStatus": {
     "reserved": "Reservada",
@@ -54,8 +55,17 @@
     "nothing_to_pay": "No hay nada pendiente de pago para este pedido.",
     "order_not_found": "No se pudo encontrar el pedido para iniciar el pago.",
     "mercadopago_unavailable": "No pudimos conectar con Mercado Pago. Inténtalo de nuevo en unos instantes.",
+    "order_expiring": "Se agotó el tiempo para pagar esta reserva. Puedes hacer una nueva; si esas fechas aún aparecen ocupadas, se liberarán en menos de una hora.",
     "unknown": "No se pudo iniciar el pago. Inténtalo de nuevo.",
-    "payment_rejected": "Tu método de pago fue rechazado. Puedes intentarlo de nuevo o probar con otro método."
+    "payment_rejected": "Tu método de pago fue rechazado. Puedes intentarlo de nuevo o probar con otro método.",
+    "pms_refused": "El alojamiento ya no está disponible para esas fechas. No se cobró nada y la reserva quedó anulada: puedes buscar otras fechas u otro alojamiento.",
+    "pms_refused_pending": "El alojamiento ya no está disponible para esas fechas. No se cobró nada y tu reserva se liberará sola en menos de una hora.",
+    "pms_release_pending": "No pudimos confirmar tu reserva con el alojamiento. No se cobró nada y tu reserva se liberará sola en menos de una hora.",
+    "pms_unavailable": "Este alojamiento no se puede reservar en línea por ahora. No se cobró nada y la reserva quedó anulada.",
+    "pms_unreachable": "No pudimos confirmar tu reserva con el alojamiento. No se cobró nada y la reserva quedó anulada; puedes volver a reservar en unos minutos.",
+    "pms_claim_in_progress": "Tu reserva ya se está confirmando con el alojamiento. Vuelve a intentarlo en unos minutos.",
+    "pms_unknown_outcome": "No sabemos si el alojamiento alcanzó a registrar tu reserva. No se cobró nada: vuelve a intentarlo en unos minutos.",
+    "pms_unconfirmed": "No pudimos confirmar tu reserva con el alojamiento. No se cobró nada: inténtalo de nuevo en unos minutos."
   },
   "contactWhatsApp": "Escribir a {establishment}",
   "contactMessage": "Hola, soy {name}, reserva {reference}",

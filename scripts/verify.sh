@@ -12,7 +12,7 @@
 # jours (2026-09-13 → 19) en masquant check-tokens.sh tout du long. Mesure du chantier : 39 runs
 # rouges sur 60, dont 15 des 20 derniers échecs imputables au seul job `lint`.
 #
-# Ce script inverse la logique : il lance les 12 contrôles, retient les sorties, puis imprime UN
+# Ce script inverse la logique : il lance tous les contrôles, retient les sorties, puis imprime UN
 # récapitulatif. Un seul passage donne la liste complète de ce qu'il faut corriger.
 #
 # ⚠️ PAS de `set -e` — un `-e` ici ferait exactement ce que ce script existe pour empêcher. Les
@@ -83,8 +83,35 @@ lancer "Nommage kebab-case d'apps/admin/components"  bash scripts/check-admin-co
 # écran qui la réécrit autrement, un lien non localisé qu'à l'analytics d'un anglophone renvoyé en
 # espagnol.
 lancer "Jetons de couleur (vitrine)"                 bash scripts/check-tokens.sh
+
+# Bloquant depuis le 2026-10-02 (plan 41, item G1) — vérifié PAR MUTATION : chacune des six règles
+# rougit sur un fichier fautif, et le script sort en code 2 si une règle ne retrouve pas son témoin
+# synthétique (la première version passait au vert sans rien lire).
+lancer "Charte Hifago (titres, or, <main>, rayons)"  bash scripts/check-charte.sh
 lancer "Couche d'accès (pas de requête en route)"    bash scripts/check-data-layer.sh
+lancer "Panne ≠ absence (error lu, pas de loading)"  bash scripts/check-supabase-errors.sh
 lancer "Navigation localisée (@/i18n/navigation)"    bash scripts/check-i18n-links.sh
+
+# Bloquant depuis le 2026-09-30 — vérifié PAR MUTATION (rouge sur les quatre embeds d'avant le
+# correctif, sur un `.from('order_lines')` ajouté ; muet sur un commentaire ; code 2 sans filtre).
+# Une session n'a plus le SELECT d'`order_lines` depuis 20260922210000 : une lecture qui y revient,
+# directe ou par embed, échoue en silence derrière un `?? []` — c'est ce qui a vidé le ledger et
+# les commissions pendant une semaine.
+lancer "Lecture d'order_lines (jamais en session)"   bash scripts/check-order-lines-access.sh
+
+# Bloquant depuis le 2026-10-02 — vérifié PAR MUTATION (rouge sur les trois écritures directes
+# d'avant la RPC, dont une chaîne `.from(…)` / `.delete(` sur deux lignes ; muet sur les lectures et
+# les commentaires ; code 2 sans filtre). product_slot_rules est RPC-only en écriture : une écriture
+# directe échouerait en « permission denied », et replace_product_slot_rules est le seul chemin qui
+# remplace les règles en une transaction.
+lancer "Écriture de product_slot_rules (RPC seule)"  bash scripts/check-slot-rules-access.sh
+
+# Depuis le 2026-10-01 (migration 20261001194704) — vérifié PAR MUTATION (rouge sur 29 côté Deno, 27
+# côté SQL, une marge TS de 3, une migration plus récente qui redéfinit la fonction — en majuscules,
+# sans schéma ou entre guillemets ; code 2 sur une constante renommée, en double ou en secondes ; muet
+# sur un commentaire et sur un revoke/grant ultérieur). La limite de paiement (28 min) vit en
+# TypeScript, en Deno et en SQL : une copie qui bouge seule rouvre le booking Lobby impayable.
+lancer "Limite de paiement (TS, Deno, SQL)"          bash scripts/check-payment-deadline.sh
 
 # ⚠️ N'EST PAS redondant avec le job `functions` de la CI : `deno check` résout à la TypeScript et
 # passe au vert sur un import relatif sans extension, alors que le worker Edge, lui, ne boote pas
@@ -108,7 +135,10 @@ lancer "Corpus d'instructions (tailles, renvois)"    npm run check:instructions
 # remplie. L'étape « pour information seulement » qui doublait celle-ci en `|| true` est supprimée :
 # un signal qui ne peut pas échouer n'est pas lu, et celui-là avait masqué js-yaml et
 # @vitest/mocker, tous deux réparables.
-lancer "Dépendances sans vulnérabilité haute"        npm audit --audit-level=high
+# 2026-10-03 : un avis sans AUCUNE version corrigée (braces, outillage de lint) rendait ce contrôle
+# rouge partout sans geste possible → scripts/check-npm-audit.sh : production toujours à zéro, audit
+# complet hors exemptions NOMMÉES, et une exemption périmée fait échouer (la liste ne peut que rétrécir).
+lancer "Dépendances sans vulnérabilité haute"        bash scripts/check-npm-audit.sh
 
 # Le détail ne s'affiche que pour ce qui a échoué : un log qui imprime aussi les 11 contrôles verts
 # enterre les 2 lignes qui comptent, et c'est ce qui rendait le diagnostic long en CI.

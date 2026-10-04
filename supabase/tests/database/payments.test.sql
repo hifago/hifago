@@ -7,7 +7,7 @@
 -- `set local role authenticated` (le vrai rôle Postgres change, contrairement à test_login qui ne
 -- simule qu'un claim JWT), pas seulement l'un ou l'autre.
 begin;
-select plan(65);
+select plan(87);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -151,14 +151,25 @@ select is(
   'cas 1d : orders.payment_status passe à pending'
 );
 
--- Cas 2 : second appel sur la même commande (même identité 035), intent encore pending → refusé
--- (idempotence métier).
+-- Cas 2 : second appel sur la même commande (même identité 035), intent encore pending au même
+-- montant → le MÊME payment est renvoyé (`reused`), jamais un second `pending`. RÉVISÉ par la
+-- migration 20260930221837 : avant, `payment_already_pending` sans payment_id — un seul 503 de
+-- Mercado Pago bloquait alors « Reintentar pago » jusqu'à l'expiration de la commande.
 set local role authenticated;
 select test_login('88970000-0000-4000-8000-000000000035');
+create temp table intent_reuse as
+  select create_payment_intent('88970000-0000-4000-8000-000000000041') as r;
+reset role; -- lecture payments : admin-only RLS (cf. cas 1b)
 select is(
-  (select create_payment_intent('88970000-0000-4000-8000-000000000041') ->> 'reason'),
-  'payment_already_pending',
-  'cas 2 : second intent alors qu''un pending existe déjà → payment_already_pending'
+  (select jsonb_build_object(
+     'ok', r->'ok',
+     'reused', r->'reused',
+     'meme_paiement', (r->>'payment_id')::uuid
+                        = (select id from payments where order_id = '88970000-0000-4000-8000-000000000041' and status = 'pending'),
+     'pendings', (select count(*) from payments where order_id = '88970000-0000-4000-8000-000000000041' and status = 'pending'))
+   from intent_reuse),
+  jsonb_build_object('ok', true, 'reused', true, 'meme_paiement', true, 'pendings', 1),
+  'cas 2 : second intent au même montant → le même payment, reused:true, toujours un seul pending'
 );
 
 -- Cas 3 : commande inconnue → order_not_found. Indépendant de l'identité (la garde d'existence
@@ -821,6 +832,280 @@ select is(
   'cas 27 : admin voit les payments (au moins les 4 de ce fichier)'
 );
 select test_logout();
+
+
+------------------------------------------------------------------------------------------------
+-- Lobby avant paiement (migration 20260930221837)
+------------------------------------------------------------------------------------------------
+-- I2 : aucun paiement tant qu'une nuit PMS-backed n'a pas son booking Lobby ; un logement local ou
+-- une activité liée à Lobby sans booking ne bloquent pas. Montant changé entre deux intents →
+-- l'ancien est annulé. Un seul `pending` par commande : le `for update` sur orders sérialise les
+-- appels, et l'index payments_one_pending_per_order le garantit en base depuis la migration
+-- 20261002185102, avec la garde du webhook (cf. cas 44).
+reset role;
+insert into products (
+  id, partner_id, establishment_id, type, name, price_cop, sellable, slug, lobby_category_id, lobby_product_id
+) values
+  ('88970000-0000-4000-8000-000000000221', '88970000-0000-4000-8000-000000000001',
+   '88970000-0000-4000-8000-000000000011', 'lodging', jsonb_build_object('es', 'Payments PMS'),
+   100000, true, 'payments-pms', 9801, null),
+  ('88970000-0000-4000-8000-000000000222', '88970000-0000-4000-8000-000000000001',
+   '88970000-0000-4000-8000-000000000011', 'lodging', jsonb_build_object('es', 'Payments Local'),
+   100000, true, 'payments-local', null, null),
+  ('88970000-0000-4000-8000-000000000223', '88970000-0000-4000-8000-000000000001',
+   '88970000-0000-4000-8000-000000000011', 'activity', jsonb_build_object('es', 'Payments Actividad Lobby'),
+   50000, true, 'payments-activity-lobby', null, 9802);
+insert into orders (id, account_id, holder_name, holder_email) values
+  ('88970000-0000-4000-8000-000000000241', '88970000-0000-4000-8000-000000000032', 'Holder PMS', 'pms-payments@test.local'),
+  ('88970000-0000-4000-8000-000000000242', '88970000-0000-4000-8000-000000000032', 'Holder Local', 'local-payments@test.local'),
+  ('88970000-0000-4000-8000-000000000243', '88970000-0000-4000-8000-000000000032', 'Holder Lobby Act', 'act-payments@test.local'),
+  ('88970000-0000-4000-8000-000000000244', '88970000-0000-4000-8000-000000000032', 'Holder Montant', 'amount-payments@test.local');
+insert into order_lines (
+  id, order_id, account_id, product_id, date, end_date, qty, status, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+)
+select l.id::uuid, l.order_id::uuid, '88970000-0000-4000-8000-000000000032', l.product_id::uuid,
+       l.date::date, l.end_date::date, 1, 'reserved', 'Holder Payments',
+       100000, 100000, 'direct', 0.1, 0, 0.1, 10000, 0, 10000
+  from (values
+    ('88970000-0000-4000-8000-000000000251', '88970000-0000-4000-8000-000000000241', '88970000-0000-4000-8000-000000000221', '2029-02-01', '2029-02-03'),
+    ('88970000-0000-4000-8000-000000000252', '88970000-0000-4000-8000-000000000242', '88970000-0000-4000-8000-000000000222', '2029-02-01', '2029-02-03'),
+    ('88970000-0000-4000-8000-000000000253', '88970000-0000-4000-8000-000000000243', '88970000-0000-4000-8000-000000000223', '2029-02-01', null),
+    ('88970000-0000-4000-8000-000000000254', '88970000-0000-4000-8000-000000000244', '88970000-0000-4000-8000-000000000021', '2029-02-01', null),
+    ('88970000-0000-4000-8000-000000000255', '88970000-0000-4000-8000-000000000244', '88970000-0000-4000-8000-000000000021', '2029-02-02', null)
+  ) as l(id, order_id, product_id, date, end_date);
+
+set local role authenticated;
+select test_login('88970000-0000-4000-8000-000000000032'); -- buyer
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000241') ->> 'reason'),
+  'pms_booking_missing',
+  'cas 40a : nuit PMS-backed sans booking Lobby → pms_booking_missing (I2)'
+);
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000242') ->> 'ok'),
+  'true',
+  'cas 41 : logement NON PMS sans booking → payable (rien à réserver chez Lobby)'
+);
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000243') ->> 'ok'),
+  'true',
+  'cas 42 : activité liée à Lobby sans booking → payable (Lobby refuse une vente de service isolée)'
+);
+create temp table intent_montant_1 as
+  select create_payment_intent('88970000-0000-4000-8000-000000000244') as r;
+reset role;
+select is(
+  (select count(*)::int from payments where order_id = '88970000-0000-4000-8000-000000000241'),
+  0,
+  'cas 40b : pms_booking_missing → aucun payments créé'
+);
+-- Une ligne de 244 est annulée entre deux clics : le montant passe de 20000 à 10000.
+update order_lines set status = 'cancelled_by_client' where id = '88970000-0000-4000-8000-000000000255';
+set local role authenticated;
+select test_login('88970000-0000-4000-8000-000000000032');
+create temp table intent_montant_2 as
+  select create_payment_intent('88970000-0000-4000-8000-000000000244') as r;
+reset role;
+select is(
+  (select jsonb_build_object(
+     'premier', (select r->'amount_cop' from intent_montant_1),
+     'second', (select r->'amount_cop' from intent_montant_2),
+     'nouveau_paiement', (select r->>'payment_id' from intent_montant_2) <> (select r->>'payment_id' from intent_montant_1),
+     'ancien', (select status from payments where id = (select (r->>'payment_id')::uuid from intent_montant_1)),
+     'pendings', (select count(*) from payments where order_id = '88970000-0000-4000-8000-000000000244' and status = 'pending'))),
+  jsonb_build_object('premier', 20000, 'second', 10000, 'nouveau_paiement', true, 'ancien', 'cancelled', 'pendings', 1),
+  'cas 43 : montant changé entre deux intents → ancien payment annulé, nouveau créé, un seul pending'
+);
+
+-- Cas 44 (migration 20261002185102) : un paiement `rejected` qui redevient `pending` par une
+-- retentative dans l'ancienne session Checkout Pro, pendant qu'un nouvel intent est déjà `pending`,
+-- n'est PAS rétrogradé : la garde other_intent_pending répond ok (Mercado Pago ne retente pas), et
+-- l'index payments_one_pending_per_order n'est jamais heurté. Avant cette garde, l'index était
+-- retiré (P4a) parce que ce chemin finissait en 23505.
+insert into orders (id, account_id, holder_name, holder_email, payment_status) values
+  ('88970000-0000-4000-8000-000000000246', '88970000-0000-4000-8000-000000000032', 'Holder Retry', 'retry-payments@test.local', 'pending');
+insert into order_lines (
+  id, order_id, account_id, product_id, date, qty, status, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+) values (
+  '88970000-0000-4000-8000-000000000257', '88970000-0000-4000-8000-000000000246', '88970000-0000-4000-8000-000000000032',
+  '88970000-0000-4000-8000-000000000021', '2029-03-10', 1, 'reserved', 'Holder Retry',
+  100000, 100000, 'direct', 0.1, 0, 0.1, 10000, 0, 10000
+);
+insert into payments (id, order_id, amount_cop, payer_email, status) values
+  ('88970000-0000-4000-8000-000000000266', '88970000-0000-4000-8000-000000000246', 10000, 'retry-payments@test.local', 'rejected'),
+  ('88970000-0000-4000-8000-000000000267', '88970000-0000-4000-8000-000000000246', 10000, 'retry-payments@test.local', 'pending');
+set local role service_role;
+select is(
+  (select apply_payment_webhook(
+     'mp-retry-1', '88970000-0000-4000-8000-000000000266'::uuid, 'pending',
+     jsonb_build_object('id', 'mp-retry-1', 'status', 'in_process')
+   )),
+  jsonb_build_object('ok', true, 'reason', 'other_intent_pending'),
+  'cas 44 : rejected → pending pendant qu''un autre pending existe → ok, other_intent_pending, aucune 23505'
+);
+reset role;
+select is(
+  (select jsonb_build_object(
+     'ancien', (select status from payments where id = '88970000-0000-4000-8000-000000000266'),
+     'pendings', (select count(*) from payments where order_id = '88970000-0000-4000-8000-000000000246' and status = 'pending'))),
+  jsonb_build_object('ancien', 'rejected', 'pendings', 1),
+  'cas 44a : l''ancien intent reste rejected, un seul pending'
+);
+set local role authenticated;
+select test_login('88970000-0000-4000-8000-000000000032');
+select is(
+  (select (r ->> 'ok') || '/' || (r ->> 'reused') || '/' || (r ->> 'payment_id')
+     from (select create_payment_intent('88970000-0000-4000-8000-000000000246') as r) x),
+  'true/true/88970000-0000-4000-8000-000000000267',
+  'cas 44b : create_payment_intent réutilise le pending courant, sans erreur'
+);
+reset role;
+
+-- Cas 45 (revue adversariale) : un pending existe déjà ET une nuit PMS n'a pas son booking → le
+-- refus pms_booking_missing passe AVANT la réutilisation : jamais un `reused` sans booking.
+reset role;
+insert into orders (id, account_id, holder_name, holder_email, payment_status) values
+  ('88970000-0000-4000-8000-000000000245', '88970000-0000-4000-8000-000000000032', 'Holder PMS Pending', 'pms-pending@test.local', 'pending');
+insert into order_lines (
+  id, order_id, account_id, product_id, date, end_date, qty, status, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+) values (
+  '88970000-0000-4000-8000-000000000256', '88970000-0000-4000-8000-000000000245', '88970000-0000-4000-8000-000000000032',
+  '88970000-0000-4000-8000-000000000221', '2029-03-01', '2029-03-03', 1, 'reserved', 'Holder PMS Pending',
+  100000, 100000, 'direct', 0.1, 0, 0.1, 10000, 0, 10000
+);
+insert into payments (id, order_id, amount_cop, payer_email, status) values
+  ('88970000-0000-4000-8000-000000000265', '88970000-0000-4000-8000-000000000245', 10000, 'pms-pending@test.local', 'pending');
+set local role authenticated;
+select test_login('88970000-0000-4000-8000-000000000032');
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000245') ->> 'reason'),
+  'pms_booking_missing',
+  'cas 45 : pending existant + nuit PMS sans booking → pms_booking_missing, jamais reused'
+);
+reset role;
+select is(
+  (select status from payments where id = '88970000-0000-4000-8000-000000000265'),
+  'pending',
+  'cas 45b : le pending existant n''est pas touché par le refus'
+);
+
+------------------------------------------------------------------------------------------------
+-- Échéance de paiement (migration 20261001194704)
+------------------------------------------------------------------------------------------------
+-- create_payment_intent refuse `order_expiring` dès created_at + 28 min (order_payment_deadline)
+-- MOINS 30 s (marge, migration 20261002185102 : payments/create revérifie la limite juste après),
+-- avant tout `payments`, avant `pms_booking_missing` et avant la réutilisation d'un pending.
+-- `now()` est constant dans la transaction : on VIEILLIT LA DONNÉE, jamais l'horloge.
+reset role;
+select test_logout();
+insert into orders (id, account_id, holder_name, holder_email, payment_status, created_at) values
+  ('88970000-0000-4000-8000-000000000e01', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 1', 'deadline-1@test.local', 'unpaid', now() - interval '27 minutes 29 seconds'),
+  ('88970000-0000-4000-8000-000000000e02', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 2', 'deadline-2@test.local', 'unpaid', now() - interval '27 minutes 30 seconds'),
+  ('88970000-0000-4000-8000-000000000e03', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 3', 'deadline-3@test.local', 'unpaid', now() - interval '27 minutes 31 seconds'),
+  ('88970000-0000-4000-8000-000000000e04', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 4', 'deadline-4@test.local', 'unpaid', now() - interval '28 minutes'),
+  ('88970000-0000-4000-8000-000000000e05', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 5', 'deadline-5@test.local', 'pending', now() - interval '28 minutes'),
+  ('88970000-0000-4000-8000-000000000e06', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 6', 'deadline-6@test.local', 'paid', now() - interval '40 minutes'),
+  ('88970000-0000-4000-8000-000000000e07', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 7', 'deadline-7@test.local', 'unpaid', now() - interval '40 minutes'),
+  ('88970000-0000-4000-8000-000000000e08', '88970000-0000-4000-8000-000000000032', 'Holder Echeance 8', 'deadline-8@test.local', 'unpaid', now() - interval '29 minutes');
+insert into order_lines (
+  id, order_id, account_id, product_id, date, end_date, qty, status, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+)
+select l.id::uuid, l.order_id::uuid, '88970000-0000-4000-8000-000000000032', l.product_id::uuid,
+       l.date::date, l.end_date::date, 1, 'reserved', 'Holder Payments',
+       100000, 100000, 'direct', 0.1, 0, 0.1, 10000, 0, 10000
+  from (values
+    -- e01 à e03, e05, e06 : un logement local ; e04 : une nuit PMS-backed SANS booking.
+    ('88970000-0000-4000-8000-000000000e11', '88970000-0000-4000-8000-000000000e01', '88970000-0000-4000-8000-000000000222', '2029-03-01', '2029-03-02'),
+    ('88970000-0000-4000-8000-000000000e12', '88970000-0000-4000-8000-000000000e02', '88970000-0000-4000-8000-000000000222', '2029-03-03', '2029-03-04'),
+    ('88970000-0000-4000-8000-000000000e13', '88970000-0000-4000-8000-000000000e03', '88970000-0000-4000-8000-000000000222', '2029-03-05', '2029-03-06'),
+    ('88970000-0000-4000-8000-000000000e14', '88970000-0000-4000-8000-000000000e04', '88970000-0000-4000-8000-000000000221', '2029-03-07', '2029-03-08'),
+    ('88970000-0000-4000-8000-000000000e15', '88970000-0000-4000-8000-000000000e05', '88970000-0000-4000-8000-000000000222', '2029-03-09', '2029-03-10'),
+    ('88970000-0000-4000-8000-000000000e16', '88970000-0000-4000-8000-000000000e06', '88970000-0000-4000-8000-000000000222', '2029-03-11', '2029-03-12'),
+    ('88970000-0000-4000-8000-000000000e17', '88970000-0000-4000-8000-000000000e07', '88970000-0000-4000-8000-000000000222', '2029-03-13', '2029-03-14'),
+    ('88970000-0000-4000-8000-000000000e18', '88970000-0000-4000-8000-000000000e08', '88970000-0000-4000-8000-000000000222', '2029-03-15', '2029-03-16')
+  ) as l(id, order_id, product_id, date, end_date);
+-- e07 : déjà expirée (aucune ligne vivante) et vieille.
+update order_lines set status = 'expired' where id = '88970000-0000-4000-8000-000000000e17';
+-- e05 : un pending au même montant, qui serait réutilisé sans l'échéance ; e06 : déjà payée.
+insert into payments (id, order_id, status, amount_cop) values
+  ('88970000-0000-4000-8000-000000000e21', '88970000-0000-4000-8000-000000000e05', 'pending', 10000),
+  ('88970000-0000-4000-8000-000000000e22', '88970000-0000-4000-8000-000000000e06', 'approved', 10000);
+
+set local role authenticated;
+select test_login('88970000-0000-4000-8000-000000000032');
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000e01') ->> 'ok'),
+  'true',
+  'cas 46a : commande de 27 min 29 s → intent accepté'
+);
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000e02') ->> 'reason'),
+  'order_expiring',
+  'cas 46b : commande de 27 min 30 s pile → order_expiring (limite de payments/create moins la marge de 30 s)'
+);
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000e03') ->> 'reason'),
+  'order_expiring',
+  'cas 46c : commande de 27 min 31 s → order_expiring'
+);
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000e04') ->> 'reason'),
+  'order_expiring',
+  'cas 46d : nuit PMS sans booking ET 28 min → order_expiring avant pms_booking_missing (Lobby jamais rappelé)'
+);
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000e05') ->> 'reason'),
+  'order_expiring',
+  'cas 46e : pending au même montant ET 28 min → order_expiring, jamais reused'
+);
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000e06') ->> 'reason'),
+  'already_paid',
+  'cas 46f : commande payée ET vieille → already_paid d''abord'
+);
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000e07') ->> 'reason'),
+  'nothing_to_pay',
+  'cas 46j : commande déjà expirée ET vieille → nothing_to_pay, comme avant (l''écran relu dit « expirée »)'
+);
+-- Cas 46k-l : à 29 min, la commande n'est plus payable mais pas encore expirable — la limite de
+-- paiement (28 min) précède l'expiration (30 min), écart que scripts/check-payment-deadline.sh
+-- verrouille sur les littéraux.
+select is(
+  (select create_payment_intent('88970000-0000-4000-8000-000000000e08') ->> 'reason'),
+  'order_expiring',
+  'cas 46k : commande de 29 min → plus payable (order_expiring)'
+);
+reset role;
+select is(
+  (select expire_payment_order('88970000-0000-4000-8000-000000000e08', now()) ->> 'reason'),
+  'not_candidate',
+  'cas 46l : commande de 29 min → pas encore expirable (not_candidate) : la limite précède l''expiration'
+);
+select test_logout();
+select is(
+  (select count(*)::int from payments where order_id in ('88970000-0000-4000-8000-000000000e02', '88970000-0000-4000-8000-000000000e03', '88970000-0000-4000-8000-000000000e04')),
+  0,
+  'cas 46g : order_expiring → aucun payments créé'
+);
+select is(
+  (select count(*)::int from orders where id in ('88970000-0000-4000-8000-000000000e02', '88970000-0000-4000-8000-000000000e03', '88970000-0000-4000-8000-000000000e04') and payment_status <> 'unpaid'),
+  0,
+  'cas 46h : order_expiring → payment_status intact (jamais « confirmando » sur une commande condamnée)'
+);
+select is(
+  (select status from payments where id = '88970000-0000-4000-8000-000000000e21'),
+  'pending',
+  'cas 46i : le pending existant n''est pas touché par le refus'
+);
 
 select * from finish();
 rollback;

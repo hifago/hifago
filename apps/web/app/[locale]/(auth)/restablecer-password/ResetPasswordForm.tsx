@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 // ⚠️ `useRouter` d'`@/i18n/navigation`, jamais de `next/navigation` nu — voir LoginForm.tsx.
 import { useRouter } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
-import { Button } from "@hifago/ui";
+import { Button } from "@/components/atoms/Button";
+import { Aviso } from "@/components/molecules/Aviso";
 import { CamposContrasena } from "@/components/molecules/CamposContrasena";
 
 // Adapté d'apps/admin/app/reset-password/ResetPasswordForm.tsx (encore vivant côté admin, même
@@ -58,12 +59,19 @@ export function ResetPasswordForm() {
         labelConfirmPassword={t("confirmPassword")}
       />
       {error ? (
-        <p role="alert" data-testid="reset-password-error" className="text-sm text-danger">
-          {error}
-        </p>
+        <Aviso tono="error" rol="alert" testId="reset-password-error">
+          <p>{error}</p>
+        </Aviso>
       ) : null}
-      <Button type="submit" isDisabled={isSubmitting} data-testid="reset-password-submit">
-        {isSubmitting ? t("submitting") : t("submit")}
+      <Button
+        type="submit"
+        size="lg"
+        width="full"
+        isPending={isSubmitting}
+        pendingLabel={t("submitting")}
+        testId="reset-password-submit"
+      >
+        {t("submit")}
       </Button>
     </form>
   );

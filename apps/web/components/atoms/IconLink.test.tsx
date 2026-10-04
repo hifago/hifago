@@ -47,13 +47,15 @@ describe("IconLink", () => {
     expect(lien(<IconLink icon={<Croix />} label="C" href="/x" />).className).toContain("rounded-full");
     expect(
       lien(<IconLink icon={<Croix />} label="C" href="/x" shape="square" />).className
-    ).toContain("rounded-[var(--radius)]");
+    ).toContain("rounded-[var(--rayon-bouton)]");
   });
 
   it("prend la largeur carrée et la taille lg de la famille", () => {
     const element = lien(<IconLink icon={<Croix />} label="C" href="/x" />);
     expect(element.className).toContain("button--icon-only");
     expect(element.className).toContain("button--lg");
+    // 44 × 44 px à toutes les tailles, comme IconButton (plan 41, item F4).
+    expect(element.className).toContain("size-11");
   });
 
   // ⚠️ Un `<a class="button">` ne reçoit PAS l'anneau de focus de HeroUI : `.button` ne le pose que

@@ -108,9 +108,9 @@ test("l'accueil rend plusieurs sections, activités d'abord, chacune avec son <h
 }) => {
   await irAlInicio(page);
 
-  // ⚠️ INVARIANT DE LA SPEC 28 (§0.3) : un seul <h1> dans toute la page. Il est masqué
-  // VISUELLEMENT (`sr-only`) mais présent dans le DOM — d'où `toHaveCount`, qui n'exige pas la
-  // visibilité, et `textContent`, qui lit un texte que `innerText` ne rendrait pas.
+  // ⚠️ INVARIANT DE LA SPEC 28 (§0.3) : un seul <h1> dans toute la page. Masqué visuellement à
+  // l'origine, il est VISIBLE depuis la maquette du 2026-10-02 (« Guatapé merece más de un día. ») ;
+  // `toHaveCount` + `textContent` restent valables dans les deux cas.
   await expect(page.locator("h1")).toHaveCount(1);
   expect(((await page.locator("h1").textContent()) ?? "").trim().length).toBeGreaterThan(0);
 
@@ -148,7 +148,11 @@ test("l'accueil rend plusieurs sections, activités d'abord, chacune avec son <h
   // construction du href pour un autre type ne dépend que de la table testée dans
   // `segmentos.test.ts` (`segmentoDeTipo`) — pas besoin de la reprouver ici pour un type dont le
   // compte fluctue.
-  await expect(page.getByTestId("seccion-activity-ver-mas")).toHaveAttribute(
+  //
+  // ⚠️ `-link` : depuis le carrousel de l'accueil (2026-09-14), « Ver más » est une CARTE (`Card`),
+  // dont le `href` est porté par le lien interne `${testId}-link` (`atoms/Card.tsx`), jamais par la
+  // racine de la carte. Viser la racine faisait rougir ce test sans que le lien soit cassé.
+  await expect(page.getByTestId("seccion-activity-ver-mas-link")).toHaveAttribute(
     "href",
     "/es/actividades"
   );

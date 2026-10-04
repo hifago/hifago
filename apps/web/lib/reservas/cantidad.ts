@@ -14,10 +14,11 @@
  * ⚠️ `min` cesse d'être 1 en dur depuis le 2026-09-14 (retour Jérôme, produit « Hiking Group »,
  * `min_qty: 2`) — exactement le jour anticipé par ce commentaire avant sa réécriture : `create_order`
  * refusait déjà `qty_below_minimum` pour un produit à `min_qty > 1`, mais RIEN au-dessus ne
- * l'empêchait ni ne le signalait (`CheckoutPage.json` n'avait même pas la clé de traduction). Ne
- * s'applique QU'aux produits hors lodging : `create_order` ne vérifie `min_qty`/`max_qty` que dans
- * sa branche non-lodging (le plafond lodging est l'agrégat `lodging_cap_exceeded`, sans rapport) —
- * `LodgingReservationForm` continue donc d'appeler ce module avec `min` fixé à 1.
+ * l'empêchait ni ne le signalait (`CheckoutPage.json` n'avait même pas la clé de traduction). Le
+ * PLANCHER ne s'applique qu'aux produits hors lodging : `create_order` ne vérifie `min_qty` que dans
+ * sa branche non-lodging — `LodgingReservationForm` appelle donc ce module avec `min` fixé à 1. Le
+ * PLAFOND, lui, vaut pour TOUT type depuis la migration 20260929112240 (`coalesce(max_qty, 20)` par
+ * ligne, `qty_cap_exceeded`) : chaque formulaire passe ici `min(place restante, maxQty)`.
  */
 export function limitarCantidad(bruto: number, min: number, max: number): number {
   const piso = pisoCantidad(min, max);

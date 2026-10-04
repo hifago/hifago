@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@hifago/supabase/client";
 import { Button, Label, Modal, TextArea, TextField, toast, useOverlayState } from "@hifago/ui";
+import { rpcErrorMessage } from "@/lib/errors/rpcErrorMessage";
 
 const COPY: Record<"no_show" | "cancelled_by_provider", { heading: string; success: string; confirmLabel: string }> = {
   no_show: {
@@ -69,7 +70,7 @@ export function SetOrderLineStatusDialog({
     setIsSubmitting(false);
 
     if (rpcError || !(data as { ok: boolean } | null)?.ok) {
-      toast.danger(rpcError?.message ?? "No se pudo actualizar la reserva.");
+      toast.danger(rpcErrorMessage(rpcError, "No se pudo actualizar la reserva."));
       return;
     }
 

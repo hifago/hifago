@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@hifago/supabase/client";
 import { MediaGallery, type MediaGalleryPhoto } from "@hifago/ui";
+import { uploadCatalogBlob } from "@/lib/media/uploadCatalogBlob";
 
 const MAX_PHOTOS = 6;
 
@@ -22,28 +23,26 @@ export function ProductPhotosBlock({
   async function handleAddFile(blob: Blob) {
     const supabase = createClient();
 
-    const formData = new FormData();
-    formData.append("file", blob, "photo.png");
-    const uploadResponse = await fetch("/api/upload/product", { method: "POST", body: formData });
-    const uploadResult = (await uploadResponse.json()) as
-      | { ok: true; storage_path: string }
-      | { ok: false; reason: string };
-
-    if (!uploadResult.ok) {
-      return { ok: false, reason: uploadResult.reason };
+    // Envoi commun aux six galeries (lib/media/uploadCatalogBlob.ts) : toute issue rend un
+    // résultat avec un message écrit pour l'écran, jamais une exception ni un code brut.
+    const upload = await uploadCatalogBlob("product", blob);
+    if (!upload.ok) {
+      return { ok: false, reason: upload.reason };
     }
 
     const { data, error } = await supabase.rpc("add_catalog_media", {
       p_entity_type: "product",
       p_entity_id: productId,
-      p_storage_path: uploadResult.storage_path,
+      p_storage_path: upload.storagePath,
     });
 
+    // Jamais `error.message` à l'écran : c'est un texte SQL (en français, avec des noms de
+    // fonction), pas un message pour l'utilisateur.
     if (error || !data) {
-      return { ok: false, reason: error?.message ?? "No se pudo añadir la foto." };
+      return { ok: false, reason: "No se pudo añadir la foto." };
     }
 
-    const { data: publicUrl } = supabase.storage.from("catalog-media").getPublicUrl(uploadResult.storage_path);
+    const { data: publicUrl } = supabase.storage.from("catalog-media").getPublicUrl(upload.storagePath);
     setPhotos((prev) => [...prev, { id: data as string, url: publicUrl.publicUrl }]);
     return { ok: true };
   }
@@ -57,7 +56,8 @@ export function ProductPhotosBlock({
     });
     const result = data as { ok: boolean; reason?: string } | null;
     if (error || !result?.ok) {
-      return { ok: false, reason: result?.reason ?? error?.message };
+      // Sans `reason`, la galerie affiche son propre message (« No se pudo reordenar la galería. »).
+      return { ok: false };
     }
     setPhotos((prev) => orderedIds.map((id) => prev.find((p) => p.id === id)!));
     return { ok: true };
@@ -65,8 +65,10 @@ export function ProductPhotosBlock({
 
   async function handleDelete(id: string) {
     const supabase = createClient();
-    const { error } = await supabase.from("product_media").delete().eq("id", id);
-    if (error) return { ok: false, reason: error.message };
+    // `.select("id")` : une suppression filtrée par la RLS ne lève pas, elle touche 0 ligne.
+    // Sans ce retour, « Foto eliminada. » s'afficherait pour une photo restée en place.
+    const { data: deleted, error } = await supabase.from("product_media").delete().eq("id", id).select("id");
+    if (error || !deleted?.length) return { ok: false };
     setPhotos((prev) => prev.filter((p) => p.id !== id));
     return { ok: true };
   }

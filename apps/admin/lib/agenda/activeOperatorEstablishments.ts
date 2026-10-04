@@ -45,10 +45,15 @@ export async function getOperatorCapability(
 ): Promise<boolean> {
   if (!partnerId) return false;
 
-  const { data: capabilities } = await supabase
+  // Échec fermé (2026-10-01) : une panne LÈVE (app/error.tsx). Lue comme « pas operator », elle
+  // renvoyait un operator sur /partner depuis les gardes et amputait sa nav.
+  const { data: capabilities, error } = await supabase
     .from("partner_capabilities")
     .select("role, status, establishment_id")
     .eq("partner_id", partnerId);
+  if (error) {
+    throw new Error(`Lecture des capacités impossible (partner_capabilities) : ${error.message}`);
+  }
 
   return hasOperatorCapability(capabilities ?? []);
 }
@@ -63,12 +68,17 @@ export async function getActiveOperatorEstablishmentIds(
 ): Promise<string[]> {
   if (!partnerId) return [];
 
-  const { data } = await supabase
+  // Même règle : une panne de CETTE lecture lève, jamais « aucun établissement ». La page des
+  // réservations a encore d'autres lectures sans `error`, traitées avec les lectures de pages.
+  const { data, error } = await supabase
     .from("partner_capabilities")
     .select("establishment_id")
     .eq("partner_id", partnerId)
     .eq("role", "operator")
     .eq("status", "active");
+  if (error) {
+    throw new Error(`Lecture des établissements opérés impossible (partner_capabilities) : ${error.message}`);
+  }
 
   return (data ?? [])
     .map((c) => c.establishment_id as string | null)

@@ -45,6 +45,27 @@ beforeAll(async () => {
           res.end(JSON.stringify({ error_code: "INPUT_PARAMETERS", error: "The selected category id is invalid." }));
           return;
         }
+        // Catégorie « redirigée » : une écriture ne doit jamais suivre un 3xx.
+        if (parsed.category_id === 66666) {
+          res.writeHead(302, { Location: "/api/v1/rooms" });
+          res.end();
+          return;
+        }
+        // Catégorie « en-têtes vite, corps lent » : le timeout doit couvrir AUSSI la lecture du corps.
+        if (parsed.category_id === 77777) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.write('{"booking":');
+          setTimeout(() => res.end('{"booking_id":20863346,"room_id":488678}}'), 300);
+          return;
+        }
+        // Catégorie « lente » : la réponse arrive après 300 ms (cas du timeout, ci-dessous).
+        if (parsed.category_id === 88888) {
+          setTimeout(() => {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ booking: { booking_id: 20863345, room_id: 488678 } }));
+          }, 300);
+          return;
+        }
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ booking: { booking_id: 20863344, room_id: 488678 } }));
         return;
@@ -137,6 +158,38 @@ describe("lobbyClient (vrai fetch contre un serveur de fixtures local)", () => {
     const result = await cancelLobbyBooking(baseUrl, "fake-token", 20873561, "TTC");
     expect(result.status).toBe(422);
     expect((result.body as { error_code: string }).error_code).toBe("RESTRICTED_RESERVATION");
+  });
+
+  const slowBooking = {
+    categoryId: 88888,
+    startDate: "2028-09-01",
+    endDate: "2028-09-02",
+    totalAdults: 1,
+    holderName: "Test Holder",
+    ratesPerDay: [{ date: "2028-09-01", price: 100000 }],
+  };
+
+  it("createLobbyBooking : timeoutMs dépassé → TimeoutError (issue inconnue, jamais une réponse)", async () => {
+    await expect(createLobbyBooking(baseUrl, "fake-token", slowBooking, undefined, 50)).rejects.toMatchObject({
+      name: "TimeoutError",
+    });
+  });
+
+  it("createLobbyBooking : en-têtes reçus mais corps lent → TimeoutError aussi (le délai couvre la lecture du corps)", async () => {
+    await expect(
+      createLobbyBooking(baseUrl, "fake-token", { ...slowBooking, categoryId: 77777 }, undefined, 100)
+    ).rejects.toMatchObject({ name: "TimeoutError" });
+  });
+
+  it("createLobbyBooking : un 302 n'est PAS suivi (jamais un POST changé en GET) — le statut reste visible", async () => {
+    const result = await createLobbyBooking(baseUrl, "fake-token", { ...slowBooking, categoryId: 66666 });
+    expect(result.status).toBe(302);
+  });
+
+  it("createLobbyBooking : sans timeoutMs, aucun délai imposé — les Edge Functions gardent leur comportement", async () => {
+    const result = await createLobbyBooking(baseUrl, "fake-token", slowBooking);
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ booking: { booking_id: 20863345, room_id: 488678 } });
   });
 
   it("envoie l'en-tête X-Relay-Secret uniquement si relaySecret est fourni à l'appel", async () => {

@@ -2,7 +2,7 @@ name: hifago-ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
   workflow_dispatch:
 
@@ -99,7 +99,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Pas de commentaire automatique sur les PR : ça demanderait `pull-requests: write`,
-          # et le compte casakayam est un compte personnel, donc pas de licence à fournir.
+          # et le compte hifago est un compte personnel, donc pas de licence à fournir.
           GITLEAKS_ENABLE_COMMENTS: false
 
   # Garde-fou base de données. C'est ici que tournent les 44 fichiers pgTAP, dont

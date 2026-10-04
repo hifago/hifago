@@ -936,6 +936,7 @@ export type Database = {
           id: string
           marketing_consent: boolean
           payment_status: string
+          pms_reserve_claimed_at: string | null
           reconcile_checked_at: string | null
           reconcile_claimed_at: string | null
           reference: string
@@ -954,6 +955,7 @@ export type Database = {
           id?: string
           marketing_consent?: boolean
           payment_status?: string
+          pms_reserve_claimed_at?: string | null
           reconcile_checked_at?: string | null
           reconcile_claimed_at?: string | null
           reference?: string
@@ -972,6 +974,7 @@ export type Database = {
           id?: string
           marketing_consent?: boolean
           payment_status?: string
+          pms_reserve_claimed_at?: string | null
           reconcile_checked_at?: string | null
           reconcile_claimed_at?: string | null
           reference?: string
@@ -2485,6 +2488,14 @@ export type Database = {
         }
         Returns: string
       }
+      admin_campaign_target_counts: {
+        Args: { p_campaign_ids: string[] }
+        Returns: {
+          campaign_id: string
+          n: number
+          status: string
+        }[]
+      }
       admin_client_order_lines: {
         Args: { p_order_ids: string[] }
         Returns: {
@@ -2497,6 +2508,63 @@ export type Database = {
           qty: number
           status: string
           total_cop: number
+        }[]
+      }
+      admin_dashboard_daily_series: {
+        Args: { p_since: string }
+        Returns: {
+          app_commission_cop: number
+          date: string
+          referrer_commission_cop: number
+          sales_cop: number
+        }[]
+      }
+      admin_dashboard_referrer_commissions: {
+        Args: never
+        Returns: {
+          referrer_commission_cop: number
+          referrer_partner_id: string
+        }[]
+      }
+      admin_dashboard_top_partners: {
+        Args: { p_limit?: number }
+        Returns: {
+          partner_display_name: string
+          partner_id: string
+          total_cop: number
+        }[]
+      }
+      admin_dashboard_totals: {
+        Args: { p_today: string }
+        Returns: {
+          app_commission_cop: number
+          pending_count: number
+          referrer_commission_cop: number
+          revenue_cop: number
+        }[]
+      }
+      admin_ledger_entries_list: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_establishment_id?: string
+          p_limit?: number
+          p_offset?: number
+          p_referrer_partner_id?: string
+          p_sort_desc?: boolean
+          p_sort_key?: string
+          p_status?: string
+          p_type?: string
+        }
+        Returns: {
+          amount_cop: number
+          date: string
+          establishment_name: Json
+          id: string
+          product_type: string
+          referrer_display_name: string
+          status: string
+          total_count: number
         }[]
       }
       admin_order_line_ledger: {
@@ -2522,45 +2590,6 @@ export type Database = {
           order_id: string
           order_line_id: string
           product_name: Json
-        }[]
-      }
-      admin_order_lines_commission_rows: {
-        Args: never
-        Returns: {
-          app_commission_cop: number
-          referrer_commission_cop: number
-          referrer_partner_id: string
-        }[]
-      }
-      admin_order_lines_daily_series: {
-        Args: { p_since: string }
-        Returns: {
-          app_commission_cop: number
-          date: string
-          referrer_commission_cop: number
-          status: string
-          total_cop: number
-        }[]
-      }
-      admin_order_lines_pending_action_count: {
-        Args: { p_today: string }
-        Returns: {
-          pending_count: number
-        }[]
-      }
-      admin_order_lines_revenue_rows: {
-        Args: never
-        Returns: {
-          total_cop: number
-        }[]
-      }
-      admin_order_lines_volume_by_partner_rows: {
-        Args: never
-        Returns: {
-          establishment_id: string
-          partner_display_name: string
-          partner_id: string
-          total_cop: number
         }[]
       }
       admin_orders_list: {
@@ -2615,6 +2644,10 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_pms_poll_outcome: {
+        Args: { p_detail?: string; p_order_line_id: string; p_outcome: string }
+        Returns: Json
+      }
       attach_orders_to_account: { Args: never; Returns: Json }
       cancel_order_line: { Args: { p_line_id: string }; Returns: Json }
       check_partner_invitation: { Args: { p_token: string }; Returns: Json }
@@ -2643,6 +2676,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      claim_order_for_pms_booking: {
+        Args: { p_order_id: string }
+        Returns: Json
       }
       claim_orders_to_reconcile: {
         Args: { p_limit?: number }
@@ -2912,6 +2949,7 @@ export type Database = {
         Args: { p_error?: string; p_job: string; p_ok: boolean; p_stats?: Json }
         Returns: undefined
       }
+      html_text: { Args: { p_value: string }; Returns: string }
       invoke_payments_reconcile: { Args: never; Returns: undefined }
       invoke_pms_cancel_bookings: { Args: never; Returns: undefined }
       invoke_pms_nightly_contract_check: { Args: never; Returns: undefined }
@@ -2920,6 +2958,11 @@ export type Database = {
       invoke_send_notification_emails: { Args: never; Returns: undefined }
       is_admin: { Args: { uid: string }; Returns: boolean }
       is_anonymous_session: { Args: never; Returns: boolean }
+      job_watchdog: {
+        Args: { p_job: string; p_stale: string }
+        Returns: boolean
+      }
+      jobs_watchdog: { Args: never; Returns: undefined }
       list_audience_members: {
         Args: { p_audience: string }
         Returns: {
@@ -3130,6 +3173,10 @@ export type Database = {
         Args: { p_order: Database["public"]["Tables"]["orders"]["Row"] }
         Returns: Json
       }
+      order_payment_deadline: {
+        Args: { p_created_at: string }
+        Returns: string
+      }
       partner_agenda_order_lines: {
         Args: { p_date_from: string; p_date_to: string }
         Returns: {
@@ -3144,6 +3191,37 @@ export type Database = {
           qty: number
           slot_start_time: string
           status: string
+        }[]
+      }
+      partner_commission_totals: {
+        Args: { p_date_from?: string; p_date_to?: string; p_status?: string }
+        Returns: {
+          amount_cop: number
+          status: string
+        }[]
+      }
+      partner_commissions_list: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_entry_id?: string
+          p_limit?: number
+          p_offset?: number
+          p_sort_desc?: boolean
+          p_sort_key?: string
+          p_status?: string
+        }
+        Returns: {
+          amount_cop: number
+          date: string
+          establishment_name: Json
+          holder_name: string
+          id: string
+          product_name: Json
+          referrer_pct: number
+          status: string
+          total_cop: number
+          total_count: number
         }[]
       }
       partner_id_for_account: { Args: { uid: string }; Returns: string }
@@ -3197,6 +3275,10 @@ export type Database = {
         Args: { p_batch_size?: number; p_campaign_id: string }
         Returns: Json
       }
+      product_slug_from_name: {
+        Args: { p_exclude?: string; p_name: Json }
+        Returns: string
+      }
       provision_evento_availability: {
         Args: { p_horizon?: string; p_product_id: string }
         Returns: undefined
@@ -3221,6 +3303,19 @@ export type Database = {
         }
         Returns: Json
       }
+      record_pms_booking: {
+        Args: {
+          p_claimed_at: string
+          p_order_id: string
+          p_order_line_id: string
+          p_pms_booking_id: string
+        }
+        Returns: Json
+      }
+      release_notification_email_claim: {
+        Args: { p_ids: string[]; p_reason?: string }
+        Returns: number
+      }
       release_order_after_pms_refusal: {
         Args: { p_order_id: string; p_reason: string }
         Returns: Json
@@ -3229,12 +3324,20 @@ export type Database = {
         Args: { p_line_id: string }
         Returns: undefined
       }
+      release_pms_reserve_claim: {
+        Args: { p_claimed_at: string; p_order_id: string }
+        Returns: Json
+      }
       reorder_gallery: {
         Args: {
           p_entity_id: string
           p_entity_type: string
           p_ordered_media_ids: string[]
         }
+        Returns: Json
+      }
+      replace_product_slot_rules: {
+        Args: { p_product_id: string; p_rules: Json }
         Returns: Json
       }
       request_payment_refund: {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@hifago/supabase/client";
 import { MediaGallery, type MediaGalleryPhoto } from "@hifago/ui";
+import { uploadCatalogBlob } from "@/lib/media/uploadCatalogBlob";
 
 const MAX_PHOTOS = 6;
 
@@ -30,7 +31,6 @@ const SUBMIT_ERRORS_COMMON: Record<string, string> = {
 export function PhotosSocioBlock({
   entityType,
   entityId,
-  uploadEndpoint,
   submitRpc,
   deleteTable,
   notFoundLabel,
@@ -39,7 +39,6 @@ export function PhotosSocioBlock({
 }: {
   entityType: EntityType;
   entityId: string;
-  uploadEndpoint: string;
   submitRpc: SubmitRpc;
   deleteTable: DeleteTable;
   notFoundLabel: string;
@@ -59,15 +58,12 @@ export function PhotosSocioBlock({
   async function handleAddFile(blob: Blob) {
     const supabase = createClient();
 
-    const formData = new FormData();
-    formData.append("file", blob, "photo.png");
-    const uploadResponse = await fetch(uploadEndpoint, { method: "POST", body: formData });
-    const uploadResult = (await uploadResponse.json()) as
-      | { ok: true; storage_path: string }
-      | { ok: false; reason: string };
-
-    if (!uploadResult.ok) {
-      return { ok: false, reason: uploadResult.reason };
+    // Envoi commun aux six galeries (lib/media/uploadCatalogBlob.ts) : toute issue rend un
+    // résultat avec un message écrit pour l'écran, jamais une exception ni un code brut. La route
+    // se déduit de l'entité (l'ancienne prop `uploadEndpoint` ne faisait que la répéter).
+    const upload = await uploadCatalogBlob(entityType, blob);
+    if (!upload.ok) {
+      return { ok: false, reason: upload.reason };
     }
 
     // Les deux RPC partagent p_storage_paths mais divergent sur le nom de leur paramètre d'entité
@@ -78,15 +74,17 @@ export function PhotosSocioBlock({
       submitRpc === "submit_photos_proposal"
         ? await supabase.rpc(submitRpc, {
             p_product_id: entityId,
-            p_storage_paths: [uploadResult.storage_path],
+            p_storage_paths: [upload.storagePath],
           })
         : await supabase.rpc(submitRpc, {
             p_establishment_id: entityId,
-            p_storage_paths: [uploadResult.storage_path],
+            p_storage_paths: [upload.storagePath],
           });
     const result = data as { ok: boolean; reason?: string } | null;
     if (rpcError || !result?.ok) {
-      return { ok: false, reason: submitErrors[result?.reason ?? ""] ?? result?.reason ?? rpcError?.message };
+      // Un code inconnu ou une erreur SQL ne s'affichent jamais tels quels : sans `reason`, la
+      // galerie montre son propre message.
+      return { ok: false, reason: submitErrors[result?.reason ?? ""] };
     }
 
     // Aperçu local immédiat (blob déjà en main, pas besoin d'attendre un aller-retour Storage) —
@@ -105,7 +103,7 @@ export function PhotosSocioBlock({
     });
     const result = data as { ok: boolean; reason?: string } | null;
     if (rpcError || !result?.ok) {
-      return { ok: false, reason: result?.reason ?? rpcError?.message };
+      return { ok: false, reason: submitErrors[result?.reason ?? ""] };
     }
     setPhotos((prev) => orderedIds.map((id) => prev.find((p) => p.id === id)!));
     return { ok: true };
@@ -113,8 +111,15 @@ export function PhotosSocioBlock({
 
   async function handleDelete(id: string) {
     const supabase = createClient();
-    const { error: deleteError } = await supabase.from(deleteTable).delete().eq("id", id);
-    if (deleteError) return { ok: false, reason: deleteError.message };
+    // `.select("id")` : une suppression refusée par la RLS (photo d'un établissement que l'on
+    // n'opère pas) ne lève pas, elle touche 0 ligne. Sans ce retour, « Foto eliminada. »
+    // s'affichait pour une photo restée en place.
+    const { data: deleted, error: deleteError } = await supabase
+      .from(deleteTable)
+      .delete()
+      .eq("id", id)
+      .select("id");
+    if (deleteError || !deleted?.length) return { ok: false };
     setPhotos((prev) => prev.filter((p) => p.id !== id));
     return { ok: true };
   }

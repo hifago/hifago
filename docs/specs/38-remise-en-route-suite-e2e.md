@@ -5,7 +5,7 @@ theme: specs
 public: [ia, dev, jerome]
 langue: fr
 statut: brouillon
-maj: 2026-09-17
+maj: 2026-10-01
 resume: >
   Sortie de docs/backlog.md le 2026-09-17, où elle occupait à elle seule un paragraphe de 1888
   caractères alors que le fichier plafonne à 60 lignes et prescrit « 1 ligne par point, jamais de
@@ -111,3 +111,29 @@ La CI n'a **jamais** eu de job e2e. Remettre la suite au vert sans l'y brancher 
 retomber en silence — c'est exactement ce qui s'est produit ici (`CLAUDE.md` §11.20 : une règle que
 rien ne vérifie est un souhait). À trancher avec Jérôme au moment de la réactivation : job CI
 bloquant, ou nocturne non bloquant.
+
+## 6. Relevé du 2026-10-01 (e2e de fusion de la remédiation de l'audit)
+
+Base locale re-semée le jour même — le seed est **mensuel** (dispo du mois suivant) : relancé le 1er du
+mois sans re-semer, la moitié de la suite web rougit sur des dates introuvables (`data-date`,
+`slot_not_found`). Suites lancées sur `staging@4549c1d`.
+
+- **`apps/web`** : 49 verts sur 54 au passage complet. Rouges restants :
+  - `home.spec.ts:106` — « Ver más » rendu en carte (sans `href`) au lieu du lien sous la section ;
+    dépend du nombre d'offres seedées (code inchangé depuis le 2026-09-16) ;
+  - `reserve.spec.ts:100` — attend `data-failed="true"` sur la ligne refusée : attribut disparu avec
+    la spec 32 (même cause que `cart-multi-establishment.spec.ts`, adapté, celui-ci non) ;
+    `create_order` renvoie bien `reason: "full"` et la ligne (vérifié en transaction annulée) ;
+  - `reserve.spec.ts:28` — pollution : le panier du compte seedé partagé en parallèle ; vert seul.
+- **`apps/admin`** : 53 verts / 25 rouges en parallèle ; les 18 suspects relancés en `--workers=1` :
+  12 verts. Rouges restants, tous antérieurs :
+  - déjà décrits en §2 : `added-to-cart` (`admin-camp-booking`, `partner-qr-tool`,
+    `partner-reservations`), barre « Prestador activo » (`partner-join`, propositions
+    d'établissement), toast emporté par `router.push` (`partner-propose-product-creation`), mode
+    strict (`admin-product-publish`), interrupteur du registre (`admin-partner-registry`), `p_lines`
+    ×5, pollution (`admin-home-navigation:106`) ;
+  - **identiquement rouges sur le code d'avant la remédiation du jour** (`4f21efa`, même base) :
+    `admin-establishment-pms-connector`, `admin-evento-vitrine`, `admin-invitations:62`,
+    `partner-agenda` ×2 (dont un nettoyage bloqué par la FK `cart_items` → `products`),
+    `partner-availability` ×2, `partner-establishment-proposals`,
+    `partner-propose-establishment-creation-photo`.

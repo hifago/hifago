@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import { PageShell } from "@/components/atoms/PageShell";
 import { SearchBar, type SearchSuggestion } from "./SearchBar";
 
-// LA barre de recherche de l'accueil. À regarder aux deux gabarits, dans les deux modes et sur les
-// cinq pistes : c'est le composant le plus visible du site, et le seul dont un panneau flottant
-// peut sortir de l'écran.
+// LA barre de recherche de l'accueil. À regarder aux deux gabarits dans la charte claire adoptée :
+// c'est le composant le plus visible du site, et le seul dont un panneau flottant peut sortir de
+// l'écran.
 //
 // ⚠️ Les suggestions sont fournies À LA MAIN ici, et c'est le contrat du composant : il ne cherche
 // rien, il reçoit une liste déjà constituée. Les stories n'ont donc aucun catalogue à monter.
@@ -109,7 +109,7 @@ function Cadre({
     // `PageShell` plutôt qu'un `div` : la barre vit dans le premier bloc de l'accueil, donc dans un
     // `<main>`. Sans ce repère, axe remonte `region` (« du contenu hors landmark ») sur chaque
     // story — un bruit qui masquerait les vraies remontées.
-    <PageShell variant="large">
+    <PageShell variant="pagina">
       <SearchBar
         {...LIBELLES}
         {...libelles}

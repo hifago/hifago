@@ -1,11 +1,23 @@
 # hifago/ — instructions projet (refonte Casa Kayam / Hifago)
 
-> `hifago/` est un projet à part entière — dépôt git séparé (`casakayam/hifago-2.0`), ouvert comme
+> `hifago/` est un projet à part entière — dépôt git séparé (`hifago/hifago`), ouvert comme
 > racine de travail ; rien du dépôt legacy parent ne s'y applique. Répondre en français. Ce fichier
 > ne porte que des invariants : règles situationnelles dans `.claude/rules/` (chargées quand on
 > touche les fichiers concernés), procédures dans `.claude/skills/`, état dans `docs/journal/` et
 > `docs/backlog.md`. ⚠️ Annoncer la forme et l'effort de CHAQUE tâche avant de commencer :
 > `.claude/rules/orchestration.md`.
+
+## Compatibilité Claude Code / Codex
+
+- `.claude/skills/` et `.claude/rules/` sont les sources physiques versionnées ;
+  `.agents/skills/` et `.agents/rules/` sont leurs alias de dossier. Une création par l'un des deux
+  chemins est donc immédiatement visible par les deux IA. Après un clone :
+  `node scripts/setup-codex-skills.mjs` (également lancé au démarrage de Claude et Codex).
+- Tout nouveau skill partagé utilise le standard commun SKILL.md, avec uniquement `name` et
+  `description` dans le frontmatter. Toute nouvelle règle porte un `paths:` non vide : Claude le
+  charge nativement, Codex via `scripts/hooks/inject-path-rules.mjs`.
+- Ne jamais créer une copie propre à une IA. Si une instruction dépend d'un outil particulier,
+  documenter dans la même source l'équivalent pour l'autre IA.
 
 ## Projet en une phrase
 Refonte complète de Casa Kayam/Hifago : monorepo Next.js (App Router, npm workspaces) sur Vercel +

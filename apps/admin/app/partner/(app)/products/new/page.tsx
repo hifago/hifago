@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { ProductForm } from "@/components/product-form";
 
@@ -22,33 +23,42 @@ export default async function NewProductProposalPage() {
   // catalog_tags ne dépend ni de partnerId ni des établissements ci-dessous — lancée en parallèle
   // de la RPC partner_id_for_account plutôt qu'en dernier maillon d'une chaîne séquentielle à 4
   // niveaux.
-  const [{ data: partnerId }, { data: tagsRaw }] = await Promise.all([
+  const [partnerIdResult, tagsResult] = await Promise.all([
     supabase.rpc("partner_id_for_account", { uid: user.id }),
     supabase.from("catalog_tags").select("id, label").order("slug"),
   ]);
+  // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
+  // affichait « aucun établissement avec capacité d'operator » à un operator qui en a.
+  const { data: partnerId } = checkedRead(partnerIdResult, "partner_id_for_account");
+  const { data: tagsRaw } = checkedRead(tagsResult, "catalog_tags");
 
-  const { data: activeCapabilities } = partnerId
-    ? await supabase
-        .from("partner_capabilities")
-        .select("establishment_id")
-        .eq("partner_id", partnerId)
-        .eq("role", "operator")
-        .eq("status", "active")
-        .not("establishment_id", "is", null)
-    : { data: null };
+  const { data: activeCapabilities } = checkedRead(
+    partnerId
+      ? await supabase
+          .from("partner_capabilities")
+          .select("establishment_id")
+          .eq("partner_id", partnerId)
+          .eq("role", "operator")
+          .eq("status", "active")
+          .not("establishment_id", "is", null)
+      : { data: null, error: null },
+    "partner_capabilities",
+  );
 
   const activeEstablishmentIds = (activeCapabilities ?? [])
     .map((c) => c.establishment_id)
     .filter((id): id is string => id !== null);
 
-  const { data: establishments } =
+  const { data: establishments } = checkedRead(
     activeEstablishmentIds.length > 0
       ? await supabase
           .from("establishments")
           .select("id, name, partner_id, lobby_connector_active, lobby_has_token")
           .in("id", activeEstablishmentIds)
           .order("created_at", { ascending: true })
-      : { data: [] };
+      : { data: [], error: null },
+    "establishments",
+  );
 
   const allTags = (tagsRaw ?? []).map((tag) => ({
     id: tag.id,

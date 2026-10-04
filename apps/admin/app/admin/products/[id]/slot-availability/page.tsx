@@ -8,12 +8,15 @@ import {
   loadSlotAvailabilityPageData,
   SLOT_AVAILABILITY_WINDOW_DAYS,
 } from "@/lib/products/slotAvailabilityPage";
+import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 
 export default async function ProductSlotAvailabilityPage({
   params,
   searchParams,
 }: PageProps<"/admin/products/[id]/slot-availability">) {
-  const { id } = await params;
+  // Pas un UUID → 404 avant toute lecture : la lecture, qui lève sur erreur, afficherait sinon
+  // l'écran d'erreur pour une faute de frappe dans l'URL.
+  const id = requireUuidParam((await params).id);
   const { from: fromParam } = await searchParams;
 
   // RLS (products_select_public) : l'admin voit aussi les fiches non publiées.

@@ -167,6 +167,11 @@ describe("ListadoInfinito", () => {
         "No pudimos cargar más ofertas"
       )
     );
+    // L'échec dans l'encadré d'erreur de la charte (plan 41, P2), DANS la région d'état — celle-ci
+    // n'a pas été remontée, elle est toujours `status`.
+    const region = container.querySelector('[data-testid="listado-estado"]');
+    expect(region?.getAttribute("role")).toBe("status");
+    expect(region?.querySelector('[data-tono="error"]')).not.toBeNull();
     // La liste garde ce qu'elle affichait, et le bouton reste actionnable pour réessayer.
     expect(container.querySelectorAll("li").length).toBe(2);
     expect(container.querySelector('[data-testid="listado-cargar-mas"]')?.textContent).toContain(

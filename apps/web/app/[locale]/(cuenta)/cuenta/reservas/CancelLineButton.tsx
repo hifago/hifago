@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { createClient } from "@hifago/supabase/client";
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/atoms/Button";
+import { Aviso } from "@/components/molecules/Aviso";
 
 // Spec 34 décisions ⑤ et ⑧ — annuler UNE prestation, après une confirmation qui dit ce qu'elle coûte.
 //
@@ -84,63 +85,70 @@ export function CancelLineButton({
     setIsPending(false);
   }
 
+  // Plan 41, P8 : l'échec est rendu SOUS la confirmation comme sous le bouton. Avant, il ne
+  // s'affichait qu'après « No » (défaut connu n° 4) : la confirmation revenait à l'identique et
+  // le client ne savait pas que rien n'avait été annulé. Correctif d'AFFICHAGE seulement : l'appel
+  // et ses états sont ceux d'avant.
+  const erreur = hasFailed ? (
+    <Aviso tono="error" rol="alert" compacto testId={testId ? `${testId}-error` : undefined}>
+      {t("cancelError")}
+    </Aviso>
+  ) : null;
+
   if (!isConfirming) {
     return (
-      <div className="flex flex-col gap-1">
-        <Button
-          variant="outline"
-          color="danger"
-          size="sm"
-          onPress={() => setIsConfirming(true)}
-          testId={testId}
-        >
+      <div className="flex flex-col items-start gap-2">
+        <Button variant="ghost" color="danger" onPress={() => setIsConfirming(true)} testId={testId}>
           {t("cancelLine")}
         </Button>
-        {hasFailed ? (
-          <p role="alert" className="text-xs text-danger" data-testid={testId ? `${testId}-error` : undefined}>
-            {t("cancelError")}
-          </p>
-        ) : null}
+        {erreur}
       </div>
     );
   }
 
+  // L'encadré d'alerte de la charte (S6), compact parce qu'il vit dans la ligne. Le `role` reste
+  // `alert` et le `data-testid` `-confirm` : c'est l'élément que les tests et l'e2e lisent.
   return (
-    <div
-      ref={confirmRef}
-      role="alert"
-      className="flex flex-col gap-2 rounded-lg border border-danger bg-danger/10 p-3 text-sm"
-      data-testid={testId ? `${testId}-confirm` : undefined}
-    >
-      <p className="font-medium">{t("cancelConfirmTitle", { product: productName, date: dateLabel })}</p>
-      <p className="text-muted">{t("cancelConfirmNoRefund")}</p>
-      {isLastActiveLine ? (
-        <p className="text-muted" data-testid={testId ? `${testId}-last-line` : undefined}>
-          {t("cancelConfirmLastLine")}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          color="danger"
-          size="sm"
-          onPress={handleConfirm}
-          isPending={isPending}
-          pendingLabel={t("cancelling")}
-          testId={testId ? `${testId}-yes` : undefined}
-        >
-          {t("cancelConfirmYes")}
-        </Button>
-        <Button
-          variant="ghost"
-          color="neutral"
-          size="sm"
-          onPress={() => setIsConfirming(false)}
-          isDisabled={isPending}
-          testId={testId ? `${testId}-no` : undefined}
-        >
-          {t("cancelConfirmNo")}
-        </Button>
-      </div>
+    <div ref={confirmRef} className="flex flex-col gap-2">
+      <Aviso
+        tono="alerta"
+        rol="alert"
+        compacto
+        titulo={t("cancelConfirmTitle", { product: productName, date: dateLabel })}
+        testId={testId ? `${testId}-confirm` : undefined}
+        accion={
+          <>
+            <Button
+              color="danger"
+              size="sm"
+              onPress={handleConfirm}
+              isPending={isPending}
+              pendingLabel={t("cancelling")}
+              testId={testId ? `${testId}-yes` : undefined}
+            >
+              {t("cancelConfirmYes")}
+            </Button>
+            <Button
+              variant="ghost"
+              color="neutral"
+              size="sm"
+              onPress={() => setIsConfirming(false)}
+              isDisabled={isPending}
+              testId={testId ? `${testId}-no` : undefined}
+            >
+              {t("cancelConfirmNo")}
+            </Button>
+          </>
+        }
+      >
+        <p>{t("cancelConfirmNoRefund")}</p>
+        {isLastActiveLine ? (
+          <p className="font-semibold" data-testid={testId ? `${testId}-last-line` : undefined}>
+            {t("cancelConfirmLastLine")}
+          </p>
+        ) : null}
+      </Aviso>
+      {erreur}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { Checkbox as HeroUICheckbox } from "@hifago/ui";
-import { FIELD_MIN_HEIGHT, sousId } from "./Field";
+import { sousId } from "./Field";
 
 // La case à cocher de la vitrine (2026-09-02, vague 3).
 //
@@ -56,7 +56,8 @@ export function Checkbox({
         // ⚠️ Cible tactile : la ligne d'une case à cocher fait environ 20 px de haut, très en
         // dessous des 44 px du README. Le plancher est posé sur la racine — qui est le <label>
         // cliquable — et non sur la case seule, pour que toute la ligne reste visable au pouce.
-        className={`${FIELD_MIN_HEIGHT} justify-center`}
+        // 44 px et non les 48 d'un champ (`FIELD_MIN_HEIGHT`) : c'est une ligne, pas une boîte.
+        className="min-h-11 justify-center"
         name={name}
         isSelected={isSelected}
         onChange={onChange}

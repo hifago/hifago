@@ -23,7 +23,11 @@ vi.mock("@/i18n/navigation", () => ({
 // LobbyPMS côté client) et ne sont pas le sujet : ce fichier ne teste QUE la ligne de faits
 // capacité/quantité ajoutée le 2026-08-26. Les neutraliser garde le test rapide et non fragile.
 vi.mock("./ReservationForm", () => ({ ReservationForm: () => null }));
-vi.mock("./LodgingReservationForm", () => ({ LodgingReservationForm: () => null }));
+// Un marqueur plutôt que `null` : la présence ou l'absence du formulaire de logement est assertée
+// (logement PMS à connecteur coupé, plus bas).
+vi.mock("./LodgingReservationForm", () => ({
+  LodgingReservationForm: () => <div data-testid="lodging-form" />,
+}));
 vi.mock("./SlotReservationForm", () => ({ SlotReservationForm: () => null }));
 // `PhotoStrip` monte Embla, qui exige matchMedia/IntersectionObserver/ResizeObserver en jsdom
 // (cf. PhotoStrip.test.tsx) : neutralisé ici, ce fichier ne teste que la ligne de faits.
@@ -36,6 +40,7 @@ function renderView(overrides: {
   lodgingKind?: LodgingKind | null;
   unit?: string | null;
   amenidades?: { categoria: string; items: string[] }[];
+  reservableEnLinea?: boolean;
 }) {
   // Une fiche COMPLÈTE, construite une fois : le composant reçoit désormais un seul objet
   // `FichaProducto` au lieu de 22 props éparses (spec 30 §7c). Un champ oublié devient une erreur
@@ -50,6 +55,7 @@ function renderView(overrides: {
     precio: { tipo: "monto", cop: 120000 },
     unidad: overrides.unit ?? null,
     minQty: 1,
+    maxQty: 20,
     modoReserva: "lodging",
     urlExterna: null,
     ocurrencia: null,
@@ -68,6 +74,7 @@ function renderView(overrides: {
       priceTiers: null,
       maxQty: 1,
       esPmsBacked: true,
+      reservableEnLinea: overrides.reservableEnLinea ?? true,
       amenidades: overrides.amenidades ?? [],
     },
     disponibilidad: [],
@@ -193,6 +200,44 @@ describe("FichaProducto — unité de prix", () => {
   });
 });
 
+// Plan 41, P3 (2026-10-03) : le bandeau or porte le SEUL `<h1>` (spec 30, invariant 2), le fil
+// d'Ariane reçu de la page, « Ofrecido por » et les faits en puces ; le panneau porte la politique
+// d'annulation ; la barre mobile n'existe que s'il y a quelque chose à réserver. La disposition
+// elle-même (deux colonnes, ordre mobile, collant) se prouve au rendu : jsdom n'applique pas les
+// media queries.
+describe("FichaProducto — mise en page de la charte (plan 41, P3)", () => {
+  it("un seul <h1>, le nom du produit, dans le bandeau, sans point", () => {
+    renderView({ capacity: 2, unitCount: 3 });
+    const titres = document.querySelectorAll("h1");
+    expect(titres.length).toBe(1);
+    expect(titres[0].getAttribute("data-testid")).toBe("product-name");
+    expect(titres[0].textContent).toBe("GLAMPING");
+    expect(titres[0].closest("[data-testid='ficha-bandeau']")).not.toBeNull();
+    expect(titres[0].querySelector("span")).toBeNull();
+  });
+
+  it("met « Ofrecido por » et les faits en puces dans le bandeau", () => {
+    renderView({ capacity: 2, unitCount: 3, lodgingKind: "private" });
+    const bandeau = screen.getByTestId("ficha-bandeau");
+    const ofrecido = screen.getByTestId("product-ofrecido-por");
+    expect(bandeau.contains(ofrecido)).toBe(true);
+    expect(ofrecido.textContent).toContain("Ofrecido por Casa Kayam");
+    expect(ofrecido.querySelector("a")?.getAttribute("href")).toBe("/establecimientos/casa-kayam");
+    const faits = screen.getByTestId("product-lodging-facts");
+    expect(bandeau.contains(faits)).toBe(true);
+    expect(faits.querySelectorAll("[data-tono='neutro']").length).toBe(3);
+  });
+
+  it("pose la politique d'annulation dans un encadré, et la barre mobile quand on peut réserver", () => {
+    renderView({ capacity: 2, unitCount: 3 });
+    expect(screen.getByTestId("politica-cancelacion").getAttribute("data-tono")).toBe("info");
+    const barra = screen.getByTestId("barra-reserva");
+    expect(barra.textContent).toContain("120.000");
+    expect(barra.textContent).toContain("Reservar");
+    expect(document.getElementById("reservar")).not.toBeNull();
+  });
+});
+
 // products/product_amenity_assignments (migration 20260917110000, décision Jérôme du 2026-09-17).
 describe("FichaProducto — équipements structurés", () => {
   it("affiche les équipements groupés par catégorie quand la fiche en porte", () => {
@@ -210,5 +255,24 @@ describe("FichaProducto — équipements structurés", () => {
   it("n'affiche pas la section si amenidades est vide", () => {
     renderView({ capacity: 2, unitCount: 1, amenidades: [] });
     expect(screen.queryByTestId("product-amenities")).toBeNull();
+  });
+});
+
+// Un logement PMS dont le connecteur est coupé : `create_order` le refuserait (`pms_unavailable`)
+// et la disponibilité ne peut pas être demandée. La fiche le dit d'emblée au lieu d'offrir un
+// calendrier qui mènerait à un refus.
+describe("FichaProducto — logement PMS à connecteur coupé", () => {
+  it("affiche le formulaire tant que le logement est réservable en ligne", () => {
+    renderView({ capacity: 2, unitCount: 3 });
+    expect(screen.queryByTestId("lodging-form")).not.toBeNull();
+    expect(screen.queryByTestId("pms-no-reservable")).toBeNull();
+  });
+
+  it("remplace le formulaire par un bloc dédié qui renvoie vers l'établissement", () => {
+    renderView({ capacity: 2, unitCount: 3, reservableEnLinea: false });
+    expect(screen.queryByTestId("lodging-form")).toBeNull();
+    const bloc = screen.getByTestId("pms-no-reservable");
+    expect(bloc.textContent).toContain(messages.ProductPage.pmsNoReservableTitle);
+    expect(bloc.querySelector('a[href="/establecimientos/casa-kayam"]')).not.toBeNull();
   });
 });

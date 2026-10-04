@@ -48,6 +48,7 @@ function renderTransporte(transporte: DatosTransporte | null) {
     precio: { tipo: "monto", cop: 80000 },
     unidad: "per_person",
     minQty: 1,
+    maxQty: 20,
     // Depuis le 2026-09-17, un transport est TOUJOURS en mode vitrine : sa couche de données lui
     // garantit une URL de contact (son WhatsApp, ou celui de Hifago). Le fixture le reflète —
     // c'est `producto.test.ts` qui prouve la garantie elle-même.

@@ -133,11 +133,107 @@ describe("LanguageSwitcher", () => {
     }
   });
 
-  // Le drapeau accompagne, il n'informe pas : aucun n'est juste pour l'anglais, et `es` est ici
-  // l'espagnol de Colombie. Le nom écrit à côté porte l'information.
+  // Le drapeau accompagne, il n'informe pas : aucun n'est juste pour une langue (l'espagnol porte
+  // celui de l'Espagne depuis la maquette du 2026-10-01). Le nom écrit à côté porte l'information.
   it("rend les drapeaux invisibles au lecteur d'écran", () => {
     const { container } = rendu();
     const drapeaux = container.querySelectorAll('svg[aria-hidden="true"]');
     expect(drapeaux.length).toBeGreaterThanOrEqual(3);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────────────────────
+  // L'APPARENCE `banderas` — « 🇪🇸 ESP  🇬🇧 ING », le header transparent de l'accueil (2026-10-01)
+  // ─────────────────────────────────────────────────────────────────────────────────────────────
+  describe("apparence `banderas`", () => {
+    function enLigne(locale: Locale = "es") {
+      return render(
+        <NextIntlClientProvider locale={locale} messages={loadMessages(locale)}>
+          <LanguageSwitcher apariencia="banderas" testId="lang" />
+        </NextIntlClientProvider>
+      ).container;
+    }
+
+    it("pose les deux langues en liens directs, sans déclencheur ni panneau", () => {
+      const container = enLigne();
+      expect(container.querySelector('[data-testid="lang-trigger"]')).toBeNull();
+      expect(container.querySelector('[data-testid="lang-panneau"]')).toBeNull();
+      const es = container.querySelector('[data-testid="lang-es"]') as HTMLAnchorElement;
+      const en = container.querySelector('[data-testid="lang-en"]') as HTMLAnchorElement;
+      expect(es.getAttribute("href")).toBe("/es/productos/kayak");
+      expect(en.getAttribute("href")).toBe("/en/productos/kayak");
+      // `hreflang` : chaque lien dit dans quelle langue il mène.
+      expect(es.getAttribute("hreflang")).toBe("es");
+      expect(en.getAttribute("hreflang")).toBe("en");
+      // Un `<nav>` NOMMÉ : il cohabite avec celui du compte dans le même header.
+      expect(container.querySelector("nav")?.getAttribute("aria-label")).toBe(
+        loadMessages("es").Chrome.languageLabel
+      );
+    });
+
+    // Les abréviations de la maquette : « ESP · ING » sur /es. Libellés d'INTERFACE, donc traduits —
+    // « ENG » sur /en, là où l'espagnol écrit « ING » (Inglés).
+    it("affiche les abréviations de la maquette, dans la langue de l'interface", () => {
+      expect(enLigne("es").textContent).toContain("ESP");
+      expect(enLigne("es").textContent).toContain("ING");
+      expect(enLigne("en").textContent).toContain("ENG");
+    });
+
+    // ⚠️ WCAG 2.5.3 : le nom accessible doit CONTENIR le texte affiché — « ING » seul ne dit rien à
+    // un lecteur d'écran, « English » seul ne serait pas trouvé par la commande vocale « clique sur
+    // ING ». Les deux, l'abréviation d'abord, le nom complet dans SA langue (`lang`).
+    it("nomme chaque lien par l'abréviation visible PUIS le nom complet de la langue", () => {
+      const en = enLigne("es").querySelector('[data-testid="lang-en"]') as HTMLAnchorElement;
+      const nom = (en.textContent ?? "").replace(/\s+/g, " ").trim();
+      expect(nom.startsWith("ING")).toBe(true);
+      expect(nom).toContain("English");
+      expect(en.querySelector('[lang="en"]')?.textContent).toContain("English");
+    });
+
+    it("signale la langue courante par `aria-current`, et seulement elle", () => {
+      const container = enLigne("es");
+      expect(container.querySelector('[data-testid="lang-es"]')?.getAttribute("aria-current")).toBe("true");
+      expect(container.querySelector('[data-testid="lang-en"]')?.hasAttribute("aria-current")).toBe(false);
+    });
+
+    // Vue mobile (Jérôme, 2026-10-02) : UN seul bouton sous `md`, vers l'autre langue. jsdom
+    // n'applique pas Tailwind : on vérifie que seule la langue COURANTE porte la classe qui la masque.
+    it("ne garde sous `md` que le lien vers l'autre langue", () => {
+      for (const [courante, autre] of [
+        ["es", "en"],
+        ["en", "es"],
+      ] as const) {
+        const container = enLigne(courante);
+        const item = (valeur: string) =>
+          container.querySelector(`[data-testid="lang-${valeur}"]`)?.closest("li") as HTMLElement;
+        expect(item(courante).className).toBe("hidden md:block");
+        expect(item(autre).className).toBe("");
+      }
+    });
+
+    it("conserve la query string active, comme le menu", () => {
+      window.history.pushState({}, "", "/es/productos/kayak?q=kayak");
+      fireEvent.click(enLigne().querySelector('[data-testid="lang-en"]') as HTMLAnchorElement);
+      expect(pushMock).toHaveBeenCalledWith("/productos/kayak?q=kayak", { locale: "en" });
+    });
+
+    it("garde 44 px de cible tactile sur chaque lien", () => {
+      const container = enLigne();
+      for (const valeur of ["es", "en"]) {
+        expect((container.querySelector(`[data-testid="lang-${valeur}"]`) as HTMLElement).className).toContain(
+          "min-h-11"
+        );
+      }
+    });
+
+    // Rendu SERVEUR : les liens `/en/…` sont ce qui fait découvrir la version anglaise.
+    it("met les deux liens dans le HTML servi", () => {
+      const html = renderToStaticMarkup(
+        <NextIntlClientProvider locale="es" messages={loadMessages("es")}>
+          <LanguageSwitcher apariencia="banderas" testId="lang" />
+        </NextIntlClientProvider>
+      );
+      expect(html).toContain('href="/es/productos/kayak"');
+      expect(html).toContain('href="/en/productos/kayak"');
+    });
   });
 });

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@hifago/supabase/client";
+import { REF_CODE_MAX_LENGTH } from "@hifago/domain";
 import {
   Button,
   Description,
@@ -26,6 +27,13 @@ export function NewInvitationForm() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
 
+    // Même borne que la vitrine (REF_CODE_MAX_LENGTH, @hifago/domain), qui ignore un code plus
+    // long : créé ici, il aurait perdu son attribution en silence. Refus explicite, jamais une
+    // troncature (un `maxLength` couperait un code collé sans le dire).
+    if (code.trim().length > REF_CODE_MAX_LENGTH) {
+      toast.danger(`El código no puede tener más de ${REF_CODE_MAX_LENGTH} caracteres.`);
+      return;
+    }
     if (!code.trim() || !onboardingPath) {
       toast.danger("El código y el tipo de invitación son obligatorios.");
       return;

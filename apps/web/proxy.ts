@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from "./i18n/routing";
+import { REF_COOKIE, normalizeRefCode, refCookieOptions } from "./lib/attribution/refCookie";
 
 const intlMiddleware = createMiddleware(routing);
 
@@ -35,14 +36,11 @@ export default async function proxy(request: NextRequest) {
   // l'onglet, cohérent avec « vaut pour la réservation en cours » pour un invité — la durabilité
   // pour un compte enregistré vit côté serveur dans partner_accounts.saved_attribution_code,
   // jamais dans ce cookie. Absent de la requête → cookie existant laissé tel quel (pas effacé),
-  // pour survivre à une navigation ultérieure sans ?ref= jusqu'au checkout.
-  const refCode = request.nextUrl.searchParams.get("ref");
+  // pour survivre à une navigation ultérieure sans ?ref= jusqu'au checkout. Un `?ref=` vide ou trop
+  // long est ignoré de la même façon (`normalizeRefCode`) ; `Secure` suit le protocole réel.
+  const refCode = normalizeRefCode(request.nextUrl.searchParams.get("ref"));
   if (refCode) {
-    response.cookies.set("hifago_ref", refCode, {
-      path: "/",
-      httpOnly: true,
-      sameSite: "lax",
-    });
+    response.cookies.set(REF_COOKIE, refCode, refCookieOptions(request.nextUrl.protocol));
   }
 
   // Une URL sans préfixe de locale (ex. "/") reçoit déjà sa redirection 307/308 de

@@ -117,6 +117,7 @@ export function requiredPricingStepError(params: {
   minQty: string;
   maxQty: string;
   stayRates: DraftStayRates;
+  externalBookingUrl: string;
 }): string | null {
   if (params.needsOwnPrice && !params.usesTiers && (!Number.isFinite(params.price) || params.price <= 0)) {
     return "El precio es obligatorio para este tipo de producto.";
@@ -159,6 +160,17 @@ export function requiredPricingStepError(params: {
     if (tiersError) return tiersError;
   }
 
+  // Même plancher que les contraintes products_min_qty_positive / products_max_qty_positive
+  // (20261001144546) : refusé ici avec un message, plutôt qu'en erreur générique à l'enregistrement.
+  if (params.hasPriceQtyFields) {
+    if (params.minQty.trim() && Number(params.minQty) < 1) {
+      return "La cantidad mínima debe ser al menos 1.";
+    }
+    if (params.maxQty.trim() && Number(params.maxQty) < 1) {
+      return "La cantidad máxima debe ser al menos 1.";
+    }
+  }
+
   if (
     params.hasPriceQtyFields &&
     params.minQty.trim() &&
@@ -166,6 +178,13 @@ export function requiredPricingStepError(params: {
     Number(params.minQty) > Number(params.maxQty)
   ) {
     return "La cantidad mínima no puede ser mayor a la máxima.";
+  }
+
+  // Lien rendu tel quel dans la vitrine : seuls http et https sont admis, comme la contrainte
+  // products_external_booking_url_scheme (20261001144546). Le formulaire est `noValidate`, donc
+  // l'`<Input type="url">` ne vérifie rien de lui-même.
+  if (params.externalBookingUrl.trim() && !/^https?:\/\//i.test(params.externalBookingUrl.trim())) {
+    return "El enlace de reserva externo debe empezar por http:// o https://.";
   }
 
   if (params.isLodging) {

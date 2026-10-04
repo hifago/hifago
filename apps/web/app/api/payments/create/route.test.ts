@@ -26,6 +26,10 @@ function commandeRecente(): OrderRow {
 let orderRow: OrderRow | null = commandeRecente();
 /** Ce que la route écrit sur `payments` après la création de la préférence (spec 39). */
 let paymentUpdate: Record<string, unknown> | null = null;
+/** Les signaux d'annulation passés aux deux accès base (P5a : jamais un accès sans délai). */
+let signauxBase: AbortSignal[] = [];
+/** Erreur rendue par la lecture de `payments` (null = succès). */
+let lectureErreur: { message: string } | null = null;
 
 // Le Route Handler lit `payments` AVEC l'embed PostgREST `orders(access_token)` — une seule
 // requête, via la FK `payments.order_id → orders.id`. Le mock rend donc la commande imbriquée,
@@ -34,24 +38,35 @@ vi.mock("@hifago/supabase/service", () => ({
   createServiceRoleClient: () => ({
     from: () => ({
       update: (values: Record<string, unknown>) => ({
-        eq: async () => {
-          paymentUpdate = values;
-          return { error: null };
-        },
+        eq: () => ({
+          abortSignal: async (signal: AbortSignal) => {
+            signauxBase.push(signal);
+            paymentUpdate = values;
+            return { error: null };
+          },
+        }),
       }),
       select: () => ({
         eq: () => ({
-          maybeSingle: async () => ({
-            data: {
-              id: PAYMENT_ID,
-              order_id: ORDER_ID,
-              amount_cop: 17000,
-              payer_email: "cliente@test.local",
-              status: "pending",
-              orders: orderRow,
-            },
-            error: null,
-          }),
+          abortSignal: (signal: AbortSignal) => {
+            signauxBase.push(signal);
+            return {
+              maybeSingle: async () =>
+                lectureErreur
+                  ? { data: null, error: lectureErreur }
+                  : {
+                      data: {
+                        id: PAYMENT_ID,
+                        order_id: ORDER_ID,
+                        amount_cop: 17000,
+                        payer_email: "cliente@test.local",
+                        status: "pending",
+                        orders: orderRow,
+                      },
+                      error: null,
+                    },
+            };
+          },
         }),
       }),
     }),
@@ -71,7 +86,7 @@ vi.mock("@/lib/mercadopago/client", () => ({
   PREFERENCE_EXPIRY_MARGIN_MINUTES: 2,
 }));
 
-const { POST } = await import("./route");
+const { POST, maxDuration } = await import("./route");
 
 function requete(origin = "https://hifago.test") {
   return new Request(`${origin}/api/payments/create`, {
@@ -86,6 +101,12 @@ describe("POST /api/payments/create — la back_url de retour", () => {
     preferenceInput = null;
     paymentUpdate = null;
     orderRow = commandeRecente();
+    // Ce bloc couvre le repli sans URL configurée (poste de dev) ; l'URL configurée a le sien.
+    delete process.env.NEXT_PUBLIC_WEB_APP_URL;
+  });
+
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
   });
 
   it("renvoie le client sur l'adresse propre à sa commande, jamais sur /pago", async () => {
@@ -128,6 +149,15 @@ describe("POST /api/payments/create — la back_url de retour", () => {
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ ok: false, reason: "order_not_found" });
     expect(preferenceInput).toBeNull();
+  });
+
+  // Sans `source_news=webhooks`, Mercado Pago livre aussi au format IPN, dont la signature n'est
+  // pas vérifiable : chaque paiement finissait en SignatureMismatch (préprod, 2026-09-30).
+  it("ne demande que des notifications au format Webhooks, les seules dont la signature se vérifie", async () => {
+    await POST(requete());
+    expect(preferenceInput?.notificationUrl).toBe(
+      "https://hifago.test/api/payments/webhook?source_news=webhooks"
+    );
   });
 
   it("suit l'origine réelle derrière un reverse proxy, jamais l'adresse locale du serveur", async () => {
@@ -215,5 +245,105 @@ describe("POST /api/payments/create — identité du compte qui encaisse (spec 3
 
     expect(response.status).toBe(200);
     expect(paymentUpdate).toEqual({ mp_preference_id: "pref-fake-1", mp_collector_id: "3627131944" });
+  });
+});
+
+// Audit 2026-09-28 : en production, l'adresse de NOTIFICATION ne dépend que de la configuration du
+// déploiement. Le RETOUR du client, lui, suit toujours l'hôte où il a commandé (sa session y vit).
+describe("POST /api/payments/create — URL configurée (NEXT_PUBLIC_WEB_APP_URL)", () => {
+  beforeEach(() => {
+    preferenceInput = null;
+    orderRow = commandeRecente();
+    process.env.NEXT_PUBLIC_WEB_APP_URL = "https://hifago.test/";
+    process.env.VERCEL_ENV = "production";
+  });
+
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+  });
+
+  function requeteAutreHote() {
+    return new Request("https://autre-hote.test/api/payments/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-forwarded-host": "autre-hote.test",
+        "x-forwarded-proto": "https",
+      },
+      body: JSON.stringify({ paymentId: PAYMENT_ID }),
+    });
+  }
+
+  it("en production : notification sur l'URL configurée, jamais sur l'hôte de la requête", async () => {
+    await POST(requeteAutreHote());
+    expect(preferenceInput?.notificationUrl).toBe("https://hifago.test/api/payments/webhook?source_news=webhooks");
+  });
+
+  // Un client entré par un alias de la prod (*.vercel.app) renvoyé sur le domaine configuré y
+  // arriverait sans session : plus de nouvel essai de paiement possible.
+  it("en production aussi, le client revient sur l'hôte où il a commandé", async () => {
+    await POST(requeteAutreHote());
+    const base = `https://autre-hote.test/reserva/${ACCESS_TOKEN}`;
+    expect(preferenceInput?.successUrl).toBe(`${base}?payment=approved`);
+    expect(preferenceInput?.pendingUrl).toBe(`${base}?payment=pending`);
+    expect(preferenceInput?.failureUrl).toBe(`${base}?payment=rejected`);
+  });
+
+  // Une preview peut porter l'URL de la préprod : le client reviendrait sur un autre déploiement, où
+  // sa session n'existe pas, et le webhook y serait livré au lieu de la preview qui a créé le paiement.
+  it("hors production (preview, préprod, local), l'hôte de la requête même si la variable est posée", async () => {
+    process.env.VERCEL_ENV = "preview";
+    await POST(requeteAutreHote());
+    expect(preferenceInput?.successUrl).toBe(`https://autre-hote.test/reserva/${ACCESS_TOKEN}?payment=approved`);
+    expect(preferenceInput?.notificationUrl).toBe(
+      "https://autre-hote.test/api/payments/webhook?source_news=webhooks"
+    );
+  });
+});
+
+describe("POST /api/payments/create — plafond de durée", () => {
+  it("tient lecture + Mercado Pago + écriture sous le plafond, avec de la marge pour répondre", async () => {
+    const { PREFERENCE_DEADLINE_MS } =
+      await vi.importActual<typeof import("@/lib/mercadopago/client")>("@/lib/mercadopago/client");
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    orderRow = commandeRecente();
+    await POST(requete());
+    const delaisBase = timeout.mock.calls.map(([ms]) => ms);
+    timeout.mockRestore();
+    expect(delaisBase).toHaveLength(2);
+    const pireCas = delaisBase[0] + PREFERENCE_DEADLINE_MS + delaisBase[1];
+    expect(maxDuration * 1000 - pireCas).toBeGreaterThanOrEqual(5_000);
+  });
+});
+
+// P5a : chaque accès base est borné (une base qui cale répond en erreur), et une panne de lecture
+// n'est jamais « paiement introuvable ».
+describe("POST /api/payments/create — accès base bornés", () => {
+  beforeEach(() => {
+    signauxBase = [];
+    lectureErreur = null;
+    preferenceInput = null;
+    orderRow = commandeRecente();
+  });
+
+  it("passe un délai de 5 s à la lecture ET à l'écriture de payments", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const response = await POST(requete());
+    const delais = timeout.mock.calls.map(([ms]) => ms);
+    timeout.mockRestore();
+    expect(response.status).toBe(200);
+    expect(signauxBase).toHaveLength(2);
+    expect(signauxBase.every((signal) => signal instanceof AbortSignal)).toBe(true);
+    expect(delais).toEqual([5_000, 5_000]);
+  });
+
+  it("lecture en panne (ou délai dépassé) → 503 db_unavailable, jamais payment_not_found", async () => {
+    lectureErreur = { message: "This operation was aborted" };
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = await POST(requete());
+    consoleError.mockRestore();
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ ok: false, reason: "db_unavailable" });
+    expect(preferenceInput).toBeNull();
   });
 });

@@ -27,9 +27,11 @@ export function DeleteProductButton({ productId }: { productId: string }) {
       p_product_id: productId,
     });
 
-    setIsSubmitting(false);
-
     if (rpcError) {
+      // Échec seulement : sur un succès, le bouton reste inactif jusqu'à la navigation, qui
+      // démonte ce composant — le réactiver avant permettait un second envoi pendant le
+      // rechargement (2026-10-01).
+      setIsSubmitting(false);
       if (rpcError.code === "23503") {
         setAlreadyOrdered(true);
         toast.danger("No se pudo eliminar la actividad: ya fue reservada.");

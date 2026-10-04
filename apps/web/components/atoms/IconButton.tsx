@@ -5,6 +5,7 @@ import { Button as HeroUIButton, Spinner } from "@hifago/ui";
 import {
   buttonToneClasses,
   HEROUI_VARIANT,
+  ICON_SIZE_CLASS,
   RADIUS_CLASS,
   type ButtonColor,
   type ButtonSize,
@@ -33,16 +34,16 @@ export type IconButtonProps = {
    */
   label: string;
   /**
-   * ⚠️ Depuis que le rayon est descendu à `var(--radius)` (8 px, demande du 2026-09-02), cette
-   * prop est la SEULE façon d'obtenir un bouton rond : avec le `rounded-3xl` d'origine, un bouton
-   * d'icône était rond par accident — 24 px de rayon dépassaient la moitié de sa hauteur (22 px en
-   * `lg`) et le navigateur rabotait à 50 %. À 8 px, il ne l'est plus du tout. `square` suit
-   * exactement le rayon du bouton texte, pour que les deux composants s'accordent.
+   * ⚠️ Depuis que le rayon est descendu au jeton du thème (demande du 2026-09-02), cette prop est
+   * la SEULE façon d'obtenir un bouton rond : avec le `rounded-3xl` d'origine, un bouton d'icône
+   * était rond par accident — 24 px de rayon dépassaient la moitié de sa hauteur (22 px en `lg`) et
+   * le navigateur rabotait à 50 %. `square` suit exactement le rayon du bouton texte
+   * (`--rayon-bouton`, 8 px, plan 41 F4), pour que les deux composants s'accordent.
    */
   shape?: "circle" | "square";
   variant?: ButtonVariant;
   color?: ButtonColor;
-  /** Défaut `lg` : 44 px de cible tactile sur mobile, comme Button — voir sa note sur les tailles. */
+  /** 44 × 44 px à toutes les tailles (`ICON_SIZE_CLASS`) : la taille ne règle que le glyphe. */
   size?: ButtonSize;
   type?: "button" | "submit";
   onPress?: () => void;
@@ -85,7 +86,7 @@ export function IconButton({
 }: IconButtonProps) {
   return (
     <HeroUIButton
-      className={`${buttonToneClasses(variant, color)} ${SHAPE_CLASSES[shape]}`}
+      className={`${buttonToneClasses(variant, color)} ${ICON_SIZE_CLASS} ${SHAPE_CLASSES[shape]}`}
       variant={HEROUI_VARIANT[variant]}
       size={size}
       isIconOnly

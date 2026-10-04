@@ -5,6 +5,7 @@ import { createClient } from "@hifago/supabase/server";
 import { isRealAccount } from "@hifago/supabase/identity";
 import { redirect } from "@/i18n/navigation";
 import { SiteHeader } from "@/components/organisms/SiteHeader";
+import { SiteFooter } from "@/components/organisms/SiteFooter";
 
 // Zone COMPTE — la SEULE garde d'accès du site (spec 27 §5). Jamais indexée.
 //
@@ -63,6 +64,10 @@ export default async function CuentaLayout({
           `(vitrine)` ET `(cuenta)` — `useCart()` y fonctionne déjà sans rien remonter. */}
       <SiteHeader isAuthenticated={true} testId="site-header" />
       {children}
+      {/* Le pied marine, comme la vitrine (plan 41, C2 ; arbitrage D3 : « zone compte comprise »).
+          La zone n'en avait aucun. Le TUNNEL, lui, reste sans pied, volontairement
+          (`CoquillaTunel`). */}
+      <SiteFooter />
     </>
   );
 }

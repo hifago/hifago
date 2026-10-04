@@ -13,7 +13,7 @@
 -- hifago/CLAUDE.md §6.3) : le verrou `for update` sur orders, partagé avec
 -- expire_stale_payment_orders, relève de tests/concurrency/.
 begin;
-select plan(11);
+select plan(18);
 
 -- Fixtures dédiées, jamais un enregistrement seedé partagé (AGENTS-PARALLELES point 5).
 insert into partners (id, display_name) values
@@ -136,7 +136,7 @@ select is(
 select is(
   (select count(*)::int from pms_cancellation_queue where pms_booking_id = '90000001'),
   1,
-  'le booking Lobby déjà créé part en file d''annulation (trigger existant, non modifié)'
+  'le booking Lobby déjà créé part en file d''annulation (trigger)'
 );
 
 -- Idempotence : un rejeu ne rend pas les places une seconde fois.
@@ -144,6 +144,105 @@ select is(
   (select (public.release_order_after_pms_refusal((select id from orders where holder_email = 'release@test.local'), 'rejeu'))->>'released_lines')::int,
   0,
   'un second appel ne relâche rien et ne rend donc rien deux fois'
+);
+
+
+-- ── Migration 20260930221837 (I3) : une commande payée n'est JAMAIS défaite ─────────────────
+-- Avant : `payment_status = 'unpaid'` inconditionnel — la commande payée était dé-payée, ses lignes
+-- annulées et ses places rendues, `payments` restait `approved` : l'argent devenait invisible.
+-- Fixtures posées en direct (rôle de connexion du fichier) : une ligne d'activité qui occupe 1 place.
+reset role;
+insert into product_availability (product_id, date, capacity, booked) values
+  ('9a930000-0000-4000-8000-000000000033', '2028-09-20', 8, 1),
+  ('9a930000-0000-4000-8000-000000000033', '2028-09-21', 8, 1);
+insert into orders (id, account_id, holder_name, holder_email, payment_status) values
+  ('9a930000-0000-4000-8000-000000000071', '9a930000-0000-4000-8000-000000000021', 'Holder Paid', 'release-paid@test.local', 'paid'),
+  ('9a930000-0000-4000-8000-000000000072', '9a930000-0000-4000-8000-000000000021', 'Holder Pending', 'release-pending@test.local', 'pending');
+insert into order_lines (
+  id, order_id, account_id, product_id, date, qty, status, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+) values
+  ('9a930000-0000-4000-8000-000000000081', '9a930000-0000-4000-8000-000000000071', '9a930000-0000-4000-8000-000000000021',
+   '9a930000-0000-4000-8000-000000000033', '2028-09-20', 1, 'reserved', 'Holder Paid',
+   50000, 50000, 'direct', 0.17, 0, 0.17, 8500, 0, 8500),
+  ('9a930000-0000-4000-8000-000000000082', '9a930000-0000-4000-8000-000000000072', '9a930000-0000-4000-8000-000000000021',
+   '9a930000-0000-4000-8000-000000000033', '2028-09-21', 1, 'reserved', 'Holder Pending',
+   50000, 50000, 'direct', 0.17, 0, 0.17, 8500, 0, 8500);
+insert into payments (id, order_id, amount_cop, payer_email, status) values
+  ('9a930000-0000-4000-8000-000000000091', '9a930000-0000-4000-8000-000000000071', 8500, 'release-paid@test.local', 'approved'),
+  ('9a930000-0000-4000-8000-000000000092', '9a930000-0000-4000-8000-000000000072', 8500, 'release-pending@test.local', 'pending');
+
+set local role service_role;
+select is(
+  (select public.release_order_after_pms_refusal('9a930000-0000-4000-8000-000000000071', 'refus après paiement')->>'reason'),
+  'order_paid',
+  'commande PAYÉE → order_paid, rien n''est défait (I3)'
+);
+select is(
+  (select jsonb_build_object(
+     'commande', (select payment_status from orders where id = '9a930000-0000-4000-8000-000000000071'),
+     'ligne', (select status from order_lines where id = '9a930000-0000-4000-8000-000000000081'),
+     'place', (select booked from product_availability
+                where product_id = '9a930000-0000-4000-8000-000000000033' and date = '2028-09-20'),
+     'paiement', (select status from payments where id = '9a930000-0000-4000-8000-000000000091'))),
+  jsonb_build_object('commande', 'paid', 'ligne', 'reserved', 'place', 1, 'paiement', 'approved'),
+  'commande payée intacte : toujours paid, ligne reserved, place tenue, paiement approved'
+);
+
+-- Non-régression : une commande `pending` (client chez Mercado Pago) est relâchée comme avant — un
+-- approved tardif tombera dans la garde paid_after_expiry → refund_required (payments.test.sql).
+select is(
+  (select (public.release_order_after_pms_refusal('9a930000-0000-4000-8000-000000000072', 'refus en cours de paiement'))->>'released_lines')::int,
+  1,
+  'commande pending → relâchée (non-régression)'
+);
+select is(
+  (select jsonb_build_object(
+     'commande', (select payment_status from orders where id = '9a930000-0000-4000-8000-000000000072'),
+     'paiement', (select status from payments where id = '9a930000-0000-4000-8000-000000000092'),
+     'place', (select booked from product_availability
+                where product_id = '9a930000-0000-4000-8000-000000000033' and date = '2028-09-21'))),
+  jsonb_build_object('commande', 'unpaid', 'paiement', 'cancelled', 'place', 0),
+  'commande pending relâchée : unpaid, paiement cancelled, place rendue'
+);
+
+-- Revue adversariale : connecteur coupé ENTRE le claim et le relâchement — le booking déjà créé
+-- chez Lobby doit partir en file quand même. Jusqu'à la migration 20261003223900, le trigger
+-- enqueue_pms_cancellations filtrait les connecteurs actifs et seul l'enfilage explicite de la
+-- fonction tenait ; il ne filtre plus, les deux enfilent désormais (l'index partiel absorbe le
+-- doublon) : ce cas prouve le résultat, plus le seul enfilage explicite.
+reset role;
+insert into orders (id, account_id, holder_name, holder_email, payment_status) values
+  ('9a930000-0000-4000-8000-000000000073', '9a930000-0000-4000-8000-000000000021', 'Holder Off', 'release-off@test.local', 'unpaid'),
+  ('9a930000-0000-4000-8000-000000000074', '9a930000-0000-4000-8000-000000000021', 'Holder Refunded', 'release-refunded@test.local', 'refunded');
+insert into order_lines (
+  id, order_id, account_id, product_id, date, end_date, qty, status, pms_booking_id, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+) values
+  ('9a930000-0000-4000-8000-000000000083', '9a930000-0000-4000-8000-000000000073', '9a930000-0000-4000-8000-000000000021',
+   '9a930000-0000-4000-8000-000000000032', '2028-10-01', '2028-10-03', 1, 'reserved', 'R-OFF', 'Holder Off',
+   100000, 100000, 'direct', 0.17, 0, 0.17, 17000, 0, 17000),
+  ('9a930000-0000-4000-8000-000000000084', '9a930000-0000-4000-8000-000000000074', '9a930000-0000-4000-8000-000000000021',
+   '9a930000-0000-4000-8000-000000000032', '2028-10-05', '2028-10-06', 1, 'reserved', null, 'Holder Refunded',
+   100000, 100000, 'direct', 0.17, 0, 0.17, 17000, 0, 17000);
+update establishments set lobby_connector_active = false where id = '9a930000-0000-4000-8000-000000000011';
+set local role service_role;
+select is(
+  (select (public.release_order_after_pms_refusal('9a930000-0000-4000-8000-000000000073', 'refus, connecteur coupé'))->>'released_lines')::int,
+  1,
+  'connecteur coupé : la commande est relâchée'
+);
+select is(
+  (select count(*)::int from pms_cancellation_queue where pms_booking_id = 'R-OFF' and status = 'pending'),
+  1,
+  'connecteur coupé : le booking de la ligne relâchée part QUAND MÊME en file d''annulation'
+);
+select is(
+  (select public.release_order_after_pms_refusal('9a930000-0000-4000-8000-000000000074', 'refus après remboursement')->>'reason'),
+  'order_paid',
+  'commande remboursée → order_paid, rien n''est défait (I3)'
 );
 
 select * from finish();
