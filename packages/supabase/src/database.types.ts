@@ -578,6 +578,7 @@ export type Database = {
           lobby_connector_active: boolean
           lobby_has_token: boolean | null
           lobby_last_synced_at: string | null
+          lobby_token_changed_at: string | null
           lon: number | null
           mode: string | null
           name: Json
@@ -600,6 +601,7 @@ export type Database = {
           lobby_connector_active?: boolean
           lobby_has_token?: boolean | null
           lobby_last_synced_at?: string | null
+          lobby_token_changed_at?: string | null
           lon?: number | null
           mode?: string | null
           name: Json
@@ -622,6 +624,7 @@ export type Database = {
           lobby_connector_active?: boolean
           lobby_has_token?: boolean | null
           lobby_last_synced_at?: string | null
+          lobby_token_changed_at?: string | null
           lon?: number | null
           mode?: string | null
           name?: Json
@@ -816,6 +819,7 @@ export type Database = {
           holder_phone: string | null
           id: string
           order_id: string
+          pms_booked_at: string | null
           pms_booking_id: string | null
           pms_last_polled_at: string | null
           price_cop: number
@@ -844,6 +848,7 @@ export type Database = {
           holder_phone?: string | null
           id?: string
           order_id: string
+          pms_booked_at?: string | null
           pms_booking_id?: string | null
           pms_last_polled_at?: string | null
           price_cop: number
@@ -872,6 +877,7 @@ export type Database = {
           holder_phone?: string | null
           id?: string
           order_id?: string
+          pms_booked_at?: string | null
           pms_booking_id?: string | null
           pms_last_polled_at?: string | null
           price_cop?: number
@@ -3476,6 +3482,7 @@ export type Database = {
           p_establishment_id: string
           p_lobby_api_token?: string
           p_reason?: string
+          p_same_lobby_account?: boolean
         }
         Returns: Json
       }
