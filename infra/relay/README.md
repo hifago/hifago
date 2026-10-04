@@ -3,8 +3,9 @@
 LobbyPMS n'accepte que des IP déclarées, par utilisateur Lobby. Or ni Vercel ni les Edge
 Functions Supabase n'ont d'IP sortante fixe. Un petit reverse-proxy Caddy, sur une IP réservée,
 fait donc l'intermédiaire. Il laisse passer vers `api.lobbypms.com` toute requête qui porte le bon
-en-tête `X-Relay-Secret`, et répond 403 à tout le reste. Il y a **un relais par environnement**
-(préprod, prod), tous deux construits à partir du même `cloud-init.yaml`.
+en-tête `X-Relay-Secret`, et répond 403 à tout le reste. **Un seul relais sert la préprod et la
+prod** (décision du 2026-10-03, qui remplace « un relais par environnement ») : même URL, même
+secret dans les deux. Le reconstruire se fait à partir de `cloud-init.yaml`.
 
 Choix déjà tranchés, à ne pas rouvrir (CLAUDE.md §2.5 et §9) : jamais Fly. Vultr est retenu, en
 région Miami, un nœud de connectivité majeur pour l'Amérique latine (choix du 2026-08-23).

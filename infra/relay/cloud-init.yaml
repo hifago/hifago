@@ -2,8 +2,8 @@
 # ⚠️ La ligne ci-dessus DOIT rester `#cloud-config` : avec `#cloud-init`, Vultr ignore TOUT le
 # fichier en silence (piège du 2026-08-23, docs/journal/2026-08.md).
 #
-# Relais IP stable devant l'API LobbyPMS (CLAUDE.md §9) — un relais par environnement, CE MÊME
-# fichier pour la préprod et la prod. Procédure complète : infra/relay/README.md.
+# Relais IP stable devant l'API LobbyPMS (CLAUDE.md §9) — un seul relais, partagé par la préprod
+# et la prod depuis le 2026-10-03. Procédure complète : infra/relay/README.md.
 # Reconstitué le 2026-09-30 à partir de l'instance préprod du 2026-08-23, qui n'était versionnée
 # nulle part : Caddyfile (correctif du 2026-09-19 compris), durcissement SSH, drop-in systemd,
 # healthcheck ntfy.

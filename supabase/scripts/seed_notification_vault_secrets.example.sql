@@ -17,3 +17,6 @@
 -- En préprod/prod : même insertion, exécutée une fois par un humain via le SQL Editor du projet
 -- Supabase concerné (jamais via une migration versionnée) — hors périmètre de cette spec.
 select vault.create_secret('http://localhost:3101', 'admin_app_public_url', 'URL publique de apps/admin, utilisée dans le lien d''invitation envoyé par email.');
+-- web_app_public_url : lien « ver mi reserva » de l'e-mail de confirmation de paiement
+-- (20260910190000_email_confirmation_numero_et_lien.sql) ; absent = e-mail envoyé sans lien.
+select vault.create_secret('http://localhost:3100', 'web_app_public_url', 'URL publique de apps/web, utilisée dans le lien de l''e-mail de confirmation.');
