@@ -50,6 +50,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, reason: "not_authenticated" }, { status: 401 });
   }
 
+  // REJOUABLE (2026-10-05). Si la réponse d'une suppression RÉUSSIE s'est perdue (réseau, onglet
+  // fermé), le client retente avec l'email d'origine : la session voit déjà l'adresse neutralisée,
+  // et la comparaison ci-dessous bouclait sur `email_mismatch` sans fin. Une session valide portant
+  // l'adresse neutralisée de CE compte ne peut venir que d'une suppression déjà menée à son terme
+  // (la connexion y est impossible : le mot de passe a été remplacé) — on le dit, sans rien rejouer.
+  // L'échec de l'étape 2 (`auth_update_failed`) est, lui, déjà rejouable tel quel :
+  // `delete_my_account` réanonymise sans erreur un profil déjà vidé.
+  if (user.email.trim().toLowerCase() === adresseNeutralisee(user.id)) {
+    return NextResponse.json({ ok: true });
+  }
+
   // La confirmation par email retapé (décision ④) est vérifiée ICI, côté serveur. La vérifier
   // seulement dans l'écran en ferait une décoration : ce qui protège un geste irréversible, c'est
   // le contrôle que l'appelant ne peut pas contourner.

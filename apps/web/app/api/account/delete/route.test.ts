@@ -75,6 +75,27 @@ describe("POST /api/account/delete", () => {
     expect(appelsAdmin).toEqual([]);
   });
 
+  // REJOUABLE (2026-10-05) : la suppression a réussi, mais la réponse s'est perdue (réseau, onglet
+  // fermé). Le client retente avec l'email d'origine ; la session voit déjà l'adresse neutralisée.
+  // Avant, la comparaison des emails bouclait sur `email_mismatch` sans fin.
+  it("suppression déjà faite (réponse perdue) : rejouer répond ok, sans rien rappeler", async () => {
+    utilisateur = { id: USER_ID, email: `deleted+${USER_ID}@hifago.invalid` };
+    const reponse = await POST(requete({ email: EMAIL }));
+
+    expect(reponse.status).toBe(200);
+    expect(await reponse.json()).toEqual({ ok: true });
+    expect(appelsRpc).toEqual([]);
+    expect(appelsAdmin).toEqual([]);
+  });
+
+  it("l'adresse neutralisée d'un AUTRE compte ne vaut pas suppression faite", async () => {
+    utilisateur = { id: USER_ID, email: "deleted+88888888-8888-4888-8888-888888888888@hifago.invalid" };
+    const reponse = await POST(requete({ email: EMAIL }));
+
+    expect(reponse.status).toBe(400);
+    expect(await reponse.json()).toMatchObject({ reason: "email_mismatch" });
+  });
+
   it("accepte l'email à la casse et aux espaces près — pas un piège pour le client", async () => {
     const reponse = await POST(requete({ email: "  CLIENTE@Test.Local  " }));
 
