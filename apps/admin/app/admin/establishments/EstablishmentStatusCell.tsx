@@ -24,7 +24,9 @@ export function EstablishmentStatusCell({ row }: { row: EstablishmentRow }) {
       />
       {row.pendingProposal ? (
         <a
-          href={`/admin/proposals/${row.pendingProposal.id}`}
+          // `?entity=establishment` : sans lui, la page de modération cherche une proposition de
+          // PRODUIT et répond 404 (même lien que l'e-mail notify_admin_new_proposal).
+          href={`/admin/proposals/${row.pendingProposal.id}?entity=establishment`}
           data-testid={`pending-proposal-badge-${row.id}`}
         >
           <Chip variant="soft" color="warning">

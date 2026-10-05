@@ -33,7 +33,9 @@ describe("EstablishmentStatusCell", () => {
     expect(screen.getByTestId("establishment-status-estab-1").textContent).toBe("Archivado");
   });
 
-  it("proposition kind='edit' pending → badge 'Edición pendiente' cliquable vers /admin/proposals/[id]", () => {
+  // `?entity=establishment` (2026-10-05) : sans lui, /admin/proposals/[id] cherche une proposition de
+  // PRODUIT et répond 404 — même lien que l'e-mail de notification (notify_admin_new_proposal).
+  it("proposition kind='edit' pending → badge 'Edición pendiente' cliquable vers la proposition d'établissement", () => {
     render(
       <EstablishmentStatusCell
         row={baseRow({ pendingProposal: { id: "proposal-1", kind: "edit" } })}
@@ -41,7 +43,7 @@ describe("EstablishmentStatusCell", () => {
     );
     const badge = screen.getByTestId("pending-proposal-badge-estab-1");
     expect(badge.textContent).toBe("Edición pendiente");
-    expect(badge.getAttribute("href")).toBe("/admin/proposals/proposal-1");
+    expect(badge.getAttribute("href")).toBe("/admin/proposals/proposal-1?entity=establishment");
   });
 
   it("proposition kind='photos' pending → badge 'Fotos pendientes'", () => {
@@ -52,6 +54,9 @@ describe("EstablishmentStatusCell", () => {
     );
     expect(screen.getByTestId("pending-proposal-badge-estab-1").textContent).toBe(
       "Fotos pendientes"
+    );
+    expect(screen.getByTestId("pending-proposal-badge-estab-1").getAttribute("href")).toBe(
+      "/admin/proposals/proposal-2?entity=establishment"
     );
   });
 
