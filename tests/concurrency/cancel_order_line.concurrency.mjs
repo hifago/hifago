@@ -11,7 +11,9 @@
 //     d'abord garantit : l'annulation décide sur le paiement que le webhook a décidé, ou l'inverse ;
 //   - `expire` : la commande expire (expire_payment_order) pendant que le client annule — la place
 //     est rendue UNE fois, par celui qui passe le premier ;
-//   - `cancel` : deux annulations de la même prestation (double clic) — une seule réussit.
+//   - `cancel` : deux annulations de la même prestation (double clic) — une seule réussit ;
+//   - `admin` : l'établissement annule (set_order_line_status, cancelled_by_provider) pendant que le
+//     client annule — un seul des deux clôt la ligne, la place est rendue une fois.
 //
 // Deux phases par run :
 //   1. DÉTERMINISTE — chaque adversaire est servi dans les DEUX ordres, par construction : un
@@ -35,7 +37,7 @@ const CONNECTION_STRING =
   process.env.PGURL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 const RUNS = 5;
 const ORDERS = 12; // course libre : commandes 1 à ORDERS
-const OPPONENTS = ["webhook", "expire", "cancel"];
+const OPPONENTS = ["webhook", "expire", "cancel", "admin"];
 const CASES = OPPONENTS.flatMap((kind) => [
   { kind, first: "client" },
   { kind, first: "opponent" },
@@ -72,7 +74,9 @@ const QUERY_FRAGMENT = {
   webhook: "apply_payment_webhook_checked",
   expire: "expire_payment_order",
   cancel: "cancel_order_line",
+  admin: "set_order_line_status",
 };
+const ADMIN_REFUSED = /n'est plus reserved/;
 const clientOk = (r) => r.ok && r.r?.ok === true && r.r?.remaining_active_lines === 0;
 const notActive = (r) => r.ok && r.r?.reason === "line_not_active";
 // L'issue EXACTE attendue de chaque appel, selon qui est servi le premier (cancel/cancel : symétrique).
@@ -84,6 +88,8 @@ const EXPECTED = {
   "expire/opponent": { client: notActive, opponent: (r) => r.ok && r.r?.ok === true },
   "cancel/client": { client: clientOk, opponent: notActive },
   "cancel/opponent": { client: notActive, opponent: clientOk },
+  "admin/client": { client: clientOk, opponent: (r) => !r.ok && ADMIN_REFUSED.test(r.message) },
+  "admin/opponent": { client: notActive, opponent: (r) => r.ok && r.r?.ok === true },
 };
 
 async function connect() {
@@ -94,7 +100,7 @@ async function connect() {
 
 async function purge(seed) {
   await seed.query(
-    `delete from notification_emails where (related_table = 'order_lines' and related_id::text like '${P}%')
+    `delete from notification_emails where (related_table in ('order_lines', 'orders') and related_id::text like '${P}%')
         or (related_table = 'payment_reconciliation_entries' and related_id in (
               select e.id from payment_reconciliation_entries e where e.payment_id::text like '${P}%'))
         or (related_table = 'pms_reconciliation_entries' and related_id in (
@@ -220,10 +226,14 @@ function opponentCall(kind, client, i) {
       [mpId(i), paymentId(i), ACOMPTE, ACOMPTE]
     );
   }
+  if (kind === "admin") {
+    return run(client, "select public.set_order_line_status($1, 'cancelled_by_provider', 'concurrence') as r", [lineId(i)]);
+  }
   return run(client, "select public.expire_payment_order($1, now()) as r", [orderId(i)]);
 }
 
-const opponentClient = (kind) => (kind === "cancel" ? asRole("authenticated", BUYER_ID) : asRole("service_role"));
+const opponentClient = (kind) =>
+  kind === "cancel" ? asRole("authenticated", BUYER_ID) : kind === "admin" ? asRole("authenticated", ADMIN_ID) : asRole("service_role");
 
 /** Attend qu'une session soit bloquée sur un verrou en exécutant `fragment` (paramètres invisibles). */
 async function waitForLockWait(seed, fragment, count = 1) {
@@ -354,6 +364,8 @@ async function checkOutcomes(seed) {
       }
     } else if (kind === "expire") {
       if (!["cancelled_by_client", "expired"].includes(row.line_status) || row.comp) problems.push(`expire ${i} : ${JSON.stringify(row)}`);
+    } else if (kind === "admin") {
+      if (!["cancelled_by_client", "cancelled_by_provider"].includes(row.line_status) || row.comp) problems.push(`admin ${i} : ${JSON.stringify(row)}`);
     } else if (row.line_status !== "cancelled_by_client" || row.comp) {
       problems.push(`cancel ${i} : ${JSON.stringify(row)}`);
     }
@@ -396,10 +408,11 @@ async function runOnce(runNumber, seed) {
 
   const all = [...results, ...deterministic.flatMap((d) => d.results)];
   const deadlocks = all.filter((r) => !r.ok && r.code === "40P01");
-  const unexpected = all.filter((r) => !r.ok && r.code !== "40P01");
-  // cancel/cancel : exactement une réussite par commande.
+  // Seul refus attendu : l'établissement arrive après le client sur une ligne déjà annulée.
+  const unexpected = all.filter((r) => !r.ok && r.code !== "40P01" && !(r.who === "admin" && ADMIN_REFUSED.test(r.message)));
+  // cancel/cancel et client/admin : exactement une réussite par commande.
   const doubleClick = Array.from({ length: TOTAL }, (_, k) => k + 1)
-    .filter((i) => kindOf(i) === "cancel")
+    .filter((i) => kindOf(i) === "cancel" || kindOf(i) === "admin")
     .filter((i) => all.filter((r) => r.i === i && r.ok && r.r?.ok === true).length !== 1);
   const { rows: capacity } = await seed.query(
     `select pa.booked,
@@ -419,7 +432,7 @@ async function runOnce(runNumber, seed) {
   console.log(
     `  run ${runNumber}: ordres déterministes ${deterministic.filter((d) => d.ok).length}/${CASES.length}, ` +
       `40P01 ${deadlocks.length}, erreurs ${unexpected.length}, booked ${capacity[0].booked}/${capacity[0].expected} attendu, ` +
-      `issues incohérentes ${outcomes.length}, doubles clics fautifs ${doubleClick.length}, sonde verrous ${probeOk ? "ok" : "ÉCHEC"} — ` +
+      `issues incohérentes ${outcomes.length}, réussites ≠ 1 (double clic, client/établissement) ${doubleClick.length}, sonde verrous ${probeOk ? "ok" : "ÉCHEC"} — ` +
       `course libre ${JSON.stringify(tally)}`
   );
   for (const r of unexpected) console.error(`    erreur (${r.who}, commande ${r.i}) : ${r.code} ${r.message}`);

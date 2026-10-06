@@ -60,6 +60,12 @@ const orderId = (i) => id(1000 + i);
 const nightLineId = (i) => id(2000 + i);
 const activityLineId = (i) => id(3000 + i);
 const booking = (i) => `CONC-PO-${i}`;
+// Une commande « ancre » garde ANCHOR places aux deux dates, jamais touchée : sans elle, `booked`
+// finirait à 0 et le plancher de release_order_line_capacity (greatest(0, …)) masquerait une place
+// rendue deux fois.
+const ANCHOR = 3;
+const ANCHOR_ORDER = id(9001);
+const anchorLineId = (k) => id(9002 + k);
 const OPPONENTS = ["cancel", "modify", "expire"];
 const CLAIMERS = 2;
 const MODIFY_REFUSED = /seule une ligne au statut reserved/;
@@ -133,11 +139,27 @@ async function seedRun(seed) {
   await seed.query("insert into partner_capabilities (account_id, role, source, status) values ($1, 'admin', 'migration', 'active')", [
     ADMIN_ID,
   ]);
-  // Chaque commande tient UNE place de l'activité à DATE.
+  // Chaque commande tient UNE place de l'activité à DATE ; l'ancre en tient ANCHOR à chaque date.
   await seed.query(
-    "insert into product_availability (product_id, date, capacity, booked) values ($1, $2, 100, $4), ($1, $3, 100, 0)",
-    [ACTIVITY_ID, DATE, DATE_MOVED, TOTAL]
+    "insert into product_availability (product_id, date, capacity, booked) values ($1, $2, 100, $4), ($1, $3, 100, $5)",
+    [ACTIVITY_ID, DATE, DATE_MOVED, TOTAL + ANCHOR, ANCHOR]
   );
+  await seed.query(
+    `insert into orders (id, account_id, holder_name, holder_email, payment_status)
+     values ($1, $2, 'Conc PO', 'conc-po-buyer@test.local', 'paid')`,
+    [ANCHOR_ORDER, BUYER_ID]
+  );
+  for (const [k, date] of [DATE, DATE_MOVED].entries()) {
+    await seed.query(
+      `insert into order_lines (
+         id, order_id, account_id, product_id, date, qty, status, holder_name,
+         price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+         acompte_cop, referrer_commission_cop, app_commission_cop
+       ) values ($1, $2, $3, $4, $5, $6, 'reserved', 'Conc PO', 30000, 30000 * $6::int, 'direct', 0.1, 0, 0.1,
+                 3000 * $6::int, 0, 3000 * $6::int)`,
+      [anchorLineId(k), ANCHOR_ORDER, BUYER_ID, ACTIVITY_ID, date, ANCHOR]
+    );
+  }
   for (let i = 1; i <= TOTAL; i++) {
     await seed.query(
       `insert into orders (id, account_id, holder_name, holder_email, payment_status, created_at)
@@ -298,7 +320,9 @@ async function runOnce(runNumber, seed) {
        from product_availability pa where pa.product_id = $1 order by pa.date`,
     [ACTIVITY_ID]
   );
-  const badCapacity = capacity.filter((row) => row.booked !== row.expected);
+  // L'ancre garde au moins ANCHOR places réservées à chaque date : une place rendue deux fois fait
+  // descendre `booked` sous `expected` au lieu d'être masquée par le plancher 0.
+  const badCapacity = capacity.filter((row) => row.booked !== row.expected || row.expected < ANCHOR);
   const { rows: liveOnBooking } = await seed.query(
     `select count(*)::int as n from order_lines where order_id::text like '${P}%' and pms_booking_id is not null and status = 'reserved'`
   );
