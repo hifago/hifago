@@ -3,8 +3,8 @@
 // Route Handler, contre un serveur de fixtures LobbyPMS).
 //
 // CE QU'IL PROUVE, ET POURQUOI IL N'EXISTAIT PAS. Le Route Handler `reserve-nights` n'était exercé
-// par AUCUN parcours : les specs Playwright l'interceptent au niveau navigateur
-// (`mockPmsReserveNights`), donc le handler lui-même ne tourne jamais, et son fichier Vitest mocke
+// par AUCUN parcours : les specs Playwright l'interceptaient au niveau navigateur (un mock
+// `page.route`, retiré depuis), donc le handler lui-même ne tournait jamais, et son fichier Vitest mocke
 // entièrement Supabase. Autrement dit, la JONCTION entre `create_order` et `reserve-nights`
 // n'était vérifiée nulle part — alors que `create_order` a été réécrit DEUX fois depuis la dernière
 // vérification réelle du tunnel (spec 32 le 2026-09-10, correctif prix le 2026-09-16) et que le

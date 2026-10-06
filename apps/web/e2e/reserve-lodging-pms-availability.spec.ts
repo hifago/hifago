@@ -11,7 +11,7 @@ import {
 // PMS-backed (Casa Kayam). Établissement DÉDIÉ créé dans ce test (jamais "Casa Kayam Guatapé" du
 // seed, partagé par d'autres specs — AGENTS-PARALLELES.md point 5), via
 // createPmsBackedEstablishmentFixture (packages/e2e-support/src/pms.ts). Mock au niveau
-// page.route() (jamais le vrai LobbyPMS, même discipline que mockPmsReserveNights et
+// page.route() (jamais le vrai LobbyPMS, même discipline que
 // admin-establishment-pms-connector.spec.ts — spec 21 §10 point 1 : aucun test automatisé de ce
 // projet ne doit jamais toucher le vrai LobbyPMS).
 //

@@ -4,16 +4,16 @@
 //
 // Par commande : une nuit PMS et une activité qui partagent le booking. La RPC `gone` part en même
 // temps (barrière) qu'UN adversaire, à tour de rôle : cancel_order_line (le client annule l'activité :
-// la place reste prise, cahier §7/A3), modify_order_line (l'admin déplace l'activité : la place
-// change de date) ou expire_payment_order (la commande expire : les places reviennent). Tous prennent
-// la commande (ou la ligne) avant la capacité : ils sont sérialisés.
+// la place est rendue depuis la migration 20261006192424), modify_order_line (l'admin déplace
+// l'activité : la place change de date) ou expire_payment_order (la commande expire : les places
+// reviennent). Tous prennent la commande avant la capacité : ils sont sérialisés.
 //
 // Deux phases par run :
 //   1. DÉTERMINISTE — chaque adversaire est servi dans les DEUX ordres, par construction : un
-//      coordinateur tient le verrou que les deux appels attendent (la ligne d'activité pour
-//      cancel_order_line, qui ne prend pas la commande ; la commande pour les autres), le premier
-//      appel part et sa mise en attente est constatée, puis le second, puis le coordinateur relâche —
-//      la file d'attente du verrou sert le premier arrivé. L'issue exacte de chacun est vérifiée.
+//      coordinateur tient la commande, que tous prennent en premier (cancel_order_line aussi depuis
+//      20261006192424), le premier appel part et sa mise en attente est constatée, puis le second,
+//      puis le coordinateur relâche — la file d'attente du verrou sert le premier arrivé. L'issue
+//      exacte de chacun est vérifiée.
 //   2. COURSE LIBRE — la RPC et un adversaire par commande, libérés ensemble par une barrière, avec
 //      deux claim_pms_poll_batch (ils prennent les lignes sans jamais attendre). L'ordre est celui de
 //      la machine : cette phase cherche les interblocages, pas la couverture des ordres.
@@ -21,9 +21,9 @@
 // Attendu à chaque run, quel que soit l'ordre :
 //   - 0 interblocage (40P01), aucune erreur hors le refus attendu de modify_order_line quand la
 //     ligne n'est plus `reserved` ;
-//   - pour chaque date, `booked` = la somme des quantités des lignes qui tiennent encore une place
-//     (`reserved`, ou `cancelled_by_client`, qui ne la rend pas) — jamais une place rendue deux fois,
-//     jamais une place perdue ;
+//   - pour chaque date, `booked` = la somme des quantités des lignes encore `reserved` (toute
+//     annulation rend sa place depuis 20261006192424) — jamais une place rendue deux fois, jamais une
+//     place perdue ;
 //   - plus aucune ligne `reserved` sur un booking, et exactement UNE annulation en file par booking.
 // Avant chaque run, une sonde DÉTERMINISTE : une ligne sœur tenue par une autre transaction, le claim
 // doit répondre sans l'attendre (skip locked).
@@ -60,6 +60,12 @@ const orderId = (i) => id(1000 + i);
 const nightLineId = (i) => id(2000 + i);
 const activityLineId = (i) => id(3000 + i);
 const booking = (i) => `CONC-PO-${i}`;
+// Une commande « ancre » garde ANCHOR places aux deux dates, jamais touchée : sans elle, `booked`
+// finirait à 0 et le plancher de release_order_line_capacity (greatest(0, …)) masquerait une place
+// rendue deux fois.
+const ANCHOR = 3;
+const ANCHOR_ORDER = id(9001);
+const anchorLineId = (k) => id(9002 + k);
 const OPPONENTS = ["cancel", "modify", "expire"];
 const CLAIMERS = 2;
 const MODIFY_REFUSED = /seule une ligne au statut reserved/;
@@ -96,6 +102,8 @@ async function purge(seed) {
   await seed.query(
     `delete from pms_reconciliation_entries where order_line_id in (select id from order_lines where order_id::text like '${P}%')`
   );
+  // Les confirmations d'annulation (migration 20261006192424) portent sur les lignes.
+  await seed.query(`delete from notification_emails where related_table = 'order_lines' and related_id::text like '${P}%'`);
   await seed.query("delete from pms_cancellation_queue where pms_booking_id like 'CONC-PO-%'");
   await seed.query("delete from pms_sync_state where establishment_id = $1", [ESTABLISHMENT_ID]);
   await seed.query("delete from audit_log where actor_id = $1", [ADMIN_ID]);
@@ -131,11 +139,27 @@ async function seedRun(seed) {
   await seed.query("insert into partner_capabilities (account_id, role, source, status) values ($1, 'admin', 'migration', 'active')", [
     ADMIN_ID,
   ]);
-  // Chaque commande tient UNE place de l'activité à DATE.
+  // Chaque commande tient UNE place de l'activité à DATE ; l'ancre en tient ANCHOR à chaque date.
   await seed.query(
-    "insert into product_availability (product_id, date, capacity, booked) values ($1, $2, 100, $4), ($1, $3, 100, 0)",
-    [ACTIVITY_ID, DATE, DATE_MOVED, TOTAL]
+    "insert into product_availability (product_id, date, capacity, booked) values ($1, $2, 100, $4), ($1, $3, 100, $5)",
+    [ACTIVITY_ID, DATE, DATE_MOVED, TOTAL + ANCHOR, ANCHOR]
   );
+  await seed.query(
+    `insert into orders (id, account_id, holder_name, holder_email, payment_status)
+     values ($1, $2, 'Conc PO', 'conc-po-buyer@test.local', 'paid')`,
+    [ANCHOR_ORDER, BUYER_ID]
+  );
+  for (const [k, date] of [DATE, DATE_MOVED].entries()) {
+    await seed.query(
+      `insert into order_lines (
+         id, order_id, account_id, product_id, date, qty, status, holder_name,
+         price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+         acompte_cop, referrer_commission_cop, app_commission_cop
+       ) values ($1, $2, $3, $4, $5, $6, 'reserved', 'Conc PO', 30000, 30000 * $6::int, 'direct', 0.1, 0, 0.1,
+                 3000 * $6::int, 0, 3000 * $6::int)`,
+      [anchorLineId(k), ANCHOR_ORDER, BUYER_ID, ACTIVITY_ID, date, ANCHOR]
+    );
+  }
   for (let i = 1; i <= TOTAL; i++) {
     await seed.query(
       `insert into orders (id, account_id, holder_name, holder_email, payment_status, created_at)
@@ -205,11 +229,7 @@ async function serveInOrder(seed, { kind, first }, i) {
   const opponent = await opponentClient(kind);
   try {
     await coordinator.query("begin");
-    if (kind === "cancel") {
-      await coordinator.query("select 1 from order_lines where id = $1 for update", [activityLineId(i)]);
-    } else {
-      await coordinator.query("select 1 from orders where id = $1 for update", [orderId(i)]);
-    }
+    await coordinator.query("select 1 from orders where id = $1 for update", [orderId(i)]);
     const launch = (who) =>
       who === "poll"
         ? run(poller, "select public.apply_pms_poll_outcome($1, 'gone', 'concurrence') as r", [nightLineId(i)])
@@ -296,11 +316,13 @@ async function runOnce(runNumber, seed) {
     `select pa.date::text as date, pa.booked,
             (select coalesce(sum(ol.qty), 0)::int from order_lines ol
               where ol.product_id = pa.product_id and ol.date = pa.date
-                and ol.status in ('reserved', 'cancelled_by_client')) as expected
+                and ol.status = 'reserved') as expected
        from product_availability pa where pa.product_id = $1 order by pa.date`,
     [ACTIVITY_ID]
   );
-  const badCapacity = capacity.filter((row) => row.booked !== row.expected);
+  // L'ancre garde au moins ANCHOR places réservées à chaque date : une place rendue deux fois fait
+  // descendre `booked` sous `expected` au lieu d'être masquée par le plancher 0.
+  const badCapacity = capacity.filter((row) => row.booked !== row.expected || row.expected < ANCHOR);
   const { rows: liveOnBooking } = await seed.query(
     `select count(*)::int as n from order_lines where order_id::text like '${P}%' and pms_booking_id is not null and status = 'reserved'`
   );
