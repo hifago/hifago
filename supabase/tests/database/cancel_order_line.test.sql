@@ -3,7 +3,7 @@
 --
 -- Depuis la migration 20261006192424, l'annulation REND la place (compteur de capacité) sous les
 -- verrous `orders` → ligne → capacité : sa concurrence est prouvée par
--- tests/concurrency/cancel_order_line.concurrency.mjs, et ses règles d'argent, de remboursement et
+-- tests/concurrency/cancel_order_line.concurrency.mjs, et ses règles d'argent (ledger, intents) et
 -- d'e-mail par order_line_cancellations.test.sql. Ce fichier garde les gardes et la file LobbyPMS.
 --
 -- ⚠️ DEUX ASSERTIONS PORTENT TOUT LE LOT :

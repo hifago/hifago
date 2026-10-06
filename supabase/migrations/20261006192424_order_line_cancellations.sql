@@ -20,11 +20,18 @@
 --     commande payée laisse l'acompte de la ligne sans traitement automatique, comme avant ;
 --   - `expired` est refusé sur une commande payée (une commande payée n'expire pas) ;
 --   - toute annulation (client ou établissement) envoie une confirmation au client et une
---     information au prestataire : le FAIT de l'annulation, jamais une promesse de remboursement
---     (textes provisoires, valeurs tierces échappées par html_text).
+--     information au prestataire : le FAIT de l'annulation, sans un mot sur l'argent (textes
+--     provisoires, valeurs tierces échappées par html_text) ; jamais vers une adresse sentinelle
+--     (`@hifago.local` : ligne manuelle, reprise legacy) ;
+--   - release_order_line_capacity ne rend plus rien pour un evento `unlimited`/`rsvp`, qui n'a
+--     jamais pris de place (prédicat de create_order).
 -- Aussi : list_my_orders rend `cancellable` par ligne (même règle que cancel_order_line) ;
 -- set_establishment_pms_connector verrouille les lignes AVANT la file (même ordre que le trigger
 -- d'une annulation) ; set_order_line_status n'est plus exécutable par anon.
+
+-- Les contraintes ci-dessous prennent un verrou ACCESS EXCLUSIVE : jamais d'attente sans borne
+-- derrière une longue transaction (même garde que 20261004005336).
+select set_config('lock_timeout', '5s', true);
 
 -- ============================================================================================
 -- 1. Types d'e-mail
@@ -62,6 +69,7 @@ as $$
 $$;
 comment on function public.order_line_client_cancellable(text) is
   'Une prestation que son client peut annuler : la règle de cancel_order_line et du `cancellable` de list_my_orders.';
+revoke all on function public.order_line_client_cancellable(text) from public, anon, authenticated;
 
 -- `cancellable` ajouté à chaque ligne d'une commande rendue par order_for_client_jsonb.
 create function public.order_jsonb_with_client_cancellable(p_order jsonb)
@@ -80,11 +88,12 @@ as $$
     )
   )
 $$;
+revoke all on function public.order_jsonb_with_client_cancellable(jsonb) from public, anon, authenticated;
 
 -- ============================================================================================
 -- 3. E-mails d'annulation (client et prestataire) — jamais une cause d'échec de l'annulation
 -- ============================================================================================
-create function public.notify_order_line_cancelled(p_line_id uuid, p_by text, p_client_note text)
+create function public.notify_order_line_cancelled(p_line_id uuid, p_by text)
 returns void
 language plpgsql
 security definer
@@ -96,8 +105,9 @@ declare
   v_site_url text;
   v_account record;
 begin
-  select ol.date, ol.end_date, ol.qty, p.name ->> 'es' as product_name, p.partner_id, p.lobby_category_id,
-         o.holder_name, o.holder_email, o.reference, o.access_token
+  -- Appelée APRÈS la mise à jour du statut : la file d'annulation LobbyPMS est déjà à jour.
+  select ol.date, ol.end_date, ol.qty, ol.pms_booking_id, p.name ->> 'es' as product_name, p.partner_id,
+         p.type as product_type, p.lobby_category_id, o.holder_name, o.holder_email, o.reference, o.access_token
     into v_line
     from public.order_lines ol
     join public.products p on p.id = ol.product_id
@@ -111,30 +121,33 @@ begin
                   then 'del ' || to_char(v_line.date, 'DD/MM/YYYY') || ' al ' || to_char(v_line.end_date, 'DD/MM/YYYY')
                   else 'del ' || to_char(v_line.date, 'DD/MM/YYYY') end;
 
-  -- Le client. `p_client_note` est un texte FIXE choisi par close_order_line_locked (aucune valeur
-  -- tierce) ; tout le reste est échappé.
-  begin
-    select decrypted_secret into v_site_url
-      from vault.decrypted_secrets where name = 'web_app_public_url';
-    perform public.enqueue_notification_email(
-      'client_order_line_cancelled', v_line.holder_email, null,
-      'Anulación en tu reserva ' || v_line.reference,
-      '<p>Hola ' || coalesce(public.html_text(v_line.holder_name), '') || ',</p>'
-        || '<p>' || case p_by when 'client' then 'Anulaste' when 'admin' then 'Anulamos' else 'El establecimiento anuló' end
-        || ' «' || coalesce(public.html_text(v_line.product_name), 'tu prestación') || '» ' || v_dates
-        || ' en tu reserva <strong>' || public.html_text(v_line.reference) || '</strong>.</p>'
-        || coalesce('<p>' || p_client_note || '</p>', '')
-        || coalesce('<p><a href="' || v_site_url || '/reserva/' || v_line.access_token || '">Ver tu reserva</a></p>', ''),
-      'order_lines', p_line_id
-    );
-  exception
-    when query_canceled then
-      raise warning 'notify_order_line_cancelled : e-mail client annulé (query_canceled) pour la ligne % — %', p_line_id, sqlerrm;
-    when others then
-      raise warning 'notify_order_line_cancelled : échec de l''e-mail client pour la ligne % — %', p_line_id, sqlerrm;
-  end;
+  -- Le client : le FAIT de l'annulation, sans un mot sur l'argent (décision du 2026-10-06). Jamais
+  -- vers une adresse sentinelle (`@hifago.local` : ligne manuelle, reprise legacy).
+  if v_line.holder_email is not null and v_line.holder_email not like '%@hifago.local' then
+    begin
+      select decrypted_secret into v_site_url
+        from vault.decrypted_secrets where name = 'web_app_public_url';
+      perform public.enqueue_notification_email(
+        'client_order_line_cancelled', v_line.holder_email, null,
+        'Anulación en tu reserva ' || v_line.reference,
+        '<p>Hola ' || coalesce(public.html_text(v_line.holder_name), '') || ',</p>'
+          || '<p>' || case p_by when 'client' then 'Anulaste' when 'admin' then 'Anulamos, a tu pedido,' else 'El establecimiento anuló' end
+          || ' «' || coalesce(public.html_text(v_line.product_name), 'tu prestación') || '» ' || v_dates
+          || ' en tu reserva <strong>' || public.html_text(v_line.reference) || '</strong>.</p>'
+          || coalesce('<p><a href="' || v_site_url || '/reserva/' || v_line.access_token || '">Ver tu reserva</a></p>', ''),
+        'order_lines', p_line_id
+      );
+    exception
+      when query_canceled then
+        raise warning 'notify_order_line_cancelled : e-mail client annulé (query_canceled) pour la ligne % — %', p_line_id, sqlerrm;
+      when others then
+        raise warning 'notify_order_line_cancelled : échec de l''e-mail client pour la ligne % — %', p_line_id, sqlerrm;
+    end;
+  end if;
 
   -- Le prestataire : un e-mail par compte de connexion du partenaire (spec 23 §8.2), chacun isolé.
+  -- Ce que devient la disponibilité est dit sur les FAITS : la file LobbyPMS n'enfile un booking qu'à
+  -- sa dernière prestation vivante ; une nuit adossée au PMS n'a jamais pris de place locale.
   for v_account in
     select pa.id as account_id, au.email
       from public.partner_accounts pa
@@ -147,11 +160,20 @@ begin
         'Reserva anulada: ' || coalesce(v_line.product_name, 'tu producto'),
         '<p>Se anuló «' || coalesce(public.html_text(v_line.product_name), 'tu producto') || '» ' || v_dates
           || ' (cantidad: ' || v_line.qty || '), reserva <strong>' || public.html_text(v_line.reference) || '</strong>.</p>'
-          || '<p>Anulada por ' || case p_by when 'client' then 'el cliente' when 'admin' then 'la administración de Hifago'
+          || '<p>Anulada por ' || case p_by when 'client' then 'el cliente'
+                                       when 'admin' then 'la administración de Hifago, a pedido del cliente'
                                        else 'el establecimiento' end || '.</p>'
-          || case when v_line.lobby_category_id is not null
-                  then '<p>La anulación se transmite a LobbyPMS.</p>'
-                  else '<p>La disponibilidad quedó liberada.</p>' end,
+          || case
+               when v_line.pms_booking_id is not null and exists (
+                      select 1 from public.pms_cancellation_queue q
+                       where q.pms_booking_id = v_line.pms_booking_id and q.status = 'pending')
+                 then '<p>La anulación se transmite a LobbyPMS.</p>'
+               when v_line.pms_booking_id is not null
+                 then '<p>La reserva sigue activa en LobbyPMS: otras prestaciones de la misma reserva siguen vigentes.</p>'
+               when v_line.product_type = 'lodging' and v_line.lobby_category_id is not null
+                 then ''
+               else '<p>La disponibilidad quedó liberada.</p>'
+             end,
         'order_lines', p_line_id
       );
     exception
@@ -163,7 +185,7 @@ begin
   end loop;
 end;
 $$;
-revoke all on function public.notify_order_line_cancelled(uuid, text, text) from public, anon, authenticated;
+revoke all on function public.notify_order_line_cancelled(uuid, text) from public, anon, authenticated;
 
 -- ============================================================================================
 -- 4. Clore une prestation — sous les verrous de l'APPELANT (`orders`, puis la ligne, relue `reserved`)
@@ -177,16 +199,21 @@ as $$
 declare
   v_order record;
   v_order_id uuid;
+  v_line_status text;
   v_remaining int;
-  v_cancelled_intents int := 0;
   v_paid boolean;
-  v_note text;
 begin
-  if p_new_status not in ('cancelled_by_client', 'cancelled_by_provider', 'expired')
-     or p_by not in ('client', 'admin', 'provider') then
+  -- Les seuls couples (statut, auteur) des deux appelants — un appelant fautif échoue ici.
+  if (p_new_status, p_by) not in (('cancelled_by_client', 'client'), ('cancelled_by_client', 'admin'),
+                                  ('cancelled_by_provider', 'provider'), ('expired', 'admin')) then
     raise exception 'close_order_line_locked : transition % par % inconnue', p_new_status, p_by;
   end if;
-  select ol.order_id into v_order_id from public.order_lines ol where ol.id = p_line_id;
+  select ol.order_id, ol.status into v_order_id, v_line_status from public.order_lines ol where ol.id = p_line_id;
+  -- L'appelant a relu `reserved` sous ses verrous ; le revérifier ici coûte une comparaison et
+  -- interdit à jamais de rendre une place deux fois.
+  if v_line_status is distinct from 'reserved' then
+    raise exception 'close_order_line_locked : la ligne % n''est pas reserved (%)', p_line_id, v_line_status;
+  end if;
   select o.payment_status, o.reference into v_order from public.orders o where o.id = v_order_id;
   -- `partially_refunded` n'a aucun écrivain aujourd'hui : traitée comme payée, par prudence.
   v_paid := v_order.payment_status in ('paid', 'partially_refunded');
@@ -216,21 +243,11 @@ begin
   if p_by = 'client' and v_order.payment_status in ('unpaid', 'pending') then
     update public.payments set status = 'cancelled', updated_at = now()
      where order_id = v_order_id and status = 'pending';
-    get diagnostics v_cancelled_intents = row_count;
-    if v_cancelled_intents > 0 then
-      update public.orders set payment_status = 'unpaid' where id = v_order_id and payment_status = 'pending';
-    end if;
-  end if;
-
-  -- La confirmation au client dit le FAIT ; aucun remboursement n'est promis (décision du
-  -- 2026-10-06 : les remboursements ne sont pas traités ici).
-  if v_order.payment_status in ('unpaid', 'pending') then
-    v_note := 'No se cobró nada por esta prestación.'
-      || case when v_cancelled_intents > 0 then ' Tu pago en curso quedó anulado.' else '' end;
+    update public.orders set payment_status = 'unpaid' where id = v_order_id and payment_status = 'pending';
   end if;
 
   if p_new_status in ('cancelled_by_client', 'cancelled_by_provider') then
-    perform public.notify_order_line_cancelled(p_line_id, p_by, v_note);
+    perform public.notify_order_line_cancelled(p_line_id, p_by);
   end if;
 
   return jsonb_build_object('ok', true, 'order_id', v_order_id, 'remaining_active_lines', v_remaining);
@@ -282,6 +299,14 @@ begin
   return public.close_order_line_locked(p_line_id, 'cancelled_by_client', 'client');
 end;
 $function$;
+comment on function public.cancel_order_line(uuid) is
+  'Annule UNE prestation d''une commande, jamais la commande entière (spec 34 décision ⑤). Garde '
+  'stricte : account_id = auth.uid(), refus d''une session anonyme (décision ⑨) ; ligne inexistante '
+  'ou d''un autre compte → line_not_found. Depuis 20261006192424 : `orders`, puis la ligne, puis la '
+  'capacité ; la place est rendue (close_order_line_locked) ; acompte acquis sur une commande payée '
+  '(A3), intents `pending` annulés sur une commande impayée. La propagation LobbyPMS passe par le '
+  'trigger de 20260827160000, dont la garde par booking empêche qu''annuler une activité annule la '
+  'nuit qui partage son booking.';
 
 -- ============================================================================================
 -- 6. set_order_line_status — admin et operator (signature et gardes inchangées)
@@ -339,7 +364,7 @@ begin
   end if;
 
   if p_new_status in ('cancelled_by_client', 'cancelled_by_provider', 'expired') then
-    -- Place rendue, ledger, remboursement, e-mails : la même fonction que cancel_order_line.
+    -- Place rendue, ledger, intents, e-mails : la même fonction que cancel_order_line.
     perform public.close_order_line_locked(
       p_order_line_id, p_new_status,
       case when p_new_status = 'cancelled_by_provider' then 'provider' else 'admin' end
@@ -364,6 +389,85 @@ grant execute on function public.set_order_line_status(uuid, text, text) to auth
 -- ============================================================================================
 -- 7. Redéfinitions depuis pg_get_functiondef (signatures inchangées, droits conservés)
 -- ============================================================================================
+CREATE OR REPLACE FUNCTION public.release_order_line_capacity(p_line_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_line record;
+  v_block record;
+begin
+  select ol.id, ol.product_id, ol.date, ol.end_date, ol.slot_start_time, ol.qty, p.lobby_category_id,
+         p.type as product_type, p.evento_capacity_mode
+    into v_line
+    from public.order_lines ol
+    join public.products p on p.id = ol.product_id
+   where ol.id = p_line_id;
+  if not found then
+    return;
+  end if;
+
+  if v_line.end_date is not null then
+    -- Séjour par plage. Une ligne PMS-backed n'a JAMAIS été décrémentée (create_order l.632) —
+    -- rien à lui rendre ; le drapeau est gelé tant que la ligne est réservée (trigger ci-dessus).
+    if v_line.lobby_category_id is null then
+      perform 1 from public.product_availability
+        where product_id = v_line.product_id and date >= v_line.date and date < v_line.end_date
+          and booked < v_line.qty;
+      if found then
+        raise warning 'release_order_line_capacity: booked < qty sur la plage de la ligne % — une place rendue deux fois ?', p_line_id;
+      end if;
+      update public.product_availability
+         set booked = greatest(0, booked - v_line.qty)
+       where product_id = v_line.product_id and date >= v_line.date and date < v_line.end_date;
+    end if;
+  elsif v_line.slot_start_time is not null then
+    perform 1 from public.product_slot_availability
+      where product_id = v_line.product_id and slot_date = v_line.date
+        and slot_start_time = v_line.slot_start_time and booked < v_line.qty;
+    if found then
+      raise warning 'release_order_line_capacity: booked < qty sur le créneau de la ligne %', p_line_id;
+    end if;
+    update public.product_slot_availability
+       set booked = greatest(0, booked - v_line.qty)
+     where product_id = v_line.product_id and slot_date = v_line.date
+       and slot_start_time = v_line.slot_start_time;
+  elsif v_line.product_type = 'evento' and v_line.evento_capacity_mode in ('unlimited', 'rsvp') then
+    -- Migration 20261006192424 : un evento `unlimited`/`rsvp` n'a jamais pris de place
+    -- (create_order, même prédicat ; drapeau gelé tant que la ligne est réservée) — une ligne
+    -- product_availability peut pourtant exister (posée par une ligne manuelle) : n'y rien rendre.
+    null;
+  else
+    -- Date simple : activité, camp, evento `metered` (les modes unlimited/rsvp n'ont aucune ligne
+    -- product_availability — create_order l.286-290 —, l'UPDATE ne touche rien, c'est voulu).
+    perform 1 from public.product_availability
+      where product_id = v_line.product_id and date = v_line.date and booked < v_line.qty;
+    if found then
+      raise warning 'release_order_line_capacity: booked < qty sur la date de la ligne %', p_line_id;
+    end if;
+    update public.product_availability
+       set booked = greatest(0, booked - v_line.qty)
+     where product_id = v_line.product_id and date = v_line.date;
+  end if;
+
+  -- Ressource partagée du prestataire : le FAIT est le blocage d'agenda que create_order a posé
+  -- (camp, ou evento occupant) — on rend exactement la plage bloquée, puis on retire le blocage.
+  for v_block in
+    select id, establishment_id, start_date, end_date
+      from public.availability_blocks
+     where source_order_line_id = p_line_id
+  loop
+    update public.provider_resource_calendar
+       set booked = greatest(0, booked - v_line.qty)
+     where establishment_id = v_block.establishment_id
+       and slot_date between v_block.start_date and v_block.end_date;
+    delete from public.availability_blocks where id = v_block.id;
+  end loop;
+end;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.list_my_orders()
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -436,6 +540,13 @@ begin
 end;
 $function$;
 
+comment on function public.list_my_orders() is
+  'La liste « Mis reservas » du compte client (spec 34). Garde = auth.uid(), et REFUS EXPLICITE '
+  'd''une session anonyme (décision ⑦ du 2026-09-11) : un invité n''a pas d''espace compte. Rend '
+  'le groupe (upcoming/past) et l''ordre DEPUIS LA BASE — le prédicat « à venir » est la fusion '
+  'des cas proxima/en_casa de list_clients, pas une seconde définition. Payload = '
+  'order_for_client_jsonb, plus access_token et group ; chaque ligne porte `cancellable` '
+  '(order_line_client_cancellable, la règle de cancel_order_line — 20261006192424).';
 CREATE OR REPLACE FUNCTION public.set_establishment_pms_connector(p_establishment_id uuid, p_lobby_api_token text DEFAULT NULL::text, p_connector_active boolean DEFAULT false, p_reason text DEFAULT NULL::text, p_same_lobby_account boolean DEFAULT false)
  RETURNS jsonb
  LANGUAGE plpgsql
