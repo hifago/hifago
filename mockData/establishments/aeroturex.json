@@ -1,10 +1,20 @@
 {
   "partner": "aeroturex",
-  "name": { "es": "AeroTurex" },
-  "description": { "es": "Transporte de pasajeros entre Medellín (aeropuerto) y Guatapé." },
-  "address": "Aeropuerto José María Córdova, Rionegro, Antioquia",
-  "lat": 6.1645,
-  "lon": -75.4231,
+  "name": {
+    "es": "AeroTurex"
+  },
+  "description": {
+    "es": "Bus compartido entre Medellín y Guatapé: salidas todos los días desde el Parque de El Poblado o la Carrera 70 (Laureles)."
+  },
+  "address": "Medellín, Antioquia, Colombia",
+  "lat": null,
+  "lon": null,
   "operated_directly": false,
-  "status": "active"
+  "mode": null,
+  "check_in_time": null,
+  "check_out_time": null,
+  "status": "active",
+  "photos": [
+    "1.webp"
+  ]
 }

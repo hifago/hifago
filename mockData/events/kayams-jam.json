@@ -1,14 +1,36 @@
 {
   "partner": "kayam",
   "establishment": "kayam",
-  "name": { "es": "Kayam's Jam" },
-  "description": { "es": "La jam de la casa: músicos viajeros y locales se encuentran para improvisar cuando cae la noche, con el embalse de fondo. Trae tu instrumento o solo tus oídos." },
+  "name": {
+    "es": "Kayam's Jam"
+  },
+  "description": {
+    "es": "La jam de la casa: músicos viajeros y locales se encuentran para improvisar cuando cae la noche, con el embalse de fondo. Trae tu instrumento o solo tus oídos."
+  },
   "price_label": "Gratis",
+  "external_booking_url": null,
+  "tags": [
+    "party"
+  ],
+  "price_cop": null,
+  "unit": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "address": "Casa Kayam",
   "occurrence_type": "recurring",
-  "occurrence_date": "2026-09-16",
   "recurrence_frequency_days": 14,
-  "start_time": "20:00",
-  "external_booking_url": "https://wa.me/573001112233?text=Hola%2C%20quiero%20info%20sobre%20Kayam%27s%20Jam",
-  "tags": ["party"],
-  "photos": ["1.webp"]
+  "_extra_columns": {
+    "category": null,
+    "sort": null,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": false,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp"
+  ]
 }

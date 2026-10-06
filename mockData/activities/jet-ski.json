@@ -1,0 +1,33 @@
+{
+  "partner": "gotravel",
+  "establishment": "gotravel",
+  "name": {
+    "es": "Jet ski"
+  },
+  "price_cop": 200000,
+  "unit": null,
+  "default_capacity": 3,
+  "external_booking_url": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "tags": [
+    "agua"
+  ],
+  "description": {
+    "es": "30 minutos de Jetski de alto cilindraje"
+  },
+  "_extra_columns": {
+    "category": "nautica",
+    "sort": 240,
+    "sellable": true,
+    "acompte_pct": 0.17,
+    "referral_pct": 0.1,
+    "schedule": "slot",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp"
+  ]
+}

@@ -26,9 +26,16 @@ schéma JSON exacts : `mockData/README.md`.
    eval "$(npx supabase status -o env | grep -E '^[A-Z0-9_]+=' | sed 's/^/export /')"
    SUPABASE_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
      SUPABASE_ADMIN_EMAIL="admin@hifago.test" SUPABASE_ADMIN_PASSWORD="Seed1234!" \
+     MOCK_PERSONNE_MDP="Seed1234!" \
      node supabase/scripts/seed-mock-data.mjs
    ```
-   Ou `npm run db:mock-data` avec les mêmes variables déjà exportées.
+   Ou `npm run db:mock-data` avec les mêmes variables déjà exportées. `MOCK_PERSONNE_MDP` donne
+   leur mot de passe aux personnes SANS `password` dans leur JSON (les 21 comptes fictifs du
+   catalogue v1 — dépôt public, aucun mot de passe écrit) ; sans elle, ces partenaires sont créés
+   sans compte de connexion. En préprod, jamais `Seed1234!` : un mot de passe fort, en variable de
+   session.
+   ⚠️ Base locale PARTAGÉE : avant tout `db:setup` ou application de mockData, demander le jeton de
+   la pile à l'orchestrateur d'audit s'il y en a un (`AGENTS-PARALLELES.md` §3).
 
 2. **Préprod** : `/hifago-verify-compte` d'abord (jamais par défaut). Un compte admin équivalent à
    `admin@hifago.test` doit exister sur ce projet et avoir une capacité `admin` `active` — sinon le

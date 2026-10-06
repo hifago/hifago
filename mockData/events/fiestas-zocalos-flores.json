@@ -1,13 +1,34 @@
 {
   "partner": "kayam",
   "establishment": "kayam",
-  "name": { "es": "Fiestas Zócalos y Flores · Silletas y Colores" },
-  "description": { "es": "Cuatro días de fiesta en el pueblo de los zócalos: silleteros, ferias campesinas, trovas, orquestas y festival de cerveza. Programa: Taller de zócalos · Ferias, silletas y zócalo en vivo · Desfile de silleteros · Festival de la Cerveza." },
+  "name": {
+    "es": "Fiestas Zócalos y Flores · Silletas y Colores"
+  },
+  "description": {
+    "es": "Cuatro días de fiesta en el pueblo de los zócalos: silleteros, ferias campesinas, trovas, orquestas y festival de cerveza.\n\nTaller de zócalos|Ferias, silletas y zócalo en vivo|Desfile de silleteros|Festival de la Cerveza\n\nFechas: 23–26 de julio · 4 días"
+  },
   "price_label": "Gratis",
-  "occurrence_type": "recurring",
-  "occurrence_date": "2027-07-23",
-  "recurrence_frequency_days": 365,
-  "external_booking_url": "https://wa.me/573001112233?text=Hola%2C%20quiero%20info%20sobre%20las%20Fiestas%20Z%C3%B3calos%20y%20Flores",
+  "external_booking_url": null,
   "tags": [],
-  "photos": ["1.webp"]
+  "price_cop": null,
+  "unit": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "address": "Guatapé · parque principal",
+  "occurrence_type": "once",
+  "occurrence_date": "2026-07-23",
+  "_extra_columns": {
+    "category": null,
+    "sort": null,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": false,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp"
+  ]
 }

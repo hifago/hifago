@@ -1,0 +1,21 @@
+{
+  "email": "coscun@mock.hifago.test",
+  "display_name": "Coscun",
+  "roles": [
+    "referrer",
+    "operator"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": "Guatap�",
+  "phone": null,
+  "code": "GUACOSCUN",
+  "commission_enabled": true,
+  "crm_profile": null,
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.coscun@mock.hifago.test",
+    "full_name": "Coscun"
+  }
+}

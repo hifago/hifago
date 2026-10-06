@@ -1,0 +1,28 @@
+{
+  "email": "medmontana@mock.hifago.test",
+  "display_name": "Galeria de la montana",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": "MEDMONTANA",
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cl. 47B #83-6, America",
+    "barrio": "Floresta",
+    "lat": null,
+    "lon": null,
+    "commercial_status": "activo",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.medmontana@mock.hifago.test",
+    "full_name": "Galeria de la montana"
+  }
+}

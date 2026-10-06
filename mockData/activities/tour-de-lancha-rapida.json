@@ -1,0 +1,33 @@
+{
+  "partner": "gotravel",
+  "establishment": "gotravel",
+  "name": {
+    "es": "Tour de lancha rápida"
+  },
+  "price_cop": 246000,
+  "unit": null,
+  "default_capacity": 1,
+  "external_booking_url": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "tags": [
+    "agua"
+  ],
+  "description": {
+    "es": "Tour de lancha rápida"
+  },
+  "_extra_columns": {
+    "category": "nautica",
+    "sort": 250,
+    "sellable": true,
+    "acompte_pct": 0.17,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp"
+  ]
+}

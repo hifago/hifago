@@ -1,0 +1,33 @@
+{
+  "partner": "kayam",
+  "establishment": "kayam",
+  "name": {
+    "es": "Hora de grabación"
+  },
+  "duration_minutes": 60,
+  "external_booking_url": null,
+  "tags": [
+    "musica"
+  ],
+  "_extra_columns": {
+    "category": "musica",
+    "sort": 40,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "slot",
+    "qty_unit": "hours",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "price_cop": 93000,
+  "unit": null,
+  "default_capacity": null,
+  "lobby_category_id": null,
+  "lobby_product_id": 495259,
+  "description": null,
+  "photos": [
+    "1.webp",
+    "2.webp"
+  ]
+}

@@ -1,17 +1,51 @@
 {
   "partner": "kayam",
   "establishment": "kayam",
-  "name": { "es": "Coaching musical canto 1h" },
+  "name": {
+    "es": "COACHING MUSICAL CANTO 1h"
+  },
   "duration_minutes": 60,
-  "price_cop": 80000,
+  "price_cop": 55000,
   "unit": "per_person",
   "min_qty": 1,
   "max_qty": 1,
   "slot_rules": [
-    { "weekdays": [1, 2, 3, 4, 5, 6, 7], "start_time": "10:00", "end_time": "18:00", "slot_duration_minutes": 60, "capacity": 1 }
+    {
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "start_time": "10:00",
+      "end_time": "18:00",
+      "slot_duration_minutes": 60,
+      "capacity": 1
+    }
   ],
   "external_booking_url": null,
-  "tags": ["musica"],
-  "photos": ["1.webp"],
-  "_extra_columns": { "category": "musica", "qty_unit": "hours" }
+  "tags": [
+    "musica"
+  ],
+  "_extra_columns": {
+    "category": "musica",
+    "sort": 20,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "slot",
+    "qty_unit": "hours",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "default_capacity": null,
+  "lobby_category_id": null,
+  "lobby_product_id": 486725,
+  "description": null,
+  "photos": [
+    "1.webp"
+  ]
 }

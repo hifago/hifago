@@ -1,0 +1,24 @@
+{
+  "email": "medyellow@mock.hifago.test",
+  "display_name": "Yellow House Hostel",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": "MEDYELLOW",
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "",
+    "barrio": "Floresta",
+    "lat": null,
+    "lon": null,
+    "commercial_status": "prospecto",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active"
+}

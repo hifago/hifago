@@ -1,0 +1,42 @@
+{
+  "partner": "kayam",
+  "establishment": "kayam",
+  "name": {
+    "es": "Van por Colombia · Guatapé + San Rafael",
+    "en": "Van por Colombia · Guatapé + San Rafael"
+  },
+  "description": {
+    "es": "Tres días de naturaleza pura: Guatapé y su embalse, más los ríos y charcos cristalinos de San Rafael. Van, alojamiento y guía incluidos, para desconectar de verdad y conocer dos caras de Antioquia.\n\nIncluye:\n• Transporte en van todo el recorrido\n• Piedra del Peñol y pueblo de Guatapé\n• Balneario y ríos de San Rafael\n• Paseo en lancha por el embalse\n• 2 noches de alojamiento\n• Guía acompañante",
+    "en": "Three days of pure nature: Guatapé and its lake, plus the crystal-clear rivers and pools of San Rafael. Van, lodging and guide included, to truly switch off and see two sides of Antioquia.\n\nIncludes:\n• Van transport throughout\n• Piedra del Peñol and Guatapé town\n• San Rafael river spots and pools\n• Boat ride across the lake\n• 2 nights of lodging\n• Accompanying guide"
+  },
+  "price_cop": null,
+  "duration_days": 3,
+  "program": [
+    {
+      "day": 1,
+      "text": {
+        "es": "Medellín → Guatapé, La Piedra del Peñol y pueblo",
+        "en": "Medellín → Guatapé, La Piedra del Peñol and town"
+      }
+    },
+    {
+      "day": 2,
+      "text": {
+        "es": "San Rafael: ríos y charcos naturales",
+        "en": "San Rafael: rivers and natural pools"
+      }
+    },
+    {
+      "day": 3,
+      "text": {
+        "es": "Embalse y regreso a Medellín",
+        "en": "Lake and return to Medellín"
+      }
+    }
+  ],
+  "external_booking_url": "https://wa.me/573215764841?text=Hola%20Hifago%2C%20me%20interesa%20la%20escapada%20%22Van%20por%20Colombia%20%C2%B7%20Guatap%C3%A9%20%2B%20San%20Rafael%22%20(3%20d%C3%ADas%20%C2%B7%202%20noches)%20en%20Guatap%C3%A9.",
+  "tags": [],
+  "photos": [
+    "1.webp"
+  ]
+}

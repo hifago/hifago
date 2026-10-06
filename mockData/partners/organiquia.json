@@ -1,0 +1,29 @@
+{
+  "email": "organiquia@mock.hifago.test",
+  "display_name": "Organiquia",
+  "roles": [
+    "referrer",
+    "operator"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": "Guatapé",
+  "phone": null,
+  "code": "GUANIQUIA",
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": null,
+    "barrio": null,
+    "lat": null,
+    "lon": null,
+    "commercial_status": "prospecto",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.organiquia@mock.hifago.test",
+    "full_name": "Organiquia"
+  }
+}

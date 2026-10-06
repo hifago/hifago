@@ -1,0 +1,28 @@
+{
+  "email": "medmetrof@mock.hifago.test",
+  "display_name": "Hostel Metro Floresta",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": "MEDMETROF",
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cl. 46 #81-38, Floresta",
+    "barrio": "Floresta",
+    "lat": null,
+    "lon": null,
+    "commercial_status": "activo",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.medmetrof@mock.hifago.test",
+    "full_name": "Hostel Metro Floresta"
+  }
+}

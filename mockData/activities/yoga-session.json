@@ -1,16 +1,44 @@
 {
   "partner": "kayam",
   "establishment": "kayam",
-  "name": { "es": "Yoga session" },
-  "price_cop": 20000,
+  "name": {
+    "es": "YOGA session"
+  },
+  "price_cop": 22000,
   "unit": "per_person",
   "min_qty": 1,
   "max_qty": 10,
   "slot_rules": [
-    { "weekdays": [4], "start_time": "08:00", "end_time": "09:00", "slot_duration_minutes": 60, "capacity": 10 }
+    {
+      "weekdays": [
+        4
+      ],
+      "start_time": "08:00",
+      "end_time": "09:00",
+      "slot_duration_minutes": 60,
+      "capacity": 10
+    }
   ],
   "external_booking_url": null,
-  "tags": ["bienestar"],
-  "photos": ["1.webp"],
-  "_extra_columns": { "category": "bienestar" }
+  "tags": [
+    "bienestar"
+  ],
+  "_extra_columns": {
+    "category": "bienestar",
+    "sort": 70,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "slot",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "default_capacity": null,
+  "lobby_category_id": null,
+  "lobby_product_id": 494426,
+  "description": null,
+  "photos": [
+    "1.webp"
+  ]
 }

@@ -1,13 +1,16 @@
 {
   "email": "gotravel@mock.hifago.test",
   "display_name": "Gotravel",
-  "roles": ["operator"],
+  "roles": [
+    "referrer",
+    "operator"
+  ],
   "legal_name": null,
   "identification_type": null,
   "identification_number": null,
   "partner_city": "Medellín",
   "phone": null,
-  "code": null,
+  "code": "GUAGOTRAVEL",
   "commission_enabled": true,
   "crm_profile": null,
   "capability_status": "active"

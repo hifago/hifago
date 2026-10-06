@@ -1,7 +1,10 @@
 {
   "email": "aeroturex@mock.hifago.test",
-  "display_name": "AeroTurex",
-  "roles": ["operator"],
+  "display_name": "aeroturex",
+  "roles": [
+    "referrer",
+    "operator"
+  ],
   "legal_name": null,
   "identification_type": null,
   "identification_number": null,

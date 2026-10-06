@@ -1,0 +1,24 @@
+{
+  "email": "medlafami@mock.hifago.test",
+  "display_name": "La Familia Hostel",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": "MEDLAFAMI",
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cl. 10 #43-6, Poblado",
+    "barrio": "El Poblado",
+    "lat": "",
+    "lon": "",
+    "commercial_status": "inactivo",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active"
+}
