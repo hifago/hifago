@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect } from "storybook/test";
+import { expect, waitFor } from "storybook/test";
 import { historiaDePagina } from "@/.storybook/support/pagina";
 import { esperar, escribir, pulsar } from "@/.storybook/support/interacciones";
 import { simularErrorAuth, simularPendiente } from "@/.storybook/support/supabaseFalso";
@@ -53,7 +53,9 @@ export const Creando: StoryObj = {
   name: "Création en cours",
   play: async ({ canvasElement }) => {
     await enviar(canvasElement);
-    await expect(await esperar(canvasElement, '[data-testid="signup-submit-button"]')).toBeDisabled();
+    // `isPending` (react-aria) garde le bouton focalisable : `aria-disabled`, jamais `disabled`.
+    const boton = await esperar(canvasElement, '[data-testid="signup-submit-button"]');
+    await waitFor(() => expect(boton).toHaveAttribute("aria-disabled", "true"));
   },
 };
 
