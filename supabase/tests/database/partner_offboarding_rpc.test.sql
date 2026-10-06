@@ -127,7 +127,8 @@ select is(
   'unpublished_at renseigné'
 );
 select is(
-  (select count(*) from audit_log where action = 'partner.offboarding_unpublish')::int,
+  (select count(*) from audit_log where action = 'partner.offboarding_unpublish'
+     and after ->> 'partner_id' = 'a4000000-0000-4000-8000-000000000001')::int,
   1,
   'une seule ligne audit_log consolidée pour l''action groupée (pas une par produit)'
 );
@@ -174,7 +175,9 @@ select is(
   'payments_settled_note enregistre le motif'
 );
 select is(
-  (select count(*) from audit_log where action = 'partner.offboarding_attest_payments')::int,
+  (select count(*) from audit_log where action = 'partner.offboarding_attest_payments'
+     and entity_id in (select id from partner_offboarding
+                        where partner_id = 'a4000000-0000-4000-8000-000000000001'))::int,
   1,
   'une ligne audit_log pour l''attestation de paiement'
 );
@@ -206,7 +209,8 @@ select is(
 );
 select is(
   (select jsonb_build_object('action', action, 'after', after) from audit_log
-    where action = 'partner.offboarding_revoke_capability'),
+    where action = 'partner.offboarding_revoke_capability'
+      and after ->> 'partner_id' = 'a4000000-0000-4000-8000-000000000001'),
   jsonb_build_object(
     'action', 'partner.offboarding_revoke_capability',
     'after', jsonb_build_object(

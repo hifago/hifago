@@ -78,8 +78,9 @@ select is(
 -- admin : audit_log encore vide à ce stade (rien créé par le refus non-admin ci-dessus) -------
 set local role authenticated;
 select test_login('c0000000-0000-4000-8000-000000000003');
+-- Scopé au produit visé par le refus, jamais en absolu (audit_log d'une base seedée n'est pas vide).
 select is(
-  (select count(*) from audit_log)::int, 0,
+  (select count(*) from audit_log where entity_id = 'c0000000-0000-4000-8000-000000000005')::int, 0,
   'aucune ligne audit_log créée par l''appel set_product_availability refusé'
 );
 

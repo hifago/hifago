@@ -127,11 +127,9 @@ jobs:
         # matin sans qu'aucun commit de ce dépôt n'ait bougé.
         with:
           version: 2.116.0
-      # Pas de seed ici, et ce n'est pas un raccourci : aucun des 44 fichiers pgTAP ne référence
-      # un UUID ou un e-mail de seed.sql, et plusieurs comptent des lignes en absolu
-      # (`select count(*) from audit_log` = 0). Ils EXIGENT une base vierge non seedée — c'est
-      # d'ailleurs pourquoi ils échouent sur une base de dev vivante. Le seed reste nécessaire
-      # aux tests de concurrence, qui viendront dans leur propre job.
+      # Base VIERGE ici (aucun fichier pgTAP ne référence un UUID ou un e-mail de seed.sql). La même
+      # suite repasse sur base SEEDÉE à la fin du job `concurrence` : un pgTAP doit être vert sur les
+      # deux, donc scoper ses comptes par ses propres fixtures, jamais compter en absolu.
       - run: supabase start
       - run: supabase test db
       # Restreint à `public` : le schéma `extensions` contient les fonctions de pgTAP
@@ -184,6 +182,11 @@ jobs:
       # Les trois étapes ordonnées : reset sans seed, comptes auth via l'API Admin, puis seed.sql.
       - run: npm run db:setup
       - run: npm run test:concurrency
+      # Suite pgTAP rejouée sur cette base SEEDÉE et déjà écrite par les tests de concurrence (audit
+      # P12b, 2026-10-06). Le job `db` ne la voit que vierge, où un `count(*)` en absolu passe au
+      # vert : sept fichiers comptaient ainsi et rougissaient sur toute base réelle. C'est la garde
+      # mécanique de la règle « scoper par ses fixtures » (CLAUDE.md §11.20).
+      - run: supabase test db
 
   # Sans `needs:` lui non plus : ce job tourne sur des valeurs d'environnement FACTICES et ne touche
   # jamais la base — il n'a jamais rien eu à attendre de `db`. Il attendait pourtant `db` (101 s),
