@@ -4,13 +4,18 @@
 -- table nommée — donc il n'a besoin d'aucune mise à jour quand une nouvelle table/fonction est
 -- ajoutée en respectant la checklist.
 --
--- Couvre 3 des 5 points de la checklist automatiquement :
+-- Couvre 3 des 5 points de la checklist automatiquement, plus un préalable :
+--   (0) RLS activée — toute table de `public` l'active ; sans elle, aucune des policies vérifiées
+--       ci-dessous ne s'applique, et les grants deviennent le seul rempart (audit P12c, 2026-10-06).
 --   (2) STABLE — toute fonction référencée dans une policy RLS n'est jamais VOLATILE.
---   (3) auth.uid() enveloppé — toute comparaison DIRECTE avec auth.uid() dans une policy est
---       wrappée en (select auth.uid()) ; un appel indirect (ex. is_admin(auth.uid())) n'est pas
---       concerné par cette règle (convention déjà en usage dans tout le schéma).
+--   (3) auth.uid() enveloppé — dans une policy, TOUTE occurrence d'auth.uid() est sous un
+--       `( SELECT … )` : soit `(select auth.uid())`, soit l'appel d'un prédicat entier
+--       `(select is_admin(auth.uid()))`. Avant le 2026-10-06, seule la comparaison directe
+--       (`= auth.uid()`) était cherchée : `= any (array[auth.uid()])` ou un `is_admin(auth.uid())` nu
+--       passaient, évalués ligne par ligne au lieu d'une fois par requête.
 --   (4) search_path='' — toute fonction de `public`, SECURITY DEFINER ou INVOKER, le fixe sans
 --       exception (étendu aux INVOKER le 2026-10-02, 20261002123023).
+-- (2) et (3) portent sur `public` ET `storage` (policies de storage.objects) depuis le 2026-10-06.
 -- Les 2 points restants ne sont PAS automatisés ici :
 --   (1) "quelle table doit être RPC-only" est un jugement métier (capacité, audit, vue miroir) —
 --       seule une approximation de défense en profondeur est vérifiée (voir test grants ci-dessous).
@@ -19,7 +24,21 @@
 --       à trancher avec Jérôme avant d'automatiser ce point précis).
 
 begin;
-select plan(4);
+select plan(5);
+
+-- (0) Toute table de public active la RLS ---------------------------------------------------------
+select is(
+  (
+    select coalesce(string_agg(c.relname, ', ' order by c.relname), '')
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relkind in ('r', 'p')
+      and not c.relrowsecurity
+  ),
+  '',
+  'toute table de public active la RLS (hifago/CLAUDE.md §3)'
+);
 
 -- (4) Toute fonction de public fixe search_path='' ---------------------------------------------
 -- DEFINER comme INVOKER : une fonction INVOKER sans search_path résout ses noms dans le chemin de
@@ -54,7 +73,7 @@ select is(
     select count(*)::int
     from pg_policies pol
     join pg_proc pr on pr.pronamespace = 'public'::regnamespace
-    where pol.schemaname = 'public'
+    where pol.schemaname in ('public', 'storage')
       and pr.provolatile = 'v'
       and (
         pol.qual ~ ('\m' || pr.proname || '\(')
@@ -65,27 +84,26 @@ select is(
   'aucune fonction VOLATILE n''est appelée depuis une policy RLS (hifago/CLAUDE.md §3.3)'
 );
 
--- (3) auth.uid() jamais comparé directement sans (select auth.uid()) ----------------------------
--- Ne flague QUE la comparaison directe (= auth.uid() / auth.uid() =), pas un appel indirect
--- (is_admin(auth.uid()), partner_id_for_account(auth.uid())) — convention déjà en usage partout
--- dans ce schéma et volontairement hors du périmètre de cette règle précise.
+-- (3) auth.uid() toujours sous un ( SELECT … ) --------------------------------------------------
+-- Postgres réécrit une policy sous une forme canonique : `( SELECT auth.uid() AS uid)` pour
+-- l'enveloppe directe, `( SELECT is_admin(auth.uid()) AS is_admin)` pour un prédicat enveloppé
+-- entier. On retire ces deux formes, et tout `auth.uid()` restant est une occurrence nue.
 select is(
   (
-    select count(*)::int
+    select coalesce(string_agg(pol.schemaname || '.' || pol.tablename || '.' || pol.policyname, ', '
+                               order by pol.schemaname, pol.tablename, pol.policyname), '')
     from pg_policies pol
-    where pol.schemaname = 'public'
-      and (
-        (pol.qual ~ '[=<>] *auth\.uid\(\)' or pol.qual ~ 'auth\.uid\(\) *[=<>]')
-        and pol.qual !~ 'SELECT auth\.uid'
-      )
-      or (
-        pol.with_check is not null
-        and (pol.with_check ~ '[=<>] *auth\.uid\(\)' or pol.with_check ~ 'auth\.uid\(\) *[=<>]')
-        and pol.with_check !~ 'SELECT auth\.uid'
-      )
+    cross join lateral (
+      select e from unnest(array[pol.qual, pol.with_check]) as e where e is not null
+    ) expr
+    where pol.schemaname in ('public', 'storage')
+      and regexp_replace(
+            regexp_replace(expr.e, '\( SELECT auth\.uid\(\) AS uid\)', '', 'g'),
+            '\( SELECT [a-z_]+\(auth\.uid\(\)(, [^)]*)?\) AS [a-z_]+\)', '', 'g'
+          ) ~ 'auth\.uid\(\)'
   ),
-  0,
-  'auth.uid() n''est jamais comparé directement sans (select auth.uid()) dans une policy (hifago/CLAUDE.md §3.4)'
+  '',
+  'auth.uid() n''apparaît jamais nu dans une policy de public ou storage, toujours sous un ( SELECT … ) (hifago/CLAUDE.md §3.4)'
 );
 
 -- (1, défense en profondeur) table RLS sans policy d'écriture pour authenticated
