@@ -1,13 +1,34 @@
 {
   "partner": "kayam",
   "establishment": "kayam",
-  "name": { "es": "Festival Gastronómico Guatabandeja" },
-  "description": { "es": "Los restaurantes guatapenses sacan su mejor versión de la bandeja y de la cocina antioqueña." },
+  "name": {
+    "es": "Festival Gastronómico Guatabandeja"
+  },
+  "description": {
+    "es": "Los restaurantes guatapenses sacan su mejor versión de la bandeja y de la cocina antioqueña.\n\nFechas: 23 de julio – 9 de agosto"
+  },
   "price_label": "Entrada libre",
-  "occurrence_type": "recurring",
-  "occurrence_date": "2027-07-23",
-  "recurrence_frequency_days": 365,
-  "external_booking_url": "https://wa.me/573001112233?text=Hola%2C%20quiero%20info%20sobre%20el%20Festival%20Guatabandeja",
+  "external_booking_url": null,
   "tags": [],
-  "photos": ["1.webp"]
+  "price_cop": null,
+  "unit": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "address": "Restaurantes de Guatapé",
+  "occurrence_type": "once",
+  "occurrence_date": "2026-07-23",
+  "_extra_columns": {
+    "category": null,
+    "sort": null,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": false,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp"
+  ]
 }

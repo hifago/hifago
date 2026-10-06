@@ -1,0 +1,21 @@
+{
+  "email": "casacampo@mock.hifago.test",
+  "display_name": "Casa de Campo",
+  "roles": [
+    "referrer",
+    "operator"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": "Guatapé",
+  "phone": null,
+  "code": "GUACASACAMPO",
+  "commission_enabled": true,
+  "crm_profile": null,
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.casacampo@mock.hifago.test",
+    "full_name": "Casa de Campo"
+  }
+}

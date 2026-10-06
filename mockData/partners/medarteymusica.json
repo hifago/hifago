@@ -1,0 +1,24 @@
+{
+  "email": "medarteymusica@mock.hifago.test",
+  "display_name": "ARTE Y MUSICA",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": "MEDARTEYMUSICA",
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "",
+    "barrio": "",
+    "lat": null,
+    "lon": null,
+    "commercial_status": "prospecto",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active"
+}

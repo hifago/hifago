@@ -1,0 +1,21 @@
+{
+  "email": "ufit@mock.hifago.test",
+  "display_name": "Ufit",
+  "roles": [
+    "referrer",
+    "operator"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": "Guatap�",
+  "phone": null,
+  "code": "GUAUFIT",
+  "commission_enabled": true,
+  "crm_profile": null,
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.ufit@mock.hifago.test",
+    "full_name": "Ufit"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "partner": "kayam",
+  "establishment": "kayam",
+  "name": {
+    "es": "Tour privado en francés",
+    "en": "Private tour in French"
+  },
+  "description": {
+    "es": "Descubre Guatapé sin prisas y en tu idioma. Un guía francófono te acompaña en privado —solo tú y los tuyos— por lo mejor de la región: la subida a la Piedra del Peñol y sus 740 escalones, un paseo en lancha por el embalse y el pueblo de zócalos más colorido de Colombia. Duermes una noche en Casa Kayam, a orillas del agua, con desayuno incluido.\n\nIncluye:\n• Guía privado francófono\n• Subida a la Piedra del Peñol (740 escalones)\n• Paseo en lancha por el embalse\n• Recorrido por el pueblo y sus zócalos\n• 1 noche en Casa Kayam + desayuno\n• Transporte ida y vuelta desde Medellín",
+    "en": "Discover Guatapé at your own pace and in your own language. A French-speaking guide takes you around privately —just you and your group— to the best of the region: climbing the Piedra del Peñol and its 740 steps, a boat ride across the lake, and Colombia’s most colourful town of painted friezes. You spend one night at Casa Kayam, right by the water, breakfast included.\n\nIncludes:\n• Private French-speaking guide\n• Climb the Piedra del Peñol (740 steps)\n• Boat ride across the lake\n• Walk through the town and its friezes\n• 1 night at Casa Kayam + breakfast\n• Round-trip transport from Medellín"
+  },
+  "price_cop": null,
+  "duration_days": 2,
+  "program": [
+    {
+      "day": 1,
+      "text": {
+        "es": "Recogida en Medellín, La Piedra del Peñol al atardecer y llegada a Casa Kayam",
+        "en": "Pickup in Medellín, La Piedra del Peñol at sunset and arrival at Casa Kayam"
+      }
+    },
+    {
+      "day": 2,
+      "text": {
+        "es": "Lancha por el embalse, pueblo de Guatapé a pie y regreso",
+        "en": "Boat ride on the lake, Guatapé town on foot and return"
+      }
+    }
+  ],
+  "external_booking_url": "https://wa.me/573215764841?text=Hola%20Hifago%2C%20me%20interesa%20la%20escapada%20%22Tour%20privado%20en%20franc%C3%A9s%22%20(2%20d%C3%ADas%20%C2%B7%201%20noche)%20en%20Guatap%C3%A9.",
+  "tags": [],
+  "photos": [
+    "1.webp"
+  ]
+}

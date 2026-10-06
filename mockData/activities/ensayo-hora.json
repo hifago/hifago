@@ -1,10 +1,32 @@
 {
   "partner": "kayam",
   "establishment": "kayam",
-  "name": { "es": "Ensayo hora" },
+  "name": {
+    "es": "Ensayo hora"
+  },
   "duration_minutes": 60,
-  "external_booking_url": "https://wa.me/573001112233?text=Hola%2C%20quiero%20reservar%20una%20hora%20de%20Ensayo%20en%20Kayam%20Lab",
-  "tags": ["musica"],
-  "photos": ["1.webp"],
-  "_extra_columns": { "category": "musica", "qty_unit": "hours" }
+  "external_booking_url": null,
+  "tags": [
+    "musica"
+  ],
+  "_extra_columns": {
+    "category": "musica",
+    "sort": 30,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "slot",
+    "qty_unit": "hours",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "price_cop": 40000,
+  "unit": null,
+  "default_capacity": null,
+  "lobby_category_id": null,
+  "lobby_product_id": 473220,
+  "description": null,
+  "photos": [
+    "1.webp"
+  ]
 }

@@ -1,10 +1,35 @@
 {
   "partner": "kayam",
   "establishment": "kayam",
-  "name": { "es": "VIDPOVO" },
+  "name": {
+    "es": "VIDPOVO"
+  },
   "price_cop": 42000,
   "unit": "per_person",
   "capacity": 8,
   "lodging_kind": "dorm",
-  "photos": ["1.webp", "2.webp", "3.webp", "4.webp"]
+  "external_booking_url": null,
+  "lobby_category_id": 9631,
+  "lobby_product_id": null,
+  "tags": [],
+  "description": null,
+  "_extra_columns": {
+    "category": null,
+    "sort": 150,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": 8
+  },
+  "photos": [
+    "1.webp",
+    "2.webp",
+    "3.webp",
+    "4.webp",
+    "5.webp",
+    "6.webp"
+  ]
 }

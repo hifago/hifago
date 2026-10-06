@@ -1,0 +1,33 @@
+{
+  "partner": "zocalos",
+  "establishment": "zocalos",
+  "name": {
+    "es": "Taller de zocalos"
+  },
+  "price_cop": 300000,
+  "unit": null,
+  "default_capacity": null,
+  "external_booking_url": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "tags": [
+    "arte"
+  ],
+  "description": null,
+  "_extra_columns": {
+    "category": "arte",
+    "sort": 80,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp",
+    "2.webp",
+    "3.webp"
+  ]
+}

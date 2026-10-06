@@ -1,0 +1,37 @@
+{
+  "partner": "coscun",
+  "establishment": "coscun",
+  "name": {
+    "es": "Chocolate Workshops Guatape"
+  },
+  "price_cop": 90000,
+  "unit": null,
+  "default_capacity": 12,
+  "external_booking_url": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "tags": [
+    "gastronomia"
+  ],
+  "description": {
+    "es": "CHOCOLATE SENSORY WORKSHOP – CUSCUN GUATAPÉ\n\n75–90 MINUTES\n\nDiscover chocolate through all five senses.\n\nExperience an immersive, hands-on journey where you'll explore cacao from its origin to your own handcrafted chocolate bar. Learn its fascinating history, discover traditional techniques, taste every stage of the transformation, and create unforgettable memories in the heart of Guatapé.\n\nWHAT'S INCLUDED\n\n🌱 Discover Cacao\n\n🔥 Traditional Chocolate Making\n\n-Open a mazorca cacao \n-Bean selection\n-Roasting\n-Traditional stone grinding\n-Prepare authentic cacao liquor\n\n☕ Prepare an Ancient Cacao Drink\n\n👨‍🍳 Create Your Own Chocolate\n\nEnglish workshops require 24-hour advance reservation.\n\nMinimum 2 people."
+  },
+  "_extra_columns": {
+    "category": "gastronomia",
+    "sort": 210,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "slot",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp",
+    "2.webp",
+    "3.webp",
+    "4.webp",
+    "5.webp"
+  ]
+}

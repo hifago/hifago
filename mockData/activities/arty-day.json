@@ -1,0 +1,34 @@
+{
+  "partner": "kayam",
+  "establishment": "kayam",
+  "name": {
+    "es": "Arty day"
+  },
+  "duration_minutes": 480,
+  "external_booking_url": null,
+  "tags": [
+    "arte"
+  ],
+  "price_cop": 86000,
+  "unit": null,
+  "default_capacity": null,
+  "lobby_category_id": null,
+  "lobby_product_id": 555470,
+  "description": {
+    "es": "Comparte un dià lleno de encuentro y de arte"
+  },
+  "_extra_columns": {
+    "category": "arte",
+    "sort": 230,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp"
+  ]
+}

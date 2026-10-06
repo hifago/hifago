@@ -1,12 +1,21 @@
 {
   "partner": "kayam",
-  "name": { "es": "Casa Kayam" },
-  "description": { "es": "Hostal a la orilla del embalse de Guatapé, ambiente musical y comunitario — sede de la Kayam's Jam." },
+  "name": {
+    "es": "Casa Kayam"
+  },
+  "description": {
+    "es": "Hostal a la orilla del embalse de Guatapé, ambiente musical y comunitario — sede de la Kayam's Jam."
+  },
   "address": "Guatapé, Antioquia, Colombia",
   "lat": 6.2326,
   "lon": -75.1592,
   "operated_directly": true,
   "mode": "rooms",
+  "check_in_time": null,
+  "check_out_time": null,
   "status": "active",
-  "photos": ["1.jpeg"]
+  "photos": [
+    "1.jpeg",
+    "2.webp"
+  ]
 }

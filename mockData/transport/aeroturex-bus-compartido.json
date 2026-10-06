@@ -1,21 +1,44 @@
 {
   "partner": "aeroturex",
   "establishment": "aeroturex",
-  "name": { "es": "Bus compartido Medellín ↔ Guatapé" },
+  "name": {
+    "es": "Bus compartido desde Laureles o El Poblado · ida y vuelta"
+  },
   "price_cop": 80000,
   "unit": "per_person",
   "min_qty": 1,
   "max_qty": 8,
   "transport_seats_per_departure": 40,
-  "transport_departure_address": "Parque de El Poblado, Medellín, Antioquia",
-  "transport_departure_lat": 6.2077,
-  "transport_departure_lon": -75.5673,
+  "transport_departure_address": "Parque de El Poblado o Carrera 70 (Laureles), Medellín",
+  "transport_departure_lat": null,
+  "transport_departure_lon": null,
   "transport_arrival_address": "Parque Principal, Guatapé, Antioquia",
   "transport_arrival_lat": 6.2326,
   "transport_arrival_lon": -75.1592,
   "transport_first_departure_time": "07:00",
   "transport_last_departure_time": "07:45",
   "tags": [],
-  "photos": [],
-  "transport_contact_phone": "+573001112233"
+  "transport_contact_phone": null,
+  "default_capacity": null,
+  "external_booking_url": null,
+  "lobby_category_id": null,
+  "lobby_product_id": 565423,
+  "description": {
+    "es": "Guatapé sin prisas: sal por la mañana y vuelve el día que quieras."
+  },
+  "_extra_columns": {
+    "category": null,
+    "sort": 120,
+    "sellable": true,
+    "acompte_pct": 0.17,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp",
+    "2.webp"
+  ]
 }

@@ -1,0 +1,35 @@
+{
+  "partner": "kayam",
+  "establishment": "kayam",
+  "name": {
+    "es": "Van por Colombia · Guatapé",
+    "en": "Van por Colombia · Guatapé"
+  },
+  "description": {
+    "es": "Una escapada a Guatapé en van, con grupo pequeño y buena energía. Subimos a la Piedra del Peñol, recorremos el pueblo de zócalos y navegamos el embalse en lancha. Pasas la noche en Casa Kayam, junto al agua, con tiempo para relajarte antes de volver.\n\nIncluye:\n• Transporte en van ida y vuelta\n• Subida a la Piedra del Peñol\n• Recorrido por el pueblo de Guatapé\n• Paseo en lancha por el embalse\n• 1 noche en Casa Kayam\n• Guía acompañante",
+    "en": "A getaway to Guatapé by van, with a small group and good vibes. We climb the Piedra del Peñol, wander the town of painted friezes and cruise the lake by boat. You spend the night at Casa Kayam, by the water, with time to unwind before heading back.\n\nIncludes:\n• Round-trip van transport\n• Climb the Piedra del Peñol\n• Walk through Guatapé town\n• Boat ride across the lake\n• 1 night at Casa Kayam\n• Accompanying guide"
+  },
+  "price_cop": null,
+  "duration_days": 2,
+  "program": [
+    {
+      "day": 1,
+      "text": {
+        "es": "Medellín → Guatapé, La Piedra del Peñol y pueblo",
+        "en": "Medellín → Guatapé, La Piedra del Peñol and town"
+      }
+    },
+    {
+      "day": 2,
+      "text": {
+        "es": "Lancha por el embalse, tiempo libre y regreso",
+        "en": "Boat ride on the lake, free time and return"
+      }
+    }
+  ],
+  "external_booking_url": "https://wa.me/573215764841?text=Hola%20Hifago%2C%20me%20interesa%20la%20escapada%20%22Van%20por%20Colombia%20%C2%B7%20Guatap%C3%A9%22%20(2%20d%C3%ADas%20%C2%B7%201%20noche)%20en%20Guatap%C3%A9.",
+  "tags": [],
+  "photos": [
+    "1.webp"
+  ]
+}

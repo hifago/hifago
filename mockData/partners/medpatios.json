@@ -1,0 +1,24 @@
+{
+  "email": "medpatios@mock.hifago.test",
+  "display_name": "Los patios",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": null,
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cra. 43E #11 - 40, El Poblado, Medellín",
+    "barrio": "El Poblado",
+    "lat": "",
+    "lon": "",
+    "commercial_status": "prospecto",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active"
+}

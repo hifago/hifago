@@ -1,11 +1,74 @@
 {
   "partner": "bania",
   "establishment": "bania",
-  "name": { "es": "Bania Travel — casa completa" },
+  "name": {
+    "es": "Bania Travel"
+  },
   "price_cop": 1320000,
   "unit": "per_house",
   "capacity": 20,
   "unit_count": 1,
   "lodging_kind": "whole_house",
-  "photos": ["1.jpeg", "2.jpeg", "3.jpeg", "5.jpeg", "7.jpeg", "9.jpeg"]
+  "external_booking_url": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "tags": [],
+  "price_tiers": [
+    {
+      "min_qty": 1,
+      "max_qty": 11,
+      "price_cop": 1320000
+    },
+    {
+      "min_qty": 12,
+      "max_qty": 15,
+      "price_cop": 1500000
+    },
+    {
+      "min_qty": 16,
+      "max_qty": 20,
+      "price_cop": 2000000
+    }
+  ],
+  "min_qty": 1,
+  "max_qty": 20,
+  "stay_rates": {
+    "season": {
+      "months": [
+        1,
+        6,
+        7,
+        8,
+        12
+      ],
+      "surcharge_pct": 0.15,
+      "note": "Temporada alta (junio a agosto y diciembre a enero): +15 % sobre el valor."
+    },
+    "weekend_days": [],
+    "weekend_surcharge_pct": 0,
+    "deposit_cop": 500000,
+    "extra_note": "Las fiestas y eventos especiales (matrimonios, primeras comuniones y similares) tienen un costo adicional."
+  },
+  "description": {
+    "es": "Guatapé · casa completa frente al embalse"
+  },
+  "_extra_columns": {
+    "category": null,
+    "sort": 180,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": false,
+    "max_units": null
+  },
+  "photos": [
+    "1.jpeg",
+    "2.jpeg",
+    "3.jpeg",
+    "5.jpeg",
+    "7.jpeg",
+    "9.jpeg"
+  ]
 }

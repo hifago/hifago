@@ -1,10 +1,32 @@
 {
   "partner": "kayam",
   "establishment": "kayam",
-  "name": { "es": "Clase DJ o Producción" },
+  "name": {
+    "es": "Clase DJ o Producción"
+  },
   "duration_minutes": 60,
-  "external_booking_url": "https://wa.me/573001112233?text=Hola%2C%20quiero%20reservar%20una%20Clase%20DJ%20o%20Producci%C3%B3n%20en%20Kayam%20Lab",
-  "tags": ["musica"],
-  "photos": ["1.webp"],
-  "_extra_columns": { "category": "musica", "qty_unit": "hours" }
+  "external_booking_url": null,
+  "tags": [
+    "musica"
+  ],
+  "_extra_columns": {
+    "category": "musica",
+    "sort": 10,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "slot",
+    "qty_unit": "hours",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "price_cop": 77000,
+  "unit": null,
+  "default_capacity": null,
+  "lobby_category_id": null,
+  "lobby_product_id": 473221,
+  "description": null,
+  "photos": [
+    "1.webp"
+  ]
 }

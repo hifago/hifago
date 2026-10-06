@@ -1,0 +1,28 @@
+{
+  "email": "medgarden@mock.hifago.test",
+  "display_name": "Laureles Garden Hostel",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": "MEDGARDEN",
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cl. 43 #77-34, Laureles - Estadio, Medellín",
+    "barrio": "Laureles",
+    "lat": null,
+    "lon": null,
+    "commercial_status": "activo",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.medgarden@mock.hifago.test",
+    "full_name": "Laureles Garden Hostel"
+  }
+}

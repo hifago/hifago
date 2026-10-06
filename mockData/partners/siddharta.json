@@ -1,0 +1,21 @@
+{
+  "email": "siddharta@mock.hifago.test",
+  "display_name": "Siddharta Travel",
+  "roles": [
+    "referrer",
+    "operator"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": "Guatapé",
+  "phone": null,
+  "code": "GUASIDDHARTA",
+  "commission_enabled": true,
+  "crm_profile": null,
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.siddharta@mock.hifago.test",
+    "full_name": "Siddharta Travel"
+  }
+}
