@@ -2,27 +2,9 @@ import type { Page } from "@playwright/test";
 import type pg from "pg";
 import { randomUUID } from "node:crypto";
 
-// Spec 21 — connecteur LobbyPMS. Calqué mot pour mot sur mockMercadoPagoCheckout
-// (packages/e2e-support/src/payments.ts, précédent direct) : intercepte UNIQUEMENT l'appel
-// fire-and-forget vers /api/pms/reserve-nights déclenché par CheckoutForm.tsx après un create_order
-// réussi — create_order reste un VRAI appel RPC (la réservation est réellement écrite), seul
-// l'appel réseau vers Lobby (via ce Route Handler) est simulé. Un test e2e qui veut prouver le vrai
-// comportement du Route Handler (regroupement par établissement, écriture pms_booking_id,
-// réconciliation sur échec) utilise plutôt LOBBY_API_BASE_URL + pmsFixtureServer, jamais ce mock
-// navigateur.
-export async function mockPmsReserveNights(page: Page): Promise<void> {
-  await page.route("**/api/pms/reserve-nights", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ ok: true }),
-    });
-  });
-}
-
-// Spec 21 §13 (gap comblé) — même discipline que mockPmsReserveNights ci-dessus : intercepte
-// UNIQUEMENT l'appel navigateur vers /api/pms/night-availability déclenché par
-// LodgingReservationForm.tsx, jamais le vrai LobbyPMS. `nights` couvre le contrat réel de la route
+// Spec 21 §13 (gap comblé) — intercepte au niveau navigateur (page.route) UNIQUEMENT l'appel vers
+// /api/pms/night-availability déclenché par LodgingReservationForm.tsx, jamais le vrai LobbyPMS.
+// `nights` couvre le contrat réel de la route
 // ({ ok: true, nights: [...] } ou { ok: false, reason }) — un test qui veut prouver le comportement
 // du Route Handler lui-même (lecture service_role, parsing V2) utilise plutôt LOBBY_API_BASE_URL +
 // pmsFixtureServer, jamais ce mock navigateur.
