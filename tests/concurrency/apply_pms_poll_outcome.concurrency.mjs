@@ -70,7 +70,9 @@ const EXPECTED = {
   "cancel/opponent": { poll: gone(1), opponent: (r) => r.ok && r.r?.ok === true },
   // Le seul refus attendu de modify_order_line : la ligne n'est plus `reserved`.
   "modify/poll": { poll: gone(2), opponent: (r) => !r.ok && MODIFY_REFUSED.test(r.message) },
-  "modify/opponent": { poll: gone(1), opponent: (r) => r.ok },
+  // Servie la première, modify_order_line refuse sans rien écrire une prestation adossée à un booking
+  // LobbyPMS (migration 20261006204938) : la RPC trouve encore les deux lignes.
+  "modify/opponent": { poll: gone(2), opponent: (r) => r.ok && r.r?.ok === false && r.r?.reason === "pms_line_not_modifiable" },
   "expire/poll": { poll: gone(2), opponent: (r) => r.ok && r.r?.reason === "not_candidate" },
   "expire/opponent": { poll: (r) => r.ok && r.r?.reason === "no_live_line", opponent: (r) => r.ok && r.r?.ok === true },
 };
