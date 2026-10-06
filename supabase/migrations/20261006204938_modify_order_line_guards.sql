@@ -89,9 +89,9 @@ begin
   -- Migration 20261006204938 : deux refus métier, rendus en `reason` (rien n'est encore écrit).
   -- Une prestation adossée à LobbyPMS : la ligne de remplacement n'hériterait pas du booking, et
   -- le passage de l'ancienne à `superseded` le mettrait en file d'annulation
-  -- (enqueue_pms_cancellations). Un produit à catégorie LobbyPMS n'a, lui, jamais pris de capacité
-  -- locale (même prédicat que release_order_line_capacity, qui n'a rien à lui rendre) : LobbyPMS
-  -- est sa seule disponibilité.
+  -- (enqueue_pms_cancellations). Un produit à catégorie LobbyPMS (aujourd'hui, des logements) : sa
+  -- ligne à plage n'a jamais pris de capacité locale (release_order_line_capacity n'a rien à lui
+  -- rendre) ; LobbyPMS est sa seule disponibilité.
   if v_old_line.pms_booking_id is not null or exists (
     select 1 from public.products p where p.id = v_old_line.product_id and p.lobby_category_id is not null
   ) then
