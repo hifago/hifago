@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { meetsPasswordPolicy, PASSWORD_MIN_LENGTH } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/client";
-import { Button, Checkbox, Input, Label, TextField, toast } from "@hifago/ui";
+import { Button, Checkbox, Description, Input, Label, TextField, toast } from "@hifago/ui";
+import { PASSWORD_HINT, PASSWORD_POLICY_ERROR } from "@/lib/auth/passwordMessages";
 import { OAuthSection } from "@/components/GoogleButton";
 import { PartnerTermsModal } from "./PartnerTermsModal";
 
@@ -30,6 +32,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   session_failed: "No se pudo iniciar la sesión. Inténtalo de nuevo.",
   consume_failed: "Ocurrió un error. Inténtalo de nuevo.",
   invalid_request: "Indica tu nombre, tu correo y una contraseña.",
+  // Même règle que le formulaire, revérifiée par la route (le formulaire peut être contourné).
+  weak_password: PASSWORD_POLICY_ERROR,
 };
 
 type ConsumeResult = { ok: boolean; reason?: string; roles?: string[]; partner_id?: string };
@@ -65,6 +69,11 @@ export function JoinForm({
     // rendre ce formulaire quand token est absent) — garde ici uniquement pour que TypeScript
     // resserre `token` en `string` dans cette fermeture, définie après ce early return.
     if (!token) return;
+    // Seul le parcours sans session pose un mot de passe ; la route revérifie la même règle.
+    if (!initialUser && !meetsPasswordPolicy(password)) {
+      toast.danger(PASSWORD_POLICY_ERROR);
+      return;
+    }
     setIsSubmitting(true);
 
     if (!initialUser) {
@@ -153,7 +162,8 @@ export function JoinForm({
             </TextField>
             <TextField fullWidth name="password" value={password} onChange={setPassword} isRequired>
               <Label>Contraseña</Label>
-              <Input type="password" autoComplete="new-password" />
+              <Input type="password" autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} />
+              <Description>{PASSWORD_HINT}</Description>
             </TextField>
           </>
         ) : null}

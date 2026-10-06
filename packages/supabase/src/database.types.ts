@@ -644,6 +644,24 @@ export type Database = {
           },
         ]
       }
+      job_expectations: {
+        Row: {
+          created_at: string
+          job_name: string
+          stale_after: string
+        }
+        Insert: {
+          created_at?: string
+          job_name: string
+          stale_after: string
+        }
+        Update: {
+          created_at?: string
+          job_name?: string
+          stale_after?: string
+        }
+        Relationships: []
+      }
       job_heartbeats: {
         Row: {
           alerted_at: string | null
@@ -2547,6 +2565,20 @@ export type Database = {
           pending_count: number
           referrer_commission_cop: number
           revenue_cop: number
+        }[]
+      }
+      admin_jobs_status: {
+        Args: never
+        Returns: {
+          alert_active: boolean
+          alerted_at: string
+          checked_at: string
+          job_name: string
+          last_error: string
+          last_ok_at: string
+          last_run_at: string
+          stale_after_minutes: number
+          state: string
         }[]
       }
       admin_ledger_entries_list: {

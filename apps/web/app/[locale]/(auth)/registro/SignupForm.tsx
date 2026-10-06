@@ -7,7 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 // anglophone y arrivait en espagnol.
 import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
-import { buildAuthCallbackRedirect } from "@hifago/domain";
+import { buildAuthCallbackRedirect, meetsPasswordPolicy, PASSWORD_MIN_LENGTH } from "@hifago/domain";
 import { Input, Label, TextField } from "@hifago/ui";
 import { Button } from "@/components/atoms/Button";
 import { Aviso } from "@/components/molecules/Aviso";
@@ -38,6 +38,12 @@ export function SignupForm({ next, initialEmail = "" }: { next: string; initialE
     event.preventDefault();
     setError(null);
 
+    // Règle commune aux deux apps, miroir de Supabase Auth : dite avant l'envoi plutôt qu'en
+    // « erreur générique » au retour.
+    if (!meetsPasswordPolicy(password)) {
+      setError(t("passwordPolicy", { min: PASSWORD_MIN_LENGTH }));
+      return;
+    }
     if (password !== confirmPassword) {
       setError(t("passwordMismatch"));
       return;
@@ -67,7 +73,13 @@ export function SignupForm({ next, initialEmail = "" }: { next: string; initialE
     if (signUpError) {
       // Message générique (ni email_exists ni user_already_exists distingué) — même discipline
       // que l'ancien écran admin : ne jamais confirmer l'existence d'un compte par ce message.
-      setError(t("genericError"));
+      // `weak_password` n'en dit rien : c'est la règle du serveur, si elle diffère un jour de la
+      // nôtre.
+      setError(
+        signUpError.code === "weak_password"
+          ? t("passwordPolicy", { min: PASSWORD_MIN_LENGTH })
+          : t("genericError")
+      );
       return;
     }
 
@@ -98,6 +110,7 @@ export function SignupForm({ next, initialEmail = "" }: { next: string; initialE
           onConfirmPasswordChange={setConfirmPassword}
           labelPassword={t("password")}
           labelConfirmPassword={t("confirmPassword")}
+          ayudaPassword={t("passwordHint", { min: PASSWORD_MIN_LENGTH })}
         />
         {error ? (
           <Aviso tono="error" rol="alert" testId="signup-error">

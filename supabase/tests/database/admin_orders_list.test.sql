@@ -26,9 +26,9 @@ values ('889e0000-0000-4000-8000-000000000031', 'admin', 'migration', 'active');
 
 insert into orders (id, account_id, holder_name, holder_email) values
   ('889e0000-0000-4000-8000-000000000041', '889e0000-0000-4000-8000-000000000032',
-   'Zamora Orders List', 'aol-holder@test.local'),
+   'Zamora Orders List 889e', 'aol-holder@test.local'),
   ('889e0000-0000-4000-8000-000000000042', '889e0000-0000-4000-8000-000000000032',
-   'Abarca Orders List', 'aol-holder-2@test.local');
+   'Abarca Orders List 889e', 'aol-holder-2@test.local');
 insert into order_lines (
   id, order_id, account_id, product_id, date, qty, status, holder_name,
   price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
@@ -36,11 +36,11 @@ insert into order_lines (
 ) values
   ('889e0000-0000-4000-8000-000000000051', '889e0000-0000-4000-8000-000000000041',
    '889e0000-0000-4000-8000-000000000032', '889e0000-0000-4000-8000-000000000021',
-   '2029-08-30', 1, 'reserved', 'Zamora Orders List',
+   '2029-08-30', 1, 'reserved', 'Zamora Orders List 889e',
    50000, 50000, 'direct', 0, 0, 0, 0, 0, 0),
   ('889e0000-0000-4000-8000-000000000052', '889e0000-0000-4000-8000-000000000042',
    '889e0000-0000-4000-8000-000000000032', '889e0000-0000-4000-8000-000000000021',
-   '2029-08-31', 1, 'fulfilled', 'Abarca Orders List',
+   '2029-08-31', 1, 'fulfilled', 'Abarca Orders List 889e',
    50000, 70000, 'direct', 0, 0, 0, 0, 0, 0);
 
 set local role authenticated;
@@ -54,33 +54,40 @@ select throws_ok(
 
 select test_login('889e0000-0000-4000-8000-000000000031'); -- admin
 
+-- Scopé aux commandes de ce fichier par p_q (holder_name ilike) et le jeton « 889e » porté par
+-- leurs titulaires, jamais en absolu : sur une base seedée ou déjà utilisée, la liste contient
+-- d'autres commandes (et la pagination par défaut, 20, en couperait). L'ordre du tri est lu via
+-- `with ordinality`, pas laissé à array_agg.
 select is(
-  (select count(*)::int from admin_orders_list()),
+  (select count(*)::int from admin_orders_list(p_q => '889e')),
   2,
-  'admin : voit les deux lignes, aucun filtre'
+  'admin : voit les deux lignes, sans autre filtre que le jeton du fichier'
 );
 select is(
-  (select count(*)::int from admin_orders_list(p_status => 'fulfilled')),
+  (select count(*)::int from admin_orders_list(p_q => '889e', p_status => 'fulfilled')),
   1,
   'filtre status : une seule ligne fulfilled'
 );
 select is(
-  (select array_agg(holder_name) from admin_orders_list(p_sort_key => 'total_cop', p_sort_desc => false)),
-  array['Zamora Orders List', 'Abarca Orders List'],
+  (select array_agg(t.holder_name order by t.ordinality)
+     from admin_orders_list(p_q => '889e', p_sort_key => 'total_cop', p_sort_desc => false)
+          with ordinality as t),
+  array['Zamora Orders List 889e', 'Abarca Orders List 889e'],
   'tri total_cop ascendant : 50000 (Zamora) avant 70000 (Abarca)'
 );
 
+-- Colonnes rendues : liste EXACTE, lue dans `proargnames`/`proargmodes` (mode 't' = colonne de
+-- `returns table`), même idiome que partner_commissions_list.test.sql. L'ancienne assertion joignait
+-- `pg_attribute` via `pg_type.typrelid`, nul pour un `returns table` (type `record`) : elle ne
+-- trouvait aucune colonne et passait quoi que la fonction rende. La liste exacte rougit sur une
+-- colonne de commission ajoutée comme sur tout autre ajout non relu.
 select is(
-  (
-    select coalesce(string_agg(a.attname, ', ' order by a.attname), '')
-    from pg_proc p
-    join pg_type t on t.oid = p.prorettype
-    join pg_attribute a on a.attrelid = t.typrelid
-    where p.proname = 'admin_orders_list'
-      and a.attname in ('referrer_commission_cop', 'app_commission_cop', 'acompte_cop', 'commission_case', 'referrer_partner_id')
-  ),
-  '',
-  'admin_orders_list ne retourne structurellement aucune colonne de commission'
+  (select string_agg(a.n, ', ' order by a.n)
+     from pg_proc p, unnest(p.proargnames, p.proargmodes) as a(n, m)
+    where p.oid = 'public.admin_orders_list'::regproc and a.m = 't'),
+  'created_at, date, end_date, establishment_name, holder_name, holder_phone, id, order_id, '
+  'product_name, qty, referrer_display_name, status, total_cop, total_count',
+  'admin_orders_list rend exactement ses colonnes d''affichage — aucune colonne de commission'
 );
 
 select * from finish();

@@ -34,6 +34,7 @@ export * from "./http/safeNextPath";
 export * from "./http/bearerMatchesKey";
 export * from "./jobs/jobError";
 export * from "./attribution/refCode";
+export * from "./auth/passwordPolicy";
 // Fuseau de l'exploitation (America/Bogota) — `todayInBogota()` et ses variantes sont l'UNIQUE
 // échappatoire autorisée à la règle de lint no-restricted-syntax des deux apps et au garde-fou
 // scripts/check-timezone.sh. Un seul module depuis la fusion du 2026-08-28.

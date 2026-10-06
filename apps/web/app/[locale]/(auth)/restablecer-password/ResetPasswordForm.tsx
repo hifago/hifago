@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 // ⚠️ `useRouter` d'`@/i18n/navigation`, jamais de `next/navigation` nu — voir LoginForm.tsx.
 import { useRouter } from "@/i18n/navigation";
+import { meetsPasswordPolicy, PASSWORD_MIN_LENGTH } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/client";
 import { Button } from "@/components/atoms/Button";
 import { Aviso } from "@/components/molecules/Aviso";
@@ -26,6 +27,10 @@ export function ResetPasswordForm() {
     event.preventDefault();
     setError(null);
 
+    if (!meetsPasswordPolicy(password)) {
+      setError(t("passwordPolicy", { min: PASSWORD_MIN_LENGTH }));
+      return;
+    }
     if (password !== confirmPassword) {
       setError(t("passwordMismatch"));
       return;
@@ -36,8 +41,16 @@ export function ResetPasswordForm() {
     const { error: updateError } = await supabase.auth.updateUser({ password });
     setIsSubmitting(false);
 
+    // Une session de récupération est neuve : la ré-authentification de `secure_password_change`
+    // ne la concerne jamais (elle ne vise que les sessions de plus de 24 h).
     if (updateError) {
-      setError(t("genericError"));
+      setError(
+        updateError.code === "weak_password"
+          ? t("passwordPolicy", { min: PASSWORD_MIN_LENGTH })
+          : updateError.code === "same_password"
+            ? t("samePassword")
+            : t("genericError")
+      );
       return;
     }
 
@@ -57,6 +70,7 @@ export function ResetPasswordForm() {
         onConfirmPasswordChange={setConfirmPassword}
         labelPassword={t("password")}
         labelConfirmPassword={t("confirmPassword")}
+        ayudaPassword={t("passwordHint", { min: PASSWORD_MIN_LENGTH })}
       />
       {error ? (
         <Aviso tono="error" rol="alert" testId="reset-password-error">

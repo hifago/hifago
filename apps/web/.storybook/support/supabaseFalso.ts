@@ -57,7 +57,7 @@ const estado = {
   usuario: null as Usuario | null,
   carrito: [] as FilaCarrito[],
   /** Erreur renvoyée par toute méthode d'auth (connexion refusée, inscription impossible…). */
-  errorAuth: null as string | null,
+  errorAuth: null as { message: string; code?: string } | null,
   /** Noms de méthodes `auth.*` ou de RPC qui ne répondent JAMAIS : l'état « envoi en cours ». */
   pendientes: new Set<string>(),
   rpc: { ...RPC_POR_DEFECTO } as Record<string, Respuesta>,
@@ -119,9 +119,12 @@ export function simularCarrito(lineas: LineaCarritoFalsa[]) {
   }));
 }
 
-/** Toute méthode `auth.*` échoue — aucun écran ne lit le code ni le message, seul `error` compte. */
-export function simularErrorAuth(mensaje: string | null) {
-  estado.errorAuth = mensaje;
+/**
+ * Toute méthode `auth.*` échoue. Aucun écran ne lit le message ; le `code` (celui de Supabase Auth,
+ * ex. `weak_password`, `same_password`) choisit le message de quelques écrans de mot de passe.
+ */
+export function simularErrorAuth(mensaje: string | null, codigo?: string) {
+  estado.errorAuth = mensaje === null ? null : { message: mensaje, ...(codigo ? { code: codigo } : {}) };
 }
 
 /** Ces méthodes (`"signInWithPassword"`, `"rpc:cancel_order_line"`…) ne répondront jamais. */
@@ -213,13 +216,13 @@ const auth = {
   signInAnonymously: async () => {
     // Échec possible : c'est l'« ajout au panier impossible » (toast d'erreur), le seul chemin par
     // lequel `CartContext.addLine` refuse une ligne.
-    if (estado.errorAuth) return { data: { session: null, user: null }, error: { message: estado.errorAuth } };
+    if (estado.errorAuth) return { data: { session: null, user: null }, error: estado.errorAuth };
     estado.usuario = USUARIO_ANONIMO;
     notificar("SIGNED_IN");
     return { data: { session: sesion(), user: estado.usuario }, error: null };
   },
   signInWithPassword: async () => {
-    if (estado.errorAuth) return { data: { session: null, user: null }, error: { message: estado.errorAuth } };
+    if (estado.errorAuth) return { data: { session: null, user: null }, error: estado.errorAuth };
     estado.usuario = USUARIO_CUENTA;
     notificar("SIGNED_IN");
     return { data: { session: sesion(), user: estado.usuario }, error: null };
@@ -241,7 +244,7 @@ const authConProxy = new Proxy(auth as Record<string, unknown>, {
     if (nombre in objetivo) return objetivo[nombre];
     return async () =>
       estado.errorAuth
-        ? { data: {}, error: { message: estado.errorAuth } }
+        ? { data: {}, error: estado.errorAuth }
         : { data: { user: estado.usuario, session: sesion() }, error: null };
   },
 });

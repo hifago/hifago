@@ -7,7 +7,8 @@
 //   1. npx supabase start actif.
 //   2. supabase/functions/.env (gitignoré) contient
 //        MERCADOPAGO_API_BASE_URL=http://host.docker.internal:4547
-//        MERCADOPAGO_ACCESS_TOKEN=<n'importe quelle valeur non vide>
+//        MERCADOPAGO_ACCESS_TOKEN=TEST-fixture-token (ou toute valeur, à condition de la passer aussi
+//        au test : la fixture refuse tout autre jeton)
 //      puis `npx supabase stop && npx supabase start` (le runtime Edge lit .env au démarrage).
 //      SANS ce réglage, la fonction pointerait vers le VRAI Mercado Pago — jamais souhaitable en test.
 //
@@ -46,7 +47,10 @@ import {
 
 const { Client } = pg;
 const FUNCTIONS_URL = localFunctionsUrl("payments-reconcile");
-const MP_TOKEN = "TEST-fixture-token";
+// Le jeton que la fonction a reçu (MERCADOPAGO_ACCESS_TOKEN de supabase/functions/.env) : la fixture
+// refuse tout autre jeton (401), et il ne doit apparaître nulle part dans ce qui sort. Lu dans
+// l'environnement comme la clé Resend de send_notification_emails ; en local, défaut historique.
+const MP_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN || "TEST-fixture-token";
 const FIXTURE_PORT = 4547;
 const COLLECTOR_ID = 1000000001; // compte encaisseur FICTIF (piège 19 : seul /users/me fait foi)
 // Les coordonnées du payeur, que Mercado Pago renvoie et qu'aucun événement conservé ne doit porter.
@@ -154,7 +158,10 @@ function startFixtureServer() {
     }
     send(404, { message: "unhandled by fixture server" });
   });
-  return new Promise((resolve) => server.listen(FIXTURE_PORT, "127.0.0.1", () => resolve(server)));
+  // Toutes les interfaces, pas 127.0.0.1 : la fonction tourne dans le conteneur du runtime Edge et
+  // joint la fixture par host.docker.internal — sous Linux (job CI integration-edge), une écoute
+  // limitée au loopback de l'hôte lui est injoignable. Même écoute que pms_sync_availability.
+  return new Promise((resolve) => server.listen(FIXTURE_PORT, () => resolve(server)));
 }
 
 async function purge(client) {

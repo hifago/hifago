@@ -17,6 +17,7 @@ let consommations: Array<{ args: Record<string, unknown>; sessionOuverte: boolea
 let creations: unknown[] = [];
 let suppressions: string[] = [];
 let deconnexions = 0;
+let verifications = 0;
 
 vi.mock("@hifago/supabase/server", () => ({
   // Un client neuf à chaque appel, comme le vrai : seule l'instance qui a fait signInWithPassword
@@ -35,7 +36,10 @@ vi.mock("@hifago/supabase/server", () => ({
         },
       },
       rpc: async (nom: string, args: Record<string, unknown>) => {
-        if (nom === "check_partner_invitation") return reponseCheck;
+        if (nom === "check_partner_invitation") {
+          verifications += 1;
+          return reponseCheck;
+        }
         if (nom === "consume_partner_invitation") {
           consommations.push({ args, sessionOuverte });
           return reponseConsume;
@@ -91,6 +95,7 @@ describe("POST /api/auth/invitation-signup", () => {
     creations = [];
     suppressions = [];
     deconnexions = 0;
+    verifications = 0;
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -116,6 +121,18 @@ describe("POST /api/auth/invitation-signup", () => {
     });
     expect(creations).toEqual([]);
   });
+
+  it.each([["abc1234"], ["sinchiffres"], ["12345678"], [12345678]])(
+    "refuse un mot de passe hors règle (%j) avant toute lecture, sans créer de compte",
+    async (password) => {
+      expect(await inscrire({ ...CORPS, password })).toEqual({
+        statut: 400,
+        corps: { ok: false, reason: "weak_password" },
+      });
+      expect(verifications).toBe(0);
+      expect(creations).toEqual([]);
+    }
+  );
 
   it("ne crée aucun compte pour un jeton déjà invalide", async () => {
     reponseCheck = { data: { ok: false, reason: "already_consumed" }, error: null };

@@ -7,6 +7,7 @@ import { CommissionsChart } from "./charts/CommissionsChart";
 import { TopPartnersChart } from "./charts/TopPartnersChart";
 import { CatalogHealthChart } from "./charts/CatalogHealthChart";
 import { AdminAlerts } from "./AdminAlerts";
+import { JobsStatus, type JobsStatusProps } from "./JobsStatus";
 import { RecentList } from "./RecentList";
 import { computeDateWindow } from "./dateWindow";
 
@@ -49,6 +50,7 @@ export default async function AdminHomePage({
     catalogDraftRes,
     catalogProposalRejectedRes,
     recentClientsRes,
+    jobsStatusRes,
   ] = await Promise.all([
     supabase.rpc("admin_dashboard_totals", { p_today: todayIso }),
     supabase.rpc("admin_dashboard_referrer_commissions"),
@@ -85,6 +87,8 @@ export default async function AdminHomePage({
     // notion de client que /admin/clients (list_clients, réservée à l'admin) — le bloc était
     // jusqu'ici une liste vide figée.
     supabase.rpc("list_clients", { p_sort_key: "last_order_at", p_sort_desc: true, p_limit: 5 }),
+    // Bloc « Procesos » : l'état des jobs planifiés, seuils et état calculés en base.
+    supabase.rpc("admin_jobs_status"),
   ]);
 
   // TOUTES les lectures lèvent sur une panne (lib/supabase/checkedRead.ts), pas seulement les
@@ -107,6 +111,31 @@ export default async function AdminHomePage({
   checkedRead(catalogDraftRes, "products (borradores)");
   checkedRead(catalogProposalRejectedRes, "product_proposals (rechazadas)");
   checkedRead(recentClientsRes, "list_clients");
+
+  // SEULE lecture de l'accueil qui ne lève pas (décision du 2026-10-04) : une panne de la
+  // supervision des jobs s'affiche DANS son bloc (« no disponible »), et le reste de l'accueil reste
+  // utilisable. Jamais une liste vide ni « al día » sur une panne.
+  let procesos: JobsStatusProps;
+  if (jobsStatusRes.error) {
+    console.error("admin_jobs_status : lecture impossible", jobsStatusRes.error.message);
+    procesos = { unavailable: true };
+  } else {
+    const jobs = jobsStatusRes.data ?? [];
+    procesos = {
+      // Les colonnes nullables (aucun heartbeat, aucune erreur, aucune alerte) sont typées non
+      // nulles par la génération de types d'une fonction `returns table` : relues comme nullables.
+      jobs: jobs.map((job) => ({
+        jobName: job.job_name,
+        staleAfterMinutes: job.stale_after_minutes,
+        lastOkAt: (job.last_ok_at as string | null) ?? null,
+        lastError: (job.last_error as string | null) ?? null,
+        alertedAt: (job.alerted_at as string | null) ?? null,
+        state: job.state,
+        alertActive: job.alert_active === true,
+      })),
+      checkedAt: jobs[0]?.checked_at ?? null,
+    };
+  }
 
   const totals = totalsRes.data?.[0];
   const totalRevenue = totals?.revenue_cop ?? 0;
@@ -183,6 +212,8 @@ export default async function AdminHomePage({
         reconciliationOpen={reconciliationOpenRes.count ?? 0}
         paymentReconciliationOpen={paymentReconciliationOpenRes.count ?? 0}
       />
+
+      <JobsStatus {...procesos} />
 
       <div className="flex items-center gap-2 text-sm">
         <span className="text-muted">Ventana:</span>

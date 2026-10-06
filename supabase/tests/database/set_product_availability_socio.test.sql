@@ -81,8 +81,9 @@ select is(
 -- Preuve du conditionnement : AUCUNE ligne audit_log créée par l'appel socio ci-dessus (vérifié
 -- sous l'admin, seul rôle qui peut lire audit_log) --------------------------------------------
 select test_login('77770000-0000-4000-8000-000000000023');
+-- Scopé au produit de l'appel socio, jamais en absolu (audit_log d'une base seedée n'est pas vide).
 select is(
-  (select count(*) from audit_log)::int, 0,
+  (select count(*) from audit_log where entity_id = '77770000-0000-4000-8000-000000000031')::int, 0,
   'aucune ligne audit_log créée par l''appel socio (preuve du conditionnement à v_is_admin)'
 );
 
