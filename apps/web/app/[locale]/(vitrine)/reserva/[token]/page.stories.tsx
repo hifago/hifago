@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect } from "storybook/test";
+import { expect, waitFor } from "storybook/test";
 import { historiaDePagina } from "@/.storybook/support/pagina";
 import { esperar, pulsar } from "@/.storybook/support/interacciones";
 import { simularRpc, simularSesion } from "@/.storybook/support/supabaseFalso";
@@ -68,7 +68,7 @@ export const PagoFueraDePlazo: StoryObj = {
   play: async ({ canvasElement }) => {
     await pulsar(canvasElement, '[data-testid="pay-button"]');
     const aviso = await esperar(canvasElement, '[data-testid="pms-notice"]');
-    await expect(aviso).toHaveTextContent("Se agotó el tiempo para pagar");
+    await waitFor(() => expect(aviso).toHaveTextContent("Se agotó el tiempo para pagar"));
   },
 };
 
@@ -86,25 +86,40 @@ export const ConfirmandoAlojamiento: StoryObj = {
   play: async ({ canvasElement }) => {
     await pulsar(canvasElement, '[data-testid="pay-button"]');
     const boton = await esperar(canvasElement, '[data-testid="pay-button"]');
-    await expect(boton).toHaveTextContent("Confirmando con el alojamiento");
+    await waitFor(() => expect(boton).toHaveTextContent("Confirmando con el alojamiento"));
   },
 };
 
 // Même départ, mais le logement refuse (plus de disponibilité) : rien n'est encaissé, l'écran le
-// dit et ne propose plus de payer.
-export const AlojamientoNoConfirmado: StoryObj = {
-  ...conFetch(
+// dit et ne propose plus de payer. `released` est TOUJOURS dans la réponse de la route : c'est lui
+// qui sépare la réservation déjà annulée de celle qui se libérera seule (`bookingRecovery`).
+const logementRefuse = (released: boolean): StoryObj =>
+  conFetch(
     pedido("token-por-pagar", {
       preparar: () =>
         simularRpc("create_payment_intent", { data: { ok: false, reason: "pms_booking_missing" }, error: null }),
     }),
-    { "/api/pms/reserve-nights": { status: 409, body: { ok: false, reason: "pms_refused" } } }
-  ),
-  name: "Logement non confirmé : rien n'est encaissé",
+    { "/api/pms/reserve-nights": { status: 409, body: { ok: false, reason: "pms_refused", released } } }
+  );
+
+export const AlojamientoNoConfirmado: StoryObj = {
+  ...logementRefuse(true),
+  name: "Logement non confirmé : réservation annulée",
   play: async ({ canvasElement }) => {
     await pulsar(canvasElement, '[data-testid="pay-button"]');
     const aviso = await esperar(canvasElement, '[data-testid="pms-notice"]');
-    await expect(aviso).toHaveTextContent("El alojamiento ya no está disponible");
+    await waitFor(() => expect(aviso).toHaveTextContent("la reserva quedó anulada"));
+  },
+};
+
+// Le refus est arrivé, mais l'annulation de la réservation a échoué : elle se libérera seule.
+export const AlojamientoNoConfirmadoSinLiberar: StoryObj = {
+  ...logementRefuse(false),
+  name: "Logement non confirmé : libération en attente",
+  play: async ({ canvasElement }) => {
+    await pulsar(canvasElement, '[data-testid="pay-button"]');
+    const aviso = await esperar(canvasElement, '[data-testid="pms-notice"]');
+    await waitFor(() => expect(aviso).toHaveTextContent("se liberará sola"));
   },
 };
 
