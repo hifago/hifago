@@ -14,6 +14,12 @@ import { ActionConfirmation } from "@/components/action-confirmation";
 // RPC préserve l'existant). "Tester la connexion" utilise le jeton TAPÉ à l'écran, jamais celui
 // déjà en base (piège documenté hifago/CLAUDE.md §11.4-5 : cibler .locator("input") en test, pas
 // le wrapper Checkbox).
+//
+// Remplacer un jeton déjà posé suppose, par défaut, un AUTRE compte Lobby (migration
+// 20261004005336) : les bookings posés avec l'ancien jeton ne sont plus interrogés ni annulés
+// automatiquement et passent en vérification manuelle. La case « misma cuenta » le dit pour une
+// simple rotation du jeton sur le même compte — proposée seulement quand un jeton existe déjà et
+// qu'un nouveau est tapé, décochée par défaut.
 export function EstablishmentPmsBlock({
   establishmentId,
   initialConnectorActive,
@@ -29,6 +35,8 @@ export function EstablishmentPmsBlock({
 
   const [connectorActive, setConnectorActive] = useState(initialConnectorActive);
   const [token, setToken] = useState("");
+  const [sameLobbyAccount, setSameLobbyAccount] = useState(false);
+  const replacingToken = initialHasToken && token.trim() !== "";
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -78,6 +86,7 @@ export function EstablishmentPmsBlock({
       p_lobby_api_token: token.trim() || undefined,
       p_connector_active: connectorActive,
       p_reason: reason.trim(),
+      p_same_lobby_account: replacingToken && sameLobbyAccount,
     });
 
     setIsSubmitting(false);
@@ -89,6 +98,7 @@ export function EstablishmentPmsBlock({
     }
 
     setToken("");
+    setSameLobbyAccount(false);
     setReason("");
     router.refresh();
     setShowConfirmation(true);
@@ -140,10 +150,36 @@ export function EstablishmentPmsBlock({
             type="password"
             autoComplete="off"
             value={token}
-            onChange={(event) => setToken(event.target.value)}
+            onChange={(event) => {
+              setToken(event.target.value);
+              // Champ vidé : plus un remplacement — la déclaration « même compte » est à refaire.
+              if (event.target.value.trim() === "") setSameLobbyAccount(false);
+            }}
             data-testid="pms-token-input"
           />
         </div>
+
+        {replacingToken ? (
+          <div className="flex flex-col gap-1.5">
+            <Checkbox
+              data-testid="pms-same-lobby-account-checkbox"
+              isSelected={sameLobbyAccount}
+              onChange={setSameLobbyAccount}
+            >
+              <Checkbox.Content>
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+                Misma cuenta de LobbyPMS (solo se renueva el token)
+              </Checkbox.Content>
+            </Checkbox>
+            <p className="text-sm text-muted" data-testid="pms-same-lobby-account-help">
+              {sameLobbyAccount
+                ? "Las reservas hechas con el token anterior se siguen consultando y cancelando con el nuevo. Márcalo solo si es la misma cuenta: si es otra, esas reservas no se encontrarían y se anularían en Hifago."
+                : "Si es otra cuenta, las reservas hechas con el token anterior dejan de consultarse y cancelarse automáticamente: pasan a verificación manual en la conciliación."}
+            </p>
+          </div>
+        ) : null}
 
         <Button
           type="button"
