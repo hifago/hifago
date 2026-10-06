@@ -3164,7 +3164,7 @@ export type Database = {
         Returns: undefined
       }
       notify_order_line_cancelled: {
-        Args: { p_by: string; p_client_note: string; p_line_id: string }
+        Args: { p_by: string; p_line_id: string }
         Returns: undefined
       }
       offboarding_attest_payments: {
