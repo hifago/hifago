@@ -14,8 +14,8 @@ export default meta;
 
 export const Inscripcion1: StoryObj = etapa(1, "Inscription", Inscripcion.Formulario, async ({ canvasElement }) => {
   await escribir(canvasElement, 'input[name="email"]', "laura@ejemplo.co");
-  await escribir(canvasElement, 'input[name="password"]', "una-clave-segura");
-  await escribir(canvasElement, 'input[name="confirm-password"]', "una-clave-segura");
+  await escribir(canvasElement, 'input[name="password"]', "ClaveSegura2026");
+  await escribir(canvasElement, 'input[name="confirm-password"]', "ClaveSegura2026");
   await pulsar(canvasElement, '[data-testid="signup-submit-button"]');
   await navegoA("/verificar-email");
 });
@@ -26,7 +26,7 @@ export const Verificacion2: StoryObj = etapa(2, "Vérifier son e-mail", Verifica
 
 export const Conexion3: StoryObj = etapa(3, "Connexion", Conexion.Formulario, async ({ canvasElement }) => {
   await escribir(canvasElement, 'input[name="email"]', "laura@ejemplo.co");
-  await escribir(canvasElement, 'input[name="password"]', "una-clave-segura");
+  await escribir(canvasElement, 'input[name="password"]', "ClaveSegura2026");
   await pulsar(canvasElement, 'form button[type="submit"]');
   await navegoA("/");
 });

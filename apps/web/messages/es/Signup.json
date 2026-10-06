@@ -6,6 +6,8 @@
   "submit": "Crear cuenta",
   "submitting": "Creando…",
   "passwordMismatch": "Las contraseñas no coinciden.",
+  "passwordHint": "Mínimo {min} caracteres, con letras y números.",
+  "passwordPolicy": "La contraseña debe tener al menos {min} caracteres, con letras y números.",
   "genericError": "No se pudo crear la cuenta. Verifica los datos e inténtalo de nuevo.",
   "loginLink": "¿Ya tienes cuenta?",
   "loginLinkAction": "Iniciar sesión"

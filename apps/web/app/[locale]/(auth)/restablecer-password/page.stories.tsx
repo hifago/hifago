@@ -18,8 +18,8 @@ const conSesion = (extra?: () => void) => () => {
   extra?.();
 };
 
-async function enviar(raiz: HTMLElement, confirmacion = "nueva-clave-segura") {
-  await escribir(raiz, 'input[name="password"]', "nueva-clave-segura");
+async function enviar(raiz: HTMLElement, confirmacion = "NuevaClave2026", clave = "NuevaClave2026") {
+  await escribir(raiz, 'input[name="password"]', clave);
   await escribir(raiz, 'input[name="confirm-password"]', confirmacion);
   await pulsar(raiz, '[data-testid="reset-password-submit"]');
 }
@@ -37,6 +37,17 @@ export const ContrasenasDistintas: StoryObj = {
   },
 };
 
+export const ContrasenaDebil: StoryObj = {
+  ...pagina(conSesion()),
+  name: "Mot de passe hors règle",
+  play: async ({ canvasElement }) => {
+    await enviar(canvasElement, "nueva-clave", "nueva-clave");
+    await expect(await esperar(canvasElement, '[data-testid="reset-password-error"]')).toHaveTextContent(
+      "al menos 8 caracteres, con letras y números"
+    );
+  },
+};
+
 export const Guardando: StoryObj = {
   ...pagina(conSesion(() => simularPendiente("updateUser"))),
   name: "Enregistrement en cours",
@@ -46,8 +57,19 @@ export const Guardando: StoryObj = {
   },
 };
 
+export const MismaContrasena: StoryObj = {
+  ...pagina(conSesion(() => simularErrorAuth("New password should be different", "same_password"))),
+  name: "Même mot de passe qu'avant",
+  play: async ({ canvasElement }) => {
+    await enviar(canvasElement);
+    await expect(await esperar(canvasElement, '[data-testid="reset-password-error"]')).toHaveTextContent(
+      "distinta de la actual"
+    );
+  },
+};
+
 export const Error: StoryObj = {
-  ...pagina(conSesion(() => simularErrorAuth("same_password"))),
+  ...pagina(conSesion(() => simularErrorAuth("unexpected_failure"))),
   name: "Erreur à l'enregistrement",
   play: async ({ canvasElement }) => {
     await enviar(canvasElement);
