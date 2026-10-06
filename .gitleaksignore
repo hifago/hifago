@@ -25,3 +25,14 @@ d8159cdcd443dfbe61298a40b043147df068424c:tests/payments-integration/payments_rec
 
 # Identifiants des comptes synthétiques @hifago.test du seed, utilisés par les tests e2e.
 6a3808faf10990c3ae64c4084cdbd5cfb4f1f972:packages/e2e-support/src/auth.ts:jwt:63
+
+# Mêmes clés de DÉMO locales (payloads décodés le 2026-10-06 : `iss: supabase-demo`, rôles
+# service_role et anon), regroupées dans l'utilitaire des tests d'intégration des jobs (P6b-2).
+573b6410e35dfa9c6be015389431be09ba144b63:tests/support/edgeJobIntegration.mjs:jwt:13
+573b6410e35dfa9c6be015389431be09ba144b63:tests/support/edgeJobIntegration.mjs:jwt:16
+
+# Valeurs FACTICES d'un test unitaire du masquage des secrets (jeton Lobby de la forme d'un vrai,
+# secret de relais, clé `sb_secret_` d'exemple) — aucune n'est un secret réel. Vérifié le 2026-10-06.
+4d0ce89c6f57060e515a8becbcbace88e5f80cbe:packages/domain/src/jobs/jobError.test.ts:generic-api-key:7
+4d0ce89c6f57060e515a8becbcbace88e5f80cbe:packages/domain/src/jobs/jobError.test.ts:generic-api-key:8
+4d0ce89c6f57060e515a8becbcbace88e5f80cbe:packages/domain/src/jobs/jobError.test.ts:generic-api-key:42
