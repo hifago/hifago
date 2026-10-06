@@ -1,0 +1,8 @@
+<!-- Code de ré-authentification (secure_password_change, décision du 2026-10-06) : envoyé par
+     reauthenticate() quand une session de plus de 24 h veut changer de mot de passe. Le code se
+     saisit dans l'écran qui l'a demandé (PasswordBlock, apps/admin) : aucun lien ici. Durée de
+     validité non écrite : elle dépend du réglage OTP de chaque projet. -->
+<h2>Tu código de verificación de Hifago</h2>
+<p>Para confirmar el cambio de tu contraseña, ingresa este código en la pantalla donde lo pediste:</p>
+<p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">{{ .Token }}</p>
+<p>El código sirve una sola vez y vence pronto. Si no intentaste cambiar tu contraseña, ignora este correo y tu contraseña seguirá igual.</p>
