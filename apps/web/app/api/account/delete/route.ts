@@ -54,7 +54,8 @@ export async function POST(request: Request) {
   // fermé), le client retente avec l'email d'origine : la session voit déjà l'adresse neutralisée,
   // et la comparaison ci-dessous bouclait sur `email_mismatch` sans fin. Une session valide portant
   // l'adresse neutralisée de CE compte ne peut venir que d'une suppression déjà menée à son terme
-  // (la connexion y est impossible : le mot de passe a été remplacé) — on le dit, sans rien rejouer.
+  // (seule l'étape 2 ci-dessous pose cette adresse, après l'anonymisation) — on le dit, sans rien
+  // rejouer.
   // L'échec de l'étape 2 (`auth_update_failed`) est, lui, déjà rejouable tel quel :
   // `delete_my_account` réanonymise sans erreur un profil déjà vidé.
   if (user.email.trim().toLowerCase() === adresseNeutralisee(user.id)) {
