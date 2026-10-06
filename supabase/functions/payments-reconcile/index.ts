@@ -10,16 +10,21 @@
 // du token douteuse, budget d'appels épuisé ⇒ ce qui n'a pas pu être vérifié attend le tick suivant,
 // rien n'expire, et le heartbeat le dit (`job_heartbeats`, watchdog SQL à 15 min).
 //
-// Même squelette que pms-poll-bookings/index.ts. Points propres à ce job :
-//   - le bearer est comparé à SUPABASE_SERVICE_ROLE_KEY (le `verify_jwt` par défaut accepte la clé
-//     anon publique — un job qui modifie des paiements ne doit pas être déclenchable par un visiteur) ;
+// Squelette commun des jobs (_shared/job.ts : contrôle d'appelant, budget de temps — 45 s, sous les
+// 55 s du wrapper pg_net et le bail de 2 min de claim_orders_to_reconcile —, heartbeat à chaque
+// passage, aucun secret dans ce qui sort). Points propres à ce job :
 //   - MERCADOPAGO_ACCESS_TOKEN doit appartenir au MÊME compte MP que celui d'apps/web (piège 19) :
 //     `GET /users/me` le prouve à chaque run, `reconcile_order` ET `record_mp_payment_status`
 //     refusent tous deux si l'id diverge (20260922170000 — le second en était dépourvu) ;
 //   - MERCADOPAGO_API_BASE_URL est surchargeable (fixture HTTP des tests d'intégration) ;
 //   - aucun `new Date()` (scripts/check-timezone.sh) : l'horodatage de contrôle est `claimed_at`,
 //     rendu par la base au moment du claim ; les deltas se calculent sur des instants ISO.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { type JobOutcome, serveJob } from "../_shared/job.ts";
+import {
+  exploitableAmount,
+  type MercadoPagoPaymentFields,
+  toPaymentEvent,
+} from "../../../packages/domain/src/mercadopago/paymentEvent.ts";
 
 const MP_DEFAULT_BASE_URL = "https://api.mercadopago.com";
 /** Appels MP par run, toutes routes confondues : au-delà, le reste attend le tick suivant (2 min). */
@@ -51,26 +56,26 @@ interface WatchedPayment {
   order_id: string;
   claimed_at: string;
 }
-interface MpPayment {
+interface MpPayment extends MercadoPagoPaymentFields {
   id: number | string;
   status: string;
-  status_detail?: string;
-  transaction_amount?: number;
-  external_reference?: string;
-  date_created?: string;
-  date_approved?: string | null;
-  collector_id?: number | string;
 }
-/** La forme que `reconcile_order`/`record_mp_payment_status` attendent dans p_mp_payments. */
+/** La forme que `reconcile_order`/`record_mp_payment_status` attendent dans p_mp_payments — et
+ *  qu'elles CONSERVENT telle quelle (raw_event, raw_last_event) : l'événement aplati partagé
+ *  (paymentEvent.ts), plus l'id du paiement local. */
 interface MpItem {
   payment_id: string;
   mp_payment_id: string;
   status: string;
   status_detail: string | null;
   transaction_amount: number | null;
+  mp_transaction_amount: number | null;
+  currency_id: string | null;
   date_created: string | null;
   date_approved: string | null;
+  external_reference: string | null;
   collector_id: string | null;
+  webhook_body: null;
 }
 interface Decision {
   action: string;
@@ -86,36 +91,22 @@ interface ClaimedRefund {
 
 class MpBudgetExceeded extends Error {}
 
-function json(payload: Record<string, unknown>, status = 200): Response {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+/** Le résultat d'apply_payment_webhook_checked : `{ok:true}` appliqué, `{ok:true, reason}` lu sans
+ *  application (double paiement, remboursement à faire…), `{ok:false, reason}` refusé. */
+interface CheckedResult {
+  ok?: boolean;
+  reason?: string;
 }
 
 function toItem(paymentId: string, p: MpPayment): MpItem {
-  return {
-    payment_id: paymentId,
-    mp_payment_id: String(p.id),
-    status: String(p.status),
-    status_detail: p.status_detail ?? null,
-    transaction_amount: typeof p.transaction_amount === "number" ? p.transaction_amount : null,
-    date_created: p.date_created ?? null,
-    date_approved: p.date_approved ?? null,
-    collector_id: p.collector_id === undefined ? null : String(p.collector_id),
-  };
+  // Montant EXPLOITABLE seulement (COP, fini) — sinon null, que la base traite en échec fermé ; la
+  // devise et le montant brut restent dans l'événement (diagnostic). Jamais le payeur.
+  const event = toPaymentEvent(p, exploitableAmount(p), null) as unknown as Omit<MpItem, "payment_id">;
+  return { ...event, payment_id: paymentId, mp_payment_id: String(p.id), status: String(p.status) };
 }
 
-Deno.serve(async (req) => {
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!serviceKey || req.headers.get("authorization") !== `Bearer ${serviceKey}`) {
-    return json({ ok: false, reason: "unauthorized" }, 401);
-  }
-  const supabase = createClient(Deno.env.get("SUPABASE_URL") ?? "", serviceKey);
+serveJob("payments-reconcile", async (ctx): Promise<JobOutcome> => {
+  const { supabase, request: req } = ctx;
 
   const body = await req.json().catch(() => ({}));
   const limit = Number((body as { limit?: number })?.limit ?? 25);
@@ -142,30 +133,25 @@ Deno.serve(async (req) => {
     /** Écart max (ms) entre `date_approved` chez MP et l'instant où ce job l'a vu : la mesure du
      *  délai d'indexation de /v1/payments/search, non documenté par MP — sert à caler la marge. */
     index_delay_ms_max: 0,
+    /** apply_payment_webhook_checked a lu le paiement sans l'appliquer (double paiement, etc.). */
+    checked_not_applied: 0,
   };
-
-  async function heartbeat(ok: boolean, error: string | null) {
-    const { error: hbError } = await supabase.rpc("heartbeat_job", {
-      p_job: "payments-reconcile",
-      p_ok: ok,
-      p_stats: stats,
-      p_error: error,
-    });
-    if (hbError) console.error("heartbeat_job a échoué", hbError);
-  }
 
   // Sans token, on ne réclame RIEN (patron send-notification-emails) : un claim poserait
   // reconcile_claimed_at pour rien. 200 volontaire — état de configuration, pas une panne.
   if (!token) {
-    await heartbeat(false, "MERCADOPAGO_ACCESS_TOKEN manquant (supabase secrets set / functions/.env)");
-    return json({ ok: false, reason: "secret_missing", ...stats });
+    return { ok: false, error: "MERCADOPAGO_ACCESS_TOKEN manquant (supabase secrets set / functions/.env)", stats };
   }
 
   async function mp(path: string, init?: RequestInit): Promise<{ status: number; body: Record<string, unknown> | null }> {
     if (stats.mp_calls >= MAX_MP_CALLS) throw new MpBudgetExceeded("budget d'appels MP épuisé pour ce run");
+    // Budget de TEMPS du passage, en plus du budget d'appels : le reste attend le tick suivant.
+    const timeoutMs = ctx.nextCallTimeout();
+    if (timeoutMs === null) throw new MpBudgetExceeded("budget de temps épuisé pour ce run");
     stats.mp_calls++;
     const res = await fetch(`${baseUrl}${path}`, {
       ...init,
+      signal: AbortSignal.timeout(timeoutMs),
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -186,8 +172,7 @@ Deno.serve(async (req) => {
     }
     collectorId = String(me.body.id);
   } catch (err) {
-    await heartbeat(false, `mp_unreachable: ${errorMessage(err)}`);
-    return json({ ok: false, reason: "mp_unreachable", ...stats });
+    return { ok: false, error: `mp_unreachable: ${ctx.describe(err)}`, stats };
   }
 
   async function searchByReference(paymentId: string): Promise<MpItem[]> {
@@ -218,8 +203,7 @@ Deno.serve(async (req) => {
   // ---- 1. Commandes candidates -------------------------------------------------------------
   const { data: batch, error: claimError } = await supabase.rpc("claim_orders_to_reconcile", { p_limit: limit });
   if (claimError) {
-    await heartbeat(false, `claim_failed: ${claimError.message}`);
-    return json({ ok: false, reason: "claim_failed" }, 500);
+    return { ok: false, error: `claim_failed: ${ctx.describe(claimError)}`, stats, status: 500 };
   }
   const orders = (batch ?? []) as ClaimedOrder[];
   stats.claimed = orders.length;
@@ -292,37 +276,58 @@ Deno.serve(async (req) => {
             body: JSON.stringify({ status: "cancelled" }),
           });
           const get = await mp(`/v1/payments/${encodeURIComponent(mpId)}`);
+          // Le paiement relu, quand MP le dit approuvé : l'événement est construit sur CETTE réponse.
+          const approved =
+            get.status === 200 && get.body?.status === "approved" ? (get.body as MercadoPagoPaymentFields) : null;
           const statusAfter =
             get.status === 200 && typeof get.body?.status === "string"
               ? (get.body.status as string)
               : put.status === 200
                 ? "cancelled"
                 : null;
-          await supabase.rpc("mark_mp_cancel_attempt", {
+          const { error: markError } = await supabase.rpc("mark_mp_cancel_attempt", {
             p_payment_id: item.payment_id,
             p_mp_status_after: statusAfter,
           });
-          if (statusAfter === "approved") {
+          if (markError) {
+            stats.errors++;
+            console.error(`payments-reconcile: tentative d'annulation de ${item.payment_id} non consignée — ${ctx.describe(markError)}`);
+          }
+          if (approved !== null) {
             approvedSeen = true;
-            await supabase.rpc("apply_payment_webhook_checked", {
+            // L'événement APLATI (jamais l'objet MP entier, payeur compris) et un montant exploitable
+            // (COP) ou null.
+            const amount = exploitableAmount(approved);
+            const { data: checked, error: checkedError } = await supabase.rpc("apply_payment_webhook_checked", {
               p_mp_payment_id: mpId,
               p_external_reference: item.payment_id,
               p_status: "approved",
-              p_transaction_amount:
-                typeof get.body?.transaction_amount === "number"
-                  ? (get.body.transaction_amount as number)
-                  : item.transaction_amount,
-              p_raw_event: get.body ?? item,
+              p_transaction_amount: amount as number,
+              p_raw_event: toPaymentEvent(approved, amount, null),
             });
-            stats.applied++;
+            const result = (checked ?? {}) as CheckedResult;
+            if (checkedError || !result.ok) {
+              stats.errors++;
+              console.error(
+                `payments-reconcile: approbation de ${item.payment_id} non appliquée — ${checkedError ? ctx.describe(checkedError) : result.reason ?? "refus"}`
+              );
+            } else if (result.reason) {
+              stats.checked_not_applied++;
+              console.warn(`payments-reconcile: approbation de ${item.payment_id} lue sans application (${result.reason})`);
+            } else {
+              stats.applied++;
+            }
           }
         }
         if (decision.action === "cancel_at_mp" && !approvedSeen) {
-          const { data: expired } = await supabase.rpc("expire_payment_order", {
+          const { data: expired, error: expireError } = await supabase.rpc("expire_payment_order", {
             p_order_id: order.order_id,
             p_checked_at: order.claimed_at,
           });
-          if ((expired as { ok?: boolean } | null)?.ok) stats.expired++;
+          if (expireError) {
+            stats.errors++;
+            console.error(`payments-reconcile: expiration de ${order.order_id} en échec — ${ctx.describe(expireError)}`);
+          } else if ((expired as { ok?: boolean } | null)?.ok) stats.expired++;
           else stats.kept_pending++;
         }
       }
@@ -332,18 +337,21 @@ Deno.serve(async (req) => {
         break;
       }
       stats.errors++;
-      console.error(`payments-reconcile: commande ${order.order_id} en échec — ${errorMessage(err)}`);
+      console.error(`payments-reconcile: commande ${order.order_id} en échec — ${ctx.describe(err)}`);
     }
   }
 
   // ---- 2. Surveillance après expiration/annulation (48 h) ----------------------------------
   // Un virement PSE qui aboutit après l'expiration, une approbation indexée tard : l'argent doit
   // rester visible même si le webhook est mort — la garde du Lot A en fait une entrée refund_required.
+  // Rien n'est réclamé quand le budget de temps ne laisse plus un appel : le bail de la réclamation
+  // retarderait le passage suivant pour rien.
+  if (!stats.budget_hit && ctx.nextCallTimeout() === null) stats.budget_hit = true;
   if (!stats.budget_hit) {
     const { data: watched, error: watchError } = await supabase.rpc("claim_payments_to_watch", { p_limit: limit });
     if (watchError) {
       stats.errors++;
-      console.error("claim_payments_to_watch a échoué", watchError);
+      console.error(`claim_payments_to_watch a échoué — ${ctx.describe(watchError)}`);
     }
     for (const w of (watched ?? []) as WatchedPayment[]) {
       try {
@@ -367,7 +375,7 @@ Deno.serve(async (req) => {
           break;
         }
         stats.errors++;
-        console.error(`payments-reconcile: surveillance ${w.payment_id} en échec — ${errorMessage(err)}`);
+        console.error(`payments-reconcile: surveillance ${w.payment_id} en échec — ${ctx.describe(err)}`);
       }
     }
   }
@@ -377,11 +385,12 @@ Deno.serve(async (req) => {
   // l'appel et finalize rejoue la même clé au bail suivant, MP ne rembourse pas deux fois. Le corps
   // d'erreur est conservé tel quel (raw_response) — le mapping « déjà remboursé » / « trop vieux »
   // s'écrit sur des corps CAPTURÉS en préprod, jamais devinés (spec 39 §10.5).
+  if (!stats.budget_hit && ctx.nextCallTimeout() === null) stats.budget_hit = true;
   if (!stats.budget_hit) {
     const { data: refunds, error: refundClaimError } = await supabase.rpc("claim_payment_refunds", { p_limit: 10 });
     if (refundClaimError) {
       stats.errors++;
-      console.error("claim_payment_refunds a échoué", refundClaimError);
+      console.error(`claim_payment_refunds a échoué — ${ctx.describe(refundClaimError)}`);
     }
     for (const refund of (refunds ?? []) as ClaimedRefund[]) {
       stats.refunds_claimed++;
@@ -392,30 +401,39 @@ Deno.serve(async (req) => {
           body: JSON.stringify({}),
         });
         const message = String(res.body?.message ?? "");
+        // Le corps est conservé (raw_response) — chaque chaîne masquée : jamais un secret en base.
+        const raw = ctx.redactJson(res.body);
+        let writeError: unknown = null;
         if (res.status === 200 || res.status === 201) {
-          await supabase.rpc("finalize_payment_refund", {
+          ({ error: writeError } = await supabase.rpc("finalize_payment_refund", {
             p_refund_id: refund.refund_id,
             p_outcome: "approved",
             p_mp_refund_id: res.body?.id === undefined ? null : String(res.body.id),
-            p_raw: res.body,
-          });
+            p_raw: raw,
+          }));
           stats.refunds_approved++;
         } else if (res.status >= 500 || res.status === 429) {
-          await supabase.rpc("fail_payment_refund", {
+          ({ error: writeError } = await supabase.rpc("fail_payment_refund", {
             p_refund_id: refund.refund_id,
-            p_error: `HTTP ${res.status} ${message}`.trim(),
-          });
+            p_error: ctx.redact(`HTTP ${res.status} ${message}`.trim()),
+          }));
           stats.refunds_retry++;
         } else {
           // 4xx métier : refus définitif, l'admin reprend la main avec le corps exact sous les yeux.
-          await supabase.rpc("finalize_payment_refund", {
+          ({ error: writeError } = await supabase.rpc("finalize_payment_refund", {
             p_refund_id: refund.refund_id,
             p_outcome: "rejected",
             p_mp_refund_id: null,
-            p_raw: res.body,
-            p_error: `HTTP ${res.status} ${message}`.trim(),
-          });
+            p_raw: raw,
+            p_error: ctx.redact(`HTTP ${res.status} ${message}`.trim()),
+          }));
           stats.refunds_rejected++;
+        }
+        if (writeError) {
+          // Le bail du claim (10 min) le rejoue avec la même X-Idempotency-Key : MP ne rembourse
+          // pas deux fois — mais la supervision le dit.
+          stats.errors++;
+          console.error(`payments-reconcile: remboursement ${refund.refund_id} non consigné — ${ctx.describe(writeError)}`);
         }
       } catch (err) {
         if (err instanceof MpBudgetExceeded) {
@@ -423,19 +441,20 @@ Deno.serve(async (req) => {
           break;
         }
         stats.errors++;
-        await supabase.rpc("fail_payment_refund", { p_refund_id: refund.refund_id, p_error: errorMessage(err) });
+        const { error: failError } = await supabase.rpc("fail_payment_refund", { p_refund_id: refund.refund_id, p_error: ctx.describe(err) });
+        if (failError) console.error(`payments-reconcile: remboursement ${refund.refund_id} non consigné — ${ctx.describe(failError)}`);
         stats.refunds_retry++;
       }
     }
   }
 
-  const ok = !identityMismatch;
-  await heartbeat(
-    ok,
-    identityMismatch
+  return {
+    ok: !identityMismatch && stats.errors === 0,
+    error: identityMismatch
       ? "identity_mismatch: MERCADOPAGO_ACCESS_TOKEN n'appartient pas au compte MP qui a créé les préférences (piège 19)"
-      : null
-  );
-  console.info("payments-reconcile", JSON.stringify(stats));
-  return json({ ok, ...stats });
-});
+      : stats.errors > 0
+        ? `${stats.errors} erreur(s) pendant le rapprochement (recherche MP, RPC ou remboursement) — détail dans les journaux`
+        : null,
+    stats,
+  };
+}, { budgetMs: 45_000 });

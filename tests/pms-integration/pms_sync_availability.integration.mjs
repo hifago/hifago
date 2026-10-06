@@ -9,24 +9,43 @@
 // c'est précisément là que vivent les défauts qui ne se voient qu'au boot (un import sans `.ts`
 // casse la fonction sans que typecheck, lint ni tests ne bougent).
 //
+// P6 : un 429 de Lobby est consigné avec son statut, et son `Retry-After` repousse le couple
+// au-delà du backoff calculé.
+//
 // PRÉREQUIS (cf. tests/pms-integration/pms_poll_bookings.integration.mjs, même protocole) :
-//   1. npx supabase start actif.
+//   1. npx supabase start actif, le Vault SANS pms_service_role_key.
 //   2. supabase/functions/.env contient LOBBY_API_BASE_URL=http://host.docker.internal:4545 —
 //      SANS ce réglage la fonction appellerait le VRAI LobbyPMS, jamais souhaitable en test.
+//   3. Aucun autre établissement au connecteur actif (sinon arrêt, exit 2). La fixture répond la
+//      MÊME catégorie à tout appel : un autre établissement réclamé recevrait des disponibilités
+//      inventées — et le test ne met plus en pause les connecteurs des autres (la pile est partagée,
+//      ses données ne sont pas les siennes). Sur une pile au seed (Casa Kayam connecté), le couper
+//      à la main le temps du test.
 import pg from "pg";
 import { createServer } from "node:http";
+import {
+  CONNECTION_STRING,
+  KEYS,
+  callerChecks,
+  localFunctionsUrl,
+  refuseIfCronsCanFire,
+  refuseIfForeignRows,
+  restoreHeartbeat,
+  snapshotHeartbeat,
+} from "../support/edgeJobIntegration.mjs";
 
 const { Client } = pg;
-const CONNECTION_STRING = "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
-const FUNCTIONS_URL = "http://127.0.0.1:54321/functions/v1/pms-sync-availability";
-const SERVICE_ROLE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ??
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
+const FUNCTIONS_URL = localFunctionsUrl("pms-sync-availability");
 const FIXTURE_PORT = 4545;
 
 const PARTNER_ID = "88880000-0000-4000-8000-000000000001";
 const ESTABLISHMENT_ID = "88880000-0000-4000-8000-000000000011";
 const PRODUCT_ID = "88880000-0000-4000-8000-000000000021";
+// Un second établissement, connecté après le premier passage : Lobby lui répond 429.
+const RATE_ESTABLISHMENT_ID = "88880000-0000-4000-8000-000000000012";
+const RATE_PRODUCT_ID = "88880000-0000-4000-8000-000000000022";
+const RATE_TOKEN = "fake-token-rate-limited";
+const RETRY_AFTER_SECONDS = 900;
 const CATEGORY_ID = 888001;
 
 let appels = 0;
@@ -65,6 +84,18 @@ function startFixtureServer() {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
     if (req.method === "GET" && url.pathname === "/api/v2/available-rooms") {
       appels++;
+      // Un jeton inconnu de la fixture (un autre établissement réclamé) n'obtient JAMAIS de
+      // disponibilités inventées : une panne, son miroir ne bouge pas.
+      if (url.searchParams.get("api_token") !== "fake-token" && url.searchParams.get("api_token") !== RATE_TOKEN) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ message: "jeton inconnu de la fixture" }));
+        return;
+      }
+      if (url.searchParams.get("api_token") === RATE_TOKEN) {
+        res.writeHead(429, { "Content-Type": "application/json", "Retry-After": String(RETRY_AFTER_SECONDS) });
+        res.end(JSON.stringify({ message: "Too Many Attempts." }));
+        return;
+      }
       const start = url.searchParams.get("start_date") ?? "";
       const end = url.searchParams.get("end_date") ?? "";
       dernieresDates = { start, end };
@@ -115,31 +146,29 @@ function verifier(condition, libelle) {
 }
 
 async function main() {
-  const server = await startFixtureServer();
   const client = new Client({ connectionString: CONNECTION_STRING });
   await client.connect();
-
-  // ⚠️ ISOLATION OBLIGATOIRE, apprise en réel le 2026-09-17. La base locale porte déjà un
-  // établissement connecté (Casa Kayam, seed.sql). Sans cette mise en pause, deux choses cassent :
-  //   1. le claim sert 6 couples de N'IMPORTE QUEL établissement, donc l'assertion « un second
-  //      passage ne consomme aucun appel » mesure autre chose que ce qu'elle croit ;
-  //   2. surtout, cette fixture répond la MÊME catégorie (888001) à tout appel — le miroir de Casa
-  //      Kayam se remplissait donc de disponibilités inventées pour une catégorie qui n'est pas la
-  //      sienne, et ça SURVIVAIT au test.
-  // Un test d'intégration qui laisse de fausses données dans une base partagée est pire qu'absent.
-  let misEnPause = [];
+  // ⚠️ ISOLATION OBLIGATOIRE, apprise en réel le 2026-09-17 : le claim sert des couples de
+  // N'IMPORTE QUEL établissement connecté, et cette fixture répond la MÊME catégorie (888001) à tout
+  // appel — le miroir d'un autre établissement se remplissait de disponibilités inventées, et ça
+  // SURVIVAIT au test. Un test d'intégration qui laisse de fausses données dans une base partagée
+  // est pire qu'absent : il s'arrête plutôt.
+  await refuseIfCronsCanFire(client);
+  await refuseIfForeignRows(
+    client,
+    "établissement(s) au connecteur actif",
+    "select count(*)::int as n from establishments where lobby_connector_active and id not in ($1, $2)",
+    [ESTABLISHMENT_ID, RATE_ESTABLISHMENT_ID]
+  );
+  const server = await startFixtureServer();
+  const heartbeatAvant = await snapshotHeartbeat(client, "pms-sync-availability");
 
   try {
+    // P6 — seule la clé service_role déclenche le job ; un refus ne réclame rien, n'appelle pas Lobby.
+    for (const [ok, libelle] of await callerChecks(FUNCTIONS_URL)) verifier(ok, libelle);
+    verifier(appels === 0, `aucun refus n'a appelé Lobby (${appels})`);
+
     await nettoyer(client);
-    const { rows: autres } = await client.query(
-      `update establishments set lobby_connector_active = false
-        where lobby_connector_active = true and id <> $1 returning id`,
-      [ESTABLISHMENT_ID]
-    );
-    misEnPause = autres.map((r) => r.id);
-    if (misEnPause.length > 0) {
-      console.log(`  (${misEnPause.length} établissement(s) connecté(s) mis en pause le temps du test)`);
-    }
 
     // `to_char` côté SQL plutôt qu'un `toISOString()` sur l'objet Date rendu par pg : celui-ci
     // projette un INSTANT, donc reprojette le jour civil dans le fuseau du runner (cf. le lot
@@ -179,7 +208,7 @@ async function main() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        Authorization: `Bearer ${KEYS.serviceRole}`,
       },
       body: JSON.stringify({ limit: 7 }),
     });
@@ -244,7 +273,7 @@ async function main() {
     const appelsAvant = appels;
     const reponse2 = await fetch(FUNCTIONS_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEYS.serviceRole}` },
       body: JSON.stringify({ limit: 7 }),
     });
     const resultat2 = await reponse2.json();
@@ -253,13 +282,58 @@ async function main() {
       `un second passage immédiat ne consomme AUCUN appel Lobby (${appels - appelsAvant}) — fraîcheur et visibility timeout`
     );
     console.log("second passage :", JSON.stringify(resultat2));
+
+    // ── 429 de Lobby : statut consigné, Retry-After respecté ───────────────────────────────────
+    await client.query(
+      `insert into establishments (id, partner_id, name, slug, status, lobby_connector_active, lobby_api_token)
+       values ($1, $2, '{"es":"Hotel Sync Rate"}'::jsonb, 'hotel-sync-rate', 'active', true, $3)`,
+      [RATE_ESTABLISHMENT_ID, PARTNER_ID, RATE_TOKEN]
+    );
+    // claim_pms_sync_batch ne réclame qu'un établissement qui vend un logement adossé au PMS.
+    await client.query(
+      `insert into products (id, partner_id, establishment_id, type, name, slug, sellable, price_cop,
+                             lobby_category_id, capacity, unit_count, lodging_kind)
+       values ($1, $2, $3, 'lodging', '{"es":"Chambre Sync Rate"}'::jsonb,
+               'chambre-sync-rate', true, 100000, $4, 2, 1, 'private')`,
+      [RATE_PRODUCT_ID, PARTNER_ID, RATE_ESTABLISHMENT_ID, CATEGORY_ID + 1]
+    );
+    const appelsAvant429 = appels;
+    const reponse3 = await fetch(FUNCTIONS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEYS.serviceRole}` },
+      body: JSON.stringify({ limit: 7 }),
+    });
+    const resultat3 = await reponse3.json();
+    console.log("passage 429 :", JSON.stringify(resultat3));
+    verifier(
+      reponse3.status === 200 && resultat3.ok === false && resultat3.failed === 7 && appels - appelsAvant429 === 7,
+      `429 → 7 mois en échec, ok=false, un appel chacun (${resultat3.ok}, ${resultat3.failed}, ${appels - appelsAvant429} appels)`
+    );
+    const { rows: heartbeat429 } = await client.query("select last_error from job_heartbeats where job_name = 'pms-sync-availability'");
+    verifier(
+      heartbeat429[0]?.last_error === "lobby : 7 mois en échec sur 7 — rate_limited 429 ×7",
+      `heartbeat : motif exact avec le statut (${heartbeat429[0]?.last_error})`
+    );
+    const { rows: etat429 } = await client.query(
+      `select count(*)::int as n,
+              count(*) filter (where last_error = $2)::int as motif,
+              count(*) filter (where next_attempt_at > now() + interval '14 minutes')::int as repousses
+         from pms_sync_state where establishment_id = $1`,
+      [RATE_ESTABLISHMENT_ID, `rate_limited 429 (retry-after ${RETRY_AFTER_SECONDS}s)`]
+    );
+    verifier(
+      etat429[0].n === 7 && etat429[0].motif === 7 && etat429[0].repousses === 7,
+      `pms_sync_state : 7 mois consignés avec le motif, repoussés au-delà du backoff de 5 min par Retry-After 900 s (${etat429[0].n}, ${etat429[0].motif}, ${etat429[0].repousses})`
+    );
+    const { rows: miroir429 } = await client.query(
+      "select count(*)::int as n from pms_availability_mirror where establishment_id = $1",
+      [RATE_ESTABLISHMENT_ID]
+    );
+    verifier(miroir429[0].n === 0, "un échec n'écrit jamais dans le miroir");
   } finally {
-    if (misEnPause.length > 0) {
-      await client.query(
-        `update establishments set lobby_connector_active = true where id = any($1::uuid[])`,
-        [misEnPause]
-      );
-    }
+    await restoreHeartbeat(client, "pms-sync-availability", heartbeatAvant).catch((err) =>
+      console.error("restauration du heartbeat impossible :", err)
+    );
     await nettoyer(client);
     await client.end();
     server.close();
@@ -277,10 +351,10 @@ async function nettoyer(client) {
   // une exécution mal isolée a pu en écrire ailleurs. Ceinture et bretelles — c'est le genre de
   // résidu qu'on ne retrouve jamais ensuite.
   await client.query(`delete from pms_availability_mirror where lobby_category_id = $1`, [CATEGORY_ID]);
-  await client.query(`delete from pms_availability_mirror where establishment_id = $1`, [ESTABLISHMENT_ID]);
-  await client.query(`delete from pms_sync_state where establishment_id = $1`, [ESTABLISHMENT_ID]);
-  await client.query(`delete from products where id = $1`, [PRODUCT_ID]);
-  await client.query(`delete from establishments where id = $1`, [ESTABLISHMENT_ID]);
+  await client.query(`delete from pms_availability_mirror where establishment_id in ($1, $2)`, [ESTABLISHMENT_ID, RATE_ESTABLISHMENT_ID]);
+  await client.query(`delete from pms_sync_state where establishment_id in ($1, $2)`, [ESTABLISHMENT_ID, RATE_ESTABLISHMENT_ID]);
+  await client.query(`delete from products where id in ($1, $2)`, [PRODUCT_ID, RATE_PRODUCT_ID]);
+  await client.query(`delete from establishments where id in ($1, $2)`, [ESTABLISHMENT_ID, RATE_ESTABLISHMENT_ID]);
   await client.query(`delete from partners where id = $1`, [PARTNER_ID]);
 }
 

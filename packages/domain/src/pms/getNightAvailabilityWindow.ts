@@ -134,11 +134,12 @@ export async function getNightAvailabilityRange(
   baseUrl: string,
   apiToken: string,
   nights: string[],
-  relaySecret?: string
+  relaySecret?: string,
+  timeoutMs?: number
 ): Promise<PmsWindowResult> {
   if (nights.length === 0) return { ok: true, nights: [] };
 
-  const result = await fetchCatalog(baseUrl, apiToken, nights, relaySecret);
+  const result = await fetchCatalog(baseUrl, apiToken, nights, relaySecret, timeoutMs);
   if (!result.ok) {
     return { ok: false, failure: result.failure, requested: nights.length, obtained: 0 };
   }
@@ -152,14 +153,15 @@ async function fetchCatalog(
   baseUrl: string,
   apiToken: string,
   nights: string[],
-  relaySecret?: string
+  relaySecret?: string,
+  timeoutMs?: number
 ): Promise<CatalogFetch> {
   const startDate = nights[0];
   const endDate = addDaysIso(nights[nights.length - 1], 1);
 
   let response;
   try {
-    response = await getLobbyAvailableRooms(baseUrl, apiToken, startDate, endDate, relaySecret);
+    response = await getLobbyAvailableRooms(baseUrl, apiToken, startDate, endDate, relaySecret, timeoutMs);
   } catch (error) {
     return {
       ok: false,

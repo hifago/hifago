@@ -4,9 +4,12 @@ import {
   addLobbyProductService,
   cancelLobbyBooking,
   createLobbyBooking,
+  getLobbyAvailableRooms,
   getLobbyBookingDetail,
+  getLobbyNightAvailability,
   getLobbyRooms,
 } from "./lobbyClient";
+import { getNightAvailabilityRange } from "./getNightAvailabilityWindow";
 
 // Petit serveur de fixtures node:http, répond aux formes RÉELLES documentées
 // (docs/3-integrations/lobby_pms_api.md, racine du dépôt), pas la forme officielle jamais
@@ -186,7 +189,7 @@ describe("lobbyClient (vrai fetch contre un serveur de fixtures local)", () => {
     expect(result.status).toBe(302);
   });
 
-  it("createLobbyBooking : sans timeoutMs, aucun délai imposé — les Edge Functions gardent leur comportement", async () => {
+  it("createLobbyBooking : sans timeoutMs, aucun délai imposé — le délai reste opt-in pour chaque appelant", async () => {
     const result = await createLobbyBooking(baseUrl, "fake-token", slowBooking);
     expect(result.status).toBe(200);
     expect(result.body).toEqual({ booking: { booking_id: 20863345, room_id: 488678 } });
@@ -198,5 +201,43 @@ describe("lobbyClient (vrai fetch contre un serveur de fixtures local)", () => {
 
     await getLobbyRooms(baseUrl, "fake-token", undefined, "test-relay-secret-value");
     expect(lastRequestHeaders["x-relay-secret"]).toBe("test-relay-secret-value");
+  });
+});
+
+// Les appels des jobs (Edge Functions, P6) passent un délai par appel : chacun le transmet
+// réellement à son fetch. Serveur qui répond à TOUT après 300 ms, délai demandé 50 ms.
+describe("lobbyClient — délai par appel des jobs", () => {
+  let slowServer: Server;
+  let slowUrl: string;
+
+  beforeAll(async () => {
+    slowServer = createServer((req, res) => {
+      req.resume();
+      setTimeout(() => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ data: [] }));
+      }, 300);
+    });
+    await new Promise<void>((resolve) => slowServer.listen(0, "127.0.0.1", resolve));
+    const address = slowServer.address();
+    if (address && typeof address === "object") slowUrl = `http://127.0.0.1:${address.port}`;
+  });
+
+  afterAll(() => new Promise<void>((resolve) => slowServer.close(() => resolve())));
+
+  it.each([
+    ["getLobbyRooms", (t: number) => getLobbyRooms(slowUrl, "fake-token", undefined, undefined, t)],
+    ["getLobbyNightAvailability", (t: number) => getLobbyNightAvailability(slowUrl, "fake-token", 1, "2028-09-01", "2028-09-02", undefined, t)],
+    ["getLobbyAvailableRooms", (t: number) => getLobbyAvailableRooms(slowUrl, "fake-token", "2028-09-01", "2028-09-02", undefined, t)],
+    ["getLobbyBookingDetail", (t: number) => getLobbyBookingDetail(slowUrl, "fake-token", 1, undefined, t)],
+    ["cancelLobbyBooking", (t: number) => cancelLobbyBooking(slowUrl, "fake-token", 1, "expired", undefined, undefined, t)],
+  ])("%s : timeoutMs dépassé → TimeoutError", async (_nom, appel) => {
+    await expect(appel(50)).rejects.toMatchObject({ name: "TimeoutError" });
+  });
+
+  it("getNightAvailabilityRange : délai dépassé → échec `unreachable`, jamais une exception", async () => {
+    const result = await getNightAvailabilityRange(slowUrl, "fake-token", ["2028-09-01", "2028-09-02"], undefined, 50);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.failure.kind).toBe("unreachable");
   });
 });

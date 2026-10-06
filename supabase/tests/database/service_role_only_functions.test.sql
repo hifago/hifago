@@ -89,7 +89,10 @@ select is(
         'apply_pms_poll_outcome',
         'release_notification_email_claim',
         'job_watchdog',
-        'jobs_watchdog'
+        'jobs_watchdog',
+        -- Rendu des réclamations non traitées par les jobs (migration 20261006124933).
+        'release_pms_cancellation_claim',
+        'release_pms_poll_claim'
       )
       and (
         has_function_privilege('anon', p.oid, 'EXECUTE')
@@ -172,7 +175,10 @@ select is(
         'apply_pms_poll_outcome',
         'release_notification_email_claim',
         'job_watchdog',
-        'jobs_watchdog'
+        'jobs_watchdog',
+        -- Rendu des réclamations non traitées par les jobs (migration 20261006124933).
+        'release_pms_cancellation_claim',
+        'release_pms_poll_claim'
     ]) as n
     where not exists (
       select 1 from pg_proc p
