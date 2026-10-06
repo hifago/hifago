@@ -487,6 +487,28 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# Les six Edge Functions de jobs (déclenchées par pg_cron via les wrappers `invoke_*`). `verify_jwt`
+# EXPLICITE, jamais le défaut implicite (CLAUDE.md §11.20) : la passerelle exige un jeton signé par le
+# projet, et chaque fonction n'accepte ensuite que la clé service_role (_shared/requireServiceRole.ts).
+# Une section par dossier de supabase/functions — scripts/check-edge-jobs.sh le vérifie.
+[functions.payments-reconcile]
+verify_jwt = true
+
+[functions.pms-cancel-bookings]
+verify_jwt = true
+
+[functions.pms-nightly-contract-check]
+verify_jwt = true
+
+[functions.pms-poll-bookings]
+verify_jwt = true
+
+[functions.pms-sync-availability]
+verify_jwt = true
+
+[functions.send-notification-emails]
+verify_jwt = true
+
 [analytics]
 enabled = false
 port = 54327

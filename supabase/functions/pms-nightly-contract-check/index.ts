@@ -10,7 +10,11 @@
 // environnement de test dédié. Décision explicite de Jérôme (spec 21) : lecture seule stricte,
 // jamais en CI/en test (aucun test automatisé de ce fichier ne doit jamais l'invoquer contre le
 // vrai baseUrl — seulement contre un serveur de fixtures via LOBBY_API_BASE_URL).
-import { createClient } from "npm:@supabase/supabase-js@2";
+//
+// Depuis P6 (2026-10) : squelette commun des jobs (_shared/job.ts — contrôle d'appelant, budget de
+// temps, heartbeat à chaque passage) ; aucun secret dans ce qui sort — un message d'erreur de
+// `fetch` porte l'URL, donc `api_token` : tout texte d'erreur passe par `ctx.redact`/`ctx.describe`.
+import { type JobContext, type JobOutcome, serveJob } from "../_shared/job.ts";
 import {
   getLobbyAvailableRooms,
   getLobbyNightAvailability,
@@ -162,6 +166,27 @@ const PROBE_SPACING_MS = 1500;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Une sonde que le budget du passage ne laisse plus lancer : sautée, jamais lancée sans délai. */
+class ProbeBudgetExceeded extends Error {
+  constructor() {
+    super("budget du passage épuisé");
+    this.name = "ProbeBudgetExceeded";
+  }
+}
+
+const probeFailure = (err: unknown, describe: (err: unknown) => string) =>
+  err instanceof ProbeBudgetExceeded ? "sautée (budget du passage épuisé)" : `injoignable (${describe(err)})`;
+
+/** Fisher-Yates sur une copie. */
+function shuffled<T>(items: readonly T[]): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 type ProbeName = "range" | "category_filter";
 const KNOWN_PROBES: ProbeName[] = ["range", "category_filter"];
 
@@ -240,11 +265,8 @@ function probeNights(): { date: string; nextDate: string; rangeEnd: string } {
   return { date: iso(start), nextDate: iso(next), rangeEnd: iso(rangeEnd) };
 }
 
-Deno.serve(async (req: Request) => {
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-  );
+serveJob("pms-nightly-contract-check", async (ctx: JobContext): Promise<JobOutcome> => {
+  const { supabase, request: req } = ctx;
   const baseUrl = Deno.env.get("LOBBY_API_BASE_URL") || LOBBY_DEFAULT_BASE_URL;
   const relaySecret = Deno.env.get("LOBBY_RELAY_SECRET");
 
@@ -255,23 +277,58 @@ Deno.serve(async (req: Request) => {
     .returns<EstablishmentRow[]>();
 
   if (error) {
-    console.error("pms-nightly-contract-check : lecture establishments a échoué", error);
-    return new Response(JSON.stringify({ ok: false, reason: "read_failed" }), { status: 500 });
+    return { ok: false, error: `lecture des établissements — ${ctx.describe(error)}`, stats: {}, status: 500 };
   }
+  for (const establishment of establishments ?? []) ctx.addSecret(establishment.lobby_api_token);
+  // Ordre tiré au sort à chaque nuit : si le budget s'épuise, ce ne sont jamais les mêmes
+  // établissements qui restent non contrôlés.
+  const toCheck = shuffled(establishments ?? []);
 
   const drifts: string[] = [];
   const observations: string[] = [];
+  // Établissements dont GET /rooms a échoué (statut ou transport) : le passage n'est pas `ok`.
+  const roomsFailures: string[] = [];
+  // Établissements que le budget du passage n'a pas laissé contrôler : une dérive signalée, pas un
+  // échec (le tirage au sort les met en tête une autre nuit).
+  let unchecked = 0;
 
   // C2 (spec 25) — supervision de la file d'annulation. Une entrée définitivement 'failed' n'envoie
   // AUCUN e-mail par conception : pms_reconciliation_entries déclenche notify_all_admins sans dédup
   // (défaut C9). La supervision d'une file est un problème de COMPTAGE, et ce job nocturne est
   // l'endroit pour le faire — une seule ligne par nuit, jamais une par entrée.
-  const { count: failedCancellations } = await supabase
+  //
+  // Migration 20261004005336 : un jeton REMPLACÉ fait aussi passer des annulations en échec, sans
+  // aucune tentative — comptées à part, avec les bookings posés avec l'ancien jeton qui attendent
+  // leur vérification manuelle (entrées de réconciliation muettes de cette classe).
+  const REPLACED = "jeton Lobby remplacé%";
+  const { count: failedCancellations, error: failedError } = await supabase
     .from("pms_cancellation_queue")
     .select("id", { count: "exact", head: true })
     .eq("status", "failed");
-  if ((failedCancellations ?? 0) > 0) {
-    drifts.push(`${failedCancellations} annulation(s) LobbyPMS abandonnée(s) après ${3} tentatives — chambres possiblement encore bloquées`);
+  const { count: replacedCancellations, error: replacedError } = await supabase
+    .from("pms_cancellation_queue")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "failed")
+    .like("last_error", REPLACED);
+  const { count: replacedBookings, error: replacedBookingsError } = await supabase
+    .from("pms_reconciliation_entries")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["open", "retrying"])
+    .like("detail", REPLACED);
+  // Un comptage illisible n'est jamais un zéro : le passage le dit et n'est pas `ok`.
+  const countErrors = [failedError, replacedError, replacedBookingsError].filter((e) => e !== null);
+  for (const countError of countErrors) {
+    drifts.push(`comptage des files d'annulation et de réconciliation illisible — ${ctx.describe(countError)}`);
+  }
+  const failedByAttempts = (failedCancellations ?? 0) - (replacedCancellations ?? 0);
+  if (failedByAttempts > 0) {
+    drifts.push(`${failedByAttempts} annulation(s) LobbyPMS en échec après leurs tentatives — chambres possiblement encore bloquées`);
+  }
+  if ((replacedCancellations ?? 0) > 0) {
+    drifts.push(`${replacedCancellations} annulation(s) d'un booking posé avec un jeton Lobby depuis remplacé — à vérifier à la main sur l'ancien compte`);
+  }
+  if ((replacedBookings ?? 0) > 0) {
+    drifts.push(`${replacedBookings} booking(s) posé(s) avec un jeton Lobby depuis remplacé, en attente de vérification manuelle`);
   }
 
   const { date, nextDate, rangeEnd } = probeNights();
@@ -290,15 +347,22 @@ Deno.serve(async (req: Request) => {
   // dossier dont le coût croît AVEC le nombre d'établissements — les trois autres crons PMS sont
   // bornés par un lot fixe (claim_pms_sync_batch, claim_pms_poll_batch, claim_pms_cancellation_batch).
   // Espacer coûte une nuit plus longue (jamais un problème, `0 7 * * *`), jamais un appel de plus.
-  for (const [index, establishment] of (establishments ?? []).entries()) {
+  for (const [index, establishment] of toCheck.entries()) {
     if (index > 0) await sleep(PROBE_SPACING_MS);
     if (!establishment.lobby_api_token) continue;
+    const roomsTimeout = ctx.nextCallTimeout();
+    if (roomsTimeout === null) {
+      unchecked = toCheck.length - index;
+      drifts.push(`budget du passage épuisé : ${unchecked} établissement(s) non contrôlé(s) cette nuit`);
+      break;
+    }
     let knownCategoryIds: number[] = [];
     try {
-      const rooms = await getLobbyRooms(baseUrl, establishment.lobby_api_token, undefined, relaySecret);
+      const rooms = await getLobbyRooms(baseUrl, establishment.lobby_api_token, undefined, relaySecret, roomsTimeout);
       if (rooms.status !== 200 || !hasExpectedRoomsShape(rooms.body)) {
+        if (rooms.status !== 200) roomsFailures.push(establishment.id);
         drifts.push(
-          `établissement ${establishment.id} : GET /rooms forme inattendue (status ${rooms.status}) — ${describeLobbyErrorBody(rooms.body)}`
+          ctx.redact(`établissement ${establishment.id} : GET /rooms forme inattendue (status ${rooms.status}) — ${describeLobbyErrorBody(rooms.body, ctx.redact)}`)
         );
       } else {
         knownCategoryIds = parseLobbyRooms(rooms.body).map((category) => category.categoryId);
@@ -308,7 +372,8 @@ Deno.serve(async (req: Request) => {
         }
       }
     } catch (err) {
-      drifts.push(`établissement ${establishment.id} : GET /rooms injoignable (${err})`);
+      roomsFailures.push(establishment.id);
+      drifts.push(`établissement ${establishment.id} : GET /rooms injoignable (${ctx.describe(err)})`);
     }
 
     // UNE requête par établissement, pas une par catégorie : sans `category_id`, Lobby renvoie tout
@@ -316,13 +381,15 @@ Deno.serve(async (req: Request) => {
     // Sautée si GET /rooms n'a rien donné — sans la liste de référence, « absente d'available-rooms »
     // ne voudrait rien dire.
     if (knownCategoryIds.length === 0) continue;
+    const availabilityTimeout = ctx.nextCallTimeout();
+    if (availabilityTimeout === null) continue;
     try {
       const availability = await getLobbyAvailableRooms(
-        baseUrl, establishment.lobby_api_token, date, nextDate, relaySecret
+        baseUrl, establishment.lobby_api_token, date, nextDate, relaySecret, availabilityTimeout
       );
       if (availability.status !== 200) {
         observations.push(
-          `établissement ${establishment.id} : GET /available-rooms (nuit ${date}) a répondu ${availability.status} — ${describeLobbyErrorBody(availability.body)}`
+          ctx.redact(`établissement ${establishment.id} : GET /available-rooms (nuit ${date}) a répondu ${availability.status} — ${describeLobbyErrorBody(availability.body, ctx.redact)}`)
         );
       } else {
         for (const note of describeAvailabilityContract(availability.body, knownCategoryIds)) {
@@ -330,24 +397,24 @@ Deno.serve(async (req: Request) => {
         }
       }
     } catch (err) {
-      observations.push(`établissement ${establishment.id} : GET /available-rooms injoignable (${err})`);
+      observations.push(`établissement ${establishment.id} : GET /available-rooms injoignable (${ctx.describe(err)})`);
     }
   }
 
   // Jamais bloquant (non-CI, non-test) — une alerte console est le seul effet de bord voulu ici,
   // à brancher sur une vraie supervision (ex. log drain → alerte) hors périmètre code de cette spec.
   if (drifts.length > 0) {
-    console.warn("pms-nightly-contract-check : dérive de contrat détectée", drifts);
+    console.warn("pms-nightly-contract-check : dérive de contrat détectée", drifts.map(ctx.redactLong));
   }
   // Journalisé en `info` et non en `warn` : ce n'est pas une alerte, c'est le relevé de la nuit.
   // Il laisse une trace dans les logs de la fonction même quand personne ne lit la réponse HTTP —
   // ce qui est le cas nominal, le job étant déclenché par pg_cron.
   if (observations.length > 0) {
-    console.info("pms-nightly-contract-check : contrat observé", observations);
+    console.info("pms-nightly-contract-check : contrat observé", observations.map(ctx.redactLong));
   }
 
   // ── SONDES, après le passage nominal et seulement sur demande explicite ──────────────────────
-  for (const establishment of requestedProbes.length > 0 ? (establishments ?? []) : []) {
+  for (const establishment of requestedProbes.length > 0 ? toCheck : []) {
     if (!establishment.lobby_api_token) continue;
 
     if (requestedProbes.includes("range")) {
@@ -357,13 +424,15 @@ Deno.serve(async (req: Request) => {
       // UN SEUL APPEL : D → D+5.
       try {
         await sleep(PROBE_SPACING_MS);
+        const rangeTimeout = ctx.nextCallTimeout();
+        if (rangeTimeout === null) throw new ProbeBudgetExceeded();
         probeCalls += 1;
         const range = await getLobbyAvailableRooms(
-          baseUrl, establishment.lobby_api_token, date, rangeEnd, relaySecret
+          baseUrl, establishment.lobby_api_token, date, rangeEnd, relaySecret, rangeTimeout
         );
         if (range.status !== 200) {
           probeNotes.push(
-            `sonde plage ${establishment.id} : ${range.status} — ${describeLobbyErrorBody(range.body)}`
+            ctx.redact(`sonde plage ${establishment.id} : ${range.status} — ${describeLobbyErrorBody(range.body, ctx.redact)}`)
           );
         } else {
           probeNotes.push(`sonde plage ${establishment.id} : demandé ${date} → ${rangeEnd} (5 nuits si exclusif, 6 si inclusif)`);
@@ -372,7 +441,7 @@ Deno.serve(async (req: Request) => {
           }
         }
       } catch (err) {
-        probeNotes.push(`sonde plage ${establishment.id} : injoignable (${err})`);
+        probeNotes.push(`sonde plage ${establishment.id} : ${probeFailure(err, ctx.describe)}`);
       }
     }
 
@@ -387,14 +456,18 @@ Deno.serve(async (req: Request) => {
       } else {
         try {
           await sleep(PROBE_SPACING_MS);
+          const filteredTimeout = ctx.nextCallTimeout();
+          if (filteredTimeout === null) throw new ProbeBudgetExceeded();
           probeCalls += 1;
           const filtered = await getLobbyNightAvailability(
-            baseUrl, establishment.lobby_api_token, categoryId, date, nextDate, relaySecret
+            baseUrl, establishment.lobby_api_token, categoryId, date, nextDate, relaySecret, filteredTimeout
           );
           await sleep(PROBE_SPACING_MS);
+          const wholeTimeout = ctx.nextCallTimeout();
+          if (wholeTimeout === null) throw new ProbeBudgetExceeded();
           probeCalls += 1;
           const whole = await getLobbyAvailableRooms(
-            baseUrl, establishment.lobby_api_token, date, nextDate, relaySecret
+            baseUrl, establishment.lobby_api_token, date, nextDate, relaySecret, wholeTimeout
           );
           const withFilter = filtered.status === 200 ? availableForCategory(filtered.body, categoryId) : null;
           const withoutFilter = whole.status === 200 ? availableForCategory(whole.body, categoryId) : null;
@@ -403,26 +476,43 @@ Deno.serve(async (req: Request) => {
               (withFilter === withoutFilter ? " (IDENTIQUE : la prémisse de R1 tient)" : " ⚠️ DIVERGENT")
           );
         } catch (err) {
-          probeNotes.push(`sonde filtre ${establishment.id} : injoignable (${err})`);
+          probeNotes.push(`sonde filtre ${establishment.id} : ${probeFailure(err, ctx.describe)}`);
         }
       }
     }
   }
 
   if (probeNotes.length > 0) {
-    console.info("pms-nightly-contract-check : sondes", { probeCalls, probeNotes });
+    console.info("pms-nightly-contract-check : sondes", { probeCalls, probeNotes: probeNotes.map(ctx.redactLong) });
   }
 
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      checked: (establishments ?? []).length,
+  const problems = [
+    ...(roomsFailures.length > 0
+      ? [`lobby : GET /rooms en échec pour ${roomsFailures.length} établissement(s) (${roomsFailures.map((id) => id.slice(0, 8)).join(", ")})`]
+      : []),
+    ...(countErrors.length > 0 ? [`${countErrors.length} comptage(s) de file illisible(s)`] : []),
+  ];
+  return {
+    ok: problems.length === 0,
+    error: problems.length > 0 ? problems.join(" ; ") : null,
+    stats: {
+      checked: toCheck.length - unchecked,
+      unchecked,
+      drifts: drifts.length,
+      failed_cancellations: failedByAttempts,
+      token_replaced_cancellations: replacedCancellations ?? 0,
+      token_replaced_bookings: replacedBookings ?? 0,
+    },
+    extra: {
       drifts,
       observations,
       // Absents en nominal (cron), donc la réponse du job ne change pas de forme tant que personne
       // ne demande de sonde.
       ...(requestedProbes.length > 0 ? { probes: requestedProbes, probeCalls, probeNotes } : {}),
-    }),
-    { headers: { "Content-Type": "application/json" } }
-  );
+    },
+  };
+}, {
+  // Le cron attend 60 s (invoke_pms_nightly_contract_check) ; l'espacement de 1,5 s entre
+  // établissements est compris dans ce budget.
+  budgetMs: 50_000,
 });

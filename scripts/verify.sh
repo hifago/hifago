@@ -118,6 +118,13 @@ lancer "Limite de paiement (TS, Deno, SQL)"          bash scripts/check-payment-
 # du tout (mesuré le 2026-09-17, BOOT_ERROR). Seul un boot réel — ou ce script — le révèle.
 lancer "Imports Deno (extension obligatoire)"        bash scripts/check-deno-imports.sh
 
+# Depuis P6 (2026-10) — vérifié PAR MUTATION (rouge sur un nom de heartbeat différent du cron, un
+# Deno.serve direct, verify_jwt = false ou absent, une section orpheline, le garde retiré du
+# squelette, un heartbeat écrit hors du squelette, un serveJob en commentaire seulement). Un job dont
+# le heartbeat ne porte pas le nom de son cron n'est jamais surveillé ; un job sans contrôle
+# d'appelant se déclenche avec n'importe quel jeton du projet.
+lancer "Edge Functions de jobs (garde, heartbeat)"   bash scripts/check-edge-jobs.sh
+
 # Le manifeste docs/ai-index.json est ce que lisent les agents pour s'orienter : périmé, il les
 # envoie lire le mauvais document. Depuis le 2026-09-19 il est régénéré automatiquement par le
 # hook pre-commit (scripts/git-hooks/pre-commit) — ce contrôle reste le filet.

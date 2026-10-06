@@ -19,7 +19,10 @@
 // lint et aux tests (.claude/rules/supabase.md). Et une Edge Function n'existe pas tant qu'elle
 // n'est pas DÉPLOYÉE et que ses secrets ne sont pas posés : les trois crons PMS ont tourné à vide
 // en silence du 19 au 27 août 2026 faute de `pms_service_role_key` dans le Vault.
-import { createClient } from "npm:@supabase/supabase-js@2";
+//
+// Depuis P6 (2026-10) : squelette commun des jobs (_shared/job.ts — contrôle d'appelant, budget de
+// temps, heartbeat à chaque passage, aucun secret dans ce qui sort) ; délai par appel Lobby.
+import { type JobOutcome, serveJob } from "../_shared/job.ts";
 import { LOBBY_DEFAULT_BASE_URL } from "../../../packages/domain/src/pms/lobbyClient.ts";
 import {
   getNightAvailabilityRange,
@@ -34,11 +37,8 @@ interface SyncBatchRow {
   month: string;
 }
 
-Deno.serve(async (request) => {
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-  );
+serveJob("pms-sync-availability", async (ctx): Promise<JobOutcome> => {
+  const { supabase, request } = ctx;
   const baseUrl = Deno.env.get("LOBBY_API_BASE_URL") || LOBBY_DEFAULT_BASE_URL;
   const relaySecret = Deno.env.get("LOBBY_RELAY_SECRET");
 
@@ -54,23 +54,31 @@ Deno.serve(async (request) => {
 
   const { data: batch, error } = await supabase.rpc("claim_pms_sync_batch", { p_limit: limit });
   if (error) {
-    console.error("claim_pms_sync_batch a échoué", error);
-    return new Response(JSON.stringify({ ok: false, reason: "claim_failed" }), { status: 500 });
+    return { ok: false, error: `claim_pms_sync_batch — ${ctx.describe(error)}`, stats: {}, status: 500 };
   }
 
   const rows = (batch ?? []) as SyncBatchRow[];
-  const summary = { claimed: rows.length, synced: 0, nights: 0, failed: 0 };
+  for (const row of rows) ctx.addSecret(row.lobby_api_token);
+  const summary = { claimed: rows.length, synced: 0, nights: 0, failed: 0, skipped: 0 };
+  // Les échecs par genre et statut (`rejected 401`, `rate_limited 429`…) : le motif du heartbeat
+  // les résume.
+  const failures = new Map<string, number>();
   const today = todayInBogota();
 
   // UN SEUL site de comptage et d'écriture d'échec. Les trois sorties d'échec de cette fonction
   // répétaient le même appel RPC et le même `summary.failed++` ; une quatrième ajoutée plus tard
   // pouvait oublier le compteur sans que rien ne le signale.
-  const echouer = async (row: SyncBatchRow, motif: string) => {
-    await supabase.rpc("fail_pms_sync", {
+  const echouer = async (row: SyncBatchRow, genre: string, motif: string, retryAfterSeconds: number | null = null) => {
+    failures.set(genre, (failures.get(genre) ?? 0) + 1);
+    const { error: failError } = await supabase.rpc("fail_pms_sync", {
       p_establishment_id: row.establishment_id,
       p_month: row.month,
       p_error: motif,
+      // Un `Retry-After` de Lobby (429) prime sur le backoff calculé s'il l'excède (20260918170000),
+      // borné au plafond de ce backoff (24 h).
+      p_retry_after_seconds: retryAfterSeconds === null ? null : Math.min(retryAfterSeconds, 86_400),
     });
+    if (failError) console.error(`fail_pms_sync ${row.establishment_id} ${row.month} — ${ctx.describe(failError)}`);
     summary.failed++;
   };
 
@@ -81,11 +89,20 @@ Deno.serve(async (request) => {
     if (nights.length === 0) {
       // Mois entièrement passé — ne devrait pas être réclamé (l'horizon part du mois courant),
       // mais le dire plutôt que de le traiter comme un succès vide.
-      await echouer(row, "mois entièrement passé");
+      await echouer(row, "mois passé", "mois entièrement passé");
       return;
     }
 
-    const result = await getNightAvailabilityRange(baseUrl, row.lobby_api_token, nights, relaySecret);
+    // Les couples partent en parallèle : chacun a son délai (8 s), le budget du passage n'est jamais
+    // épuisé ici (`skipped` reste à 0 tant que le lot tient en un seul tour). S'il l'était, le
+    // couple réclamé redeviendrait réclamable à l'expiration de sa visibilité (10 min) — jamais
+    // marqué en échec, ce n'est pas Lobby qui a failli.
+    const timeoutMs = ctx.nextCallTimeout();
+    if (timeoutMs === null) {
+      summary.skipped++;
+      return;
+    }
+    const result = await getNightAvailabilityRange(baseUrl, row.lobby_api_token, nights, relaySecret, timeoutMs);
 
     if (!result.ok) {
       // ÉCHEC : on ne touche PAS au miroir. Sa donnée vieillit, `search_catalog` retombe en
@@ -94,12 +111,12 @@ Deno.serve(async (request) => {
       //
       // `describeLobbyErrorBody` n'est pas utilisé ici : on ne consigne que le genre d'échec, et
       // JAMAIS l'URL de la requête, qui porte `api_token` en query string (CLAUDE.md §8).
+      const failure = result.failure;
+      const genre = failure.kind === "unreachable" ? failure.kind : `${failure.kind} ${failure.status}`;
       const detail =
-        result.failure.kind === "rate_limited"
-          ? `rate_limited (retry-after ${result.failure.retryAfterSeconds ?? "?"}s)`
-          : result.failure.kind;
+        failure.kind === "rate_limited" ? `${genre} (retry-after ${failure.retryAfterSeconds ?? "?"}s)` : genre;
       console.warn(`sync ${row.establishment_id} ${row.month} : ${detail}`);
-      await echouer(row, detail);
+      await echouer(row, genre, detail, failure.kind === "rate_limited" ? failure.retryAfterSeconds : null);
       return;
     }
 
@@ -113,8 +130,8 @@ Deno.serve(async (request) => {
       p_rows: mirrorRows,
     });
     if (writeError) {
-      console.error(`écriture du miroir ${row.establishment_id} ${row.month}`, writeError);
-      await echouer(row, `écriture: ${writeError.message}`);
+      console.error(`écriture du miroir ${row.establishment_id} ${row.month} — ${ctx.describe(writeError)}`);
+      await echouer(row, "écriture", `écriture ${ctx.describe(writeError)}`);
       return;
     }
 
@@ -131,10 +148,11 @@ Deno.serve(async (request) => {
   // `getNightAvailabilityWindow` fait des lots séquentiels d'appels parallèles (CHUNK_SIZE = 6).
   await Promise.all(rows.map(traiterUnCouple));
 
-  // Le résumé est rendu ET journalisé : après le déploiement, `net._http_response` est la SEULE
-  // façon de vérifier qu'un cron aboutit réellement. Ne jamais se fier à l'absence d'erreur.
-  console.info("pms-sync-availability", JSON.stringify(summary));
-  return new Response(JSON.stringify({ ok: true, ...summary }), {
-    headers: { "Content-Type": "application/json" },
-  });
+  return {
+    ok: summary.failed === 0,
+    error: summary.failed > 0
+      ? `lobby : ${summary.failed} mois en échec sur ${rows.length} — ${[...failures.entries()].map(([k, n]) => `${k} ×${n}`).join(", ")}`
+      : null,
+    stats: summary,
+  };
 });
