@@ -188,6 +188,58 @@ jobs:
       # mécanique de la règle « scoper par ses fixtures » (CLAUDE.md §11.20).
       - run: supabase test db
 
+  # Tests d'intégration RÉELS des six Edge Functions de jobs (audit P12d, décision D4 du 2026-10-06 ;
+  # P6 les avait laissés manuels et renvoyé leur job CI ici). Chaque script démarre sur l'hôte son
+  # serveur de fixtures (LobbyPMS :4545, Resend :4546, Mercado Pago :4547) ; la fonction, servie par
+  # l'edge runtime de `supabase start`, le joint par host.docker.internal. D'où deux préalables :
+  # `supabase/functions/.env` écrit AVANT `start` (le runtime ne le lit qu'au démarrage), et des
+  # fixtures qui écoutent sur toutes les interfaces (sous Linux, une écoute 127.0.0.1 est injoignable
+  # depuis le conteneur). Base NON seedée, volontairement : les lots de ces fonctions sont globaux et
+  # chaque script s'arrête (exit 2) s'il trouve des lignes hors de ses fixtures.
+  # `pms_reserve_nights` n'y est pas (route web, pas une Edge Function) : D4, plus tard.
+  integration-edge:
+    needs: [db]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ci-dummy.apps.googleusercontent.com
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: ci-dummy
+      # Valeurs FACTICES, en UNE seule source : écrites ci-dessous dans supabase/functions/.env pour
+      # les fonctions, et lues telles quelles par les scripts de test. Ceux-ci doivent connaître la
+      # clé exacte de la fonction : send_notification_emails vérifie que RESEND_API_KEY ne fuit
+      # nulle part (et s'arrête sans elle), la fixture Mercado Pago refuse tout autre jeton que
+      # MERCADOPAGO_ACCESS_TOKEN. Les URL visent les fixtures des scripts : aucun appel ne quitte
+      # la machine.
+      LOBBY_API_BASE_URL: http://host.docker.internal:4545
+      RESEND_API_BASE_URL: http://host.docker.internal:4546
+      RESEND_API_KEY: ci-dummy-resend-key
+      MERCADOPAGO_API_BASE_URL: http://host.docker.internal:4547
+      MERCADOPAGO_ACCESS_TOKEN: TEST-fixture-token
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: 2.116.0
+      # Le runtime Edge ne lit ce fichier qu'au démarrage : écrit AVANT `supabase start`, depuis
+      # l'`env:` du job ci-dessus (jamais une seconde copie des valeurs).
+      - name: Secrets factices des Edge Functions (avant supabase start)
+        run: |
+          for v in LOBBY_API_BASE_URL RESEND_API_BASE_URL RESEND_API_KEY MERCADOPAGO_API_BASE_URL MERCADOPAGO_ACCESS_TOKEN; do
+            printf '%s=%s\n' "$v" "${!v}"
+          done > supabase/functions/.env
+      - run: supabase start
+      - run: npm run test:notification-integration
+      - run: npm run test:payments-integration
+      - run: |
+          for f in pms_poll_bookings pms_sync_availability pms_cancel_bookings pms_nightly_contract_check; do
+            node "tests/pms-integration/$f.integration.mjs" || exit 1
+          done
+
   # Sans `needs:` lui non plus : ce job tourne sur des valeurs d'environnement FACTICES et ne touche
   # jamais la base — il n'a jamais rien eu à attendre de `db`. Il attendait pourtant `db` (101 s),
   # qui attendait `unit` (169 s) : il démarrait à 270 s alors qu'il tient en 67 s.
