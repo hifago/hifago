@@ -1,8 +1,10 @@
 -- Spec 34 Tranche 2 — cancel_order_line : l'annulation d'UNE prestation.
 -- Migration 20260911110000_cancel_order_line.sql, seule source de vérité pour les reasons.
 --
--- PAS une RPC critique anti-survente (aucun compteur de capacité touché) : pas de test de
--- concurrence à barrière ici, même calibrage que cancel_order.test.sql qu'elle remplace.
+-- Depuis la migration 20261006192424, l'annulation REND la place (compteur de capacité) sous les
+-- verrous `orders` → ligne → capacité : sa concurrence est prouvée par
+-- tests/concurrency/cancel_order_line.concurrency.mjs, et ses règles d'argent (ledger, intents) et
+-- d'e-mail par order_line_cancellations.test.sql. Ce fichier garde les gardes et la file LobbyPMS.
 --
 -- ⚠️ DEUX ASSERTIONS PORTENT TOUT LE LOT :
 --   — cas 6 : la prestation SŒUR ne bouge pas. C'est le renversement du cahier §2c fait exécutable ;
@@ -52,7 +54,7 @@ insert into products (id, partner_id, establishment_id, type, name, price_cop, s
    '88892000-0000-4000-8000-000000000012', 'lodging',
    jsonb_build_object('es', 'Alojamiento PMS Cancel Line'), 80000, true, 'cancel-line-pms-test');
 
--- `booked` volontairement NON nul : le cas 11 prouve qu'il ne bouge pas.
+-- `booked` volontairement NON nul : le cas 11 prouve que la place annulée est rendue (3 → 2).
 insert into product_availability (product_id, date, capacity, booked) values
   ('88892000-0000-4000-8000-000000000021', '2028-11-01', 10, 3);
 
@@ -191,14 +193,14 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------------------------
--- Cas 11 : la place n'est JAMAIS rendue (cahier §7/A3)
+-- Cas 11 : la place annulée est rendue — celle-là seule (migration 20261006192424, G1-bis)
 -- ---------------------------------------------------------------------------------------------
 reset role;
 select is(
   (select booked from product_availability
     where product_id = '88892000-0000-4000-8000-000000000021' and date = '2028-11-01'),
-  3,
-  'product_availability.booked est inchangé — une annulation client ne remet pas la place en vente'
+  2,
+  'product_availability.booked rend la place de la prestation annulée (qty 1 : 3 → 2), jamais celle de sa sœur'
 );
 
 -- ---------------------------------------------------------------------------------------------

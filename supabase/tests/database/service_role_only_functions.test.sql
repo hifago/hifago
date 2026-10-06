@@ -94,6 +94,13 @@ insert into tmp_grant_only (name) values
   -- Rendu des réclamations non traitées par les jobs (migration 20261006124933).
   ('release_pms_cancellation_claim'),
   ('release_pms_poll_claim'),
+  -- Annulation d'une prestation (migration 20261006192424) : la clôture commune et son e-mail,
+  -- SANS garde, appelés sous les verrous de cancel_order_line / set_order_line_status ; la règle
+  -- `cancellable` et sa projection, lues par cancel_order_line et list_my_orders.
+  ('close_order_line_locked'),
+  ('notify_order_line_cancelled'),
+  ('order_line_client_cancellable'),
+  ('order_jsonb_with_client_cancellable'),
   -- Helpers INTERNES (audit P12c, 2026-10-06) : appelés uniquement par d'autres fonctions SECURITY
   -- DEFINER (exécutées en propriétaire) ou par des triggers, jamais par un client. Aucun garde
   -- propre : leur seule barrière est le grant, exactement comme les RPC ci-dessus.
