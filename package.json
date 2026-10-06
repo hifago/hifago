@@ -35,5 +35,10 @@
   },
   "devDependencies": {
     "concurrently": "^10.0.4"
+  },
+  "overrides": {
+    "concurrently": {
+      "shell-quote": "^1.11.0"
+    }
   }
 }

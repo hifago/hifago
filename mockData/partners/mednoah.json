@@ -1,0 +1,24 @@
+{
+  "email": "mednoah@mock.hifago.test",
+  "display_name": "Noah Boutique hostel",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": null,
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cra. 43E #12-11, El Poblado",
+    "barrio": "El Poblado",
+    "lat": null,
+    "lon": null,
+    "commercial_status": "inactivo",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active"
+}

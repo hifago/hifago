@@ -1,10 +1,33 @@
 {
   "partner": "kayam",
   "establishment": "kayam",
-  "name": { "es": "Clase de guitarra" },
+  "name": {
+    "es": "Clase de guitarra"
+  },
   "duration_minutes": 60,
-  "external_booking_url": "https://wa.me/573001112233?text=Hola%2C%20quiero%20reservar%20una%20Clase%20de%20Guitarra%20en%20Kayam%20Lab",
-  "tags": ["musica"],
-  "photos": ["1.webp", "2.webp"],
-  "_extra_columns": { "category": "musica", "qty_unit": "hours" }
+  "external_booking_url": null,
+  "tags": [
+    "musica"
+  ],
+  "_extra_columns": {
+    "category": "musica",
+    "sort": 130,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "slot",
+    "qty_unit": "hours",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "price_cop": 55000,
+  "unit": null,
+  "default_capacity": null,
+  "lobby_category_id": null,
+  "lobby_product_id": 565430,
+  "description": null,
+  "photos": [
+    "1.webp",
+    "2.webp"
+  ]
 }

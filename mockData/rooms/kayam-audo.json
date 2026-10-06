@@ -1,10 +1,35 @@
 {
   "partner": "kayam",
   "establishment": "kayam",
-  "name": { "es": "AUDO" },
+  "name": {
+    "es": "AUDO"
+  },
   "price_cop": 46000,
   "unit": "per_person",
   "capacity": 6,
   "lodging_kind": "dorm",
-  "photos": ["1.webp", "2.webp", "3.webp", "4.webp"]
+  "external_booking_url": null,
+  "lobby_category_id": 9629,
+  "lobby_product_id": null,
+  "tags": [],
+  "description": null,
+  "_extra_columns": {
+    "category": null,
+    "sort": 140,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": 6
+  },
+  "photos": [
+    "1.webp",
+    "2.webp",
+    "3.webp",
+    "4.webp",
+    "5.webp",
+    "6.webp"
+  ]
 }

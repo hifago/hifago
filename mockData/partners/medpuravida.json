@@ -1,0 +1,24 @@
+{
+  "email": "medpuravida@mock.hifago.test",
+  "display_name": "pura vida",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": "MEDPURAVIDA",
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cq. 4 #69-27, Laureles - Estadio, Medellín",
+    "barrio": "Laureles",
+    "lat": "",
+    "lon": "",
+    "commercial_status": "prospecto",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active"
+}

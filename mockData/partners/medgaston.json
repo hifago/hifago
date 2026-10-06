@@ -1,0 +1,28 @@
+{
+  "email": "medgaston@mock.hifago.test",
+  "display_name": "Gaston Coliving",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": "MEDGASTON",
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cra. 83 #46-35, Floresta",
+    "barrio": "Floresta",
+    "lat": "",
+    "lon": "",
+    "commercial_status": "activo",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.medgaston@mock.hifago.test",
+    "full_name": "Gaston Coliving"
+  }
+}

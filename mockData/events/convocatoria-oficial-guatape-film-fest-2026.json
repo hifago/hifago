@@ -1,0 +1,35 @@
+{
+  "partner": "kayam",
+  "establishment": "kayam",
+  "name": {
+    "es": "Convocatoria Oficial Guatapé Film Fest 2026"
+  },
+  "price_cop": null,
+  "unit": null,
+  "external_booking_url": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "tags": [],
+  "price_label": null,
+  "address": "Guatapé",
+  "occurrence_type": "once",
+  "occurrence_date": "2026-07-25",
+  "description": {
+    "es": "Sé parte de la transformación cultural de Guatapé. Únete al festival y vive la magia del cine.\n\nEl Guatapé Film Fest nace de la convicción de que el cine y las artes audiovisuales son motores de transformación social, económica y cultural. En una región reconocida por su belleza natural y riqueza cultural, este festival va más allá de proyectar películas: busca construir una industria creativa sólida que genere oportunidades, fortalezca la identidad y abra el territorio al mundo.\n\nFechas: 2026-07-25 → 2026-09-25"
+  },
+  "_extra_columns": {
+    "category": null,
+    "sort": null,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": false,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp",
+    "2.webp"
+  ]
+}

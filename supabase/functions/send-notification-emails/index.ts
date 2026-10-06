@@ -11,6 +11,7 @@
 // budget (20 s), très en deçà du bail de réclamation (10 min, claim_notification_email_batch) :
 // jamais il ne rend une ligne qu'un autre passage aurait réclamée entre-temps.
 import { type JobOutcome, serveJob } from "../_shared/job.ts";
+import { delayBeforeNextCall } from "../../../packages/domain/src/jobs/rateLimitPacing.ts";
 
 interface NotificationEmailRow {
   id: string;
@@ -25,6 +26,15 @@ interface NotificationEmailRow {
 // Une PANNE de Resend (5xx, délai, réseau) arrête aussi le passage : la ligne tentée compte sa
 // tentative, les autres sont rendues — sinon une panne de 25 min abandonnait la tête de file.
 const GLOBAL_REFUSALS = new Set([401, 403, 429]);
+
+// Débit. Resend accepte 10 requêtes/s par ÉQUIPE, toutes clés confondues (documentation consultée le
+// 2026-10-06) : ce job s'en tient à 4/s (250 ms entre deux envois), pour laisser de la place aux
+// autres expéditeurs de l'équipe — un 429 arrêterait le passage. Quand Resend annonce sa fenêtre
+// épuisée (`ratelimit-remaining: 0`), le job attend sa remise à zéro ; au-delà de 2 s, le reste du
+// lot est rendu au passage suivant, sans tentative consommée.
+const MIN_SPACING_MS = 250;
+const MAX_RATE_WAIT_MS = 2_000;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 serveJob("send-notification-emails", async (ctx): Promise<JobOutcome> => {
   const { supabase } = ctx;
@@ -47,7 +57,7 @@ serveJob("send-notification-emails", async (ctx): Promise<JobOutcome> => {
   }
 
   const rows = (batch ?? []) as NotificationEmailRow[];
-  const summary = { claimed: rows.length, sent: 0, failed: 0, released: 0, transport_errors: 0, write_errors: 0 };
+  const summary = { claimed: rows.length, sent: 0, failed: 0, released: 0, transport_errors: 0, write_errors: 0, rate_deferred: 0 };
   let stopReason: string | null = null;
 
   // Une écriture de la file qui échoue : la ligne reste `sending` jusqu'à l'expiration de son bail
@@ -72,7 +82,15 @@ serveJob("send-notification-emails", async (ctx): Promise<JobOutcome> => {
     if (markError) writeFailed("mark_notification_email_failed", id, markError);
   }
 
+  // Délai avant l'envoi suivant, lu sur la réponse précédente ; null = fenêtre de débit trop longue.
+  let waitMs: number | null = 0;
   for (const [index, row] of rows.entries()) {
+    if (waitMs === null) {
+      summary.rate_deferred = rows.length - index;
+      await release(rows.slice(index).map((r) => r.id), "resend : fenêtre de débit épuisée — renvoi au passage suivant");
+      break;
+    }
+    if (waitMs > 0) await sleep(waitMs);
     const timeoutMs = ctx.nextCallTimeout();
     if (timeoutMs === null) {
       await release(rows.slice(index).map((r) => r.id), "budget du passage épuisé — renvoi au passage suivant");
@@ -92,6 +110,7 @@ serveJob("send-notification-emails", async (ctx): Promise<JobOutcome> => {
         body: JSON.stringify({ from, to: row.recipient_email, subject: row.subject, html: row.body_html }),
         signal: AbortSignal.timeout(timeoutMs),
       });
+      waitMs = delayBeforeNextCall(res.headers, MIN_SPACING_MS, MAX_RATE_WAIT_MS);
 
       if (GLOBAL_REFUSALS.has(res.status)) {
         await res.body?.cancel();

@@ -52,8 +52,17 @@ const OUTAGE_EMAILS = [
   "notification-integration-outage-2@test.local",
   "notification-integration-outage-3@test.local",
 ];
+// Débit (A2) : trois lignes envoyées avec succès ; la première réponse annonce, si le scénario le
+// demande, une fenêtre de débit épuisée (`ratelimit-remaining: 0`, `ratelimit-reset`).
+const PACE_EMAILS = [
+  "notification-integration-pace-1@test.local",
+  "notification-integration-pace-2@test.local",
+  "notification-integration-pace-3@test.local",
+];
 let resendRefusal = null; // un statut global (401, 403, 429, 503) quand le scénario le demande
 let resendCalls = 0;
+let rateResetOnce = null; // secondes annoncées par la PROCHAINE réponse, fenêtre épuisée
+const callTimes = []; // instant (ms) de chaque appel reçu par la fixture
 
 // Deux lignes : une qui doit réussir (succès Resend simulé), une qui doit échouer (statut 422
 // simulé) — prouve que send-notification-emails traite chaque ligne isolément (spec 23 §8.2 —
@@ -72,6 +81,7 @@ function startFixtureServer() {
       req.on("end", () => {
         const payload = JSON.parse(raw);
         resendCalls++;
+        callTimes.push(performance.now());
         receivedIdempotencyKeys.push(req.headers["idempotency-key"]);
         if (resendRefusal !== null) {
           res.writeHead(resendRefusal, { "Content-Type": "application/json" });
@@ -85,13 +95,15 @@ function startFixtureServer() {
           res.end(JSON.stringify({ message: "simulated Resend rejection" }));
           return;
         }
-        if (payload.to !== OK_EMAIL) {
+        if (payload.to !== OK_EMAIL && !PACE_EMAILS.includes(payload.to)) {
           // Un destinataire inconnu de la fixture n'est JAMAIS « envoyé ».
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ message: "destinataire inconnu de la fixture" }));
           return;
         }
-        res.writeHead(200, { "Content-Type": "application/json" });
+        const rateHeaders = rateResetOnce === null ? {} : { "ratelimit-remaining": "0", "ratelimit-reset": String(rateResetOnce) };
+        rateResetOnce = null;
+        res.writeHead(200, { "Content-Type": "application/json", ...rateHeaders });
         res.end(JSON.stringify({ id: `fixture-message-${randomUUID()}` }));
       });
       return;
@@ -104,11 +116,11 @@ function startFixtureServer() {
 
 async function purgeFixtures(client) {
   await client.query("delete from notification_emails where recipient_email = any($1::text[])", [
-    [OK_EMAIL, FAIL_EMAIL, ...REFUSED_EMAILS, ...OUTAGE_EMAILS],
+    [OK_EMAIL, FAIL_EMAIL, ...REFUSED_EMAILS, ...OUTAGE_EMAILS, ...PACE_EMAILS],
   ]);
 }
 
-const FIXTURE_EMAILS = () => [OK_EMAIL, FAIL_EMAIL, ...REFUSED_EMAILS, ...OUTAGE_EMAILS];
+const FIXTURE_EMAILS = () => [OK_EMAIL, FAIL_EMAIL, ...REFUSED_EMAILS, ...OUTAGE_EMAILS, ...PACE_EMAILS];
 
 async function insertEmails(client, emails, subject) {
   const { rows } = await client.query(
@@ -181,6 +193,41 @@ async function main() {
       [receivedIdempotencyKeys.includes(okId), "en-tête Idempotency-Key transmis à Resend (spec 23 §8.4)"],
       [summary.ok === true, `un refus propre à UNE ligne (422) ne rend pas le passage ok=false (${summary.ok})`]
     );
+
+    // ── Débit (A2) ─────────────────────────────────────────────────────────────────────────────
+    // a) Espacement : jamais deux envois à moins de 250 ms (4/s, sous les 10/s par équipe de Resend).
+    // b) Fenêtre épuisée, remise à zéro courte (1 s) : le job attend, puis envoie le reste.
+    // c) Fenêtre épuisée, remise à zéro longue (5 s > 2 s) : le reste du lot est rendu, sans tentative.
+    const gaps = (from) => callTimes.slice(from).slice(1).map((t, i) => t - callTimes[from + i]);
+    for (const [label, reset] of [["espacement", null], ["fenêtre courte", 1], ["fenêtre longue", 5]]) {
+      await purgeFixtures(client);
+      const paceIds = await insertEmails(client, PACE_EMAILS, `Integration débit ${label}`);
+      const from = callTimes.length;
+      rateResetOnce = reset;
+      const paceRun = await runAsServiceRole(FUNCTIONS_URL);
+      const paceSummary = JSON.parse(paceRun.text);
+      console.log(`Réponse (débit, ${label}) :`, paceSummary, "écarts (ms) :", gaps(from).map(Math.round));
+      outputs.push(paceRun.text);
+      const { rows: afterPace } = await client.query(
+        "select status, attempts, last_error from notification_emails where id = any($1) order by status, attempts",
+        [paceIds]
+      );
+      if (reset === null) {
+        checks.push([paceSummary.ok === true && paceSummary.sent === 3 && gaps(from).length === 2 && gaps(from).every((g) => g >= 240),
+          `débit : 3 envois espacés d'au moins 250 ms (écarts ${gaps(from).map(Math.round).join(", ")} ms)`]);
+      } else if (reset === 1) {
+        checks.push([paceSummary.ok === true && paceSummary.sent === 3 && gaps(from)[0] >= 990 && gaps(from)[1] >= 240,
+          `fenêtre épuisée (remise 1 s) : le job attend sa remise à zéro puis envoie le reste (écarts ${gaps(from).map(Math.round).join(", ")} ms)`]);
+      } else {
+        checks.push(
+          [paceSummary.ok === true && paceSummary.sent === 1 && paceSummary.rate_deferred === 2 && paceSummary.released === 2 &&
+            callTimes.length - from === 1,
+            `fenêtre épuisée (remise 5 s) : 1 envoi, puis le reste rendu au passage suivant, passage ok (${paceRun.text})`],
+          [afterPace.filter((r) => r.status === "pending").every((r) => r.attempts === 0) && afterPace.filter((r) => r.status === "pending").length === 2,
+            `fenêtre longue : les 2 lignes rendues n'ont consommé aucune tentative (${JSON.stringify(afterPace)})`]
+        );
+      }
+    }
 
     // ── Refus GLOBAUX de Resend (clé, domaine/compte, quota) : tout le lot rendu, aucune tentative ──
     for (const refusal of [401, 403, 429]) {

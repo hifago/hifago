@@ -1,10 +1,18 @@
 {
   "partner": "gotravel",
-  "name": { "es": "Gotravel" },
-  "description": { "es": "Transporte privado puerta a puerta entre Medellín/aeropuerto y Guatapé." },
+  "name": {
+    "es": "Gotravel"
+  },
+  "description": {
+    "es": "Transporte privado puerta a puerta entre Medellín/aeropuerto y Guatapé."
+  },
   "address": "Medellín, Antioquia, Colombia",
   "lat": 6.2442,
   "lon": -75.5736,
   "operated_directly": false,
-  "status": "active"
+  "mode": null,
+  "check_in_time": null,
+  "check_out_time": null,
+  "status": "active",
+  "photos": []
 }

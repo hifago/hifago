@@ -67,12 +67,29 @@ l'ordre d'affichage (`sort`) — ce n'est pas l'ordre alphabétique des fichiers
   "capability_status": "active", // "active" | "suspended"
   "person": {                    // optionnel — omis = organisation sans compte de connexion
     "email": "maria@mock.hifago.test",  // requis si "person" présent
-    "password": "MockTest1234!",
+    "password": "MockTest1234!",        // optionnel — absent : MOCK_PERSONNE_MDP (voir ci-dessous)
     "full_name": "María Restrepo"
   }
 }
 ```
 Domaine dédié `@mock.hifago.test`, distinct de `@hifago.test` (comptes de `seed_auth_users.mjs`).
+
+⚠️ **Le dépôt est PUBLIC** : un mot de passe écrit ici est public, et `/hifago-mock-data preprod`
+l'appliquerait à un projet accessible en ligne. Les personnes du catalogue v1 (ci-dessous) n'ont
+donc **aucun `password`** : le script prend celui de la variable de session `MOCK_PERSONNE_MDP` ;
+sans elle, il crée le partenaire **sans** compte de connexion (signalé dans le résumé), jamais une
+erreur.
+
+## Catalogue réel de la v1 (versé le 2026-10-06)
+
+Les établissements, produits, camps, événements et photos de la v1 (sauvegarde de prod du
+2026-10-03) sont ici avec leurs vraies valeurs : 14 prestataires (`establishments/kayam`, `bania`,
+`siddharta`, `zocalos`…), leurs produits, les 3 escapades « Tours y camps » de la v1 en `camps/`,
+les hostels apporteurs et prospects du CRM en `partners/med*.json`. **Les personnes sont fictives** :
+emails `@mock.hifago.test`, aucun téléphone, contact, note ou tag CRM, banque ni identité réels —
+ils ne sortent jamais de la machine de reprise. Générés par `vers-mockdata.mjs` (outillage de
+reprise, hors dépôt, qui vérifie qu'aucune valeur personnelle réelle n'y figure) ; les jeux fictifs
+(`user*`, `etablissement*`, `hilton*`, fixtures d'événements) sont inchangés.
 
 ## `tags/<clé>.json`
 
@@ -153,6 +170,13 @@ produit), juste un dossier et des champs différents :
   "photos": ["1.jpeg", "2.jpeg"]
 }
 ```
+Champs passés à `create_product_from_proposal` en plus (hébergement réel de la v1) :
+`lobby_category_id` / `lobby_product_id` (rattachement PMS Lobby — `lobby_category_id` est figé
+après création par `products_capacity_flags_frozen`, donc jamais via `_extra_columns`), et pour
+une maison louée en entier `price_tiers` + `min_qty`/`max_qty` + `stay_rates`
+(`{ season: { months, surcharge_pct, note }, weekend_days, weekend_surcharge_pct, deposit_cop,
+extra_note }`, spec 12 — cf. `rooms/bania-casa-completa.json`).
+
 `tags` et `photos` fonctionnent comme pour une activité. `activities/` et `rooms/` partagent le
 MÊME espace de `slug` (`products.slug` est unique tous types confondus) : deux fichiers, l'un dans
 `activities/`, l'autre dans `rooms/`, ne doivent jamais avoir le même `name.es`.
@@ -290,7 +314,7 @@ fonctionne pour ce type (branche générique de `create_order`, prix par personn
   ],
   "capacity": 20,                 // participants par départ
   "duration_days": 7,             // requis pour camp (contrainte CHECK)
-  "departures": ["2026-10-01", "2026-12-01"],  // requis, un par départ — jamais un tableau vide
+  "departures": ["2026-10-01", "2026-12-01"],  // requis, un par départ — sauf camp « vitrine » (ci-dessous)
   "group_discount_threshold_qty": 16,  // optionnel — remise si le remplissage CUMULÉ du départ
   "group_discount_pct": 0.20,          // optionnel — atteint ce seuil ; les deux ensemble ou aucun
   "program": [                         // optionnel — déroulé jour par jour (spec 37)
@@ -300,6 +324,10 @@ fonctionne pour ce type (branche générique de `create_order`, prix par personn
   "tags": [], "photos": []
 }
 ```
+**Camp « vitrine »** (les escapades de la v1, coordonnées par WhatsApp) : `external_booking_url`
+renseignée, `price_cop` facultatif, et `departures` facultatif — il n'est pas réservable en ligne,
+donc aucune disponibilité n'est posée. Cf. `camps/tour-privado-en-frances.json`.
+
 `program` (migration `20260916130000`) est une liste PLATE : plusieurs entrées portent normalement
 le même `day` — c'est ainsi qu'une journée porte plusieurs lignes, il n'y a rien à imbriquer. Le
 `day` est RELATIF au départ (`day: 1` = jour du départ), donc le même programme vaut pour TOUS les

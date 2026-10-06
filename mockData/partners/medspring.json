@@ -1,0 +1,24 @@
+{
+  "email": "medspring@mock.hifago.test",
+  "display_name": "Spring Hostel",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": null,
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cl. 30A #69-141, Belen",
+    "barrio": "Belen",
+    "lat": "",
+    "lon": "",
+    "commercial_status": "inactivo",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active"
+}

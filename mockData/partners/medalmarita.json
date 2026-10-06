@@ -1,0 +1,29 @@
+{
+  "email": "medalmarita@mock.hifago.test",
+  "display_name": "Casa Almarita",
+  "roles": [
+    "referrer",
+    "operator"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": "MEDALMARITA",
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cl. 48B #79-39, Laureles",
+    "barrio": "Laureles",
+    "lat": null,
+    "lon": null,
+    "commercial_status": "activo",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.medalmarita@mock.hifago.test",
+    "full_name": "Casa Almarita"
+  }
+}

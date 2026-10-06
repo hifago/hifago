@@ -1,9 +1,31 @@
 {
   "partner": "kayam",
   "establishment": "kayam",
-  "name": { "es": "Mastering" },
-  "external_booking_url": "https://wa.me/573001112233?text=Hola%2C%20quiero%20info%20sobre%20Mastering%20en%20Kayam%20Lab",
-  "tags": ["musica"],
-  "photos": ["1.webp"],
-  "_extra_columns": { "category": "musica" }
+  "name": {
+    "es": "Mastering"
+  },
+  "external_booking_url": null,
+  "tags": [
+    "musica"
+  ],
+  "_extra_columns": {
+    "category": "musica",
+    "sort": 90,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "none",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "price_cop": 230000,
+  "unit": null,
+  "default_capacity": null,
+  "lobby_category_id": null,
+  "lobby_product_id": 473219,
+  "description": null,
+  "photos": [
+    "1.webp"
+  ]
 }

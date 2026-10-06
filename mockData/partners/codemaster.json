@@ -1,0 +1,21 @@
+{
+  "email": "codemaster@mock.hifago.test",
+  "display_name": "Codemaster",
+  "roles": [
+    "referrer",
+    "operator"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": "Guatapé",
+  "phone": null,
+  "code": "CODEMASTER",
+  "commission_enabled": true,
+  "crm_profile": null,
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.codemaster@mock.hifago.test",
+    "full_name": "Codemaster"
+  }
+}

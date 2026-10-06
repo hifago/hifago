@@ -1,0 +1,16 @@
+{
+  "partner": "codemaster",
+  "name": {
+    "es": "Codemaster"
+  },
+  "description": null,
+  "address": null,
+  "lat": null,
+  "lon": null,
+  "operated_directly": false,
+  "mode": null,
+  "check_in_time": null,
+  "check_out_time": null,
+  "status": "active",
+  "photos": []
+}

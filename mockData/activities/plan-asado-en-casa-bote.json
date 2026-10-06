@@ -1,0 +1,38 @@
+{
+  "partner": "bania",
+  "establishment": "bania",
+  "name": {
+    "es": "PLAN ASADO EN CASA BOTE"
+  },
+  "price_cop": 160000,
+  "unit": null,
+  "default_capacity": 20,
+  "external_booking_url": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "tags": [
+    "agua"
+  ],
+  "description": {
+    "es": "Un delicioso y abundante asado, mientras navegas atreves del embalse de Guatapé.\nViajamos a un lugar tranquilo, natural y alejado del bullicio para que puedan relajarse, nadar y disfrutar de la naturaleza."
+  },
+  "_extra_columns": {
+    "category": "nautica",
+    "sort": 200,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp",
+    "2.webp",
+    "3.webp",
+    "4.webp",
+    "5.webp",
+    "6.webp"
+  ]
+}

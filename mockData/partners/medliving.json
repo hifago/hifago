@@ -1,0 +1,24 @@
+{
+  "email": "medliving@mock.hifago.test",
+  "display_name": "Living Hostal",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": null,
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cra. 48 #11B Sur-24, El Poblado",
+    "barrio": "El Poblado",
+    "lat": "",
+    "lon": "",
+    "commercial_status": "inactivo",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active"
+}

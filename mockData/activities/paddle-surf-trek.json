@@ -1,0 +1,38 @@
+{
+  "partner": "siddharta",
+  "establishment": "siddharta",
+  "name": {
+    "es": "Paddle Surf Trek"
+  },
+  "price_cop": 135000,
+  "unit": null,
+  "default_capacity": 3,
+  "external_booking_url": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "tags": [
+    "agua"
+  ],
+  "description": {
+    "es": "Paddle Surf Trek – Una experiencia inolvidable en Guatapé\nDescubre Guatapé desde una perspectiva única. Nuestro Paddle Surf Trek te invita a remar por las tranquilas aguas que rodean la Piedra, disfrutando de paisajes espectaculares y una conexión auténtica con la naturaleza.\nDurante el recorrido haremos paradas para nadar en aguas cristalinas y relajarnos mientras contemplamos uno de los lugares más icónicos de Colombia. La aventura continúa hasta llegar a una pradera completamente virgen, un rincón escondido al que muy pocas personas tienen acceso. Allí podrás descansar rodeado de naturaleza, observar caballos pastando en libertad, patos y una gran variedad de aves que habitan este entorno único.\nEs una experiencia perfecta para quienes buscan aventura, tranquilidad y el privilegio de descubrir un lugar salvaje y lleno de vida. Ven a remar, explorar y crear recuerdos inolvidables en uno de los paisajes más hermosos de Guatapé"
+  },
+  "_extra_columns": {
+    "category": "nautica",
+    "sort": 190,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp",
+    "2.webp",
+    "3.webp",
+    "4.webp",
+    "5.webp",
+    "6.webp"
+  ]
+}
