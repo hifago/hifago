@@ -46,34 +46,42 @@ test("admin gère le registre d'un partenaire : capacité, statut, transfert, co
   await partnerRow.getByRole("link", { name: "Ver" }).click();
   await expect(page).toHaveURL(/\/admin\/partners\/.+/);
 
-  // Transférer l'établissement fraîchement créé vers ce partenaire AVANT d'accorder la capacité
-  // operator — nécessaire pour qu'il apparaisse dans le sélecteur "Otorgar capacidad" ci-dessous,
-  // et surtout pour que la capacité operator accordée juste après soit scopée à CET établissement
-  // précis (unique par run) plutôt qu'"en attente" (establishment_id null) : sans ça, relancer ce
-  // test sans `db reset` entre deux runs entrerait en collision avec l'unique ligne operator "en
-  // attente" déjà créée par un run précédent (index partiel dédié, cf. correctif Tranche 1).
+  // Accorder une capacité operator "en attente" (establishment_id null, choix par défaut du
+  // sélecteur d'établissement), que le transfert ci-dessous rattache à l'établissement transféré
+  // (transfer_establishment, 20261006182227) : un run complet ne laisse donc jamais de ligne en
+  // attente. L'index partiel n'en admet qu'une par partenaire (correctif Tranche 1) : si un run
+  // interrompu entre les deux gestes en a laissé une, l'octroi est sauté et c'est elle que ce run
+  // rattache.
+  const capabilitiesTable = page.getByTestId("capabilities-table");
+  await expect(capabilitiesTable).toBeVisible();
+  const pendingOperatorRow = capabilitiesTable
+    .locator("tr", { hasText: "operator" })
+    .filter({ has: page.locator('[data-label="Establecimiento"]', { hasText: /^—$/ }) });
+  if ((await pendingOperatorRow.count()) === 0) {
+    await page.getByTestId("grant-role-select").click();
+    await page.getByRole("option", { name: "operator" }).click();
+    await page.getByTestId("grant-capability-button").click();
+  }
+  await expect(pendingOperatorRow).toHaveCount(1);
+
+  // Transférer l'établissement fraîchement créé vers ce partenaire — jamais en un clic : la
+  // confirmation nomme le propriétaire actuel (cahier admin §3d).
   await page.getByTestId("transfer-establishment-search").click();
   await page.getByRole("option", { name: new RegExp(establishmentName) }).click();
   await page.getByTestId("transfer-establishment-button").click();
+  await expect(page.getByTestId("transfer-establishment-confirmation")).toContainText("Opérateur Actif");
+  await page.getByTestId("confirm-transfer-establishment-button").click();
   await expect(
     page.getByTestId("own-establishments-table").getByText(establishmentName)
   ).toBeVisible();
 
-  // Accorder la capacité operator, scopée à cet établissement — la ligne referrer (déjà
-  // existante) reste visible à côté.
-  const capabilitiesTable = page.getByTestId("capabilities-table");
-  await page.getByTestId("grant-role-select").click();
-  await page.getByRole("option", { name: "operator" }).click();
-  await page.getByTestId("grant-establishment-select").click();
-  await page.getByRole("option", { name: establishmentName }).click();
-  await page.getByTestId("grant-capability-button").click();
-  // Scopé à la ligne de CET établissement (nom unique par run) plutôt qu'un texte "operator"
-  // générique : après plusieurs runs sans reset, plusieurs lignes operator coexistent
-  // légitimement (une par établissement, cf. commentaire ci-dessus) et rendraient l'assertion
-  // ambiguë.
+  // La ligne en attente est désormais scopée à CET établissement (nom unique par run — après
+  // plusieurs runs sans reset, plusieurs lignes operator coexistent légitimement, une par
+  // établissement) ; la ligne referrer (déjà existante) reste visible à côté.
   const operatorRow = capabilitiesTable.locator("tr", { hasText: establishmentName });
   await expect(operatorRow).toBeVisible();
   await expect(operatorRow).toContainText("operator");
+  await expect(pendingOperatorRow).toHaveCount(0);
   await expect(capabilitiesTable.getByText("referrer")).toBeVisible();
   // Trigger HeroUI Select : role="button" + aria-haspopup="listbox" (pattern React Aria), pas
   // role="combobox" (pattern de l'ancien socle base-ui/shadcn) — vérifié sur le DOM réel. Ciblé
