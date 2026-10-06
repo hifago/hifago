@@ -3,7 +3,7 @@
 -- de min_qty pour un logement, EXECUTE retiré à anon. Les gardes historiques restent couvertes par
 -- modify_order_line.test.sql.
 begin;
-select plan(25);
+select plan(26);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -46,6 +46,11 @@ insert into products (id, partner_id, establishment_id, type, name, slug, sellab
   ('7c720000-0000-4000-8000-000000000026', '7c720000-0000-4000-8000-000000000001',
    '7c720000-0000-4000-8000-000000000011', 'lodging', jsonb_build_object('es', 'Habitación PMS'),
    'modify-guards-pms', true, 100000, null, null, false, null, null, true, null, 7),
+  -- 28 : produit non-logement à catégorie LobbyPMS (aucune contrainte ne l'interdit) : refusé comme
+  -- un logement PMS, même prédicat que release_order_line_capacity.
+  ('7c720000-0000-4000-8000-000000000028', '7c720000-0000-4000-8000-000000000001',
+   '7c720000-0000-4000-8000-000000000011', 'activity', jsonb_build_object('es', 'Actividad PMS'),
+   'modify-guards-actividad-pms', true, 10000, 1, 10, false, null, null, true, null, 8),
   -- 27 : logement local, pour le plancher d'une nuit.
   ('7c720000-0000-4000-8000-000000000027', '7c720000-0000-4000-8000-000000000001',
    '7c720000-0000-4000-8000-000000000011', 'lodging', jsonb_build_object('es', 'Cabaña'),
@@ -56,6 +61,7 @@ insert into product_availability (product_id, date, capacity, booked) values
   ('7c720000-0000-4000-8000-000000000021', '2029-03-01', 3, 1),
   ('7c720000-0000-4000-8000-000000000021', '2029-03-05', 3, 1),
   ('7c720000-0000-4000-8000-000000000021', '2029-03-06', 3, 1),
+  ('7c720000-0000-4000-8000-000000000028', '2029-03-07', 3, 1),
   -- Logement : 1 réservé pour une ligne de 2, capacité 2.
   ('7c720000-0000-4000-8000-000000000027', '2029-03-10', 2, 1),
   -- rsvp : lignes héritées jamais incrémentées, l'une pleine.
@@ -103,7 +109,10 @@ insert into order_lines (
    '2029-03-06', null, 2, 'reserved', 'Holder', null, 10000, 20000, 'direct', 0, 0, 0, 0, 0, 0),
   ('7c720000-0000-4000-8000-000000000059', '7c720000-0000-4000-8000-000000000041',
    '7c720000-0000-4000-8000-000000000032', '7c720000-0000-4000-8000-000000000027',
-   '2029-03-10', '2029-03-11', 2, 'reserved', 'Holder', null, 100000, 200000, 'direct', 0, 0, 0, 0, 0, 0);
+   '2029-03-10', '2029-03-11', 2, 'reserved', 'Holder', null, 100000, 200000, 'direct', 0, 0, 0, 0, 0, 0),
+  ('7c720000-0000-4000-8000-000000000060', '7c720000-0000-4000-8000-000000000041',
+   '7c720000-0000-4000-8000-000000000032', '7c720000-0000-4000-8000-000000000028',
+   '2029-03-07', null, 1, 'reserved', 'Holder', null, 10000, 10000, 'direct', 0, 0, 0, 0, 0, 0);
 insert into availability_blocks (establishment_id, start_date, end_date, source_order_line_id) values
   ('7c720000-0000-4000-8000-000000000011', '2029-03-01', '2029-03-01', '7c720000-0000-4000-8000-000000000054');
 
@@ -126,6 +135,7 @@ select test_login('7c720000-0000-4000-8000-000000000031');
 insert into r values
   ('pms_booking', modify_order_line('7c720000-0000-4000-8000-000000000057', '2029-03-05', 2, 'Motivo')),
   ('pms_logement', modify_order_line('7c720000-0000-4000-8000-000000000056', '2029-03-02', 1, 'Motivo', '2029-03-04')),
+  ('pms_categorie', modify_order_line('7c720000-0000-4000-8000-000000000060', '2029-03-07', 2, 'Motivo')),
   ('bloc', modify_order_line('7c720000-0000-4000-8000-000000000054', '2029-03-01', 2, 'Motivo')),
   ('plancher', modify_order_line('7c720000-0000-4000-8000-000000000051', '2029-03-01', 3, 'Motivo')),
   ('rsvp_meme_date', modify_order_line('7c720000-0000-4000-8000-000000000052', '2029-03-01', 3, 'Motivo')),
@@ -165,21 +175,24 @@ select is((select res->>'reason' from r where k = 'pms_booking'), 'pms_line_not_
   'prestation adossée à un booking LobbyPMS → pms_line_not_modifiable');
 select is((select res->>'reason' from r where k = 'pms_logement'), 'pms_line_not_modifiable',
   'logement PMS sans booking encore → pms_line_not_modifiable');
+select is((select res->>'reason' from r where k = 'pms_categorie'), 'pms_line_not_modifiable',
+  'produit à catégorie LobbyPMS, hors logement → pms_line_not_modifiable');
 select is((select res->>'reason' from r where k = 'bloc'), 'resource_line_not_modifiable',
   'ligne qui porte un blocage d''agenda → resource_line_not_modifiable');
 select is(
   (select jsonb_object_agg(id, status) from order_lines
     where id in ('7c720000-0000-4000-8000-000000000054', '7c720000-0000-4000-8000-000000000056',
-                 '7c720000-0000-4000-8000-000000000057')),
+                 '7c720000-0000-4000-8000-000000000057', '7c720000-0000-4000-8000-000000000060')),
   jsonb_build_object('7c720000-0000-4000-8000-000000000054', 'reserved',
                      '7c720000-0000-4000-8000-000000000056', 'reserved',
-                     '7c720000-0000-4000-8000-000000000057', 'reserved'),
-  'les trois lignes refusées restent reserved'
+                     '7c720000-0000-4000-8000-000000000057', 'reserved',
+                     '7c720000-0000-4000-8000-000000000060', 'reserved'),
+  'les quatre lignes refusées restent reserved'
 );
 select is(
   (select count(*)::int from order_lines
     where replaces_order_line_id in ('7c720000-0000-4000-8000-000000000054', '7c720000-0000-4000-8000-000000000056',
-                                     '7c720000-0000-4000-8000-000000000057')),
+                                     '7c720000-0000-4000-8000-000000000057', '7c720000-0000-4000-8000-000000000060')),
   0,
   'aucune ligne de remplacement pour un refus'
 );
