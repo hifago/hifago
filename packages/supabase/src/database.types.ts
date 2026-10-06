@@ -2757,6 +2757,10 @@ export type Database = {
         }
         Returns: string
       }
+      close_order_line_locked: {
+        Args: { p_by: string; p_line_id: string; p_new_status: string }
+        Returns: Json
+      }
       consume_partner_invitation: {
         Args: {
           p_document_version: string
@@ -3159,6 +3163,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      notify_order_line_cancelled: {
+        Args: { p_by: string; p_client_note: string; p_line_id: string }
+        Returns: undefined
+      }
       offboarding_attest_payments: {
         Args: { p_note: string; p_offboarding_id: string }
         Returns: Json
@@ -3178,6 +3186,14 @@ export type Database = {
       order_for_client_jsonb: {
         Args: { p_order: Database["public"]["Tables"]["orders"]["Row"] }
         Returns: Json
+      }
+      order_jsonb_with_client_cancellable: {
+        Args: { p_order: Json }
+        Returns: Json
+      }
+      order_line_client_cancellable: {
+        Args: { p_status: string }
+        Returns: boolean
       }
       order_payment_deadline: {
         Args: { p_created_at: string }
