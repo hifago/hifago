@@ -238,7 +238,7 @@ redirections de connexion peuvent te déconnecter.
 | Socio opérateur actif (sans établissement rattaché, c'est voulu) | `operateur.actif@hifago.test` | `Seed1234!` | 3101 |
 | Socio suspendu | `referent.suspendu@hifago.test` | `Seed1234!` | 3101 |
 | Opérateur avec propositions de produits | `operador.propuestas@hifago.test` | `Seed1234!` | 3101 |
-| Socios du catalogue de démo (apporteur et/ou opérateur) | `user1@hifago.co` … `user5@hifago.co` | `User_1` … `User_5` | 3101 |
+| Socios du catalogue de démo (apporteur et/ou opérateur) | `user1@hifago.co` … `user5@hifago.co` | `User_1234` … `User_5234` (`User_` + numéro + `234`) ; base locale créée avant le 2026-10-06 : `User_1` … `User_5` | 3101 |
 
 Sur la vitrine, la réservation se fait sans compte. Pour tester l'inscription client, crée un
 compte depuis la vitrine : l'email de confirmation arrive dans la boîte mail locale (port 54324).

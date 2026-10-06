@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   meetsPasswordPolicy,
@@ -36,5 +36,33 @@ describe("meetsPasswordPolicy — miroir de la règle de Supabase Auth", () => {
   it("porte les valeurs attendues sur les projets cloud (supabase/auth-policy.json)", () => {
     expect(PASSWORD_MIN_LENGTH).toBe(politique.password_min_length);
     expect(PASSWORD_REQUIRED_CHARACTERS).toBe(politique.password_required_characters);
+  });
+});
+
+// Les comptes créés par les seeds passent par Supabase Auth : un mot de passe hors règle y serait
+// refusé, ou contredirait la règle déclarée. Toute fixture qui en pose un est relue ici.
+describe("mots de passe des seeds — conformes à la règle", () => {
+  const racine = new URL("../../../../", import.meta.url);
+
+  it("mockData/partners/*.json", () => {
+    const dossier = new URL("mockData/partners/", racine);
+    const motsDePasse = readdirSync(dossier)
+      .filter((nom) => nom.endsWith(".json"))
+      .map((nom) => ({
+        nom,
+        password: (JSON.parse(readFileSync(new URL(nom, dossier), "utf-8")) as { person?: { password?: string } })
+          .person?.password,
+      }))
+      .filter((fixture): fixture is { nom: string; password: string } => typeof fixture.password === "string");
+
+    expect(motsDePasse.length).toBeGreaterThan(0);
+    expect(motsDePasse.filter((fixture) => !meetsPasswordPolicy(fixture.password)).map((f) => f.nom)).toEqual([]);
+  });
+
+  it("supabase/scripts/seed_auth_users.mjs", () => {
+    const script = readFileSync(new URL("supabase/scripts/seed_auth_users.mjs", racine), "utf-8");
+    const valeur = /const SEED_PASSWORD = "([^"]+)";/.exec(script)?.[1];
+    expect(valeur).toBeDefined();
+    expect(meetsPasswordPolicy(valeur!)).toBe(true);
   });
 });
