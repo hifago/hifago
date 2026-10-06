@@ -45,6 +45,8 @@ insert into partner_capabilities (partner_id, role, establishment_id, source, st
   ('a5000000-0000-4000-8000-000000000002', 'referrer', null, 'migration', 'active'),
   ('a5000000-0000-4000-8000-000000000002', 'operator', 'a5000000-0000-4000-8000-000000000012', 'migration', 'active');
 
+insert into partner_codes (code, partner_id, active) values
+  ('REFUSP12G', 'a5000000-0000-4000-8000-000000000001', true);
 insert into partner_invitations (id, token_hash, promo_code, onboarding_path, expires_at) values
   ('a5000000-0000-4000-8000-000000000051', 'refus-p12g-hash', 'REFUSP12G', 'referrer', now() + interval '7 days');
 
@@ -106,7 +108,7 @@ select is(
 );
 select throws_ok(
   $$ select update_establishment('a5000000-0000-4000-8000-000000000011'::uuid,
-                                 jsonb_build_object('es', 'Usurpé'), null, null, null, null, null) $$,
+                                 jsonb_build_object('es', 'Usurpé'), null, null, null, null, false) $$,
   'P0001'::char(5), 'établissement introuvable ou non autorisé',
   'update_establishment refuse un non-admin (RLS, INVOKER)'
 );
