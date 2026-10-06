@@ -1,7 +1,7 @@
-// Gardes communes des tests d'intégration MANUELS des Edge Functions de jobs (P6, décision D8 : aucun
-// job CI, la preuve est consignée au rapport qui les lance). Ils écrivent dans la pile locale
-// partagée et appellent une fonction dont le lot est GLOBAL : avant toute écriture, ils s'arrêtent
-// (exit 2) plutôt que de toucher autre chose que leurs fixtures.
+// Gardes communes des tests d'intégration des Edge Functions de jobs — lancés par le job CI
+// `integration-edge` (audit P12d ; P6 les avait laissés manuels, décision D8) et à la main en local.
+// Ils écrivent dans la pile locale partagée et appellent une fonction dont le lot est GLOBAL : avant
+// toute écriture, ils s'arrêtent (exit 2) plutôt que de toucher autre chose que leurs fixtures.
 import { readFileSync } from "node:fs";
 
 export const CONNECTION_STRING = "postgresql://postgres:postgres@127.0.0.1:54322/postgres";

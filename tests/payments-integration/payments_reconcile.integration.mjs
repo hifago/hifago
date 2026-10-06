@@ -154,7 +154,10 @@ function startFixtureServer() {
     }
     send(404, { message: "unhandled by fixture server" });
   });
-  return new Promise((resolve) => server.listen(FIXTURE_PORT, "127.0.0.1", () => resolve(server)));
+  // Toutes les interfaces, pas 127.0.0.1 : la fonction tourne dans le conteneur du runtime Edge et
+  // joint la fixture par host.docker.internal — sous Linux (job CI integration-edge), une écoute
+  // limitée au loopback de l'hôte lui est injoignable. Même écoute que pms_sync_availability.
+  return new Promise((resolve) => server.listen(FIXTURE_PORT, () => resolve(server)));
 }
 
 async function purge(client) {

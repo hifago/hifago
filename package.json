@@ -34,7 +34,8 @@
     "check:instructions": "node scripts/check-instructions.mjs"
   },
   "devDependencies": {
-    "concurrently": "^10.0.4"
+    "concurrently": "^10.0.4",
+    "supabase": "2.116.0"
   },
   "overrides": {
     "concurrently": {
