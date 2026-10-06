@@ -32,16 +32,18 @@ fi
 fail=0
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────
-# Seule exemption : un Route Handler qui lit et écrit `order_lines` avec le client `service_role`
-# (createServiceRoleClient, packages/supabase/src/service.ts). Ce n'est pas une session, le grant
-# retiré ne le concerne pas. Toute autre exemption s'ajoute ici NOMMÉMENT, avec sa raison —
-# jamais par commodité.
+# Exemptions : AUCUNE aujourd'hui. La seule qu'il y ait eu, apps/web/app/api/pms/reserve-nights/
+# route.ts (lecture/écriture d'`order_lines` par le client `service_role`), a été retirée le
+# 2026-10-06 (audit P12f) : depuis 20260930221837 la route passe par des RPC
+# (claim_order_for_pms_booking, record_pms_booking, release_pms_reserve_claim) et ne lit plus la
+# table. Une exemption qui ne correspond plus à rien laisse passer, en silence, la régression
+# qu'elle n'a plus de raison de couvrir. Toute exemption future s'ajoute ici NOMMÉMENT, avec sa
+# raison — jamais par commodité.
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 est_exempte() {
   case "$1" in
-    "apps/web/app/api/pms/reserve-nights/route.ts") return 0 ;;
+    *) return 1 ;;
   esac
-  return 1
 }
 
 signale() { # fichier, lignes, explication
