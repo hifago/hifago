@@ -1,5 +1,5 @@
 import { InvalidWebhookSignatureError, WebhookSignatureValidator } from "mercadopago";
-import { mapMercadoPagoPaymentStatus } from "@hifago/domain";
+import { exploitableAmount, mapMercadoPagoPaymentStatus, toPaymentEvent } from "@hifago/domain";
 import { createServiceRoleClient } from "@hifago/supabase/service";
 import { getMercadoPagoPayment } from "@/lib/mercadopago/client";
 import {
@@ -84,44 +84,9 @@ async function recordFailure(params: {
   }
 }
 
-/** La réponse de GET /v1/payments/{id}, pour les seuls champs lus ici. */
-type MercadoPagoPayment = Awaited<ReturnType<typeof getMercadoPagoPayment>>;
-
-/**
- * Le montant que la base comparera à l'acompte — seulement s'il est exploitable : en COP (la seule
- * devise du compte) et numérique fini. Sinon null, qu'apply_payment_webhook_checked traite en échec
- * fermé pour un paiement approuvé (refund_required / amount_mismatch), jamais en approbation.
- */
-function exploitableAmount(payment: MercadoPagoPayment): number | null {
-  const amount = payment.transaction_amount;
-  return payment.currency_id === "COP" && typeof amount === "number" && Number.isFinite(amount)
-    ? amount
-    : null;
-}
-
-/**
- * L'événement conservé (payments.raw_last_event, raw_event des entrées de réconciliation) : la
- * réponse de Mercado Pago APLATIE — jamais l'objet entier, qui porte les coordonnées du payeur
- * (CLAUDE.md §8) — plus le corps du webhook. `transaction_amount` y est le montant exploitable :
- * c'est lui que l'e-mail au client et la demande de remboursement affichent (le montant encaissé,
- * pas l'acompte attendu) — s'il est null, ils retombent sur l'acompte attendu ;
- * `mp_transaction_amount` garde la valeur brute (diagnostic).
- */
-function paymentEvent(payment: MercadoPagoPayment, amount: number | null, webhookBody: Json): Json {
-  return {
-    mp_payment_id: payment.id == null ? null : String(payment.id),
-    status: payment.status ?? null,
-    status_detail: payment.status_detail ?? null,
-    transaction_amount: amount,
-    mp_transaction_amount: typeof payment.transaction_amount === "number" ? payment.transaction_amount : null,
-    currency_id: payment.currency_id ?? null,
-    date_created: payment.date_created ?? null,
-    date_approved: payment.date_approved ?? null,
-    external_reference: payment.external_reference ?? null,
-    collector_id: payment.collector_id == null ? null : String(payment.collector_id),
-    webhook_body: webhookBody,
-  };
-}
+// Montant exploitable (COP seulement, sinon null → échec fermé en base) et événement aplati (jamais
+// les coordonnées du payeur) : partagés avec le job `payments-reconcile` (@hifago/domain,
+// mercadopago/paymentEvent).
 
 export async function POST(request: Request) {
   const url = new URL(request.url);
@@ -247,7 +212,7 @@ export async function POST(request: Request) {
     // Les types générés déclarent `number` : ils ignorent qu'un argument SQL accepte NULL, et NULL
     // est ici voulu (montant inexploitable → échec fermé dans la fonction).
     p_transaction_amount: amount as number,
-    p_raw_event: paymentEvent(mpPayment, amount, storedBody),
+    p_raw_event: toPaymentEvent(mpPayment, amount, storedBody),
   });
 
   if (rpcError || !(result as { ok: boolean } | null)?.ok) {

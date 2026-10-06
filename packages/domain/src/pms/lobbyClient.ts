@@ -65,10 +65,10 @@ async function lobbyCall<T = unknown>(
     headers["X-Relay-Secret"] = options.relaySecret;
   }
 
-  // `timeoutMs` est OPT-IN : seule la réservation du tunnel (/api/pms/reserve-nights) le pose
-  // aujourd'hui. Un dépassement lève une `TimeoutError` (DOMException) — pour un POST, l'issue est
-  // alors INCONNUE (Lobby a pu créer le booking), jamais un refus. Les Edge Functions, qui importent
-  // ce module tel quel sous Deno, gardent leur comportement tant qu'elles ne le passent pas.
+  // `timeoutMs` est OPT-IN : la réservation du tunnel (/api/pms/reserve-nights) et les jobs (Edge
+  // Functions, sous budget de temps par passage) le posent. Un dépassement lève une `TimeoutError`
+  // (DOMException) — pour un POST, l'issue est alors INCONNUE (Lobby a pu créer ou annuler le
+  // booking), jamais un refus.
   const response = await fetch(url.toString(), {
     method,
     headers,
@@ -104,10 +104,17 @@ async function lobbyCall<T = unknown>(
   };
 }
 
-export function getLobbyRooms(baseUrl: string, apiToken: string, page?: number, relaySecret?: string) {
+export function getLobbyRooms(
+  baseUrl: string,
+  apiToken: string,
+  page?: number,
+  relaySecret?: string,
+  timeoutMs?: number
+) {
   return lobbyCall("GET", baseUrl, "/api/v1/rooms", apiToken, {
     params: page ? { page } : undefined,
     relaySecret,
+    timeoutMs,
   });
 }
 
@@ -137,11 +144,13 @@ export function getLobbyNightAvailability(
   categoryId: number,
   date: string,
   nextDate: string,
-  relaySecret?: string
+  relaySecret?: string,
+  timeoutMs?: number
 ) {
   return lobbyCall("GET", baseUrl, "/api/v2/available-rooms", apiToken, {
     params: { category_id: categoryId, start_date: date, end_date: nextDate },
     relaySecret,
+    timeoutMs,
   });
 }
 
@@ -162,11 +171,13 @@ export function getLobbyAvailableRooms(
   apiToken: string,
   date: string,
   nextDate: string,
-  relaySecret?: string
+  relaySecret?: string,
+  timeoutMs?: number
 ) {
   return lobbyCall("GET", baseUrl, "/api/v2/available-rooms", apiToken, {
     params: { start_date: date, end_date: nextDate },
     relaySecret,
+    timeoutMs,
   });
 }
 
@@ -227,9 +238,16 @@ export function addLobbyProductService(
   });
 }
 
-export function getLobbyBookingDetail(baseUrl: string, apiToken: string, bookingId: number, relaySecret?: string) {
+export function getLobbyBookingDetail(
+  baseUrl: string,
+  apiToken: string,
+  bookingId: number,
+  relaySecret?: string,
+  timeoutMs?: number
+) {
   return lobbyCall("GET", baseUrl, `/api/v1/bookings/${encodeURIComponent(String(bookingId))}`, apiToken, {
     relaySecret,
+    timeoutMs,
   });
 }
 
@@ -239,13 +257,14 @@ export function cancelLobbyBooking(
   bookingId: number,
   cancellationReason: string,
   description?: string,
-  relaySecret?: string
+  relaySecret?: string,
+  timeoutMs?: number
 ) {
   return lobbyCall(
     "POST",
     baseUrl,
     `/api/v1/cancel-booking/${encodeURIComponent(String(bookingId))}`,
     apiToken,
-    { data: { cancellation_reason: cancellationReason, description }, relaySecret }
+    { data: { cancellation_reason: cancellationReason, description }, relaySecret, timeoutMs }
   );
 }
