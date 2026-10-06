@@ -181,7 +181,12 @@ jobs:
       - run: supabase start
       # Les trois étapes ordonnées : reset sans seed, comptes auth via l'API Admin, puis seed.sql.
       - run: npm run db:setup
+      # Comptes de lignes AVANT/APRÈS les tests de concurrence (audit P12e, 2026-10-06) : chaque
+      # fichier purge ses fixtures en fin de run, dans un `finally`. Une table qui a bougé désigne
+      # celui qui a oublié — et protège l'étape pgTAP ci-dessous d'une base salie en silence.
+      - run: bash scripts/db-row-counts.sh > "$RUNNER_TEMP/comptes-avant.txt"
       - run: npm run test:concurrency
+      - run: bash scripts/db-row-counts.sh --compare "$RUNNER_TEMP/comptes-avant.txt"
       # Suite pgTAP rejouée sur cette base SEEDÉE et déjà écrite par les tests de concurrence (audit
       # P12b, 2026-10-06). Le job `db` ne la voit que vierge, où un `count(*)` en absolu passe au
       # vert : sept fichiers comptaient ainsi et rougissaient sur toute base réelle. C'est la garde

@@ -90,7 +90,11 @@ async function endAll(clients) {
   await Promise.all(clients.map((client) => client.end()));
 }
 
-async function resetAll(seedClient) {
+// Purge des fixtures de ce fichier — avant chaque run (par le reset ci-dessous) ET une dernière fois
+// en fin de fichier, quoi qu'il arrive (audit P12e, 2026-10-06). Sans la seconde, le dernier run
+// laissait ses lignes en base : sur la pile locale partagée comme en CI, où le job `concurrence`
+// compare désormais les comptes de lignes avant/après.
+async function purgeFixtures(seedClient) {
   // Ordre imposé par les FK (enfants avant parents) — portée large (tout ESTABLISHMENT_ID) exprès,
   // même raisonnement que create_order.concurrency.mjs : un run de scénario 2 juste après le
   // scénario 1 laisserait sinon des lignes accrochées par FK au moment de recréer l'identité.
@@ -130,6 +134,10 @@ async function resetAll(seedClient) {
   await seedClient.query("delete from products where establishment_id = $1", [ESTABLISHMENT_ID]);
   await seedClient.query("delete from establishments where id = $1", [ESTABLISHMENT_ID]);
   await seedClient.query("delete from partners where id = $1", [PARTNER_ID]);
+}
+
+async function resetAll(seedClient) {
+  await purgeFixtures(seedClient);
 
   await seedClient.query("insert into partners (id, display_name) values ($1, $2)", [
     PARTNER_ID,
@@ -594,29 +602,51 @@ async function runScenario(name, runOnce) {
   return true;
 }
 
-async function main() {
+async function runAll() {
   const scenario1Ok = await runScenario(
     "Scénario 1 — régression (N réservations du même camp, ressource partagée capacité 1)",
     runScenario1Once
   );
-  if (!scenario1Ok) process.exit(1);
+  if (!scenario1Ok) return 1;
 
   const scenario2Ok = await runScenario(
     "Scénario 2 — chevauchement partiel (deux camps aux plages chevauchantes)",
     runScenario2Once
   );
-  if (!scenario2Ok) process.exit(1);
+  if (!scenario2Ok) return 1;
 
   const scenario3Ok = await runScenario(
     "Scénario 3 — remise par seuil de remplissage cumulé sous concurrence réelle",
     runScenario3Once
   );
-  if (!scenario3Ok) process.exit(1);
+  if (!scenario3Ok) return 1;
 
   console.log(
     "\nTous les scénarios ont tenu leurs 5 runs consécutifs propres — create_order (camp multi-jours) validé sous concurrence réelle."
   );
-  process.exit(0);
+  return 0;
+}
+
+async function purgeAtEnd() {
+  const client = new Client({ connectionString: CONNECTION_STRING });
+  await client.connect();
+  try {
+    await purgeFixtures(client);
+  } finally {
+    await client.end();
+  }
+}
+
+// Les codes de sortie sont RENDUS par runAll, jamais `process.exit` en cours de route : un exit
+// dans la boucle sauterait le `finally`, donc la purge finale.
+async function main() {
+  let code = 1;
+  try {
+    code = await runAll();
+  } finally {
+    await purgeAtEnd();
+  }
+  process.exit(code);
 }
 
 main().catch((err) => {
