@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@hifago/supabase/server";
 import { createServiceRoleClient } from "@hifago/supabase/service";
+import { meetsPasswordPolicy } from "@hifago/domain";
 
 // Feature 31 (docs/specs/07-connexion-inscription-complete.md §7) — remplace l'appel client
 // supabase.auth.signUp() de JoinForm.tsx : maintenant que enable_confirmations = true, un signUp
@@ -33,6 +34,13 @@ export async function POST(request: Request) {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   if (!token || !email || !password || !name) {
     return Response.json({ ok: false, reason: "invalid_request" }, { status: 400 });
+  }
+  // La règle de mot de passe (8 caractères, lettres et chiffres) se vérifie ICI, avant toute
+  // lecture : JoinForm la dit déjà, mais un appel direct à cette route ne passe pas par lui. Et
+  // vérifiée avant `admin.createUser`, elle donne la bonne raison : un refus de la création se
+  // lirait sinon `email_already_used` (ci-dessous).
+  if (typeof password !== "string" || !meetsPasswordPolicy(password)) {
+    return Response.json({ ok: false, reason: "weak_password" }, { status: 400 });
   }
 
   const supabaseAnon = await createClient();
