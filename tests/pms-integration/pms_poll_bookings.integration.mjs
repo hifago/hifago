@@ -1,6 +1,6 @@
 // Spec 21 / P6 — test d'intégration RÉEL de l'Edge Function pms-poll-bookings contre la stack
-// Supabase locale et un LobbyPMS de fixtures. Manuel (aucun job CI — décision D8 de P6) : la preuve
-// est consignée au rapport qui le lance.
+// Supabase locale et un LobbyPMS de fixtures. Lancé par le job CI `integration-edge` (audit P12d ; P6
+// l'avait laissé manuel, décision D8), et à la main en local.
 //
 // CE QU'IL PROUVE :
 //   - seule la clé service_role déclenche le job : sans en-tête, avec la clé anon, avec une clé
@@ -117,7 +117,10 @@ function startFixtureServer() {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ message: "unhandled by fixture server" }));
   });
-  return new Promise((resolve) => server.listen(FIXTURE_PORT, "127.0.0.1", () => resolve(server)));
+  // Toutes les interfaces, pas 127.0.0.1 : la fonction tourne dans le conteneur du runtime Edge et
+  // joint la fixture par host.docker.internal — sous Linux (job CI integration-edge), une écoute
+  // limitée au loopback de l'hôte lui est injoignable. Même écoute que pms_sync_availability.
+  return new Promise((resolve) => server.listen(FIXTURE_PORT, () => resolve(server)));
 }
 
 async function purgeFixtures(client) {
