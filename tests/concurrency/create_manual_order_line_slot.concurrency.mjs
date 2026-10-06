@@ -61,7 +61,11 @@ async function endAll(clients) {
   await Promise.all(clients.map((client) => client.end()));
 }
 
-async function resetAndSeed(seedClient) {
+// Purge des fixtures de ce fichier — avant chaque run (par le reset ci-dessous) ET une dernière fois
+// en fin de fichier, quoi qu'il arrive (audit P12e, 2026-10-06). Sans la seconde, le dernier run
+// laissait ses lignes en base : sur la pile locale partagée comme en CI, où le job `concurrence`
+// compare désormais les comptes de lignes avant/après.
+async function purgeFixtures(seedClient) {
   await seedClient.query(
     `delete from order_lines
       where product_id in (select id from products where establishment_id = $1)`,
@@ -90,6 +94,10 @@ async function resetAndSeed(seedClient) {
   await seedClient.query("delete from partner_accounts where id = $1", [OPERATOR_ID]);
   await seedClient.query("delete from partners where id = $1", [PARTNER_ID]);
   await seedClient.query("delete from auth.users where id = $1", [OPERATOR_ID]);
+}
+
+async function resetAndSeed(seedClient) {
+  await purgeFixtures(seedClient);
 
   await seedClient.query("insert into auth.users (id, email) values ($1, $2)", [
     OPERATOR_ID,
@@ -201,7 +209,7 @@ async function runOnce(run) {
   );
 }
 
-async function main() {
+async function runAll() {
   console.log(
     `\n=== create_manual_order_line — branche créneau horaire sous concurrence (N=${N}, capacité=${CAPACITY}, ${RUNS} runs consécutifs requis) ===`
   );
@@ -215,13 +223,35 @@ async function main() {
     }
     if (!clean) {
       console.error(`\nÉCHEC — run ${run}/${RUNS}. Zéro tolérance à un échec isolé.`);
-      process.exit(1);
+      return 1;
     }
   }
   console.log(
     `\n${RUNS} runs consécutifs propres — branche créneau de create_manual_order_line validée sous concurrence réelle (aucune survente, aucun conflit de matérialisation).`
   );
-  process.exit(0);
+  return 0;
+}
+
+async function purgeAtEnd() {
+  const client = new Client({ connectionString: CONNECTION_STRING });
+  await client.connect();
+  try {
+    await purgeFixtures(client);
+  } finally {
+    await client.end();
+  }
+}
+
+// Les codes de sortie sont RENDUS par runAll, jamais `process.exit` en cours de route : un exit
+// dans la boucle sauterait le `finally`, donc la purge finale.
+async function main() {
+  let code = 1;
+  try {
+    code = await runAll();
+  } finally {
+    await purgeAtEnd();
+  }
+  process.exit(code);
 }
 
 main().catch((err) => {

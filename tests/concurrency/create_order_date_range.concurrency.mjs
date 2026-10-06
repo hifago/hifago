@@ -91,7 +91,11 @@ async function endAll(clients) {
   await Promise.all(clients.map((client) => client.end()));
 }
 
-async function resetAll(seedClient) {
+// Purge des fixtures de ce fichier — avant chaque run (par le reset ci-dessous) ET une dernière fois
+// en fin de fichier, quoi qu'il arrive (audit P12e, 2026-10-06). Sans la seconde, le dernier run
+// laissait ses lignes en base : sur la pile locale partagée comme en CI, où le job `concurrence`
+// compare désormais les comptes de lignes avant/après.
+async function purgeFixtures(seedClient) {
   await seedClient.query(
     `delete from order_lines
       where product_id in (select id from products where establishment_id = $1)`,
@@ -122,6 +126,10 @@ async function resetAll(seedClient) {
   await seedClient.query("delete from products where establishment_id = $1", [ESTABLISHMENT_ID]);
   await seedClient.query("delete from establishments where id = $1", [ESTABLISHMENT_ID]);
   await seedClient.query("delete from partners where id = $1", [PARTNER_ID]);
+}
+
+async function resetAll(seedClient) {
+  await purgeFixtures(seedClient);
 
   await seedClient.query("insert into partners (id, display_name) values ($1, $2)", [
     PARTNER_ID,
@@ -503,29 +511,51 @@ async function runScenario(name, runOnce) {
   return true;
 }
 
-async function main() {
+async function runAll() {
   const s1 = await runScenario(
     "Scénario 1 — régression (N réservations de la même plage/hébergement, capacité 1)",
     runScenario1Once
   );
-  if (!s1) process.exit(1);
+  if (!s1) return 1;
 
   const s2 = await runScenario(
     "Scénario 2 — plages imbriquées/chevauchantes + qty multiples, fenêtre à capacité serrée",
     runScenario2Once
   );
-  if (!s2) process.exit(1);
+  if (!s2) return 1;
 
   const s3 = await runScenario(
     "Scénario 3 — plages adjacentes (aucune nuit commune, pas de contention artificielle)",
     runScenario3Once
   );
-  if (!s3) process.exit(1);
+  if (!s3) return 1;
 
   console.log(
     "\nTous les scénarios ont tenu leurs 5 runs consécutifs propres — create_order (alojamiento par plage) validé sous concurrence réelle."
   );
-  process.exit(0);
+  return 0;
+}
+
+async function purgeAtEnd() {
+  const client = new Client({ connectionString: CONNECTION_STRING });
+  await client.connect();
+  try {
+    await purgeFixtures(client);
+  } finally {
+    await client.end();
+  }
+}
+
+// Les codes de sortie sont RENDUS par runAll, jamais `process.exit` en cours de route : un exit
+// dans la boucle sauterait le `finally`, donc la purge finale.
+async function main() {
+  let code = 1;
+  try {
+    code = await runAll();
+  } finally {
+    await purgeAtEnd();
+  }
+  process.exit(code);
 }
 
 main().catch((err) => {

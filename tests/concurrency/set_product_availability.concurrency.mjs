@@ -40,7 +40,11 @@ function buyerAccountId(i) {
 
 const BUYER_IDS = Array.from({ length: N }, (_, i) => buyerAccountId(i));
 
-async function resetFixtures(seedClient) {
+// Purge des fixtures de ce fichier — avant chaque run (par le reset ci-dessous) ET une dernière fois
+// en fin de fichier, quoi qu'il arrive (audit P12e, 2026-10-06). Sans la seconde, le dernier run
+// laissait ses lignes en base : sur la pile locale partagée comme en CI, où le job `concurrence`
+// compare désormais les comptes de lignes avant/après.
+async function purgeFixtures(seedClient) {
   // Ordre imposé par les FK : lignes/commandes d'abord, puis la ressource, puis l'identité.
   await seedClient.query("delete from order_lines where product_id = $1", [PRODUCT_ID]);
   await seedClient.query(
@@ -67,6 +71,10 @@ async function resetFixtures(seedClient) {
   await seedClient.query("delete from auth.users where id = any($1::uuid[])", [
     [...BUYER_IDS, ADMIN_ID],
   ]);
+}
+
+async function resetFixtures(seedClient) {
+  await purgeFixtures(seedClient);
 
   await seedClient.query("insert into auth.users (id, email) values ($1, $2)", [
     ADMIN_ID,
@@ -209,16 +217,38 @@ async function runOnce(run) {
   return booked <= capacity;
 }
 
-async function main() {
+async function runAll() {
   for (let run = 1; run <= RUNS; run++) {
     const clean = await runOnce(run);
     if (!clean) {
       console.error(`Run ${run} a échoué — invariant booked <= capacity violé, arrêt immédiat.`);
-      process.exit(1);
+      return 1;
     }
   }
   console.log(`${RUNS} runs consécutifs propres — booked <= capacity toujours vrai.`);
-  process.exit(0);
+  return 0;
+}
+
+async function purgeAtEnd() {
+  const client = new Client({ connectionString: CONNECTION_STRING });
+  await client.connect();
+  try {
+    await purgeFixtures(client);
+  } finally {
+    await client.end();
+  }
+}
+
+// Les codes de sortie sont RENDUS par runAll, jamais `process.exit` en cours de route : un exit
+// dans la boucle sauterait le `finally`, donc la purge finale.
+async function main() {
+  let code = 1;
+  try {
+    code = await runAll();
+  } finally {
+    await purgeAtEnd();
+  }
+  process.exit(code);
 }
 
 main().catch((err) => {
