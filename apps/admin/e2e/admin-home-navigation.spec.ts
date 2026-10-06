@@ -92,6 +92,14 @@ test("inicio muestra los KPIs, las alertas y los 4 gráficos", async ({ page, co
   // Comisiones toujours qualifiées "generadas" (constat 1 de la spec, jamais "a pagar" tant que
   // le ledger n'existe pas côté hifago) — invariant explicite §8, vérifié dans le libellé réel.
   await expect(page.getByTestId("kpi-commissions")).toContainText("Comisiones generadas");
+
+  // Bloc « Procesos », PERMANENT : la RPC admin_jobs_status répond (jamais « no disponible » pour
+  // un admin) et chaque job attendu a sa ligne. Agnostique de l'état : en local, les Edge Functions
+  // ne tournent pas, les jobs sont donc « sin latido » ou « con retraso » selon l'âge de la base.
+  await expect(page.getByTestId("jobs-status")).toBeVisible();
+  await expect(page.getByTestId("jobs-status-summary")).toBeVisible();
+  await expect(page.getByTestId("jobs-status-unavailable")).toHaveCount(0);
+  await expect(page.getByTestId("job-row-payments-reconcile")).toBeVisible();
 });
 
 test("ventana de 90 días cambia la URL y sigue renderizando los gráficos", async ({ page, context }) => {
