@@ -4,16 +4,16 @@
 //
 // Par commande : une nuit PMS et une activité qui partagent le booking. La RPC `gone` part en même
 // temps (barrière) qu'UN adversaire, à tour de rôle : cancel_order_line (le client annule l'activité :
-// la place reste prise, cahier §7/A3), modify_order_line (l'admin déplace l'activité : la place
-// change de date) ou expire_payment_order (la commande expire : les places reviennent). Tous prennent
-// la commande (ou la ligne) avant la capacité : ils sont sérialisés.
+// la place est rendue depuis la migration 20261006192424), modify_order_line (l'admin déplace
+// l'activité : la place change de date) ou expire_payment_order (la commande expire : les places
+// reviennent). Tous prennent la commande avant la capacité : ils sont sérialisés.
 //
 // Deux phases par run :
 //   1. DÉTERMINISTE — chaque adversaire est servi dans les DEUX ordres, par construction : un
-//      coordinateur tient le verrou que les deux appels attendent (la ligne d'activité pour
-//      cancel_order_line, qui ne prend pas la commande ; la commande pour les autres), le premier
-//      appel part et sa mise en attente est constatée, puis le second, puis le coordinateur relâche —
-//      la file d'attente du verrou sert le premier arrivé. L'issue exacte de chacun est vérifiée.
+//      coordinateur tient la commande, que tous prennent en premier (cancel_order_line aussi depuis
+//      20261006192424), le premier appel part et sa mise en attente est constatée, puis le second,
+//      puis le coordinateur relâche — la file d'attente du verrou sert le premier arrivé. L'issue
+//      exacte de chacun est vérifiée.
 //   2. COURSE LIBRE — la RPC et un adversaire par commande, libérés ensemble par une barrière, avec
 //      deux claim_pms_poll_batch (ils prennent les lignes sans jamais attendre). L'ordre est celui de
 //      la machine : cette phase cherche les interblocages, pas la couverture des ordres.
@@ -21,9 +21,9 @@
 // Attendu à chaque run, quel que soit l'ordre :
 //   - 0 interblocage (40P01), aucune erreur hors le refus attendu de modify_order_line quand la
 //     ligne n'est plus `reserved` ;
-//   - pour chaque date, `booked` = la somme des quantités des lignes qui tiennent encore une place
-//     (`reserved`, ou `cancelled_by_client`, qui ne la rend pas) — jamais une place rendue deux fois,
-//     jamais une place perdue ;
+//   - pour chaque date, `booked` = la somme des quantités des lignes encore `reserved` (toute
+//     annulation rend sa place depuis 20261006192424) — jamais une place rendue deux fois, jamais une
+//     place perdue ;
 //   - plus aucune ligne `reserved` sur un booking, et exactement UNE annulation en file par booking.
 // Avant chaque run, une sonde DÉTERMINISTE : une ligne sœur tenue par une autre transaction, le claim
 // doit répondre sans l'attendre (skip locked).
@@ -96,6 +96,8 @@ async function purge(seed) {
   await seed.query(
     `delete from pms_reconciliation_entries where order_line_id in (select id from order_lines where order_id::text like '${P}%')`
   );
+  // Les confirmations d'annulation (migration 20261006192424) portent sur les lignes.
+  await seed.query(`delete from notification_emails where related_table = 'order_lines' and related_id::text like '${P}%'`);
   await seed.query("delete from pms_cancellation_queue where pms_booking_id like 'CONC-PO-%'");
   await seed.query("delete from pms_sync_state where establishment_id = $1", [ESTABLISHMENT_ID]);
   await seed.query("delete from audit_log where actor_id = $1", [ADMIN_ID]);
@@ -205,11 +207,7 @@ async function serveInOrder(seed, { kind, first }, i) {
   const opponent = await opponentClient(kind);
   try {
     await coordinator.query("begin");
-    if (kind === "cancel") {
-      await coordinator.query("select 1 from order_lines where id = $1 for update", [activityLineId(i)]);
-    } else {
-      await coordinator.query("select 1 from orders where id = $1 for update", [orderId(i)]);
-    }
+    await coordinator.query("select 1 from orders where id = $1 for update", [orderId(i)]);
     const launch = (who) =>
       who === "poll"
         ? run(poller, "select public.apply_pms_poll_outcome($1, 'gone', 'concurrence') as r", [nightLineId(i)])
@@ -296,7 +294,7 @@ async function runOnce(runNumber, seed) {
     `select pa.date::text as date, pa.booked,
             (select coalesce(sum(ol.qty), 0)::int from order_lines ol
               where ol.product_id = pa.product_id and ol.date = pa.date
-                and ol.status in ('reserved', 'cancelled_by_client')) as expected
+                and ol.status = 'reserved') as expected
        from product_availability pa where pa.product_id = $1 order by pa.date`,
     [ACTIVITY_ID]
   );
