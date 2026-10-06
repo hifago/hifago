@@ -4,8 +4,9 @@
 //
 // Par commande : une nuit PMS et une activité qui partagent le booking. La RPC `gone` part en même
 // temps (barrière) qu'UN adversaire, à tour de rôle : cancel_order_line (le client annule l'activité :
-// la place est rendue depuis la migration 20261006192424), modify_order_line (l'admin déplace
-// l'activité : la place change de date) ou expire_payment_order (la commande expire : les places
+// la place est rendue depuis la migration 20261006192424), modify_order_line (l'admin tente de
+// déplacer l'activité : refusée sans rien écrire depuis 20261006204938, une prestation adossée à un
+// booking LobbyPMS ne se modifie pas) ou expire_payment_order (la commande expire : les places
 // reviennent). Tous prennent la commande avant la capacité : ils sont sérialisés.
 //
 // Deux phases par run :
@@ -20,7 +21,7 @@
 //
 // Attendu à chaque run, quel que soit l'ordre :
 //   - 0 interblocage (40P01), aucune erreur hors le refus attendu de modify_order_line quand la
-//     ligne n'est plus `reserved` ;
+//     ligne n'est plus `reserved` (servie avant, elle rend `pms_line_not_modifiable`, sans erreur) ;
 //   - pour chaque date, `booked` = la somme des quantités des lignes encore `reserved` (toute
 //     annulation rend sa place depuis 20261006192424) — jamais une place rendue deux fois, jamais une
 //     place perdue ;
