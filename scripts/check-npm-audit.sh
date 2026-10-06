@@ -15,6 +15,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Avant d'exempter, préférer un `overrides` dans le package.json racine quand une version corrigée existe
+# mais qu'un parent la bloque. En place (2026-10-06) : shell-quote ^1.12.0, car concurrently 10.0.4 fixe
+# exactement 1.9.0 (GHSA-pqg4-j6r4-53mv, critique). À retirer quand concurrently relève sa version :
+# retiré trop tôt, ce contrôle rougit de lui-même.
+#
 # Une ligne par exemption : identifiant GHSA, date d'entrée, raison. Revoir à chaque passage du hook.
 EXEMPTIONS=(
   # braces (toutes versions) via eslint-config-next → @next/eslint-plugin-next → fast-glob →
