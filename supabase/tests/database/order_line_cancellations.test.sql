@@ -4,7 +4,7 @@
 -- CE QUE CE FICHIER DOIT PROUVER :
 --   - la place est rendue pour toute annulation (client, admin, operator ; commande payée ou non) et
 --     pour `expired` : cupos, ressource partagée ET blocage d'agenda ; jamais pour no_show ; jamais
---     pour un evento `rsvp`/`unlimited`, qui n'en a jamais pris ;
+--     pour un evento qui n'est pas `metered` (`rsvp`, `unlimited`, sans mode), qui n'en a jamais pris ;
 --   - l'argent : commande payée (ou `partially_refunded`) annulée pour le client → acompte acquis
 --     (ledger A3 : référent `void`, compensation de l'établissement), par le client comme par l'admin ;
 --     impayée ou remboursée → ledger `expired` (aucune compensation) ; le client qui retire une ligne
@@ -21,7 +21,7 @@
 --   - close_order_line_locked refuse un couple (statut, auteur) inconnu et une ligne non réservée.
 -- Fixtures en SQL direct (tables RPC-only) : ce fichier tourne en tant que postgres.
 begin;
-select plan(40);
+select plan(41);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -62,7 +62,10 @@ insert into products (id, partner_id, establishment_id, type, name, price_cop, s
   ('7c700000-0000-4000-8000-000000000024', '7c700000-0000-4000-8000-000000000001', '7c700000-0000-4000-8000-000000000012',
    'activity', jsonb_build_object('es', 'Tour P7'), 30000, true, 'p7-cancel-tour', null, null, null, true),
   ('7c700000-0000-4000-8000-000000000025', '7c700000-0000-4000-8000-000000000001', '7c700000-0000-4000-8000-000000000011',
-   'evento', jsonb_build_object('es', 'Fiesta P7'), 10000, true, 'p7-cancel-fiesta', null, 'rsvp', 30, false);
+   'evento', jsonb_build_object('es', 'Fiesta P7'), 10000, true, 'p7-cancel-fiesta', null, 'rsvp', 30, false),
+  -- Evento sans mode (jamais vendu en ligne) : comme `rsvp`/`unlimited`, il ne prend aucune place.
+  ('7c700000-0000-4000-8000-000000000026', '7c700000-0000-4000-8000-000000000001', '7c700000-0000-4000-8000-000000000011',
+   'evento', jsonb_build_object('es', 'Charla P7'), 10000, true, 'p7-cancel-charla', null, null, null, false);
 
 -- Le 2029-03-01 : une place par ligne d'activité (16) ; le 2029-03-05 : la ligne « occupante » (57)
 -- tient 2 places et la ressource partagée les 05 et 06 (blocage d'agenda) ; le 2029-03-10 : 4
@@ -70,7 +73,8 @@ insert into products (id, partner_id, establishment_id, type, name, price_cop, s
 insert into product_availability (product_id, date, capacity, booked) values
   ('7c700000-0000-4000-8000-000000000021', '2029-03-01', 20, 16),
   ('7c700000-0000-4000-8000-000000000021', '2029-03-05', 10, 2),
-  ('7c700000-0000-4000-8000-000000000025', '2029-03-10', 30, 4);
+  ('7c700000-0000-4000-8000-000000000025', '2029-03-10', 30, 4),
+  ('7c700000-0000-4000-8000-000000000026', '2029-03-12', 30, 4);
 insert into provider_resource_calendar (establishment_id, slot_date, capacity, booked) values
   ('7c700000-0000-4000-8000-000000000011', '2029-03-05', 5, 2),
   ('7c700000-0000-4000-8000-000000000011', '2029-03-06', 5, 2);
@@ -137,6 +141,8 @@ select p7_line('67', '54', '2029-04-01', 1, false, '23', '2029-04-02', 'P7-B1');
 select p7_line('68', '54', '2029-04-01', 1, false, '24', null, 'P7-B1');
 -- Commande 55 : deux places d'un evento `rsvp` réservées en ligne (aucune place prise).
 select p7_line('69', '55', '2029-03-10', 2, false, '25');
+-- Commande 55 : une place d'un evento sans mode (aucune place prise).
+select p7_line('70', '55', '2029-03-12', 1, false, '26');
 insert into availability_blocks (establishment_id, start_date, end_date, source_order_line_id) values
   ('7c700000-0000-4000-8000-000000000011', '2029-03-05', '2029-03-06', '7c700000-0000-4000-8000-000000000057');
 insert into ledger_entries (order_line_id, beneficiary_type, referrer_partner_id, entry_type, amount_cop, status)
@@ -332,6 +338,10 @@ reset role;
 select is(
   (select booked from product_availability where product_id = '7c700000-0000-4000-8000-000000000025' and date = '2029-03-10'),
   4, 'C26 : evento `rsvp` : les 4 places des lignes manuelles restent prises (prédicat de create_order)');
+select public.release_order_line_capacity('7c700000-0000-4000-8000-000000000070');
+select is(
+  (select booked from product_availability where product_id = '7c700000-0000-4000-8000-000000000026' and date = '2029-03-12'),
+  4, 'C26b : evento sans mode : rien n''est rendu (seul `metered` prend une place)');
 
 -- ── LobbyPMS : la phrase dit les faits ───────────────────────────────────
 set local role authenticated;

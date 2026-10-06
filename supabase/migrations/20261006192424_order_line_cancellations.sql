@@ -23,8 +23,8 @@
 --     information au prestataire : le FAIT de l'annulation, sans un mot sur l'argent (textes
 --     provisoires, valeurs tierces échappées par html_text) ; jamais vers une adresse sentinelle
 --     (`@hifago.local` : ligne manuelle, reprise legacy) ;
---   - release_order_line_capacity ne rend plus rien pour un evento `unlimited`/`rsvp`, qui n'a
---     jamais pris de place (prédicat de create_order).
+--   - release_order_line_capacity ne rend plus rien pour un evento qui n'est pas `metered`
+--     (`unlimited`, `rsvp` ou sans mode), qui n'a jamais pris de place (prédicat de create_order).
 -- Aussi : list_my_orders rend `cancellable` par ligne (même règle que cancel_order_line) ;
 -- set_establishment_pms_connector verrouille les lignes AVANT la file (même ordre que le trigger
 -- d'une annulation) ; set_order_line_status n'est plus exécutable par anon.
@@ -434,10 +434,11 @@ begin
        set booked = greatest(0, booked - v_line.qty)
      where product_id = v_line.product_id and slot_date = v_line.date
        and slot_start_time = v_line.slot_start_time;
-  elsif v_line.product_type = 'evento' and v_line.evento_capacity_mode in ('unlimited', 'rsvp') then
-    -- Migration 20261006192424 : un evento `unlimited`/`rsvp` n'a jamais pris de place
-    -- (create_order, même prédicat ; drapeau gelé tant que la ligne est réservée) — une ligne
-    -- product_availability peut pourtant exister (posée par une ligne manuelle) : n'y rien rendre.
+  elsif v_line.product_type = 'evento' and v_line.evento_capacity_mode is distinct from 'metered' then
+    -- Migration 20261006192424 : seul un evento `metered` prend une place — `unlimited`, `rsvp` ou
+    -- sans mode n'en ont jamais pris (create_order, même prédicat ; drapeau gelé tant que la ligne
+    -- est réservée). Une ligne product_availability peut pourtant exister (posée par une ancienne
+    -- ligne manuelle) : n'y rien rendre.
     null;
   else
     -- Date simple : activité, camp, evento `metered` (les modes unlimited/rsvp n'ont aucune ligne
