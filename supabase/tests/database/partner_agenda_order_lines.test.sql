@@ -78,17 +78,18 @@ select is(
   0,
   'fenêtre de dates respectée : rien hors [from, to]'
 );
+-- Colonnes rendues : liste EXACTE, lue dans `proargnames`/`proargmodes` (mode 't' = colonne de
+-- `returns table`), même idiome que partner_commissions_list.test.sql. L'ancienne assertion joignait
+-- `pg_attribute` via `pg_type.typrelid`, nul pour un `returns table` (type `record`) : elle ne
+-- trouvait aucune colonne et passait quoi que la fonction rende. La liste exacte rougit sur une
+-- colonne de commission ajoutée comme sur tout autre ajout non relu.
 select is(
-  (
-    select coalesce(string_agg(a.attname, ', ' order by a.attname), '')
-    from pg_proc p
-    join pg_type t on t.oid = p.prorettype
-    join pg_attribute a on a.attrelid = t.typrelid
-    where p.proname = 'partner_agenda_order_lines'
-      and a.attname in ('referrer_commission_cop', 'app_commission_cop', 'acompte_cop', 'commission_case', 'total_cop')
-  ),
-  '',
-  'partner_agenda_order_lines ne retourne structurellement aucune colonne de commission/montant'
+  (select string_agg(a.n, ', ' order by a.n)
+     from pg_proc p, unnest(p.proargnames, p.proargmodes) as a(n, m)
+    where p.oid = 'public.partner_agenda_order_lines'::regproc and a.m = 't'),
+  'date, end_date, holder_name, id, product_duration_days, product_id, product_name, '
+  'product_type, qty, slot_start_time, status',
+  'partner_agenda_order_lines rend exactement ses colonnes d''affichage — aucune colonne de commission/montant'
 );
 
 select * from finish();

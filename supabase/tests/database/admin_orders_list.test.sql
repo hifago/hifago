@@ -70,17 +70,18 @@ select is(
   'tri total_cop ascendant : 50000 (Zamora) avant 70000 (Abarca)'
 );
 
+-- Colonnes rendues : liste EXACTE, lue dans `proargnames`/`proargmodes` (mode 't' = colonne de
+-- `returns table`), même idiome que partner_commissions_list.test.sql. L'ancienne assertion joignait
+-- `pg_attribute` via `pg_type.typrelid`, nul pour un `returns table` (type `record`) : elle ne
+-- trouvait aucune colonne et passait quoi que la fonction rende. La liste exacte rougit sur une
+-- colonne de commission ajoutée comme sur tout autre ajout non relu.
 select is(
-  (
-    select coalesce(string_agg(a.attname, ', ' order by a.attname), '')
-    from pg_proc p
-    join pg_type t on t.oid = p.prorettype
-    join pg_attribute a on a.attrelid = t.typrelid
-    where p.proname = 'admin_orders_list'
-      and a.attname in ('referrer_commission_cop', 'app_commission_cop', 'acompte_cop', 'commission_case', 'referrer_partner_id')
-  ),
-  '',
-  'admin_orders_list ne retourne structurellement aucune colonne de commission'
+  (select string_agg(a.n, ', ' order by a.n)
+     from pg_proc p, unnest(p.proargnames, p.proargmodes) as a(n, m)
+    where p.oid = 'public.admin_orders_list'::regproc and a.m = 't'),
+  'created_at, date, end_date, establishment_name, holder_name, holder_phone, id, order_id, '
+  'product_name, qty, referrer_display_name, status, total_cop, total_count',
+  'admin_orders_list rend exactement ses colonnes d''affichage — aucune colonne de commission'
 );
 
 select * from finish();
