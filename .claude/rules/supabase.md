@@ -83,10 +83,10 @@ réelles. Règle d'échappement : au-delà de 100 lignes, le piège le plus anci
   jamais dans le statut HTTP ; `cancellation_reason` est un code fermé. Lobby n'est jamais la
   source du prix. Le cache `(établissement, mois)` rejoint la promesse en vol (`getOrFetch`).
 - **Deux règles opposées coexistent volontairement** : une NUIT PMS refusée défait la commande
-  (`release_order_after_pms_refusal`, panier conservé), une ACTIVITÉ refusée ne la défait pas ;
-  `cancel_order` refuse de rendre la place (cahier client §7/A3). Ne pas « corriger » l'une au nom
-  de l'autre. Un refus de nuit ne crée plus d'entrée de réconciliation (`notify_all_admins` n'a pas
-  de dédup).
+  (`release_order_after_pms_refusal`, panier conservé), une ACTIVITÉ refusée ne la défait pas.
+  Ne pas « corriger » l'une au nom de l'autre. Toute annulation REND la place (20261006192424 : A3
+  règle l'argent, jamais l'inventaire). Un refus de nuit ne crée plus d'entrée de réconciliation
+  (`notify_all_admins` n'a pas de dédup).
 - Sur la base locale partagée : ne jamais `db reset` sans savoir si une autre session a des
   données en cours (`AGENTS-PARALLELES.md`) ; les échecs pgTAP par accumulation d'`audit_log` sont
   de la pollution, pas une régression — prouver en vidant dans la transaction du test.
