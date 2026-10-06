@@ -224,9 +224,12 @@ describe("/admin — bloc « Procesos »", () => {
 
   it("panne de admin_jobs_status : l'accueil s'affiche, le bloc dit « no disponible »", async () => {
     rpcs.admin_jobs_status = { data: null, error: { message: "permission denied" } };
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    await expect(rendre()).resolves.toBeDefined();
-    expect(procesos).toEqual([{ unavailable: true }]);
-    vi.restoreAllMocks();
+    const espion = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await expect(rendre()).resolves.toBeDefined();
+      expect(procesos).toEqual([{ unavailable: true }]);
+    } finally {
+      espion.mockRestore();
+    }
   });
 });

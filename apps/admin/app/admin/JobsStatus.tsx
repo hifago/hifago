@@ -12,7 +12,9 @@ import { statusChip, type ChipStyle } from "@/components/status-chip";
 //   charger ». La lecture en échec s'affiche ici (« no disponible »), le reste de l'accueil aussi.
 // - Seuils, liste des jobs et état (`ok | stale | never`) viennent de la base, calculés avec le
 //   prédicat même du watchdog : rien n'est recopié ici, pas même l'heure (`checked_at`).
-// - « Sin latido todavía » (`never`) n'est jamais compté « al día ».
+// - « Sin latido todavía » (`never`) n'est jamais compté « al día ». Ni un job qui a tourné SANS
+//   jamais réussir : `heartbeat_job` écrit `last_run_at` même sur un échec, et tant que le seuil
+//   court la base le dit `ok`. Affiché « Sin éxito todavía », en alerte.
 // - Un retard SANS alerte en cours (« Sin alerta por correo ») : le canal e-mail est sans doute
 //   tombé aussi.
 
@@ -42,13 +44,22 @@ const STATE_LABELS: Record<string, string> = {
   ok: "Al día",
   stale: "Con retraso",
   never: "Sin latido todavía",
+  failing: "Sin éxito todavía",
 };
 
 const STATE_CHIP: Record<string, ChipStyle> = {
   ok: { color: "success", variant: "soft" },
   stale: { color: "danger", variant: "soft" },
   never: { color: "warning", variant: "soft" },
+  failing: { color: "danger", variant: "soft" },
 };
+
+/** L'état affiché : celui de la base, sauf « ok » sans aucun succès (`failing`). */
+function displayState(job: JobStatusRow) {
+  return job.state === "ok" && job.lastOkAt === null ? "failing" : job.state;
+}
+
+const isKnownState = (state: string) => Object.hasOwn(STATE_LABELS, state);
 
 function formatThreshold(minutes: number) {
   return minutes >= 60 && minutes % 60 === 0 ? `${minutes / 60} h` : `${minutes} min`;
@@ -70,7 +81,8 @@ function plural(n: number, singular: string, pluriel: string) {
 }
 
 function JobRow({ job, checkedAt }: { job: JobStatusRow; checkedAt: string | null }) {
-  const style = statusChip(STATE_CHIP, job.state);
+  const state = displayState(job);
+  const style = statusChip(STATE_CHIP, state);
   const ago = job.lastOkAt ? formatAgo(job.lastOkAt, checkedAt) : null;
   return (
     <li
@@ -98,7 +110,7 @@ function JobRow({ job, checkedAt }: { job: JobStatusRow; checkedAt: string | nul
             </span>
           ) : (
             <span data-testid={`job-alert-${job.jobName}`} className="text-xs font-semibold text-danger">
-              Sin alerta por correo
+              Sin alerta por correo todavía
             </span>
           )
         ) : null}
@@ -109,7 +121,7 @@ function JobRow({ job, checkedAt }: { job: JobStatusRow; checkedAt: string | nul
         data-testid={`job-state-${job.jobName}`}
         className="self-start"
       >
-        {STATE_LABELS[job.state] ?? job.state}
+        {isKnownState(state) ? STATE_LABELS[state] : job.state}
       </Chip>
     </li>
   );
@@ -132,18 +144,21 @@ export function JobsStatus(props: JobsStatusProps) {
   }
 
   const { jobs, checkedAt } = props;
-  const stale = jobs.filter((job) => job.state === "stale").length;
-  const never = jobs.filter((job) => job.state === "never").length;
-  const unknown = jobs.filter((job) => !(job.state in STATE_LABELS)).length;
+  const states = jobs.map(displayState);
+  const stale = states.filter((state) => state === "stale").length;
+  const failing = states.filter((state) => state === "failing").length;
+  const never = states.filter((state) => state === "never").length;
+  const unknown = states.filter((state) => !isKnownState(state)).length;
 
   let summary: string;
   let alert: boolean;
   if (jobs.length === 0) {
     summary = "Ningún proceso declarado.";
     alert = true;
-  } else if (stale > 0 || unknown > 0) {
+  } else if (stale > 0 || failing > 0 || unknown > 0) {
     summary = [
       stale > 0 ? plural(stale, "proceso con retraso", "procesos con retraso") : null,
+      failing > 0 ? plural(failing, "proceso sin éxito todavía", "procesos sin éxito todavía") : null,
       unknown > 0 ? plural(unknown, "proceso en estado desconocido", "procesos en estado desconocido") : null,
     ]
       .filter(Boolean)

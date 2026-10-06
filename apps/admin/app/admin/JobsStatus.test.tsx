@@ -93,7 +93,25 @@ describe("JobsStatus — bloc « Procesos » de l'accueil admin", () => {
         checkedAt={CHECKED_AT}
       />
     );
-    expect(screen.getByTestId("job-alert-send-notification-emails").textContent).toBe("Sin alerta por correo");
+    expect(screen.getByTestId("job-alert-send-notification-emails").textContent).toBe(
+      "Sin alerta por correo todavía"
+    );
+  });
+
+  it("a tourné sans jamais réussir (la base dit `ok` tant que le seuil court) : jamais « al día »", () => {
+    render(
+      <JobsStatus
+        jobs={[
+          job({ jobName: "payments-reconcile" }),
+          job({ jobName: "pms-poll-bookings", state: "ok", lastOkAt: null, lastError: "clave rechazada" }),
+        ]}
+        checkedAt={CHECKED_AT}
+      />
+    );
+    expect(resume().getAttribute("role")).toBe("alert");
+    expect(resume().textContent).toBe("1 proceso sin éxito todavía");
+    expect(screen.getByTestId("job-state-pms-poll-bookings").textContent).toBe("Sin éxito todavía");
+    expect(screen.getByTestId("job-row-pms-poll-bookings").textContent).toContain("Último éxito: nunca");
   });
 
   it("affiche la dernière erreur", () => {
