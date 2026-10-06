@@ -10,6 +10,9 @@
 -- Exclues à juste titre : les fonctions `returns trigger`, que Postgres refuse d'appeler
 -- directement et que PostgREST n'expose pas.
 --
+-- Les gardes sont cherchés dans la source SANS ses commentaires (`--` et `/* … */`, audit P12c,
+-- 2026-10-06) : un `is_admin(` cité dans un commentaire n'a jamais protégé personne, et passait.
+--
 -- ⚠️ Ajouter un nom à la liste ci-dessous n'est PAS une formalité : c'est déclarer qu'une fonction
 -- exécutable par n'importe quel visiteur, avec les droits du propriétaire, est sans danger. Le
 -- faire seulement après avoir lu son corps.
@@ -39,6 +42,9 @@ select is(
     select coalesce(string_agg(p.oid::regprocedure::text, ', ' order by p.proname), '')
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
+    cross join lateral (
+      select regexp_replace(regexp_replace(p.prosrc, '--[^\n]*', '', 'g'), '/\*.*?\*/', '', 'g') as code
+    ) s
     where n.nspname = 'public'
       and p.prosecdef
       and pg_get_function_result(p.oid) <> 'trigger'
@@ -46,9 +52,9 @@ select is(
         has_function_privilege('anon', p.oid, 'EXECUTE')
         or has_function_privilege('authenticated', p.oid, 'EXECUTE')
       )
-      and p.prosrc !~* 'is_admin\s*\('
-      and p.prosrc !~* 'auth\.uid\s*\('
-      and p.prosrc !~* 'has_capability\s*\('
+      and s.code !~* 'is_admin\s*\('
+      and s.code !~* 'auth\.uid\s*\('
+      and s.code !~* 'has_capability\s*\('
       and p.proname not in (
         -- Prédicats appelés DANS des policies RLS : une policy s'évalue avec les droits du rôle
         -- appelant, donc leur EXECUTE par anon/authenticated est nécessaire au fonctionnement de
@@ -96,6 +102,9 @@ select is(
     select coalesce(string_agg(p.oid::regprocedure::text, ', ' order by p.proname), '')
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
+    cross join lateral (
+      select regexp_replace(regexp_replace(p.prosrc, '--[^\n]*', '', 'g'), '/\*.*?\*/', '', 'g') as code
+    ) s
     where n.nspname = 'public'
       and p.prosecdef
       and pg_get_function_result(p.oid) <> 'trigger'
@@ -103,11 +112,11 @@ select is(
         has_function_privilege('anon', p.oid, 'EXECUTE')
         or has_function_privilege('authenticated', p.oid, 'EXECUTE')
       )
-      and p.prosrc ~* 'auth\.uid\s*\('
-      and p.prosrc !~* 'is_admin\s*\('
-      and p.prosrc !~* 'has_capability\s*\('
-      and p.prosrc !~* 'is_anonymous_session\s*\('
-      and p.prosrc !~* 'partner_id_for_account\s*\('
+      and s.code ~* 'auth\.uid\s*\('
+      and s.code !~* 'is_admin\s*\('
+      and s.code !~* 'has_capability\s*\('
+      and s.code !~* 'is_anonymous_session\s*\('
+      and s.code !~* 'partner_id_for_account\s*\('
       and p.proname not in (
         -- is_anonymous_session() elle-même : lit auth.uid() pour résoudre la nature de LA session
         -- appelante, ce n'est pas un garde d'AUTORISATION — même rôle que is_admin/has_capability
