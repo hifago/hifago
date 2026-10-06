@@ -3330,6 +3330,14 @@ export type Database = {
         Args: { p_line_id: string }
         Returns: undefined
       }
+      release_pms_cancellation_claim: {
+        Args: { p_entry_ids: string[] }
+        Returns: number
+      }
+      release_pms_poll_claim: {
+        Args: { p_order_line_ids: string[] }
+        Returns: number
+      }
       release_pms_reserve_claim: {
         Args: { p_claimed_at: string; p_order_id: string }
         Returns: Json
