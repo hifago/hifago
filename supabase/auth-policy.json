@@ -1,0 +1,12 @@
+{
+  "$commentaire": "Réglages Auth ATTENDUS sur chaque projet Supabase cloud (préprod, prod), au nom exact de l'API de gestion (GET /v1/projects/{ref}/config/auth). Comparés au cloud par scripts/check-cloud-auth-config.mjs (lecture seule) et à supabase/config.toml par scripts/check-auth-config.mjs (verify). Un gabarit d'e-mail se compare au contenu du fichier cité. Jamais de secret ici : le comparateur refuse toute clé de secret.",
+  "password_min_length": 8,
+  "password_required_characters": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ:0123456789",
+  "security_update_password_require_reauthentication": true,
+  "mailer_subjects_confirmation": "Confirma tu cuenta en Hifago",
+  "mailer_templates_confirmation_content": { "fichier": "supabase/templates/confirmation.html" },
+  "mailer_subjects_recovery": "Restablece tu contraseña en Hifago",
+  "mailer_templates_recovery_content": { "fichier": "supabase/templates/recovery.html" },
+  "mailer_subjects_reauthentication": "Tu código de verificación de Hifago",
+  "mailer_templates_reauthentication_content": { "fichier": "supabase/templates/reauthentication.html" }
+}

@@ -125,6 +125,14 @@ lancer "Imports Deno (extension obligatoire)"        bash scripts/check-deno-imp
 # d'appelant se déclenche avec n'importe quel jeton du projet.
 lancer "Edge Functions de jobs (garde, heartbeat)"   bash scripts/check-edge-jobs.sh
 
+# Depuis le 2026-10-06 — vérifié PAR MUTATION (rouge sur config.toml d'avant : longueur 6, aucune
+# exigence de caractères, secure_password_change = false, gabarit reauthentication absent ; rouge
+# si une règle du comparateur est retirée). config.toml ne règle que le local : le cloud se règle
+# par l'API de gestion et se constate par scripts/check-cloud-auth-config.mjs (lecture seule, hors
+# CI : il faut un jeton). Ce contrôle garde le local et la politique attendue du cloud alignés, et
+# fait tourner les tests du comparateur commun aux deux.
+lancer "Politique Auth (config.toml ↔ auth-policy)"  bash -c 'node scripts/check-auth-config.mjs && npx --no vitest run --root scripts/lib --reporter=dot'
+
 # Le manifeste docs/ai-index.json est ce que lisent les agents pour s'orienter : périmé, il les
 # envoie lire le mauvais document. Depuis le 2026-09-19 il est régénéré automatiquement par le
 # hook pre-commit (scripts/git-hooks/pre-commit) — ce contrôle reste le filet.
