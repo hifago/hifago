@@ -48,7 +48,7 @@ select is(
   'anon ne voit pas un produit non vendable (non publié)'
 );
 select is(
-  (select count(*) from product_calendar)::int, 1,
+  (select count(*) from product_calendar where product_id = '44444444-4444-4444-4444-444444444444')::int, 1,
   'anon lit le calendrier public'
 );
 
@@ -104,8 +104,9 @@ select test_login('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee');
 
 -- Aucune ligne audit_log n'a été créée par l'appel non-admin ci-dessus (vérifié ici, sous
 -- l'admin, seul rôle qui peut lire audit_log).
+-- Scopé au produit visé par le refus, jamais en absolu (audit_log d'une base seedée n'est pas vide).
 select is(
-  (select count(*) from audit_log)::int, 0,
+  (select count(*) from audit_log where entity_id = '44444444-4444-4444-4444-444444444444')::int, 0,
   'aucune ligne audit_log créée par l''appel set_product_sellable refusé'
 );
 
