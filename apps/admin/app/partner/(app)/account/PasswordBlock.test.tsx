@@ -80,7 +80,7 @@ describe("PasswordBlock — règle et ré-authentification", () => {
     expect(state.reauthenticate).toHaveBeenCalledTimes(1);
     expect(state.toastSuccess).not.toHaveBeenCalled();
     expect(screen.getByTestId("account-reauth-code-hint").textContent).toContain("código a tu correo");
-    expect(champ("account-password-input").disabled).toBe(true);
+    expect(document.activeElement).toBe(champ("account-reauth-code-input"));
 
     await saisir("account-reauth-code-input", " 123456 ");
     await soumettre(container);
@@ -105,6 +105,24 @@ describe("PasswordBlock — règle et ré-authentification", () => {
       fireEvent.click(screen.getByTestId("resend-reauth-code-button"));
     });
     expect(state.reauthenticate).toHaveBeenCalledTimes(2);
+    expect(state.toastSuccess).toHaveBeenCalledWith("Te enviamos un código nuevo.");
+  });
+
+  it("refus après le code (même mot de passe) : se corrige sans redemander de code", async () => {
+    state.updateUser.mockResolvedValueOnce({ error: { code: "reauthentication_needed" } });
+    const { container } = await demanderChangement();
+    state.updateUser.mockResolvedValueOnce({ error: { code: "same_password" } });
+    await saisir("account-reauth-code-input", "123456");
+    await soumettre(container);
+    expect(state.toastDanger).toHaveBeenCalledWith("La nueva contraseña debe ser distinta de la actual.");
+    expect(champ("account-password-input").disabled).toBe(false);
+    expect(champ("account-confirm-password-input").disabled).toBe(false);
+
+    await saisir("account-password-input", "OtraClave2");
+    await saisir("account-confirm-password-input", "OtraClave2");
+    await soumettre(container);
+    expect(state.updateUser).toHaveBeenLastCalledWith({ password: "OtraClave2", nonce: "123456" });
+    expect(state.reauthenticate).toHaveBeenCalledTimes(1);
   });
 
   it("code vide : rien n'est envoyé", async () => {
@@ -131,7 +149,14 @@ describe("PasswordBlock — règle et ré-authentification", () => {
     });
     expect(screen.queryByTestId("account-reauth-code-input")).toBeNull();
     expect(champ("account-password-input").value).toBe("");
-    expect(champ("account-password-input").disabled).toBe(false);
+  });
+
+  it("second facteur exigé : message dédié", async () => {
+    state.updateUser.mockResolvedValueOnce({ error: { code: "insufficient_aal" } });
+    await demanderChangement();
+    expect(state.toastDanger).toHaveBeenCalledWith(
+      "Para cambiar la contraseña, primero confirma tu verificación en dos pasos."
+    );
   });
 
   it("même mot de passe qu'avant : message dédié", async () => {

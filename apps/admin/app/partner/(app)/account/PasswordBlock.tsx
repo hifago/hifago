@@ -12,13 +12,17 @@ import { PASSWORD_HINT, PASSWORD_POLICY_ERROR, SAME_PASSWORD_ERROR } from "@/lib
 // (`reauthenticate()`), puis renvoie le même mot de passe avec ce code (`nonce`). Une session
 // récente change directement : le serveur ne demande rien, et ce bloc non plus. Le déclencheur
 // est la réponse du serveur, jamais un calcul de l'âge de la session ici : il reste juste même si
-// le réglage est coupé, ou sa fenêtre changée.
+// le réglage est coupé, ou sa fenêtre changée. Les champs restent modifiables pendant l'attente du
+// code : il n'est pas lié au mot de passe, et un refus (même mot de passe…) se corrige sans en
+// redemander un.
 
 const MESSAGES: Record<string, string> = {
   weak_password: PASSWORD_POLICY_ERROR,
   same_password: SAME_PASSWORD_ERROR,
   reauthentication_not_valid: "El código no es válido o ya venció. Pide uno nuevo.",
   over_email_send_rate_limit: "Espera unos segundos antes de pedir otro código.",
+  // Compte doté d'un second facteur, session encore en un seul facteur.
+  insufficient_aal: "Para cambiar la contraseña, primero confirma tu verificación en dos pasos.",
 };
 
 export function PasswordBlock() {
@@ -41,9 +45,16 @@ export function PasswordBlock() {
     const { error } = await createClient().auth.reauthenticate();
     if (error) {
       toast.danger(MESSAGES[error.code ?? ""] ?? "No se pudo enviar el código. Inténtalo de nuevo.");
-      return;
+      return false;
     }
     setCodeSent(true);
+    return true;
+  }
+
+  async function resendCode() {
+    setIsSubmitting(true);
+    if (await sendCode()) toast.success("Te enviamos un código nuevo.");
+    setIsSubmitting(false);
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -94,7 +105,6 @@ export function PasswordBlock() {
             value={password}
             onChange={setPassword}
             isRequired
-            isDisabled={codeSent}
           >
             <Label>Nueva contraseña</Label>
             <Input
@@ -110,7 +120,6 @@ export function PasswordBlock() {
             value={confirmPassword}
             onChange={setConfirmPassword}
             isRequired
-            isDisabled={codeSent}
           >
             <Label>Confirmar contraseña</Label>
             <Input
@@ -123,9 +132,11 @@ export function PasswordBlock() {
           {codeSent ? (
             <TextField name="reauth-code" value={code} onChange={setCode} isRequired>
               <Label>Código de verificación</Label>
+              {/* Le champ apparaît après l'envoi : le focus y va, c'est là que l'on attend la saisie. */}
               <Input
                 autoComplete="one-time-code"
                 inputMode="numeric"
+                autoFocus
                 data-testid="account-reauth-code-input"
               />
               <Description data-testid="account-reauth-code-hint">
@@ -142,7 +153,7 @@ export function PasswordBlock() {
                 <Button
                   variant="outline"
                   isDisabled={isSubmitting}
-                  onPress={sendCode}
+                  onPress={resendCode}
                   data-testid="resend-reauth-code-button"
                 >
                   Reenviar código

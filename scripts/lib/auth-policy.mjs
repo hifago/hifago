@@ -55,7 +55,7 @@ export function lireConfigToml(texte) {
   for (const brute of texte.split("\n")) {
     const ligne = brute.trim();
     if (ligne === "" || ligne.startsWith("#")) continue;
-    const section = /^\[([^\]]+)\]$/.exec(ligne);
+    const section = /^\[([^\]]+)\]\s*(?:#.*)?$/.exec(ligne);
     if (section) {
       courante = section[1].trim();
       if (!sections.has(courante)) sections.set(courante, {});

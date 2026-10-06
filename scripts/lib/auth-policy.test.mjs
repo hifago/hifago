@@ -25,7 +25,7 @@ minimum_password_length = 8
 password_requirements = "letters_digits" # commentaire en fin de ligne
 enable_signup = true
 
-[auth.email]
+[auth.email] # commentaire après une section
 secure_password_change = true
 
 [auth.email.template.reauthentication]
