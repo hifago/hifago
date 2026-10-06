@@ -223,7 +223,7 @@ select is(
        where product_id = '7b700000-0000-4000-8000-000000000038' and slot_date = '2029-07-01' and slot_start_time = '09:00'),
      (select count(*)::int from product_availability where product_id = '7b700000-0000-4000-8000-000000000038'))),
   jsonb_build_array(1, 0),
-  'metered à créneaux : le créneau est pris, aucune ligne product_availability (comme create_order)'
+  'metered à créneaux : le créneau est pris, aucune ligne product_availability (create_order en matérialise une sans la lire)'
 );
 
 -- ===== Aller-retour : la fonction commune de libération rend exactement ce qui a été pris ========
