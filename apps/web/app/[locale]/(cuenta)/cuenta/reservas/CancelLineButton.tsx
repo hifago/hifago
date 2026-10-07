@@ -6,6 +6,7 @@ import { createClient } from "@hifago/supabase/client";
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/atoms/Button";
 import { Aviso } from "@/components/molecules/Aviso";
+import { useCancellationIssue } from "./CancellationOutcomes";
 
 // Spec 34 décisions ⑤ et ⑧ — annuler UNE prestation, après une confirmation qui dit ce qu'elle coûte.
 //
@@ -20,11 +21,10 @@ import { Aviso } from "@/components/molecules/Aviso";
 // révise, parce que c'est ici que le client perd de l'argent sans pouvoir défaire. Elle n'est dite
 // QUE si l'acompte a été encaissé (`depositRetained`) : sur une commande impayée, elle serait fausse.
 //
-// ⚠️ CE COMPOSANT EST RENDU POUR CHAQUE LIGNE, annulable ou non (`cancellable`, décidé en base).
-// Après une annulation, `router.refresh()` relit la base : la ligne n'est plus annulable, mais le
-// composant reste à sa place, et React garde son état — le message « Anulaste… » survit donc au
-// rafraîchissement. Rendu seulement pour les lignes annulables, il disparaîtrait avec son message,
-// et le client ne saurait pas que l'annulation a eu lieu.
+// ⚠️ CE COMPOSANT EST RENDU POUR CHAQUE LIGNE, annulable ou non (`cancellable`, décidé en base), et
+// l'issue d'une annulation vit dans `CancellationOutcomes` (monté par la page), pas ici : après
+// `router.refresh()`, la ligne n'est plus annulable et sa carte peut même changer de section (voir
+// CancellationOutcomes.tsx) — le message « Anulaste… » survit aux deux.
 //
 // ⚠️ L'`error` de supabase-js est LUE, contrairement à `OrdersList.tsx` qu'on remplace : une panne
 // réseau et un refus métier ne disent pas la même chose, et les confondre a produit un écran qui
@@ -39,8 +39,6 @@ const ERREUR_PAR_MOTIF: Record<string, string> = {
   not_authenticated: "cancelErrorSession",
   anonymous_session: "cancelErrorSession",
 };
-
-type Issue = { kind: "cancelled"; wholeOrder: boolean } | { kind: "failed"; message: string };
 
 export type CancelLineButtonProps = {
   lineId: string;
@@ -74,7 +72,7 @@ export function CancelLineButton({
   const router = useRouter();
   const [isConfirming, setIsConfirming] = useState(false);
   const [isPending, setIsPending] = useState(false);
-  const [issue, setIssue] = useState<Issue | null>(null);
+  const [issue, setIssue] = useCancellationIssue(lineId);
   const confirmRef = useRef<HTMLDivElement>(null);
 
   // Le bloc de confirmation prend la place du bouton : sans ce déplacement de focus, un utilisateur

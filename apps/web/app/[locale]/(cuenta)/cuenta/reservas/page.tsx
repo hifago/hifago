@@ -10,6 +10,7 @@ import { EstadoVacio } from "@/components/molecules/EstadoVacio";
 import { Aviso } from "@/components/molecules/Aviso";
 import { BandeauPagina } from "@/components/organisms/BandeauPagina";
 import { OrderCard } from "./OrderCard";
+import { CancellationOutcomesProvider } from "./CancellationOutcomes";
 import type { Locale } from "@/messages";
 
 // « MIS RESERVAS » — la liste des réservations du compte (spec 34).
@@ -61,51 +62,55 @@ export default async function AccountOrdersPage({
     <PageShell variant="pagina" testId="mis-reservas-page">
       <BandeauPagina variante="contenido" titulo={t("title")} testId="mis-reservas-bandeau" />
 
-      <div className="flex max-w-3xl flex-col gap-10">
-        {orders === null ? (
-          // L'erreur est rendue EN LIGNE et non en toast : `SiteToaster` n'est monté nulle part dans
-          // `apps/web` (dette connue, signalée depuis le 2026-09-02) — un toast ne s'afficherait
-          // jamais, et l'écran serait muet.
-          <Aviso tono="error" rol="alert" testId="orders-load-error">
-            {t("loadError")}
-          </Aviso>
-        ) : orders.upcoming.length === 0 && orders.past.length === 0 ? (
-          // L'action « explorer » dans l'emplacement de l'état vide (plan 41, S8), au lieu d'un
-          // bouton posé à côté : c'est elle qui relance le parcours.
-          <EstadoVacio
-            titulo={t("empty.titulo")}
-            descripcion={t("empty.descripcion")}
-            accion={<LinkButton href="/actividades">{t("emptyCta")}</LinkButton>}
-            testId="no-orders"
-          />
-        ) : (
-          <>
-            {/* Une section vide n'est pas rendue — même règle que les sections de l'accueil. Le
-                groupe vient de la base, ce fichier ne fait que le lire. */}
-            {orders.upcoming.length > 0 ? (
-              <section className="flex flex-col gap-4" data-testid="grupo-proximas">
-                <Title as="h2" size="bloque">
-                  {t("groupUpcoming")}
-                </Title>
-                {orders.upcoming.map((order) => (
-                  <OrderCard key={order.id} order={order} locale={locale as Locale} />
-                ))}
-              </section>
-            ) : null}
+      {/* Au-dessus des deux groupes : une commande qui passe de « à venir » à « passées » après une
+          annulation garde son message (CancellationOutcomes.tsx). */}
+      <CancellationOutcomesProvider>
+        <div className="flex max-w-3xl flex-col gap-10">
+          {orders === null ? (
+            // L'erreur est rendue EN LIGNE et non en toast : `SiteToaster` n'est monté nulle part dans
+            // `apps/web` (dette connue, signalée depuis le 2026-09-02) — un toast ne s'afficherait
+            // jamais, et l'écran serait muet.
+            <Aviso tono="error" rol="alert" testId="orders-load-error">
+              {t("loadError")}
+            </Aviso>
+          ) : orders.upcoming.length === 0 && orders.past.length === 0 ? (
+            // L'action « explorer » dans l'emplacement de l'état vide (plan 41, S8), au lieu d'un
+            // bouton posé à côté : c'est elle qui relance le parcours.
+            <EstadoVacio
+              titulo={t("empty.titulo")}
+              descripcion={t("empty.descripcion")}
+              accion={<LinkButton href="/actividades">{t("emptyCta")}</LinkButton>}
+              testId="no-orders"
+            />
+          ) : (
+            <>
+              {/* Une section vide n'est pas rendue — même règle que les sections de l'accueil. Le
+                  groupe vient de la base, ce fichier ne fait que le lire. */}
+              {orders.upcoming.length > 0 ? (
+                <section className="flex flex-col gap-4" data-testid="grupo-proximas">
+                  <Title as="h2" size="bloque">
+                    {t("groupUpcoming")}
+                  </Title>
+                  {orders.upcoming.map((order) => (
+                    <OrderCard key={order.id} order={order} locale={locale as Locale} />
+                  ))}
+                </section>
+              ) : null}
 
-            {orders.past.length > 0 ? (
-              <section className="flex flex-col gap-4" data-testid="grupo-pasadas">
-                <Title as="h2" size="bloque">
-                  {t("groupPast")}
-                </Title>
-                {orders.past.map((order) => (
-                  <OrderCard key={order.id} order={order} locale={locale as Locale} />
-                ))}
-              </section>
-            ) : null}
-          </>
-        )}
-      </div>
+              {orders.past.length > 0 ? (
+                <section className="flex flex-col gap-4" data-testid="grupo-pasadas">
+                  <Title as="h2" size="bloque">
+                    {t("groupPast")}
+                  </Title>
+                  {orders.past.map((order) => (
+                    <OrderCard key={order.id} order={order} locale={locale as Locale} />
+                  ))}
+                </section>
+              ) : null}
+            </>
+          )}
+        </div>
+      </CancellationOutcomesProvider>
     </PageShell>
   );
 }

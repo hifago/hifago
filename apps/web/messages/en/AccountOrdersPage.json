@@ -26,5 +26,5 @@
   "cancelErrorNotFound": "We couldn't find this service in your account.",
   "cancelErrorSession": "Your session has expired. Sign in again to cancel.",
   "cancelDone": "You cancelled \"{product}\" on {date}.",
-  "cancelDoneWholeOrder": "No active service remains: the whole booking is cancelled."
+  "cancelDoneWholeOrder": "No pending service remains in this booking."
 }

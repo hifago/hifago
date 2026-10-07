@@ -26,5 +26,5 @@
   "cancelErrorNotFound": "No encontramos esta prestación en tu cuenta.",
   "cancelErrorSession": "Tu sesión expiró. Vuelve a iniciar sesión para anular.",
   "cancelDone": "Anulaste « {product} » del {date}.",
-  "cancelDoneWholeOrder": "Ya no queda ninguna prestación activa: toda la reserva quedó anulada."
+  "cancelDoneWholeOrder": "Ya no queda ninguna prestación pendiente en esta reserva."
 }

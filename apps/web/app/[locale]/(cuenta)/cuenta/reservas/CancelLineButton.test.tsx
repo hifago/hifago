@@ -3,6 +3,7 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { loadMessages, type Locale } from "@/messages";
 import { CancelLineButton } from "./CancelLineButton";
+import { CancellationOutcomesProvider } from "./CancellationOutcomes";
 
 // Pas de @testing-library/jest-dom dans ce monorepo — assertions DOM natives uniquement.
 //
@@ -43,20 +44,31 @@ beforeEach(() => {
 
 type Options = { locale?: Locale; cancellable?: boolean; depositRetained?: boolean };
 
-function element(isLastActiveLine: boolean, { locale = "es", cancellable = true, depositRetained = true }: Options = {}) {
+function bouton(isLastActiveLine: boolean, { cancellable = true, depositRetained = true }: Options = {}) {
+  return (
+    <CancelLineButton
+      lineId="11111111-1111-4111-8111-111111111111"
+      productName="Kayak Guatapé"
+      dateLabel="2026-11-01"
+      isLastActiveLine={isLastActiveLine}
+      cancellable={cancellable}
+      depositRetained={depositRetained}
+      testId="cancel-line-x"
+    />
+  );
+}
+
+/** La page : le fournisseur au-dessus, le bouton dans le groupe « à venir » ou « passées ». */
+function page(contenu: React.ReactNode, locale: Locale = "es") {
   return (
     <NextIntlClientProvider locale={locale} messages={loadMessages(locale)}>
-      <CancelLineButton
-        lineId="11111111-1111-4111-8111-111111111111"
-        productName="Kayak Guatapé"
-        dateLabel="2026-11-01"
-        isLastActiveLine={isLastActiveLine}
-        cancellable={cancellable}
-        depositRetained={depositRetained}
-        testId="cancel-line-x"
-      />
+      <CancellationOutcomesProvider>{contenu}</CancellationOutcomesProvider>
     </NextIntlClientProvider>
   );
+}
+
+function element(isLastActiveLine: boolean, options: Options = {}) {
+  return page(<section data-testid="grupo-proximas">{bouton(isLastActiveLine, options)}</section>, options.locale);
 }
 
 function rendre(isLastActiveLine: boolean, options: Options = {}) {
@@ -192,17 +204,47 @@ describe("CancelLineButton", () => {
     expect(rendu.container.querySelector('[data-testid="cancel-line-x"]')).toBeNull();
   });
 
-  it("dernière prestation annulée : le message dit que toute la réservation est annulée", async () => {
+  it("dernière prestation annulée : le message dit qu'il n'en reste aucune en attente", async () => {
     reponse.valeur = { data: { ok: true, remaining_active_lines: 0 }, error: null };
     const container = rendre(true);
     await confirmer(container);
-    expect(texte(container, "cancel-line-x-done")).toContain("toda la reserva quedó anulada");
+    expect(texte(container, "cancel-line-x-done")).toContain("Ya no queda ninguna prestación pendiente en esta reserva.");
   });
 
   it("autre prestation encore active : le message ne parle que de celle-ci", async () => {
     reponse.valeur = { data: { ok: true, remaining_active_lines: 1 }, error: null };
     const container = rendre(false);
     await confirmer(container);
-    expect(texte(container, "cancel-line-x-done")).not.toContain("toda la reserva");
+    expect(texte(container, "cancel-line-x-done")).not.toContain("ninguna prestación pendiente");
+  });
+
+  // La commande dont la dernière prestation à venir est annulée passe dans le groupe « passées » :
+  // sa carte est démontée et remontée ailleurs. Le message doit survivre au déplacement.
+  it("la carte change de groupe après l'annulation : le message survit au remontage", async () => {
+    reponse.valeur = { data: { ok: true, remaining_active_lines: 0 }, error: null };
+    const rendu = render(page(<section data-testid="grupo-proximas">{bouton(true)}</section>));
+    await confirmer(rendu.container);
+    rendu.rerender(
+      page(
+        <>
+          <section data-testid="grupo-proximas" />
+          <section data-testid="grupo-pasadas">{bouton(true, { cancellable: false })}</section>
+        </>
+      )
+    );
+    const pasadas = rendu.container.querySelector('[data-testid="grupo-pasadas"]') as HTMLElement;
+    expect(texte(pasadas, "cancel-line-x-done")).toContain("Anulaste « Kayak Guatapé »");
+  });
+
+  it("sans le fournisseur de la page : erreur au rendu, jamais un message perdu en silence", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() =>
+      render(
+        <NextIntlClientProvider locale="es" messages={loadMessages("es")}>
+          {bouton(false)}
+        </NextIntlClientProvider>
+      )
+    ).toThrow(/CancellationOutcomesProvider/);
+    vi.restoreAllMocks();
   });
 });
