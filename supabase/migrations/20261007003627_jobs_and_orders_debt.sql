@@ -73,9 +73,10 @@ CREATE OR REPLACE FUNCTION public.heartbeat_job(p_job text, p_ok boolean, p_stat
  SET search_path TO ''
 AS $function$
 declare
-  -- Migration 20261007003627 : l'instant réel du passage, pas le début de la transaction de
-  -- l'appelant — un job long aurait sinon daté son heartbeat de son départ, au plus près du seuil
-  -- du watchdog. Un seul instant pour les deux colonnes.
+  -- Migration 20261007003627 : l'instant réel du passage, jamais le début de la transaction de
+  -- l'appelant. Les jobs l'appellent par PostgREST (transaction propre, les deux se confondent) ;
+  -- un appelant SQL dans une transaction plus longue l'aurait daté de son départ. Un seul instant
+  -- pour les deux colonnes.
   v_at constant timestamptz := clock_timestamp();
 begin
   insert into public.job_heartbeats as h (job_name, last_run_at, last_ok_at, last_error, stats)
@@ -155,7 +156,8 @@ begin
 
   if p_new_status = 'expired' and v_paid then
     -- Code propre au projet (classe HF : hors des classes standard de PostgreSQL et de la classe PT,
-    -- réservée par PostgREST aux statuts HTTP) — l'écran reconnaît ce refus par son code.
+    -- réservée par PostgREST aux statuts HTTP), pour qu'un écran reconnaisse ce refus par son code
+    -- plutôt que par son texte.
     raise exception 'transition refusée : une commande payée n''expire pas' using errcode = 'HF001';
   end if;
 

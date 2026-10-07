@@ -125,7 +125,7 @@ select is(
 -- Un job qui A DÉJÀ réussi et échoue sous son seuil reste `ok` : seul « jamais réussi » est failing.
 select heartbeat_job('pms-sync-availability', false, '{}'::jsonb, 'timeout');
 select is((select state from admin_jobs_status() where job_name = 'pms-sync-availability'), 'ok',
-  'S14d : un échec après un succès, sous le seuil → ok (le prédicat des watchdogs, inchangé)');
+  'S14e : un échec après un succès, sous le seuil → ok (le prédicat des watchdogs, inchangé)');
 -- Une ligne existante s'ancre sur SON created_at (premier heartbeat en échec, ou ligne pré-créée),
 -- jamais sur la déclaration de l'attente — et la RPC le dit au même instant que le watchdog.
 update job_heartbeats set created_at = now() - interval '41 minutes' where job_name = 'pms-cancel-bookings';
