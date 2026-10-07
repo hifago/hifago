@@ -1,6 +1,6 @@
 import { addDaysIso, todayInBogota } from "@hifago/domain";
 import type { MyProfile } from "@/lib/account/getMyProfile";
-import { depositRetainedOnCancel, type MyOrder, type MyOrderLine, type MyOrders } from "@/lib/orders/getMyOrders";
+import type { MyOrder, MyOrderLine, MyOrders } from "@/lib/orders/getMyOrders";
 
 // Compte et réservations des stories d'écran (2026-10-01). Les commandes couvrent les HUIT états
 // que `deriveOrderState` (lib/orders/orderState.ts) sait produire, et chaque variante de ligne
@@ -36,6 +36,7 @@ function linea(parcial: Partial<MyOrderLine> & Pick<MyOrderLine, "id" | "product
     ...parcial,
     // La règle de la base (`order_line_client_cancellable`) : seule une prestation `reserved`.
     cancellable: parcial.cancellable ?? (parcial.status ?? "reserved") === "reserved",
+    depositKeptOnCancel: parcial.depositKeptOnCancel ?? true,
   };
 }
 
@@ -47,7 +48,11 @@ function pedido(parcial: Partial<MyOrder> & Pick<MyOrder, "id" | "reference" | "
     paymentReceivedNotHonored: false,
     refundStatus: null,
     ...parcial,
-    depositRetainedOnCancel: depositRetainedOnCancel(parcial.paymentStatus ?? "paid"),
+    // La règle de la base (`order_deposit_collected`) : acompte acquis sur une commande encaissée.
+    lines: parcial.lines.map((l) => ({
+      ...l,
+      depositKeptOnCancel: ["paid", "partially_refunded"].includes(parcial.paymentStatus ?? "paid"),
+    })),
   };
 }
 

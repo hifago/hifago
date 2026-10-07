@@ -45,6 +45,12 @@ export type MyOrderLine = {
    * statut, qui ferait vivre la règle une seconde fois.
    */
   cancellable: boolean;
+  /**
+   * L'acompte reste acquis si le client annule : `deposit_kept_on_cancel` de `list_my_orders`
+   * (`order_deposit_collected`, la règle même de `close_order_line_locked`, 20261007003627) —
+   * jamais recopié ici. Absent = faux : on ne dit jamais « no se devuelve » sans le savoir.
+   */
+  depositKeptOnCancel: boolean;
 };
 
 export type MyOrder = {
@@ -66,19 +72,7 @@ export type MyOrder = {
   /** Spec 39 D3 — mêmes clés que `OrderForDisplay`, même dérivation (`orderState.ts`). */
   paymentReceivedNotHonored: boolean;
   refundStatus: string | null;
-  /** L'acompte reste acquis si le client annule une prestation (`depositRetainedOnCancel`). */
-  depositRetainedOnCancel: boolean;
 };
-
-/**
- * Annuler retient-il l'acompte ? Seulement si la commande a été ENCAISSÉE : c'est le `v_paid` de
- * `close_order_line_locked` (20261006192424), `paid` ou `partially_refunded`. Sur une commande
- * impayée, en cours de paiement ou remboursée, rien n'est retenu : dire « l'acompte payé n'est pas
- * rendu » y serait faux. Miroir d'une ligne de SQL, faute d'un champ rendu par `list_my_orders`.
- */
-export function depositRetainedOnCancel(paymentStatus: string): boolean {
-  return paymentStatus === "paid" || paymentStatus === "partially_refunded";
-}
 
 /** Les deux groupes, dans l'ordre où l'écran les rend. Décidés en base, pas ici. */
 export type MyOrders = {
@@ -111,6 +105,7 @@ type RpcLine = {
   total_cop: number;
   status: string;
   cancellable?: boolean;
+  deposit_kept_on_cancel?: boolean;
 };
 
 type RpcOrder = {
@@ -148,7 +143,6 @@ export async function getMyOrders(locale: Locale): Promise<MyOrders | null> {
     group: order.group,
     paymentReceivedNotHonored: order.payment_received_not_honored === true,
     refundStatus: order.refund_status ?? null,
-    depositRetainedOnCancel: depositRetainedOnCancel(order.payment_status),
     lines: (order.lines ?? []).map((line) => ({
       id: line.id,
       // Les libellés sortent bruts de la base : la résolution dans la locale du visiteur se fait
@@ -168,6 +162,7 @@ export async function getMyOrders(locale: Locale): Promise<MyOrders | null> {
       // Absent (base plus ancienne que la migration) = non annulable : jamais un bouton qui
       // échouerait à coup sûr.
       cancellable: line.cancellable === true,
+      depositKeptOnCancel: line.deposit_kept_on_cancel === true,
     })),
   }));
 

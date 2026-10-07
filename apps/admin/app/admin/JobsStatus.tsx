@@ -10,11 +10,11 @@ import { statusChip, type ChipStyle } from "@/components/status-chip";
 //
 // - PERMANENT : un bloc qui disparaît quand tout va bien redevient ambigu avec « n'a pas pu
 //   charger ». La lecture en échec s'affiche ici (« no disponible »), le reste de l'accueil aussi.
-// - Seuils, liste des jobs et état (`ok | stale | never`) viennent de la base, calculés avec le
-//   prédicat même du watchdog : rien n'est recopié ici, pas même l'heure (`checked_at`).
+// - Seuils, liste des jobs et état (`ok | failing | stale | never`) viennent de la base, calculés
+//   avec le prédicat même du watchdog : rien n'est recopié ici, pas même l'heure (`checked_at`).
 // - « Sin latido todavía » (`never`) n'est jamais compté « al día ». Ni un job qui a tourné SANS
-//   jamais réussir : `heartbeat_job` écrit `last_run_at` même sur un échec, et tant que le seuil
-//   court la base le dit `ok`. Affiché « Sin éxito todavía », en alerte.
+//   jamais réussir : la base le dit `failing` pendant sa grâce (20261007003627), affiché « Sin
+//   éxito todavía », en alerte.
 // - Un retard SANS alerte en cours (« Sin alerta por correo ») : le canal e-mail est sans doute
 //   tombé aussi.
 
@@ -54,11 +54,6 @@ const STATE_CHIP: Record<string, ChipStyle> = {
   failing: { color: "danger", variant: "soft" },
 };
 
-/** L'état affiché : celui de la base, sauf « ok » sans aucun succès (`failing`). */
-function displayState(job: JobStatusRow) {
-  return job.state === "ok" && job.lastOkAt === null ? "failing" : job.state;
-}
-
 const isKnownState = (state: string) => Object.hasOwn(STATE_LABELS, state);
 
 function formatThreshold(minutes: number) {
@@ -81,7 +76,7 @@ function plural(n: number, singular: string, pluriel: string) {
 }
 
 function JobRow({ job, checkedAt }: { job: JobStatusRow; checkedAt: string | null }) {
-  const state = displayState(job);
+  const state = job.state;
   const style = statusChip(STATE_CHIP, state);
   const ago = job.lastOkAt ? formatAgo(job.lastOkAt, checkedAt) : null;
   return (
@@ -144,7 +139,7 @@ export function JobsStatus(props: JobsStatusProps) {
   }
 
   const { jobs, checkedAt } = props;
-  const states = jobs.map(displayState);
+  const states = jobs.map((job) => job.state);
   const stale = states.filter((state) => state === "stale").length;
   const failing = states.filter((state) => state === "failing").length;
   const never = states.filter((state) => state === "never").length;

@@ -139,7 +139,9 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
                 dateLabel={fecha}
                 isLastActiveLine={isLastActiveLine}
                 cancellable={line.cancellable}
-                depositRetained={order.depositRetainedOnCancel}
+                // Acompte acquis (décidé en base) ET non nul : une prestation à acompte nul (evento
+                // gratuit, paiement sur place) n'a rien encaissé à garder.
+                depositRetained={line.depositKeptOnCancel && line.acompteCop > 0}
                 testId={`cancel-line-${line.id}`}
               />
             </li>
