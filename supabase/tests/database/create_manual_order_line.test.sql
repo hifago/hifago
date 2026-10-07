@@ -11,14 +11,16 @@ create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
 $$;
 
--- Cas 1 : aucune identité (rôle anon) → not_authenticated, avant toute fixture.
+-- Cas 1 : le rôle anon n'a plus EXECUTE (20261006203542) — refusé avant même la garde interne
+-- `not_authenticated`, qui reste en place pour une session authentifiée sans `sub`.
 set local role anon;
-select is(
-  (select create_manual_order_line(
-     '00000000-0000-4000-8000-000000000000'::uuid, '2029-05-01'::date, 1, 'Cliente Anon'
-   )->>'reason'),
-  'not_authenticated',
-  'cas 1 : aucune identité → not_authenticated'
+select throws_ok(
+  $$ select create_manual_order_line(
+       '00000000-0000-4000-8000-000000000000'::uuid, '2029-05-01'::date, 1, 'Cliente Anon'
+     ) $$,
+  '42501',
+  null,
+  'cas 1 : rôle anon → 42501 (EXECUTE retiré)'
 );
 reset role;
 

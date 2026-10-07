@@ -4,8 +4,9 @@
 //
 // Par commande : une nuit PMS et une activité qui partagent le booking. La RPC `gone` part en même
 // temps (barrière) qu'UN adversaire, à tour de rôle : cancel_order_line (le client annule l'activité :
-// la place est rendue depuis la migration 20261006192424), modify_order_line (l'admin déplace
-// l'activité : la place change de date) ou expire_payment_order (la commande expire : les places
+// la place est rendue depuis la migration 20261006192424), modify_order_line (l'admin tente de
+// déplacer l'activité : refusée sans rien écrire depuis 20261006204938, une prestation adossée à un
+// booking LobbyPMS ne se modifie pas) ou expire_payment_order (la commande expire : les places
 // reviennent). Tous prennent la commande avant la capacité : ils sont sérialisés.
 //
 // Deux phases par run :
@@ -20,7 +21,7 @@
 //
 // Attendu à chaque run, quel que soit l'ordre :
 //   - 0 interblocage (40P01), aucune erreur hors le refus attendu de modify_order_line quand la
-//     ligne n'est plus `reserved` ;
+//     ligne n'est plus `reserved` (servie avant, elle rend `pms_line_not_modifiable`, sans erreur) ;
 //   - pour chaque date, `booked` = la somme des quantités des lignes encore `reserved` (toute
 //     annulation rend sa place depuis 20261006192424) — jamais une place rendue deux fois, jamais une
 //     place perdue ;
@@ -76,7 +77,9 @@ const EXPECTED = {
   "cancel/opponent": { poll: gone(1), opponent: (r) => r.ok && r.r?.ok === true },
   // Le seul refus attendu de modify_order_line : la ligne n'est plus `reserved`.
   "modify/poll": { poll: gone(2), opponent: (r) => !r.ok && MODIFY_REFUSED.test(r.message) },
-  "modify/opponent": { poll: gone(1), opponent: (r) => r.ok },
+  // Servie la première, modify_order_line refuse sans rien écrire une prestation adossée à un booking
+  // LobbyPMS (migration 20261006204938) : la RPC trouve encore les deux lignes.
+  "modify/opponent": { poll: gone(2), opponent: (r) => r.ok && r.r?.ok === false && r.r?.reason === "pms_line_not_modifiable" },
   "expire/poll": { poll: gone(2), opponent: (r) => r.ok && r.r?.reason === "not_candidate" },
   "expire/opponent": { poll: (r) => r.ok && r.r?.reason === "no_live_line", opponent: (r) => r.ok && r.r?.ok === true },
 };
