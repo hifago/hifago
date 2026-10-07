@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// `cancellable` vient de la base (list_my_orders, règle de cancel_order_line) et n'est jamais
-// déduit ici ; « l'acompte reste acquis » ne vaut que pour une commande encaissée.
+// `cancellable` et `deposit_kept_on_cancel` viennent de la base (list_my_orders) et ne sont jamais
+// déduits ici ; absents, ils valent faux.
 
 const reponse = vi.hoisted(() => ({ valeur: { data: null as unknown, error: null as unknown } }));
 
@@ -10,7 +10,7 @@ vi.mock("@hifago/supabase/server", () => ({
   createClient: async () => ({ rpc: async () => reponse.valeur }),
 }));
 
-const { depositRetainedOnCancel, getMyOrders } = await import("./getMyOrders");
+const { getMyOrders } = await import("./getMyOrders");
 
 function ligne(id: string, extra: Record<string, unknown>) {
   return {
@@ -70,16 +70,27 @@ describe("getMyOrders", () => {
     ]);
   });
 
-  it.each([
-    ["paid", true],
-    ["partially_refunded", true],
-    ["unpaid", false],
-    ["pending", false],
-    ["refunded", false],
-  ])("commande %s : acompte retenu à l'annulation = %s", async (paymentStatus, attendu) => {
-    expect(depositRetainedOnCancel(paymentStatus)).toBe(attendu);
-    reponse.valeur = { data: { ok: true, orders: [commande(paymentStatus, [ligne("l-1", {})])] }, error: null };
-    expect((await getMyOrders("es"))?.upcoming[0].depositRetainedOnCancel).toBe(attendu);
+  it("lit `deposit_kept_on_cancel` tel que la base le rend, sans regarder le statut de paiement", async () => {
+    reponse.valeur = {
+      data: {
+        ok: true,
+        orders: [
+          // Le statut de paiement ne décide plus rien ici : seule la base le fait.
+          commande("unpaid", [
+            ligne("l-1", { deposit_kept_on_cancel: true }),
+            ligne("l-2", { deposit_kept_on_cancel: false }),
+            ligne("l-3", {}),
+          ]),
+        ],
+      },
+      error: null,
+    };
+    const lignes = (await getMyOrders("es"))?.upcoming[0].lines;
+    expect(lignes?.map((l) => [l.id, l.depositKeptOnCancel])).toEqual([
+      ["l-1", true],
+      ["l-2", false],
+      ["l-3", false],
+    ]);
   });
 
   it("panne ou refus : null", async () => {

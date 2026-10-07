@@ -28,7 +28,12 @@ vi.mock("./CancelLineButton", () => ({
 const { OrderCard } = await import("./OrderCard");
 const { renderToStaticMarkup } = await import("react-dom/server");
 
-function ligne(id: string, status: string, cancellable: boolean): MyOrderLine {
+function ligne(
+  id: string,
+  status: string,
+  cancellable: boolean,
+  { depositKeptOnCancel = true, acompteCop = 10000 }: { depositKeptOnCancel?: boolean; acompteCop?: number } = {}
+): MyOrderLine {
   return {
     id,
     productName: `Producto ${id}`,
@@ -39,24 +44,24 @@ function ligne(id: string, status: string, cancellable: boolean): MyOrderLine {
     durationDays: null,
     slotStartTime: null,
     qty: 1,
-    acompteCop: 10000,
+    acompteCop,
     totalCop: 40000,
     status,
     cancellable,
+    depositKeptOnCancel,
   };
 }
 
-function commande(lines: MyOrderLine[], depositRetainedOnCancel: boolean): MyOrder {
+function commande(lines: MyOrderLine[]): MyOrder {
   return {
     id: "o-1",
     reference: "HFG-000001",
     accessToken: "jeton",
-    paymentStatus: depositRetainedOnCancel ? "paid" : "unpaid",
+    paymentStatus: "paid",
     acompteCop: 10000,
     lines,
     paymentReceivedNotHonored: false,
     refundStatus: null,
-    depositRetainedOnCancel,
   };
 }
 
@@ -74,15 +79,30 @@ describe("OrderCard — annulation", () => {
       ligne("l-2", "reserved", false),
       ligne("l-3", "cancelled_by_client", false),
     ];
-    expect(await rendre(commande(lignes, true))).toEqual([
+    expect(await rendre(commande(lignes))).toEqual([
       { id: "l-1", cancellable: true, depositRetained: true },
       { id: "l-2", cancellable: false, depositRetained: true },
       { id: "l-3", cancellable: false, depositRetained: true },
     ]);
   });
 
-  it("commande impayée : aucun acompte retenu n'est annoncé", async () => {
-    const resultat = await rendre(commande([ligne("l-1", "reserved", true)], false));
+  it("acompte non acquis (décidé en base) : rien n'est annoncé", async () => {
+    const resultat = await rendre(commande([ligne("l-1", "reserved", true, { depositKeptOnCancel: false })]));
     expect(resultat).toEqual([{ id: "l-1", cancellable: true, depositRetained: false }]);
+  });
+
+  // Evento gratuit, paiement sur place : rien n'a été encaissé pour cette prestation, même si la
+  // commande l'a été (une autre ligne).
+  it("acompte nul : rien n'est annoncé, même si la base dit l'acompte acquis", async () => {
+    const resultat = await rendre(
+      commande([
+        ligne("l-1", "reserved", true, { depositKeptOnCancel: true, acompteCop: 0 }),
+        ligne("l-2", "reserved", true, { depositKeptOnCancel: true, acompteCop: 12000 }),
+      ])
+    );
+    expect(resultat).toEqual([
+      { id: "l-1", cancellable: true, depositRetained: false },
+      { id: "l-2", cancellable: true, depositRetained: true },
+    ]);
   });
 });

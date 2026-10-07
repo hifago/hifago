@@ -54,7 +54,7 @@ export type CancelLineButtonProps = {
   isLastActiveLine: boolean;
   /** Décidé en base (`list_my_orders`). Faux : rien à proposer, sauf l'issue d'une annulation. */
   cancellable: boolean;
-  /** L'acompte a été encaissé et reste acquis si le client annule (`depositRetainedOnCancel`). */
+  /** Dire « l'acompte n'est pas rendu » : acquis selon la base (`depositKeptOnCancel`) et non nul. */
   depositRetained: boolean;
   testId?: string;
 };
