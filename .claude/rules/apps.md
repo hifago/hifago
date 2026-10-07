@@ -26,12 +26,15 @@ Le SEO de la vitrine a sa propre règle (`seo.md`, `apps/web/**`) ; le design sy
 
 ## Frontière Server / Client Component — les pièges qui ne se voient qu'au build ou en navigateur
 
-- **Ne jamais `import … from "@hifago/ui"` dans un `page.tsx`/`layout.tsx` (Server Component)**,
-  quel que soit l'import : le barrel tire tout son graphe (`createContext is not a function` à
-  `next build`, « Collecting page data », invisible au typecheck, au lint et en dev). Toujours
-  passer par un fichier `"use client"` dédié — même pour `SimpleTable`. **Par transitivité**, un
+- **`apps/web` : jamais `import … from "@hifago/ui"` dans un `page.tsx`/`layout.tsx` (Server
+  Component)**, quel que soit l'import : le barrel tire tout son graphe (`createContext is not a
+  function` à `next build`, « Collecting page data », invisible au typecheck, au lint et en dev).
+  Passer par un fichier `"use client"` dédié — même pour `SimpleTable`. **Par transitivité**, un
   composant sans `"use client"` importé par un Server Component fait entrer le barrel dans le même
   graphe : soit il n'importe rien de `@hifago/ui` (ni `cn`), soit il porte `"use client"`.
+  Vérifié par `scripts/check-design-system.sh`, pour `apps/web` seulement. **`apps/admin` : toléré**
+  (révisé le 2026-10-07 ; une dizaine de routes importent `KpiCard`, `buttonVariants`, `Toast`, et le
+  build reste vert en CI). N'en ajouter que si le build le confirme.
 - Un fichier qui **construit** un graphique Recharts (`<LineChart …>`) porte `"use client"`
   lui-même — pas seulement son wrapper. L'erreur ne se déclenche qu'à l'exécution de la route.
 - `Table.Body`/`Table.Content` HeroUI n'acceptent jamais `items=`/`renderEmptyState=`/children en

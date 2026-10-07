@@ -114,17 +114,18 @@ este recurso pueden haber quedado no disponibles durante ese período. »
 ## Faiblesses connues de ces contenus
 
 Relevées à la lecture du code, puis **confirmées en boîte** par l'envoi réel du 2026-08-31.
-Aucune n'est corrigée — à traiter avant d'ouvrir l'envoi à de vrais partenaires et clients.
+Mise à jour du 2026-10-07 : les liens relatifs et l'absence d'échappement sont CORRIGÉS (barrés
+ci-dessous) ; le reste est à traiter avant d'ouvrir l'envoi à de vrais partenaires et clients.
 
-- **Emails 2 et 3 : les liens sont relatifs** (`href="/admin/proposals/…"`, `href="/admin/reconciliation"`).
-  Un lien relatif n'a aucune base dans une boîte mail : il est inutilisable. Seul l'email 1
-  construit une URL absolue, via `admin_app_public_url`.
+- ~~**Emails 2 et 3 : les liens sont relatifs**~~ — CORRIGÉ : les liens sont absolus, construits
+  depuis le secret Vault `admin_app_public_url` ; le lien d'une proposition d'établissement porte
+  `?entity=establishment` (migration `20261002160349_email_html_values.sql`).
 - **Emails 5 et 6 : aucun contenu utile.** Ce sont les deux emails qui parlent d'argent à un socio,
   et ils ne portent ni montant, ni nom de produit, ni date, ni lien. Le destinataire ne peut rien
   en faire.
-- **Aucun échappement HTML.** Les noms de produit et d'établissement viennent d'un payload saisi
-  par un socio et sont concaténés bruts dans le corps (emails 2, 4, 7, 8). Une injection de lien
-  dans un email lu par l'admin est possible.
+- ~~**Aucun échappement HTML.**~~ — CORRIGÉ : toute valeur tierce d'un corps d'e-mail passe par
+  `public.html_text(text)` (migrations `20261002125023` et `20261002160349`). Un méta-test pgTAP
+  (`notification_html_escaping`) refuse toute fonction qui émet du HTML sans l'appeler.
 - **Tout est en espagnol**, y compris les deux emails destinés aux admins. La langue était listée
   « à trancher » en §10.9 de la spec 23 ; elle a été tranchée de fait dans le code, jamais reportée
   dans la spec.

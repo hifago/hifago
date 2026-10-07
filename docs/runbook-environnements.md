@@ -101,8 +101,11 @@ par les crons (`pg_net`) et par les e-mails.
 | `admin_app_public_url` | URL de l'admin (lien d'invitation) |
 | `web_app_public_url` | URL de la vitrine (lien « ver mi reserva » de l'e-mail de confirmation) |
 
-**3.3 Auth** (`config push` avec les variables `SUPABASE_AUTH_*` de `supabase/config.toml`, ou
-Dashboard → Authentication)
+**3.3 Auth** (API de gestion, `PATCH /v1/projects/{ref}/config/auth`, champ par champ, ou
+Dashboard → Authentication — jamais `config push`, cassé et dangereux ; puis constat en lecture par
+`SUPABASE_ACCESS_TOKEN=… node scripts/check-cloud-auth-config.mjs <ref>`, qui compare à
+`supabase/auth-policy.json`. Sur le plan gratuit, les gabarits d'e-mail exigent un SMTP propre :
+Resend, comme en préprod depuis le 2026-10-07.)
 - Site URL = admin de l'environnement ; Redirect URLs = origine nue et `/**` de web et d'admin.
 - Google : client OAuth propre à l'environnement (`hifago-preprod` / `hifago-prod`), callback
   `https://<ref>.supabase.co/auth/v1/callback`. En prod, l'écran de consentement doit être
