@@ -18,6 +18,7 @@ import type { ProductType } from "@/lib/products/useProductTypeFieldsState";
 import { PartnerAgenda } from "./PartnerAgenda";
 import type { ProductOption } from "./AddReservationDialog";
 import { partnerHomeHeader } from "./partnerHomeHeader";
+import { PartnerHomeBanner } from "./PartnerHomeBanner";
 
 const ROLE_LABELS: Record<string, string> = {
   referrer: "Referente",
@@ -217,15 +218,10 @@ export default async function PartnerHomePage() {
           actionLabel="Añadir establecimiento"
           testId="partner-establishment-pending"
         />
-      ) : header === "active-banner" ? (
-        <div className="flex items-center justify-between rounded-md border border-border bg-surface px-4 py-2">
-          <span className="text-sm font-medium" data-testid="partner-status-compact">
-            Prestador activo
-          </span>
-          <Link href="/partner/establishment" className="text-sm hover:underline">
-            Mi establecimiento
-          </Link>
-        </div>
+      ) : header === "provider-banner" ? (
+        <PartnerHomeBanner kind="provider" />
+      ) : header === "referrer-banner" ? (
+        <PartnerHomeBanner kind="referrer" />
       ) : (
         <Card data-testid="partner-status-card">
           <Card.Header>
