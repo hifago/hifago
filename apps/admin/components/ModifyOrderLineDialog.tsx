@@ -100,8 +100,9 @@ export function ModifyOrderLineDialog({
     });
     setIsSubmitting(false);
 
-    if (rpcError || !(data as { ok: boolean } | null)?.ok) {
-      toast.danger(rpcErrorMessage(rpcError, "No se pudo modificar la reserva."));
+    const result = data as { ok: boolean; reason?: string } | null;
+    if (rpcError || !result?.ok) {
+      toast.danger(describeModifyFailure(rpcError, result?.reason));
       return;
     }
 
@@ -159,4 +160,21 @@ export function ModifyOrderLineDialog({
       </Modal.Backdrop>
     </Modal>
   );
+}
+
+// Refus rendus par modify_order_line (20261006204938) : la prestation ne peut pas être modifiée en
+// place. Les autres refus de la RPC restent des exceptions (texte générique, rpcErrorMessage).
+const MODIFY_FAILURE_MESSAGES: Record<string, string> = {
+  pms_line_not_modifiable:
+    "Esta reserva está vinculada al PMS del alojamiento y no se puede modificar desde aquí.",
+  resource_line_not_modifiable:
+    "Esta reserva ocupa el espacio compartido del establecimiento y no se puede modificar.",
+};
+
+export function describeModifyFailure(
+  rpcError: Parameters<typeof rpcErrorMessage>[0],
+  reason: string | undefined
+): string {
+  if (reason && Object.hasOwn(MODIFY_FAILURE_MESSAGES, reason)) return MODIFY_FAILURE_MESSAGES[reason];
+  return rpcErrorMessage(rpcError, "No se pudo modificar la reserva.");
 }

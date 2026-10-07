@@ -17,9 +17,14 @@
   "cancelLine": "Cancel",
   "cancelConfirmTitle": "Cancel \"{product}\" on {date}?",
   "cancelConfirmNoRefund": "The deposit already paid is not refunded.",
-  "cancelConfirmLastLine": "After this, the whole booking is cancelled.",
+  "cancelConfirmLastLine": "After this, no pending service will remain in this booking.",
   "cancelConfirmYes": "Yes, cancel",
   "cancelConfirmNo": "No",
   "cancelling": "Cancelling…",
-  "cancelError": "Could not cancel. Please try again."
+  "cancelError": "Could not cancel. Please try again.",
+  "cancelErrorNotActive": "This service can no longer be cancelled: its status has changed.",
+  "cancelErrorNotFound": "We couldn't find this service in your account.",
+  "cancelErrorSession": "Your session has expired. Sign in again to cancel.",
+  "cancelDone": "You cancelled \"{product}\" on {date}.",
+  "cancelDoneWholeOrder": "No pending service remains in this booking."
 }
