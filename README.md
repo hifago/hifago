@@ -21,7 +21,7 @@ test) : [`DEMARRAGE-LOCAL-WINDOWS.md`](DEMARRAGE-LOCAL-WINDOWS.md), de A à Z.
 
 ## Avant de pousser
 
-`npm run verify` lance en ~35 s les 12 contrôles du job `lint` de la CI — **exactement les mêmes,
+`npm run verify` lance en ~35 s les 20 contrôles du job `lint` de la CI — **exactement les mêmes,
 dans le même script** (`scripts/verify.sh`), et sans s'arrêter au premier échec : un seul passage
 donne la liste complète de ce qu'il faut corriger.
 

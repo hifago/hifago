@@ -96,7 +96,7 @@ par les crons (`pg_net`) et par les e-mails.
 
 | Nom | Valeur |
 |---|---|
-| `pms_functions_base_url` | `https://<ref>.supabase.co/functions/v1` |
+| `pms_functions_base_url` | `https://<ref>.supabase.co` — la base du projet, **sans** `/functions/v1` (les wrappers `invoke_*` l'ajoutent) |
 | `pms_service_role_key` | **exactement** la clé service_role du runtime des fonctions |
 | `admin_app_public_url` | URL de l'admin (lien d'invitation) |
 | `web_app_public_url` | URL de la vitrine (lien « ver mi reserva » de l'e-mail de confirmation) |

@@ -31,7 +31,7 @@
 - [Cahier des charges — back-office admin (aujourd'hui /admin)](03-cahier-des-charges-admin.md) 49K
 - [Choix de stack et architecture cible](04-architecture-cible.md) 78K
 - [Référence technique — patterns validés et extensions requises](05-reference-technique.md) 9K
-- [Emails transactionnels — les 11 envois possibles, leur déclencheur…](06-emails-transactionnels.md) 12K
+- [Emails transactionnels — les 13 envois possibles, leur déclencheur…](06-emails-transactionnels.md) 15K
 - [Runbook des environnements — préprod et prod, variable par variable](runbook-environnements.md) 13K
 
 ## Specs — une feature chacune
@@ -68,7 +68,7 @@
 - [Identité anonyme de l'invité](specs/31-identite-anonyme.md) 21K ◐ · §0 offset 45 limit 137 · reste : Les 4 tranches sont livrées (2026-09-10). Reste le point de vérification de la Tranche 4…
 - [Panier en base](specs/32-panier-en-base.md) 24K ✓ · §0 offset 48 limit 90
 - [L'écran de résultat de paiement et la fermeture du tunnel](specs/33-resultat-paiement-et-fermeture-du-tunnel.md) 46K ✓ · §0 offset 57 limit 215
-- [Compte client : « Mis reservas », la liste et le détail](specs/34-compte-mes-reservations.md) 52K ✓ · §0 offset 66 limit 120
+- [Compte client : « Mis reservas », la liste et le détail](specs/34-compte-mes-reservations.md) 52K ✓ · §0 offset 66 limit 122
 - [Compte client : profil, édition, déconnexion, suppression](specs/35-compte-profil.md) 32K ✓ · §0 offset 63 limit 45
 - [Remise par seuil de remplissage cumulé (camps)](specs/36-remise-remplissage-camp.md) 16K ✓ · §0 offset 56 limit 80
 - [Programme jour par jour d'un camp](specs/37-programme-camp.md) 15K ✓ · §0 offset 53 limit 70
@@ -85,5 +85,5 @@
 - [Dette technique et QA/UI connue — hifago](dette-technique.md) 35K
 - [Journal hifago — août 2026](journal/2026-08.md) 660K · jamais en entier (voir 5.)
 - [Journal hifago — septembre 2026](journal/2026-09.md) 678K · jamais en entier (voir 5.)
-- [Journal hifago — octobre 2026](journal/2026-10.md) 123K · jamais en entier (voir 5.)
+- [Journal hifago — octobre 2026](journal/2026-10.md) 126K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K

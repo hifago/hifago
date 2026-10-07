@@ -88,8 +88,8 @@ réelles. Règle d'échappement : au-delà de 100 lignes, le piège le plus anci
   règle l'argent, jamais l'inventaire). Un refus de nuit ne crée plus d'entrée de réconciliation
   (`notify_all_admins` n'a pas de dédup).
 - Sur la base locale partagée : ne jamais `db reset` sans savoir si une autre session a des
-  données en cours (`AGENTS-PARALLELES.md`) ; les échecs pgTAP par accumulation d'`audit_log` sont
-  de la pollution, pas une régression — prouver en vidant dans la transaction du test.
+  données en cours (`AGENTS-PARALLELES.md`) ; un test pgTAP scope ses comptages (`audit_log`…) par
+  les identifiants des fixtures du fichier, jamais en absolu, jamais en vidant une table.
 - **Grants par défaut, sens INVERSE selon table ou fonction** (2026-08-28, faillite re-mesurée le
   2026-09-10) : une TABLE créée par `postgres` n'a PAS de grant par défaut (ci-dessus), mais une
   FONCTION en a un — PostgreSQL accorde EXECUTE à PUBLIC sur toute nouvelle fonction. Une RPC
