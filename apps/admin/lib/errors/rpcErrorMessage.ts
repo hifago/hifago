@@ -7,20 +7,18 @@
 // disponible pour le diagnostic. Un motif métier précis à afficher passe par un `reason` rendu par
 // la RPC elle-même, jamais par l'analyse de son message.
 //
-// SEULE EXCEPTION, fermée : un refus métier que la base LÈVE (sans `reason`) et qu'un admin peut
-// provoquer en usage normal. Son texte exact est ici, et `rpcErrorMessage.contract.test.ts` le
-// relit dans la migration qui le lève : si la base change son texte, le test rougit au lieu que
-// l'écran retombe en silence sur le message générique. Jamais une recherche de sous-chaîne.
+// Un refus métier que la base LÈVE (sans `reason`) et qu'un admin peut provoquer en usage normal
+// porte un code propre au projet, classe HF (20261007003627) : l'écran le reconnaît par ce code,
+// jamais par son texte. `rpcErrorMessage.contract.test.ts` vérifie que la base lève bien ce code.
 
 type RpcError = { code?: string; message?: string } | null | undefined;
 
 const SANS_PERMISSION = "No tienes permiso para esta acción.";
 
-/** Refus métier levés par la base → texte pour l'écran. Égalité stricte du message. */
-export const REFUS_LEVES: Readonly<Record<string, string>> = {
-  // close_order_line_locked (20261006192424) : une commande payée n'expire pas.
-  "transition refusée : une commande payée n'expire pas":
-    "Una reserva pagada no puede marcarse como expirada. Elige otro estado.",
+/** Refus métier levés par la base, par code d'erreur (classe HF) → texte pour l'écran. */
+export const REFUS_PAR_CODE: Readonly<Record<string, string>> = {
+  // close_order_line_locked : une commande payée n'expire pas.
+  HF001: "Una reserva pagada no puede marcarse como expirada. Elige otro estado.",
 };
 
 export function rpcErrorMessage(error: RpcError, fallback: string): string {
@@ -29,6 +27,6 @@ export function rpcErrorMessage(error: RpcError, fallback: string): string {
   // 42501 (insufficient_privilege) : le code que lèvent les RPC du projet sur un appelant sans le
   // rôle requis.
   if (error.code === "42501") return SANS_PERMISSION;
-  if (error.message && Object.hasOwn(REFUS_LEVES, error.message)) return REFUS_LEVES[error.message];
+  if (error.code && Object.hasOwn(REFUS_PAR_CODE, error.code)) return REFUS_PAR_CODE[error.code];
   return fallback;
 }

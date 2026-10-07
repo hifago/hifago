@@ -98,12 +98,12 @@ describe("JobsStatus — bloc « Procesos » de l'accueil admin", () => {
     );
   });
 
-  it("a tourné sans jamais réussir (la base dit `ok` tant que le seuil court) : jamais « al día »", () => {
+  it("a tourné sans jamais réussir (`failing`, rendu par la base) : jamais « al día »", () => {
     render(
       <JobsStatus
         jobs={[
           job({ jobName: "payments-reconcile" }),
-          job({ jobName: "pms-poll-bookings", state: "ok", lastOkAt: null, lastError: "clave rechazada" }),
+          job({ jobName: "pms-poll-bookings", state: "failing", lastOkAt: null, lastError: "clave rechazada" }),
         ]}
         checkedAt={CHECKED_AT}
       />
