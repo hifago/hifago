@@ -101,6 +101,8 @@ insert into tmp_grant_only (name) values
   ('notify_order_line_cancelled'),
   ('order_line_client_cancellable'),
   ('order_jsonb_with_client_cancellable'),
+  -- L'acompte encaissé (migration 20261007003627) : lu par close_order_line_locked et list_my_orders.
+  ('order_deposit_collected'),
   -- Helpers INTERNES (audit P12c, 2026-10-06) : appelés uniquement par d'autres fonctions SECURITY
   -- DEFINER (exécutées en propriétaire) ou par des triggers, jamais par un client. Aucun garde
   -- propre : leur seule barrière est le grant, exactement comme les RPC ci-dessus.
