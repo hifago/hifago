@@ -16,13 +16,17 @@ describe("partnerHomeHeader", () => {
   it.each<[string, PartnerHomeCapability[], string]>([
     ["prestataire inscrit, sans établissement (actif par défaut)", [op("active")], "first-establishment"],
     ["prestataire et référent, sans établissement", [op("active"), ref("active")], "first-establishment"],
-    ["prestataire actif avec établissement", [op("active", "e-1")], "active-banner"],
-    ["avec établissement, plus une capacité operator encore vide", [op("active", "e-1"), op("active")], "active-banner"],
-    ["une capacité operator vide AVANT celle qui a un établissement", [op("active"), op("active", "e-1")], "active-banner"],
-    ["référent seul, actif", [ref("active")], "active-banner"],
+    ["prestataire seul, actif avec établissement", [op("active", "e-1")], "provider-banner"],
+    ["mixte : prestataire avec établissement + référent", [op("active", "e-1"), ref("active")], "provider-banner"],
+    ["avec établissement, plus une capacité operator encore vide", [op("active", "e-1"), op("active")], "provider-banner"],
+    ["une capacité operator vide AVANT celle qui a un établissement", [op("active"), op("active", "e-1")], "provider-banner"],
+    ["référent seul, actif", [ref("active")], "referrer-banner"],
+    ["référent seul, suspendu", [ref("suspended")], "roles-card"],
+    ["mixte avec établissement, référent suspendu", [op("active", "e-1"), ref("suspended")], "roles-card"],
     ["prestataire suspendu, sans établissement", [op("suspended")], "roles-card"],
-    ["référent suspendu", [ref("suspended")], "roles-card"],
     ["aucun rôle", [], "roles-card"],
+    // Un rôle que cet écran ne connaît pas n'est jamais présenté comme référent.
+    ["rôle inconnu, actif, sans operator", [{ role: "inconnu", status: "active", establishment_id: null }], "roles-card"],
   ])("%s → %s", (_cas, rows, attendu) => {
     expect(partnerHomeHeader(rows)).toBe(attendu);
   });
