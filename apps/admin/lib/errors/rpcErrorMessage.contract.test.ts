@@ -7,15 +7,29 @@ import { REFUS_LEVES } from "./rpcErrorMessage";
 // fonction qui le porte : sinon l'écran retomberait en silence sur le message générique.
 const DOSSIER = new URL("../../../../supabase/migrations/", import.meta.url);
 
-/** Corps SQL de la dernière migration qui (re)définit `fonction`. */
+/**
+ * Corps SQL (commentaires `--` retirés) de la DERNIÈRE définition de `fonction` : de son
+ * `create … function` à la fin de son bloc dollar-quoté — jamais le fichier entier, qui définit
+ * d'autres fonctions et cite des messages en commentaire.
+ */
 function derniereDefinition(fonction: string): string {
-  const motif = new RegExp(`create (or replace )?function public\\.${fonction}\\b`, "i");
+  const motif = new RegExp(`create (or replace )?function public\\.${fonction}\\b`, "gi");
   const fichiers = readdirSync(DOSSIER)
     .filter((nom) => nom.endsWith(".sql"))
     .sort()
-    .filter((nom) => motif.test(readFileSync(new URL(nom, DOSSIER), "utf-8")));
+    .filter((nom) => new RegExp(motif.source, "i").test(readFileSync(new URL(nom, DOSSIER), "utf-8")));
   expect(fichiers.length).toBeGreaterThan(0);
-  return readFileSync(new URL(fichiers[fichiers.length - 1], DOSSIER), "utf-8");
+  const sql = readFileSync(new URL(fichiers[fichiers.length - 1], DOSSIER), "utf-8");
+  const debut = [...sql.matchAll(motif)].at(-1)!.index!;
+  const ouverture = /\bas\s+(\$[A-Za-z_]*\$)/i.exec(sql.slice(debut))!;
+  const corpsDebut = debut + ouverture.index + ouverture[0].length;
+  const corpsFin = sql.indexOf(ouverture[1], corpsDebut);
+  expect(corpsFin).toBeGreaterThan(corpsDebut);
+  return sql
+    .slice(corpsDebut, corpsFin)
+    .split("\n")
+    .map((ligne) => ligne.replace(/--.*$/, ""))
+    .join("\n");
 }
 
 const PORTEURS: Record<string, string> = {
