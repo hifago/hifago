@@ -48,8 +48,8 @@ export type CancelLineButtonProps = {
   dateLabel: string;
   /**
    * Vrai quand c'est la DERNIÈRE prestation encore active de la commande : la confirmation prévient
-   * alors que toute la réservation sera annulée. C'est la seule règle de ce composant qui ne se voit
-   * pas à l'œil, donc la seule que son test tient.
+   * alors qu'il n'en restera aucune en attente. Jamais « toute la réservation est annulée » : une
+   * prestation déjà réalisée peut coexister, et la commande n'est alors pas annulée.
    */
   isLastActiveLine: boolean;
   /** Décidé en base (`list_my_orders`). Faux : rien à proposer, sauf l'issue d'une annulation. */

@@ -94,10 +94,13 @@ async function ouvrirLaConfirmation(container: HTMLElement) {
 }
 
 describe("CancelLineButton", () => {
-  it("prévient que toute la réservation sera annulée quand c'est la dernière prestation active", async () => {
+  it("prévient qu'il ne restera aucune prestation en attente quand c'est la dernière active", async () => {
     const container = rendre(true);
     await ouvrirLaConfirmation(container);
-    expect(container.querySelector('[data-testid="cancel-line-x-last-line"]')).not.toBeNull();
+    // Jamais « toda la reserva queda anulada » : faux si une prestation réalisée coexiste.
+    expect(texte(container, "cancel-line-x-last-line")).toBe(
+      "Después de esto, no quedará ninguna prestación pendiente en esta reserva."
+    );
   });
 
   it("ne le prévient PAS quand d'autres prestations restent actives", async () => {

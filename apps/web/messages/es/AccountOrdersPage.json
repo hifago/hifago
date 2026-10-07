@@ -17,7 +17,7 @@
   "cancelLine": "Anular",
   "cancelConfirmTitle": "¿Anular « {product} » del {date}?",
   "cancelConfirmNoRefund": "El anticipo pagado no se devuelve.",
-  "cancelConfirmLastLine": "Después de esto, toda la reserva queda anulada.",
+  "cancelConfirmLastLine": "Después de esto, no quedará ninguna prestación pendiente en esta reserva.",
   "cancelConfirmYes": "Sí, anular",
   "cancelConfirmNo": "No",
   "cancelling": "Anulando…",

@@ -75,8 +75,8 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
       <ul className="flex flex-col divide-y divide-separator">
         {order.lines.map((line) => {
           const isDead = isDeadLine(line.status);
-          // Dernière prestation encore active : la confirmation doit alors prévenir que toute la
-          // réservation va tomber. `activeLines` est calculé sur la commande entière, pas sur la
+          // Dernière prestation encore active : la confirmation doit alors prévenir qu'il n'en
+          // restera aucune en attente. `activeLines` est calculé sur la commande entière, pas sur la
           // ligne — c'est justement l'information qu'une ligne seule ne peut pas connaître.
           const isLastActiveLine = activeLines.length === 1 && line.status === "reserved";
           const fecha = formatLineScheduleLisible(line, locale);
