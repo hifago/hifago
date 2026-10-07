@@ -17,6 +17,7 @@ import { MANUAL_ORDER_INELIGIBLE_TYPES } from "@/lib/products/manualOrderEligibi
 import type { ProductType } from "@/lib/products/useProductTypeFieldsState";
 import { PartnerAgenda } from "./PartnerAgenda";
 import type { ProductOption } from "./AddReservationDialog";
+import { partnerHomeHeader } from "./partnerHomeHeader";
 
 const ROLE_LABELS: Record<string, string> = {
   referrer: "Referente",
@@ -97,7 +98,6 @@ export default async function PartnerHomePage() {
   );
 
   const rows = (capabilities ?? []) as CapabilityRow[];
-  const allActive = rows.length > 0 && rows.every((row) => row.status === "active");
 
   // Lignes NON filtrées ci-dessus nécessaires pour la carte de statut (tous rôles/statuts) — mais
   // establishmentIds dérive de la même règle que reservations/page.tsx (role "operator", status
@@ -105,6 +105,8 @@ export default async function PartnerHomePage() {
   // JS avec un second littéral.
   const establishmentIds = selectActiveOperatorEstablishmentIds(rows);
 
+  // Bloc d'en-tête : partnerHomeHeader.ts (« aucun établissement » testé AVANT « tout actif »).
+  //
   // Simplification demandée par Jérôme (refonte vue prestataire, 2026-08-19) : quand rien n'est
   // encore configuré côté PRESTATAIRE (une capacité operator fraîchement créée, sans établissement
   // ni statut à signaler), un seul message "créer un établissement" remplace la carte détaillée
@@ -116,11 +118,7 @@ export default async function PartnerHomePage() {
   // direct sont tous les trois déjà un geste admin, cf.
   // 20260820010000_partner_capabilities_active_by_default.sql), aucune raison de le masquer
   // derrière la carte détaillée.
-  const operatorCapability = rows.find((row) => row.role === "operator");
-  const needsFirstEstablishment =
-    operatorCapability !== undefined &&
-    operatorCapability.establishment_id === null &&
-    operatorCapability.status !== "suspended";
+  const header = partnerHomeHeader(rows);
 
   let events: ReturnType<typeof positionOrderLines> = [];
   let productOptions: ProductOption[] = [];
@@ -206,16 +204,7 @@ export default async function PartnerHomePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {allActive ? (
-        <div className="flex items-center justify-between rounded-md border border-border bg-surface px-4 py-2">
-          <span className="text-sm font-medium" data-testid="partner-status-compact">
-            Prestador activo
-          </span>
-          <Link href="/partner/establishment" className="text-sm hover:underline">
-            Mi establecimiento
-          </Link>
-        </div>
-      ) : needsFirstEstablishment ? (
+      {header === "first-establishment" ? (
         // Remplace l'ancienne double carte ("Tus roles" détaillée par rôle + bloc "agenda vide/
         // Crear producto" en dessous, redondant — "créer un produit" n'a jamais été la bonne
         // action avant d'avoir un établissement) par un seul message actionnable. testId conservé
@@ -228,6 +217,15 @@ export default async function PartnerHomePage() {
           actionLabel="Añadir establecimiento"
           testId="partner-establishment-pending"
         />
+      ) : header === "active-banner" ? (
+        <div className="flex items-center justify-between rounded-md border border-border bg-surface px-4 py-2">
+          <span className="text-sm font-medium" data-testid="partner-status-compact">
+            Prestador activo
+          </span>
+          <Link href="/partner/establishment" className="text-sm hover:underline">
+            Mi establecimiento
+          </Link>
+        </div>
       ) : (
         <Card data-testid="partner-status-card">
           <Card.Header>
