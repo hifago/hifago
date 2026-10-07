@@ -27,17 +27,23 @@ export async function GET(request: NextRequest, context: RouteContext<"/[locale]
   // code doit être vérifiable avant inscription — même policy réutilisée ici, aucune nouvelle
   // policy ni RPC. Code inconnu/inactif → même redirection, SANS ?ref= : jamais de page d'erreur
   // pour un QR déjà imprimé, cohérent avec "un code invalide n'empêche jamais la réservation".
+  //
+  // Lecture EN PANNE : on ne sait pas si le code est actif, et l'écarter perdrait l'attribution
+  // d'un QR imprimé valide. On garde donc ?ref= : create_order revérifie le code (actif, existant)
+  // au moment de la commande, et ignore un code invalide — le doute coûte au plus un paramètre inutile.
   const supabase = await createClient();
-  const { data: partnerCode } = await supabase
+  const { data: partnerCode, error } = await supabase
     .from("partner_codes")
     .select("code")
     .eq("code", code)
     .eq("active", true)
     .maybeSingle();
+  if (error) console.error("r/[code] : lecture de partner_codes impossible, ?ref= conservé", error.message);
 
-  const target = partnerCode
-    ? new URL(`/${locale}?ref=${encodeURIComponent(code)}`, request.url)
-    : new URL(`/${locale}`, request.url);
+  const target =
+    partnerCode || error
+      ? new URL(`/${locale}?ref=${encodeURIComponent(code)}`, request.url)
+      : new URL(`/${locale}`, request.url);
 
   return Response.redirect(target, 302);
 }
