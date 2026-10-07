@@ -201,7 +201,8 @@ jobs:
   # fixtures qui écoutent sur toutes les interfaces (sous Linux, une écoute 127.0.0.1 est injoignable
   # depuis le conteneur). Base NON seedée, volontairement : les lots de ces fonctions sont globaux et
   # chaque script s'arrête (exit 2) s'il trouve des lignes hors de ses fixtures.
-  # `pms_reserve_nights` n'y est pas (route web, pas une Edge Function) : D4, plus tard.
+  # En fin de job, pms_reserve_nights : une route de la vitrine, pas une Edge Function, lancée contre
+  # une vitrine construite et servie dans le job (voir ses étapes).
   integration-edge:
     needs: [db]
     runs-on: ubuntu-latest
@@ -244,6 +245,38 @@ jobs:
           for f in pms_poll_bookings pms_sync_availability pms_cancel_bookings pms_nightly_contract_check; do
             node "tests/pms-integration/$f.integration.mjs" || exit 1
           done
+      # pms_reserve_nights (suite de P12, 2026-10-07 ; D4 l'avait renvoyé à plus tard) : le seul test
+      # qui exerce record_pms_booking et release_order_after_pms_refusal À TRAVERS la route — il lui
+      # faut la vitrine servie, sa route reserve-nights pointée sur la fixture Lobby du script (:4546,
+      # sur l'hôte : la route tourne dans Next, pas dans un conteneur). Clés : celles de la pile qui
+      # vient de démarrer, lues par `supabase status`, jamais recopiées ici — et seulement ces deux-là
+      # (le même `status` porte FUNCTIONS_URL, que les tests Edge ci-dessus prendraient pour l'URL
+      # de leur fonction).
+      - name: Clés de la pile locale pour la vitrine
+        run: |
+          supabase status -o env | sed -n -E \
+            -e 's/^ANON_KEY="?([^"]*)"?$/NEXT_PUBLIC_SUPABASE_ANON_KEY=\1/p' \
+            -e 's/^SERVICE_ROLE_KEY="?([^"]*)"?$/SUPABASE_SERVICE_ROLE_KEY=\1/p' >> "$GITHUB_ENV"
+      - name: Vitrine construite et servie sur :3100, Lobby vers la fixture du test
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_WEB_APP_URL: http://127.0.0.1:3100
+          LOBBY_API_BASE_URL: http://127.0.0.1:4546
+        run: |
+          npm run build --workspace=apps/web
+          nohup npm run start --workspace=apps/web > "$RUNNER_TEMP/web.log" 2>&1 &
+          # Prête dès qu'elle répond quoi que ce soit (le script tolère un /es non 200).
+          for i in $(seq 1 60); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3100/es || true)"
+            [ "$code" != "000" ] && break
+            sleep 2
+          done
+          echo "vitrine : /es → $code"
+          [ "$code" != "000" ]
+      - run: node tests/pms-integration/pms_reserve_nights.integration.mjs
+      - name: Journal de la vitrine (en cas d'échec)
+        if: failure()
+        run: tail -n 200 "$RUNNER_TEMP/web.log" || true
 
   # Sans `needs:` lui non plus : ce job tourne sur des valeurs d'environnement FACTICES et ne touche
   # jamais la base — il n'a jamais rien eu à attendre de `db`. Il attendait pourtant `db` (101 s),

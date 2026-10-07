@@ -91,20 +91,21 @@ test("admin gère le registre d'un partenaire : capacité, statut, transfert, co
   await page.getByRole("option", { name: "suspended" }).click();
   await expect(selectValue(operatorRow)).toContainText("suspended");
 
-  // Désactiver ou réactiver un code d'attribution du partenaire — bascule vers l'état opposé au
+  // Désactiver puis réactiver un code d'attribution du partenaire — bascule vers l'état opposé au
   // départ, jamais une valeur fixe attendue (la base locale n'est pas remise à zéro entre deux
-  // exécutions e2e, cf. la même précaution déjà prise pour le prix en feature 3).
-  const codeSwitch = switchInput(page.getByTestId("code-active-switch-SEED-REFACTIVE"));
+  // exécutions e2e, cf. la même précaution déjà prise pour le prix en feature 3), PUIS retour à
+  // l'état de départ : SEED-REFACTIVE est un code du seed dont d'autres parcours dépendent, un run
+  // ne doit jamais le laisser désactivé (et les deux sens de la bascule sont ainsi prouvés).
+  const codeSwitchRoot = page.getByTestId("code-active-switch-SEED-REFACTIVE");
+  const codeSwitch = switchInput(codeSwitchRoot);
   const wasChecked = await codeSwitch.isChecked();
-  await toggleSwitch(page.getByTestId("code-active-switch-SEED-REFACTIVE"));
   // isSelected est piloté par le prop serveur (code.active), pas d'état local optimiste — le
   // changement visible attend le aller-retour RPC + router.refresh(), plus lent qu'un simple
   // clic client ; délai plus généreux que le défaut pour ne pas confondre lenteur et régression.
-  if (wasChecked) {
-    await expect(codeSwitch).not.toBeChecked({ timeout: 10000 });
-  } else {
-    await expect(codeSwitch).toBeChecked({ timeout: 10000 });
-  }
+  await toggleSwitch(codeSwitchRoot);
+  await expect(codeSwitch).toBeChecked({ checked: !wasChecked, timeout: 10000 });
+  await toggleSwitch(codeSwitchRoot);
+  await expect(codeSwitch).toBeChecked({ checked: wasChecked, timeout: 10000 });
 });
 
 // Refonte responsive mobile (SimpleTable, packages/ui) — test dédié plutôt qu'un ajout en fin du
