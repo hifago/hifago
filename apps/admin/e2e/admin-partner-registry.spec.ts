@@ -17,15 +17,29 @@ test("admin gère le registre d'un partenaire : capacité, statut, transfert, co
 }) => {
   await loginAs(context, SEEDED_ACCOUNTS.admin, SEEDED_PASSWORD);
 
+  // Propriétaire de départ DÉDIÉ à ce test (horodaté, retiré par le teardown), jamais un partenaire
+  // du seed : create_establishment rattache la ligne operator « en attente » de son propriétaire,
+  // que le transfert retire ensuite — avec « Opérateur Actif Org », chaque run consommait la ligne
+  // en attente du seed (constaté le 2026-10-06). Créé par la RPC, pas par l'écran : ce test ne
+  // porte pas sur la création de partenaire (admin-partner-create.spec.ts).
+  const stamp = Date.now();
+  const ownerName = `Partner E2E Registro ${stamp}`;
+  const adminClient = await createSignedInClient(SEEDED_ACCOUNTS.admin, SEEDED_PASSWORD);
+  const { error: ownerError } = await adminClient.rpc("create_partner_direct", {
+    p_display_name: ownerName,
+    p_roles: ["referrer"],
+    p_send_invitation: false,
+  });
+  expect(ownerError).toBeNull();
+
   // Établissement dédié à ce test — nom unique par run, jamais un établissement déjà partagé par
-  // d'autres tests e2e. Rattaché à "Opérateur Actif Org" au départ (peu importe qui), transféré
-  // plus bas.
-  const establishmentName = `Establecimiento Transfer Test ${Date.now()}`;
+  // d'autres tests e2e. Rattaché au propriétaire ci-dessus au départ, transféré plus bas.
+  const establishmentName = `Establecimiento Transfer Test ${stamp}`;
   await page.goto("/admin/establishments/new");
   // Assistant par étapes (docs/specs/40) — étape 1 "Propietario y gestión" (partner), étape 2
   // "Detalles" (nombre).
   await page.getByTestId("partner-search").click();
-  await page.getByRole("option", { name: /Opérateur Actif/ }).click();
+  await page.getByRole("option", { name: ownerName }).click();
   await goToNextWizardStep(page);
   await page.locator('input[name="nombre"]').fill(establishmentName);
   await page.getByTestId("create-establishment-button").click();
@@ -58,7 +72,13 @@ test("admin gère le registre d'un partenaire : capacité, statut, transfert, co
     .locator("tr", { hasText: "operator" })
     .filter({ has: page.locator('[data-label="Establecimiento"]', { hasText: /^—$/ }) });
   if ((await pendingOperatorRow.count()) === 0) {
-    await page.getByTestId("grant-role-select").click();
+    // Clic et ouverture du menu rejoués ENSEMBLE : sur une machine chargée, un premier clic arrivé
+    // avant l'hydratation du Select est perdu et l'option n'apparaît jamais (vu 1 run sur 5 le
+    // 2026-10-07, 120 s d'attente sur getByRole('option', { name: 'operator' })).
+    await expect(async () => {
+      await page.getByTestId("grant-role-select").click();
+      await expect(page.getByRole("option", { name: "operator" })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30000 });
     await page.getByRole("option", { name: "operator" }).click();
     await page.getByTestId("grant-capability-button").click();
   }
@@ -69,7 +89,7 @@ test("admin gère le registre d'un partenaire : capacité, statut, transfert, co
   await page.getByTestId("transfer-establishment-search").click();
   await page.getByRole("option", { name: new RegExp(establishmentName) }).click();
   await page.getByTestId("transfer-establishment-button").click();
-  await expect(page.getByTestId("transfer-establishment-confirmation")).toContainText("Opérateur Actif");
+  await expect(page.getByTestId("transfer-establishment-confirmation")).toContainText(ownerName);
   await page.getByTestId("confirm-transfer-establishment-button").click();
   await expect(
     page.getByTestId("own-establishments-table").getByText(establishmentName)
