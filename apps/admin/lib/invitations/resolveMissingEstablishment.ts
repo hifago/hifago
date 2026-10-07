@@ -1,4 +1,5 @@
 import type { createClient } from "@hifago/supabase/server";
+import { checkedRead } from "@/lib/supabase/checkedRead";
 
 // docs/specs/10-listes-standardisees-admin-socio.md — règle métier partagée entre la liste
 // (apps/admin/app/admin/invitations/page.tsx, plusieurs lignes) et la fiche détail
@@ -8,6 +9,9 @@ import type { createClient } from "@hifago/supabase/server";
 // après consommation), reste "actionnable" tant que le partenaire résolu porte encore une
 // capacité operator sans establishment_id. Un seul point d'implémentation batché — la liste
 // l'appelle avec toutes ses lignes, la fiche détail avec un tableau à un seul élément.
+//
+// Ses deux lectures LÈVENT sur une panne (lib/supabase/checkedRead.ts) : lues en `?? []`, elles
+// faisaient dire « établissement rattaché » (rien à faire) à une invitation dont on ne savait rien.
 export type InvitationForMissingEstablishment = {
   id: string;
   status: string;
@@ -43,11 +47,12 @@ export async function resolveMissingEstablishmentPartners(
 
   const accountToPartner = new Map<string, string | null>();
   if (accountIdsToResolve.length > 0) {
-    const { data: accounts } = await supabase
+    const accountsRes = await supabase
       .from("partner_accounts")
       .select("id, partner_id")
       .in("id", accountIdsToResolve);
-    for (const account of accounts ?? []) {
+    checkedRead(accountsRes, "partner_accounts (invitaciones)");
+    for (const account of accountsRes.data ?? []) {
       accountToPartner.set(account.id, account.partner_id);
     }
   }
@@ -63,13 +68,14 @@ export async function resolveMissingEstablishmentPartners(
   const candidatePartnerIds = Array.from(new Set(Array.from(resolvedPartnerByInvitation.values())));
   const partnersMissingEstablishment = new Set<string>();
   if (candidatePartnerIds.length > 0) {
-    const { data: pendingCapabilities } = await supabase
+    const capabilitiesRes = await supabase
       .from("partner_capabilities")
       .select("partner_id")
       .eq("role", "operator")
       .is("establishment_id", null)
       .in("partner_id", candidatePartnerIds);
-    for (const capability of pendingCapabilities ?? []) {
+    checkedRead(capabilitiesRes, "partner_capabilities (invitaciones)");
+    for (const capability of capabilitiesRes.data ?? []) {
       if (capability.partner_id) partnersMissingEstablishment.add(capability.partner_id);
     }
   }

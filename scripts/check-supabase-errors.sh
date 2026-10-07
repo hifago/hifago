@@ -59,55 +59,47 @@ fail=0
 # d'apps/admin/app avec la sienne (2026-10-02), jamais après : une exemption ajoutée plus tard pour
 # faire passer du code neuf serait une régression.
 # ─────────────────────────────────────────────────────────────────────────────────────────────
-est_exempte() {
-  case "$1" in
-    # Permanente — état d'authentification (`getUser().then`), pas une lecture de données.
-    "apps/web/lib/auth/useIsAuthenticated.ts") return 0 ;;
-    # Permanente — copie navigateur du panier pour le badge de l'en-tête. L'écran qui fait foi,
-    # /mi-viaje, relit côté serveur par getCartLines, qui lève.
-    "apps/web/lib/cart/CartContext.tsx") return 0 ;;
-    # Permanente — `null` y EST l'échec, affiché comme tel par /cuenta/reservas (message d'erreur
-    # en ligne, `orders-load-error`), jamais une liste vide.
-    "apps/web/lib/orders/getMyOrders.ts") return 0 ;;
-    # Permanente — décision écrite dans le fichier : bloc de confort (« reprendre une commande »),
-    # `[]` sur erreur pour ne jamais casser /mi-viaje ni /pago ; leur lecture principale lève.
-    "apps/web/lib/orders/getPendingOrdersForViewer.ts") return 0 ;;
-    # Dette — garde 2FA ouverte en cas d'erreur, traitée avec le 2FA.
-    "apps/admin/lib/mfaGuard.ts") return 0 ;;
-    # Dette — lectures de rattachement d'invitations, non traitées.
-    "apps/admin/lib/invitations/resolveMissingEstablishment.ts") return 0 ;;
-    # Permanente — transfert du panier anonyme à la connexion, best-effort écrit dans le fichier :
-    # une erreur ne bloque jamais la connexion elle-même.
-    "apps/web/app/[locale]/(auth)/entrar/LoginForm.tsx") return 0 ;;
-    # Permanente — `null` y EST l'échec : jeton illisible après une commande prise, signalé au client
-    # (`order_placed_unreadable`) avec reprise possible, jamais pris pour une absence.
-    "apps/web/app/[locale]/(tunnel)/pago/CheckoutForm.tsx") return 0 ;;
-    # Permanente — simulateur de paiement (jamais en production déclarée) : un 404 y suffit.
-    "apps/web/app/api/payments/mock-checkout/route.ts") return 0 ;;
-    "apps/web/app/api/payments/mock-confirm/route.ts") return 0 ;;
-    # Dette — lien/QR imprimé : sur une panne, le code est lu comme inconnu et la redirection perd
-    # ?ref= (attribution perdue). Correctif : garder ?ref= sur erreur, create_order revérifie le code.
-    "apps/web/app/[locale]/r/[code]/route.ts") return 0 ;;
-    # Dette — vérification 2FA : la liste des facteurs est relue sans son error (traitée avec le 2FA,
-    # qui reprend ce fichier).
-    "apps/admin/app/mfa/verify/page.tsx") return 0 ;;
-  esac
-  return 1
-}
+# UNE seule liste : `est_exempte` la lit, et le contrôle « exemption devenue sans objet » (plus
+# bas) la parcourt. Deux listes tenues à la main divergeaient : une entrée restée dans l'une seule
+# échappait au contrôle de péremption.
 EXEMPTIONS=(
+  # Permanente — état d'authentification (`getUser().then`), pas une lecture de données.
   "apps/web/lib/auth/useIsAuthenticated.ts"
+  # Permanente — copie navigateur du panier pour le badge de l'en-tête. L'écran qui fait foi,
+  # /mi-viaje, relit côté serveur par getCartLines, qui lève.
   "apps/web/lib/cart/CartContext.tsx"
+  # Permanente — `null` y EST l'échec, affiché comme tel par /cuenta/reservas (message d'erreur
+  # en ligne, `orders-load-error`), jamais une liste vide.
   "apps/web/lib/orders/getMyOrders.ts"
+  # Permanente — décision écrite dans le fichier : bloc de confort (« reprendre une commande »),
+  # `[]` sur erreur pour ne jamais casser /mi-viaje ni /pago ; leur lecture principale lève.
   "apps/web/lib/orders/getPendingOrdersForViewer.ts"
+  # Dette — garde 2FA ouverte en cas d'erreur, traitée avec le 2FA.
   "apps/admin/lib/mfaGuard.ts"
-  "apps/admin/lib/invitations/resolveMissingEstablishment.ts"
+  # Permanente — transfert du panier anonyme à la connexion, best-effort écrit dans le fichier :
+  # une erreur ne bloque jamais la connexion elle-même.
   "apps/web/app/[locale]/(auth)/entrar/LoginForm.tsx"
+  # Permanente — `null` y EST l'échec : jeton illisible après une commande prise, signalé au client
+  # (`order_placed_unreadable`) avec reprise possible, jamais pris pour une absence.
   "apps/web/app/[locale]/(tunnel)/pago/CheckoutForm.tsx"
-  "apps/web/app/[locale]/r/[code]/route.ts"
+  # Permanente — simulateur de paiement (jamais en production déclarée) : un 404 y suffit.
   "apps/web/app/api/payments/mock-checkout/route.ts"
   "apps/web/app/api/payments/mock-confirm/route.ts"
+  # Dette — lien/QR imprimé : sur une panne, le code est lu comme inconnu et la redirection perd
+  # ?ref= (attribution perdue). Correctif : garder ?ref= sur erreur, create_order revérifie le code.
+  "apps/web/app/[locale]/r/[code]/route.ts"
+  # Dette — vérification 2FA : la liste des facteurs est relue sans son error (traitée avec le 2FA,
+  # qui reprend ce fichier).
   "apps/admin/app/mfa/verify/page.tsx"
 )
+
+est_exempte() {
+  local e
+  for e in "${EXEMPTIONS[@]}"; do
+    [ "$e" = "$1" ] && return 0
+  done
+  return 1
+}
 
 MOTIF='const \{ (data|count)(: [A-Za-z_]+)? \} = await|\.then\(\(\{ (data|count)(: [A-Za-z_]+)? \}(: [^)]*)?\)|if \((error|[A-Za-z]+Error) \|\| [^)]*\) return (\[\]|null)'
 
