@@ -19,7 +19,8 @@ Règle d'échappement : au-delà de 100 lignes, le piège le plus ancien part au
   conditionnel selon props.
 - **E2E** (Playwright, `*.spec.ts`) : parcours multi-écrans, vraie session, aller-retour réseau/DB
   à prouver bout-en-bout. Auth programmatique (API REST, `storageState.json` par rôle), TOTP admin
-  via `otplib` — jamais le vrai écran Google, jamais un vrai téléphone.
+  via `generateTotp` (`packages/e2e-support/src/mfa.ts`, sans dépendance) — jamais le vrai écran
+  Google, jamais un vrai téléphone.
 - **CRUD simple** : exactement **1** e2e chemin heureux ; les variantes vont en test composant.
 - Pendant le développement : `/hifago-test <fichier(s) touché(s)>`, pas la suite complète.
 - Un test vert ne prouve rien s'il passe aussi quand la règle est cassée : quand c'est possible,

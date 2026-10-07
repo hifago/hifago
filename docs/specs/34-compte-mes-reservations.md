@@ -142,7 +142,9 @@ prédicat que `list_clients` (cas `en_casa`), et c'est l'assertion qui rougit si
    intactes.
 8. Une session anonyme est refusée par `list_my_orders` **et** par `cancel_order_line`, en base —
    jamais par la seule garde d'écran.
-9. `product_availability.booked` n'est jamais décrémenté (cahier §7/A3, inchangé).
+9. ⚠️ **Révisé le 2026-10-06** (`20261006192424_order_line_cancellations.sql`) : toute annulation
+   et toute expiration **rendent** la place, la ressource partagée et le blocage d'agenda. A3 ne
+   règle que l'argent, jamais l'inventaire ; un evento `rsvp`/`unlimited` ne rend rien (rien pris).
 10. La confirmation d'annulation ne chiffre aucun montant : sa chaîne i18n ne porte **aucune**
     variable de prix.
 
@@ -532,9 +534,11 @@ Squelette de `cancel_order`, granularité déplacée :
 - rend `{ok: true, order_id, remaining_active_lines}` — ce dernier champ **a un lecteur** : c'est
   lui qui fait basculer la carte sur « toute la réservation est annulée ».
 
-**Pas une RPC critique au sens anti-survente** (`CLAUDE.md` §4) : aucun compteur de capacité n'est
-touché — `product_availability.booked` n'est jamais décrémenté (§7/A3). Verrou simple, pas le
-harnais à barrière de synchronisation. Même calibrage que `cancel_order`, dont elle prend la place.
+⚠️ **Révisé le 2026-10-06** (`20261006192424_order_line_cancellations.sql`) : l'annulation **rend**
+la place (cupos, créneau, ressource partagée, blocage d'agenda) sous les verrous `orders` → ligne →
+capacité — c'est donc une opération de capacité (`CLAUDE.md` §4), prouvée sous concurrence réelle
+(`tests/concurrency/cancel_order_line.concurrency.mjs`). A3 ne règle que l'argent, jamais
+l'inventaire. Elle prend la place de `cancel_order`.
 
 ### 7.5 La propagation LobbyPMS suit — mais elle doit être prouvée
 
