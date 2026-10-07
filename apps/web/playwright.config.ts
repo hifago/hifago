@@ -9,6 +9,7 @@ export default defineConfig({
   // poussent les offres SEEDÉES hors de l'écran et font échouer des tests sur des sélecteurs
   // pourtant justes (`home.spec.ts`, `reserve.spec.ts`). Un teardown GLOBAL plutôt qu'un
   // `afterAll` par fichier : un nettoyage réparti s'oublie au spec suivant.
+  globalSetup: "../../packages/e2e-support/src/globalSetup.ts",
   globalTeardown: "../../packages/e2e-support/src/cleanup.ts",
   fullyParallel: true,
   reporter: "html",

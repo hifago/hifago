@@ -16,14 +16,20 @@ export function selectValue(scope: Locator) {
 
 // Le vrai <input type="checkbox" role="switch"> d'un Switch HeroUI est visuellement masqué
 // (clip-path) et niché dans un <label> piloté par usePress (react-aria) — pas par le transfert
-// natif label→input. locator.isChecked()/toBeChecked() exigent de cibler cet input directement,
-// et le clic doit passer par { force: true } pour contourner l'invisibilité.
+// natif label→input. locator.isChecked()/toBeChecked() exigent de cibler cet input directement.
 export function switchInput(scope: Locator) {
   return scope.locator("input");
 }
 
+// Le clic, lui, vise `Switch.Content` (data-slot="switch-content", le SwitchButton react-aria : le
+// <label> pressable qui porte la commande visible). Depuis HeroUI 3.2, la racine du Switch — celle
+// qui reçoit le data-testid — est un SwitchField, une <div> de champ qui n'est PAS pressable :
+// l'ancien `scope.click({ force: true })` frappait le centre de cette div, à côté du label, et la
+// bascule n'avait jamais lieu (onChange jamais appelé, aucune requête — diagnostic du 2026-10-07 sur
+// admin-partner-registry). Clic normal, sans `force` : Playwright vérifie que la commande est
+// visible et reçoit bien le clic, au lieu de frapper à l'aveugle.
 export async function toggleSwitch(scope: Locator) {
-  await scope.click({ force: true });
+  await scope.locator('[data-slot="switch-content"]').click();
 }
 
 // Piège distinct du Switch ci-dessus (constaté 2026-08-14, feature 26 — admin-partner-create.
