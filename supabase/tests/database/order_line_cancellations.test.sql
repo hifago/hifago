@@ -15,13 +15,15 @@
 --     seulement (aucun mot sur l'argent), chaque valeur tierce échappée site par site, sujet en texte
 --     brut, la phrase LobbyPMS / disponibilité selon les faits ; jamais vers une adresse sentinelle ;
 --     rien pour `expired` ; l'operator laisse sa trace d'audit ;
---   - `cancellable` de list_my_orders = la règle de cancel_order_line ;
+--   - `cancellable` de list_my_orders = la règle de cancel_order_line ; `deposit_kept_on_cancel` = la
+--     règle de close_order_line_locked (acompte encaissé : payée ou partiellement remboursée) ;
+--   - `expired` refusé sur une commande payée sous le code HF001 (20261007003627) ;
 --   - droits (anon ne peut plus appeler set_order_line_status ; fonctions internes et pures fermées)
 --     et ordre des verrous du remplacement de jeton Lobby (lignes avant file) ;
 --   - close_order_line_locked refuse un couple (statut, auteur) inconnu et une ligne non réservée.
 -- Fixtures en SQL direct (tables RPC-only) : ce fichier tourne en tant que postgres.
 begin;
-select plan(41);
+select plan(42);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -179,6 +181,14 @@ select is(
   jsonb_build_object('7c700000-0000-4000-8000-000000000051', false, '7c700000-0000-4000-8000-000000000052', true),
   'C4 : list_my_orders rend `cancellable` par ligne — la règle de cancel_order_line');
 select is(
+  (select jsonb_object_agg(substr(o ->> 'id', 35),
+                           (select jsonb_agg(distinct l -> 'deposit_kept_on_cancel') from jsonb_array_elements(o -> 'lines') l))
+     from c1_list, jsonb_array_elements(r -> 'orders') o
+    where substr(o ->> 'id', 35) in ('41', '42', '43', '44', '53')),
+  jsonb_build_object('41', jsonb_build_array(false), '42', jsonb_build_array(true), '43', jsonb_build_array(false),
+                     '44', jsonb_build_array(false), '53', jsonb_build_array(true)),
+  'C4b : `deposit_kept_on_cancel` par ligne — acquis si payée ou partiellement remboursée ; impayée, en cours, remboursée : non');
+select is(
   (select count(*)::int from p7_emails
     where related_id = '7c700000-0000-4000-8000-000000000051' and event_type = 'client_order_line_cancelled'
       and recipient_email = 'p7-41@test.local' and subject = 'Anulación en tu reserva P7<41>&'
@@ -271,7 +281,7 @@ select is(
 -- ── `expired` : refusé sur payée, accepté sur `pending` ─────────────────
 select throws_ok(
   $$ select set_order_line_status('7c700000-0000-4000-8000-000000000060', 'expired', 'test') $$,
-  'P0001', 'transition refusée : une commande payée n''expire pas',
+  'HF001', 'transition refusée : une commande payée n''expire pas',
   'C18 : une commande payée n''expire pas');
 select is(
   jsonb_build_object('statut', (select status from order_lines where id = '7c700000-0000-4000-8000-000000000060'), 'booked', (select d1 from p7_booked)),

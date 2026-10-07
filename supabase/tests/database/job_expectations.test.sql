@@ -5,9 +5,12 @@
 --   - admin_jobs_status : admin seul (42501 sinon, garde et pas seulement grant ; anon sans
 --     EXECUTE) ; une ligne par job attendu MÊME sans aucun heartbeat ; seuils en minutes ;
 --     checked_at = now() ;
---   - `state` : never (jamais exécuté, dans sa grâce), stale (le prédicat des watchdogs — y compris
---     un job jamais vu au-delà de sa grâce, ancré sur la déclaration de l'attente), ok ; `stale`
---     exactement quand le watchdog alerte ;
+--   - `state` : never (jamais exécuté, dans sa grâce), failing (a tourné sans jamais réussir, dans
+--     sa grâce — 20261007003627), stale (le prédicat des watchdogs — y compris un job jamais vu
+--     au-delà de sa grâce, ancré sur la déclaration de l'attente), ok ; `stale` exactement quand le
+--     watchdog alerte ;
+--   - heartbeat_job date le passage à l'instant réel (clock_timestamp), un seul instant pour
+--     last_run_at et last_ok_at ;
 --   - le seuil est LU dans la table : le changer fait bouger jobs_watchdog ET la RPC, et
 --     payments_reconcile_watchdog (sujet de l'e-mail inchangé à 15 min) ;
 --   - alert_active suit le réarmement (alerte partie → vrai ; un succès → faux) ;
@@ -16,7 +19,7 @@
 --     aucun droit pour anon/authenticated, seuil strictement positif.
 -- ⚠️ `now()` est constant dans la transaction : on vieillit la DONNÉE, jamais l'horloge.
 begin;
-select plan(24);
+select plan(26);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -108,11 +111,21 @@ select is(
   (select jsonb_build_object('state', state, 'alert_active', alert_active) from admin_jobs_status() where job_name = 'pms-sync-availability'),
   jsonb_build_object('state', 'ok', 'alert_active', false),
   'S13 : un succès réarme : ok, plus d''alerte active');
+select is(
+  (select jsonb_build_object('meme_instant', last_ok_at = last_run_at, 'instant_reel', last_run_at > now())
+     from admin_jobs_status() where job_name = 'pms-sync-availability'),
+  jsonb_build_object('meme_instant', true, 'instant_reel', true),
+  'S13b : un passage est daté à l''instant réel (après le début de la transaction), le même pour les deux colonnes');
 select heartbeat_job('pms-cancel-bookings', false, '{}'::jsonb, 'timeout');
 select is(
-  (select jsonb_build_object('state', state, 'erreur', last_error, 'passage', last_run_at = now()) from admin_jobs_status() where job_name = 'pms-cancel-bookings'),
-  jsonb_build_object('state', 'ok', 'erreur', 'timeout', 'passage', true),
-  'S14 : un job qui a tourné, en échec mais sous son seuil → ok, son erreur visible');
+  (select jsonb_build_object('state', state, 'erreur', last_error, 'passage', last_run_at > now(), 'jamais_reussi', last_ok_at is null)
+     from admin_jobs_status() where job_name = 'pms-cancel-bookings'),
+  jsonb_build_object('state', 'failing', 'erreur', 'timeout', 'passage', true, 'jamais_reussi', true),
+  'S14 : un job qui a tourné sans jamais réussir, sous son seuil → failing (jamais ok), son erreur visible');
+-- Un job qui A DÉJÀ réussi et échoue sous son seuil reste `ok` : seul « jamais réussi » est failing.
+select heartbeat_job('pms-sync-availability', false, '{}'::jsonb, 'timeout');
+select is((select state from admin_jobs_status() where job_name = 'pms-sync-availability'), 'ok',
+  'S14e : un échec après un succès, sous le seuil → ok (le prédicat des watchdogs, inchangé)');
 -- Une ligne existante s'ancre sur SON created_at (premier heartbeat en échec, ou ligne pré-créée),
 -- jamais sur la déclaration de l'attente — et la RPC le dit au même instant que le watchdog.
 update job_heartbeats set created_at = now() - interval '41 minutes' where job_name = 'pms-cancel-bookings';

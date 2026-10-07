@@ -3215,6 +3215,10 @@ export type Database = {
         Args: { p_horizon?: string; p_product_id: string }
         Returns: undefined
       }
+      order_deposit_collected: {
+        Args: { p_payment_status: string }
+        Returns: boolean
+      }
       order_for_client_jsonb: {
         Args: { p_order: Database["public"]["Tables"]["orders"]["Row"] }
         Returns: Json
