@@ -21,5 +21,10 @@
   "cancelConfirmYes": "Yes, cancel",
   "cancelConfirmNo": "No",
   "cancelling": "Cancelling…",
-  "cancelError": "Could not cancel. Please try again."
+  "cancelError": "Could not cancel. Please try again.",
+  "cancelErrorNotActive": "This service can no longer be cancelled: its status has changed.",
+  "cancelErrorNotFound": "We couldn't find this service in your account.",
+  "cancelErrorSession": "Your session has expired. Sign in again to cancel.",
+  "cancelDone": "You cancelled \"{product}\" on {date}.",
+  "cancelDoneWholeOrder": "No active service remains: the whole booking is cancelled."
 }

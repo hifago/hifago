@@ -131,15 +131,17 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
                 />
               </div>
 
-              {line.status === "reserved" ? (
-                <CancelLineButton
-                  lineId={line.id}
-                  productName={line.productName}
-                  dateLabel={fecha}
-                  isLastActiveLine={isLastActiveLine}
-                  testId={`cancel-line-${line.id}`}
-                />
-              ) : null}
+              {/* Rendu pour CHAQUE ligne : il ne montre rien si elle n'est pas annulable, mais garde
+                  son message après une annulation (voir l'en-tête de CancelLineButton). */}
+              <CancelLineButton
+                lineId={line.id}
+                productName={line.productName}
+                dateLabel={fecha}
+                isLastActiveLine={isLastActiveLine}
+                cancellable={line.cancellable}
+                depositRetained={order.depositRetainedOnCancel}
+                testId={`cancel-line-${line.id}`}
+              />
             </li>
           );
         })}

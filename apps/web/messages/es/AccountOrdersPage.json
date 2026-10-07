@@ -21,5 +21,10 @@
   "cancelConfirmYes": "Sí, anular",
   "cancelConfirmNo": "No",
   "cancelling": "Anulando…",
-  "cancelError": "No se pudo anular. Inténtalo de nuevo."
+  "cancelError": "No se pudo anular. Inténtalo de nuevo.",
+  "cancelErrorNotActive": "Esta prestación ya no se puede anular: su estado cambió.",
+  "cancelErrorNotFound": "No encontramos esta prestación en tu cuenta.",
+  "cancelErrorSession": "Tu sesión expiró. Vuelve a iniciar sesión para anular.",
+  "cancelDone": "Anulaste « {product} » del {date}.",
+  "cancelDoneWholeOrder": "Ya no queda ninguna prestación activa: toda la reserva quedó anulada."
 }

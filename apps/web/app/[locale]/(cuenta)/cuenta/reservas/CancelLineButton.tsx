@@ -17,13 +17,30 @@ import { Aviso } from "@/components/molecules/Aviso";
 // ⚠️ LA CONFIRMATION NE CHIFFRE AUCUN MONTANT (décision ⑧) : la chaîne `cancelConfirmNoRefund` ne
 // porte pas de variable de prix, ce qui rend la règle impossible à contourner par distraction. Le
 // cahier §2d voulait cette mention « sur l'écran de paiement, et pas ailleurs » — la spec 34 le
-// révise, parce que c'est ici que le client perd de l'argent sans pouvoir défaire.
+// révise, parce que c'est ici que le client perd de l'argent sans pouvoir défaire. Elle n'est dite
+// QUE si l'acompte a été encaissé (`depositRetained`) : sur une commande impayée, elle serait fausse.
+//
+// ⚠️ CE COMPOSANT EST RENDU POUR CHAQUE LIGNE, annulable ou non (`cancellable`, décidé en base).
+// Après une annulation, `router.refresh()` relit la base : la ligne n'est plus annulable, mais le
+// composant reste à sa place, et React garde son état — le message « Anulaste… » survit donc au
+// rafraîchissement. Rendu seulement pour les lignes annulables, il disparaîtrait avec son message,
+// et le client ne saurait pas que l'annulation a eu lieu.
 //
 // ⚠️ L'`error` de supabase-js est LUE, contrairement à `OrdersList.tsx` qu'on remplace : une panne
 // réseau et un refus métier ne disent pas la même chose, et les confondre a produit un écran qui
 // répondait « impossible d'annuler » à un problème de connexion.
 
 type CancelOrderLineResult = { ok: boolean; reason?: string; remaining_active_lines?: number };
+
+// Refus de `cancel_order_line` (20261006192424) → texte. Une panne ou un motif inconnu : `cancelError`.
+const ERREUR_PAR_MOTIF: Record<string, string> = {
+  line_not_active: "cancelErrorNotActive",
+  line_not_found: "cancelErrorNotFound",
+  not_authenticated: "cancelErrorSession",
+  anonymous_session: "cancelErrorSession",
+};
+
+type Issue = { kind: "cancelled"; wholeOrder: boolean } | { kind: "failed"; message: string };
 
 export type CancelLineButtonProps = {
   lineId: string;
@@ -37,6 +54,10 @@ export type CancelLineButtonProps = {
    * pas à l'œil, donc la seule que son test tient.
    */
   isLastActiveLine: boolean;
+  /** Décidé en base (`list_my_orders`). Faux : rien à proposer, sauf l'issue d'une annulation. */
+  cancellable: boolean;
+  /** L'acompte a été encaissé et reste acquis si le client annule (`depositRetainedOnCancel`). */
+  depositRetained: boolean;
   testId?: string;
 };
 
@@ -45,13 +66,15 @@ export function CancelLineButton({
   productName,
   dateLabel,
   isLastActiveLine,
+  cancellable,
+  depositRetained,
   testId,
 }: CancelLineButtonProps) {
   const t = useTranslations("AccountOrdersPage");
   const router = useRouter();
   const [isConfirming, setIsConfirming] = useState(false);
   const [isPending, setIsPending] = useState(false);
-  const [hasFailed, setHasFailed] = useState(false);
+  const [issue, setIssue] = useState<Issue | null>(null);
   const confirmRef = useRef<HTMLDivElement>(null);
 
   // Le bloc de confirmation prend la place du bouton : sans ce déplacement de focus, un utilisateur
@@ -64,7 +87,7 @@ export function CancelLineButton({
 
   async function handleConfirm() {
     setIsPending(true);
-    setHasFailed(false);
+    setIssue(null);
 
     const supabase = createClient();
     const { data, error } = await supabase.rpc("cancel_order_line", { p_line_id: lineId });
@@ -72,7 +95,15 @@ export function CancelLineButton({
 
     if (error || !result?.ok) {
       setIsPending(false);
-      setHasFailed(true);
+      const motif = error ? undefined : result?.reason;
+      const cle = (motif && ERREUR_PAR_MOTIF[motif]) || "cancelError";
+      setIssue({ kind: "failed", message: t(cle) });
+      // Statut changé entre-temps (déjà annulée, réalisée…) : réessayer ne sert à rien. On ferme la
+      // confirmation et l'écran relit la base, qui montre le vrai statut ; le message reste.
+      if (motif === "line_not_active") {
+        setIsConfirming(false);
+        router.refresh();
+      }
       return;
     }
 
@@ -80,6 +111,9 @@ export function CancelLineButton({
     // la base. `OrdersList.tsx` recopiait la transition à la main, ce qui obligeait le client à
     // faire confiance à deux sources — et aurait menti si la RPC avait refusé pour une autre raison.
     // Le composant reste `isPending` jusqu'au rendu suivant : la carte est alors reconstruite.
+    // Décision de Gabriel (2026-10-06) : le client doit SAVOIR que l'annulation a eu lieu. Le
+    // message reste après le rafraîchissement (voir l'en-tête).
+    setIssue({ kind: "cancelled", wholeOrder: result.remaining_active_lines === 0 });
     router.refresh();
     setIsConfirming(false);
     setIsPending(false);
@@ -89,11 +123,23 @@ export function CancelLineButton({
   // s'affichait qu'après « No » (défaut connu n° 4) : la confirmation revenait à l'identique et
   // le client ne savait pas que rien n'avait été annulé. Correctif d'AFFICHAGE seulement : l'appel
   // et ses états sont ceux d'avant.
-  const erreur = hasFailed ? (
-    <Aviso tono="error" rol="alert" compacto testId={testId ? `${testId}-error` : undefined}>
-      {t("cancelError")}
-    </Aviso>
-  ) : null;
+  const erreur =
+    issue?.kind === "failed" ? (
+      <Aviso tono="error" rol="alert" compacto testId={testId ? `${testId}-error` : undefined}>
+        {issue.message}
+      </Aviso>
+    ) : null;
+
+  if (issue?.kind === "cancelled") {
+    return (
+      <Aviso tono="exito" rol="status" compacto testId={testId ? `${testId}-done` : undefined}>
+        <p>{t("cancelDone", { product: productName, date: dateLabel })}</p>
+        {issue.wholeOrder ? <p className="font-semibold">{t("cancelDoneWholeOrder")}</p> : null}
+      </Aviso>
+    );
+  }
+
+  if (!cancellable) return erreur;
 
   if (!isConfirming) {
     return (
@@ -141,7 +187,9 @@ export function CancelLineButton({
           </>
         }
       >
-        <p>{t("cancelConfirmNoRefund")}</p>
+        {depositRetained ? (
+          <p data-testid={testId ? `${testId}-no-refund` : undefined}>{t("cancelConfirmNoRefund")}</p>
+        ) : null}
         {isLastActiveLine ? (
           <p className="font-semibold" data-testid={testId ? `${testId}-last-line` : undefined}>
             {t("cancelConfirmLastLine")}

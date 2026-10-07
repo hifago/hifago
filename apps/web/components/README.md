@@ -224,7 +224,7 @@ pourquoi.
 | Résultat de réservation | à payer (invité / compte), départ vers Mercado Pago, paiement impossible, trop tard pour payer, logement en cours de confirmation, logement non confirmé (annulé / libération en attente), refusé, en confirmation, payée, gratuite, non honorée, remboursée, expirée, annulée, lignes mixtes | succès du départ : quitterait l'iframe |
 | Connexion · Inscription · Mot de passe oublié / nouveau · Vérification e-mail | formulaires, erreurs, envois en cours, succès affichables (e-mail envoyé, renvoi + compte à rebours), Google en cours / échec | succès qui naviguent ailleurs (connexion, inscription, nouveau mot de passe) : c'est l'écran suivant |
 | Mon profil | rempli, vide, modifié, en cours, enregistré, erreur, compte pro, suppression (confirmation, e-mail différent, en cours, échec) | déconnexion / suppression réussies : naviguent vers l'accueil |
-| Mes réservations | toutes les variantes (8 états de commande, chaque forme de ligne), à venir seules, aucune, erreur, confirmation, dernière ligne, annulation en cours, échec | annulation réussie : `router.refresh` sans effet en story |
+| Mes réservations | toutes les variantes (8 états de commande, chaque forme de ligne), à venir seules, aucune, erreur, confirmation (payée / impayée), dernière ligne, annulation en cours, faite, échec | annulation réussie : `router.refresh` sans effet en story |
 | Erreurs | 404, panne vitrine / tunnel / compte | — |
 
 ## Quand une spec d'écran a besoin d'un composant qui n'existe pas

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { loadMessages, type Locale } from "@/messages";
@@ -31,24 +31,48 @@ vi.mock("@hifago/supabase/client", () => ({
   }),
 }));
 
+const routeur = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("@/i18n/navigation", () => ({
-  useRouter: () => ({ refresh: () => {} }),
+  useRouter: () => routeur,
 }));
 
-function rendre(isLastActiveLine: boolean, locale: Locale = "es") {
-  const { container } = render(
+beforeEach(() => {
+  routeur.refresh.mockClear();
+  reponse.valeur = { data: { ok: true, remaining_active_lines: 0 }, error: null };
+});
+
+type Options = { locale?: Locale; cancellable?: boolean; depositRetained?: boolean };
+
+function element(isLastActiveLine: boolean, { locale = "es", cancellable = true, depositRetained = true }: Options = {}) {
+  return (
     <NextIntlClientProvider locale={locale} messages={loadMessages(locale)}>
       <CancelLineButton
         lineId="11111111-1111-4111-8111-111111111111"
         productName="Kayak Guatapé"
         dateLabel="2026-11-01"
         isLastActiveLine={isLastActiveLine}
+        cancellable={cancellable}
+        depositRetained={depositRetained}
         testId="cancel-line-x"
       />
     </NextIntlClientProvider>
   );
-  return container;
 }
+
+function rendre(isLastActiveLine: boolean, options: Options = {}) {
+  return render(element(isLastActiveLine, options)).container;
+}
+
+async function confirmer(container: HTMLElement) {
+  await ouvrirLaConfirmation(container);
+  const oui = container.querySelector('[data-testid="cancel-line-x-yes"]') as HTMLButtonElement;
+  await act(async () => {
+    fireEvent.click(oui);
+  });
+}
+
+const texte = (container: HTMLElement, testId: string) =>
+  container.querySelector(`[data-testid="${testId}"]`)?.textContent ?? null;
 
 async function ouvrirLaConfirmation(container: HTMLElement) {
   const bouton = container.querySelector('[data-testid="cancel-line-x"]') as HTMLButtonElement;
@@ -101,20 +125,84 @@ describe("CancelLineButton", () => {
 
   // Défaut connu n° 4, corrigé par le plan 41, P8 : l'échec ne s'affichait qu'après « No ». Il
   // doit apparaître dès la réponse, la confirmation restant ouverte pour réessayer.
-  it("affiche l'échec dès la réponse, sans qu'il faille répondre « No »", async () => {
+  it("panne : l'échec s'affiche dès la réponse, la confirmation reste ouverte pour réessayer", async () => {
+    reponse.valeur = { data: null, error: { message: "fetch failed" } };
+    const container = rendre(false);
+    await confirmer(container);
+    expect(container.querySelector('[data-testid="cancel-line-x-confirm"]')).not.toBeNull();
+    const erreur = container.querySelector('[data-testid="cancel-line-x-error"]');
+    expect(erreur?.getAttribute("role")).toBe("alert");
+    expect(erreur?.textContent).toBe("No se pudo anular. Inténtalo de nuevo.");
+  });
+
+  // Un texte par motif de refus de cancel_order_line, au lieu de l'erreur générique.
+  it.each([
+    ["line_not_found", "No encontramos esta prestación en tu cuenta."],
+    ["not_authenticated", "Tu sesión expiró. Vuelve a iniciar sesión para anular."],
+    ["anonymous_session", "Tu sesión expiró. Vuelve a iniciar sesión para anular."],
+    ["motif_inconnu", "No se pudo anular. Inténtalo de nuevo."],
+  ])("refus %s : son texte", async (reason, message) => {
+    reponse.valeur = { data: { ok: false, reason }, error: null };
+    const container = rendre(false);
+    await confirmer(container);
+    expect(texte(container, "cancel-line-x-error")).toBe(message);
+  });
+
+  it("statut changé entre-temps (line_not_active) : le dit, ferme la confirmation et relit la base", async () => {
     reponse.valeur = { data: { ok: false, reason: "line_not_active" }, error: null };
-    try {
-      const container = rendre(false);
-      await ouvrirLaConfirmation(container);
-      const oui = container.querySelector('[data-testid="cancel-line-x-yes"]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(oui);
-      });
-      expect(container.querySelector('[data-testid="cancel-line-x-confirm"]')).not.toBeNull();
-      const erreur = container.querySelector('[data-testid="cancel-line-x-error"]');
-      expect(erreur?.getAttribute("role")).toBe("alert");
-    } finally {
-      reponse.valeur = { data: { ok: true, remaining_active_lines: 0 }, error: null };
-    }
+    const container = rendre(false);
+    await confirmer(container);
+    expect(texte(container, "cancel-line-x-error")).toBe("Esta prestación ya no se puede anular: su estado cambió.");
+    expect(container.querySelector('[data-testid="cancel-line-x-confirm"]')).toBeNull();
+    expect(routeur.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  // « L'acompte payé n'est pas rendu » n'est vrai que s'il a été encaissé.
+  it("commande encaissée : la confirmation dit que l'acompte n'est pas rendu", async () => {
+    const container = rendre(false, { depositRetained: true });
+    await ouvrirLaConfirmation(container);
+    expect(texte(container, "cancel-line-x-no-refund")).toBe("El anticipo pagado no se devuelve.");
+  });
+
+  it("commande impayée : la confirmation ne parle d'aucun acompte", async () => {
+    const container = rendre(false, { depositRetained: false });
+    await ouvrirLaConfirmation(container);
+    expect(container.querySelector('[data-testid="cancel-line-x-no-refund"]')).toBeNull();
+    expect(texte(container, "cancel-line-x-confirm")).not.toContain("anticipo");
+  });
+
+  it("ligne non annulable (décidé en base) : aucun bouton", () => {
+    const container = rendre(false, { cancellable: false });
+    expect(container.querySelector('[data-testid="cancel-line-x"]')).toBeNull();
+    expect(container.textContent).toBe("");
+  });
+
+  // Décision de Gabriel : le client doit savoir que l'annulation a eu lieu — et le message doit
+  // survivre au rafraîchissement, où la ligne devient non annulable.
+  it("annulation faite : message de confirmation, qui reste quand la ligne devient non annulable", async () => {
+    reponse.valeur = { data: { ok: true, remaining_active_lines: 2 }, error: null };
+    const rendu = render(element(false));
+    await confirmer(rendu.container);
+    expect(texte(rendu.container, "cancel-line-x-done")).toBe("Anulaste « Kayak Guatapé » del 2026-11-01.");
+    expect(rendu.container.querySelector('[data-testid="cancel-line-x-done"]')?.getAttribute("role")).toBe("status");
+    expect(routeur.refresh).toHaveBeenCalledTimes(1);
+
+    rendu.rerender(element(false, { cancellable: false }));
+    expect(texte(rendu.container, "cancel-line-x-done")).toBe("Anulaste « Kayak Guatapé » del 2026-11-01.");
+    expect(rendu.container.querySelector('[data-testid="cancel-line-x"]')).toBeNull();
+  });
+
+  it("dernière prestation annulée : le message dit que toute la réservation est annulée", async () => {
+    reponse.valeur = { data: { ok: true, remaining_active_lines: 0 }, error: null };
+    const container = rendre(true);
+    await confirmer(container);
+    expect(texte(container, "cancel-line-x-done")).toContain("toda la reserva quedó anulada");
+  });
+
+  it("autre prestation encore active : le message ne parle que de celle-ci", async () => {
+    reponse.valeur = { data: { ok: true, remaining_active_lines: 1 }, error: null };
+    const container = rendre(false);
+    await confirmer(container);
+    expect(texte(container, "cancel-line-x-done")).not.toContain("toda la reserva");
   });
 });
