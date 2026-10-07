@@ -259,11 +259,15 @@ const FAILURE_MESSAGES: Record<string, string> = {
   date_closed: "Esta fecha está cerrada.",
   full: "No hay cupo disponible.",
   price_missing: "Esta actividad no tiene un precio configurado.",
+  // Evento qui occupe l'espace partagé de l'établissement (camp, evento occupant) : déjà pris ce jour-là.
+  resource_unavailable: "El espacio compartido del establecimiento no está disponible en esa fecha.",
+  // Evento vendu en ligne : il n'a lieu qu'à ses occurrences.
+  invalid_occurrence_date: "Este evento no se realiza en esa fecha.",
 };
 
 // Un `reason` connu a son texte ; sinon, jamais le message brut de la RPC
 // (lib/errors/rpcErrorMessage.ts).
-function describeFailure(
+export function describeFailure(
   rpcError: Parameters<typeof rpcErrorMessage>[0],
   reason: string | undefined
 ): string {

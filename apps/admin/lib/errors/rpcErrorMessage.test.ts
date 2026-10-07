@@ -30,6 +30,26 @@ describe("rpcErrorMessage", () => {
     expect(message).not.toContain("transition");
   });
 
+  it("refus métier levé et connu (commande payée → expired) : son texte pour l'écran", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(
+      rpcErrorMessage(
+        { code: "P0001", message: "transition refusée : une commande payée n'expire pas" },
+        "No se pudo cambiar el estado."
+      )
+    ).toBe("Una reserva pagada no puede marcarse como expirada. Elige otro estado.");
+  });
+
+  it("refus connu seulement à l'identique : jamais une recherche de sous-chaîne", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(
+      rpcErrorMessage(
+        { code: "P0001", message: "contexte : transition refusée : une commande payée n'expire pas" },
+        "repli"
+      )
+    ).toBe("repli");
+  });
+
   it("le détail part au journal du navigateur, pour le diagnostic", () => {
     const journal = vi.spyOn(console, "error").mockImplementation(() => {});
     rpcErrorMessage({ code: "P0001", message: "transition interdite" }, "repli");
