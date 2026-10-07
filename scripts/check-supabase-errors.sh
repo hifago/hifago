@@ -85,9 +85,6 @@ EXEMPTIONS=(
   # Permanente — simulateur de paiement (jamais en production déclarée) : un 404 y suffit.
   "apps/web/app/api/payments/mock-checkout/route.ts"
   "apps/web/app/api/payments/mock-confirm/route.ts"
-  # Dette — lien/QR imprimé : sur une panne, le code est lu comme inconnu et la redirection perd
-  # ?ref= (attribution perdue). Correctif : garder ?ref= sur erreur, create_order revérifie le code.
-  "apps/web/app/[locale]/r/[code]/route.ts"
   # Dette — vérification 2FA : la liste des facteurs est relue sans son error (traitée avec le 2FA,
   # qui reprend ce fichier).
   "apps/admin/app/mfa/verify/page.tsx"
