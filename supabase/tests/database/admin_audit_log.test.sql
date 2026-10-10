@@ -50,8 +50,11 @@ select throws_ok(
 );
 
 -- lecture : admin voit tout, non-admin ne voit rien --------------------------------------------
+-- Comptes SCOPÉS aux entités de ce fichier (33330000-…), jamais en absolu : sur une base seedée ou
+-- déjà utilisée, audit_log contient d'autres lignes et un `count(*)` global rougirait sans défaut.
+-- Seul « non-admin ne voit rien » reste global : zéro ligne visible, quelle que soit la base.
 select is(
-  (select count(*) from audit_log)::int, 1,
+  (select count(*) from audit_log where entity_id = '33330000-0000-4000-8000-000000000001')::int, 1,
   'admin voit les entrées existantes du journal'
 );
 
@@ -71,7 +74,7 @@ select throws_ok(
 
 select test_login('22220000-0000-4000-8000-000000000001');
 select is(
-  (select count(*) from audit_log)::int, 1,
+  (select count(*) from audit_log where entity_id = '33330000-0000-4000-8000-000000000001')::int, 1,
   'aucune ligne ajoutée après un appel log_admin_action refusé'
 );
 
@@ -83,7 +86,7 @@ select lives_ok(
 );
 
 select is(
-  (select count(*) from audit_log)::int, 2,
+  (select count(*) from audit_log where entity_id = '33330000-0000-4000-8000-000000000002')::int, 1,
   'une ligne a bien été ajoutée par l''appel admin'
 );
 select is(

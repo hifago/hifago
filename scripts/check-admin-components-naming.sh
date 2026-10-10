@@ -14,6 +14,8 @@
 # EXCEPTIONS NOMMÉES : les 5 fichiers PascalCase déjà présents au moment de la revue. Coût de
 # renommage disproportionné pour un gain cosmétique (5 sites d'import chacun en moyenne, aucun bug
 # associé) — documentées comme historiques, pas comme un précédent à suivre pour un NOUVEAU fichier.
+# Une exception porte sur le NOM, comme la règle : le `.test.tsx` colocalisé d'un composant exempté
+# (même nom, sans extension) l'est aussi, sans allonger la liste.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -36,11 +38,11 @@ echo "== Nommage kebab-case de $DOSSIER/ (récursif) =="
 while IFS= read -r f; do
   rel="${f#"$DOSSIER"/}"
   base="$(basename "$f")"
-  est_exempte "$base" && continue
 
   nom="${base%.*}"      # retire la dernière extension (.tsx/.ts/.css)
   nom="${nom%.test}"    # retire un éventuel suffixe .test (avant .tsx/.ts déjà retiré)
   nom="${nom%.stories}" # idem pour une future story colocalisée
+  est_exempte "$nom.tsx" && continue
 
   if ! [[ "$nom" =~ ^[a-z][a-z0-9]*(-[a-z0-9]+)*$ ]]; then
     echo "✗ $rel — nom hors kebab-case (\"$nom\")"

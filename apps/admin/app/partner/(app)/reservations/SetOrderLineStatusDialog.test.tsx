@@ -52,6 +52,17 @@ describe("SetOrderLineStatusDialog — erreur de la RPC", () => {
     await waitFor(() => expect(toast.danger).toHaveBeenCalledWith("No se pudo actualizar la reserva."));
   });
 
+  it("refus métier HF001 : son texte, reconnu par le code", async () => {
+    reponse = {
+      data: null,
+      error: { code: "HF001", message: "transition refusée : une commande payée n'expire pas" },
+    };
+    await soumettre();
+    await waitFor(() =>
+      expect(toast.danger).toHaveBeenCalledWith("Una reserva pagada no puede marcarse como expirada. Elige otro estado.")
+    );
+  });
+
   it("refus de droits : dit comme tel", async () => {
     reponse = { data: null, error: { code: "42501", message: "has_capability: refus" } };
     await soumettre();

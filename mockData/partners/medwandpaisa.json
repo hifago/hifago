@@ -1,0 +1,24 @@
+{
+  "email": "medwandpaisa@mock.hifago.test",
+  "display_name": "The Wandering Paisa",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": null,
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cl 44A #68A-76, Laureles",
+    "barrio": "Laureles",
+    "lat": null,
+    "lon": null,
+    "commercial_status": "inactivo",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active"
+}

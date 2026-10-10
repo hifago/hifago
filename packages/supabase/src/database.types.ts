@@ -578,6 +578,7 @@ export type Database = {
           lobby_connector_active: boolean
           lobby_has_token: boolean | null
           lobby_last_synced_at: string | null
+          lobby_token_changed_at: string | null
           lon: number | null
           mode: string | null
           name: Json
@@ -600,6 +601,7 @@ export type Database = {
           lobby_connector_active?: boolean
           lobby_has_token?: boolean | null
           lobby_last_synced_at?: string | null
+          lobby_token_changed_at?: string | null
           lon?: number | null
           mode?: string | null
           name: Json
@@ -622,6 +624,7 @@ export type Database = {
           lobby_connector_active?: boolean
           lobby_has_token?: boolean | null
           lobby_last_synced_at?: string | null
+          lobby_token_changed_at?: string | null
           lon?: number | null
           mode?: string | null
           name?: Json
@@ -640,6 +643,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      job_expectations: {
+        Row: {
+          created_at: string
+          job_name: string
+          stale_after: string
+        }
+        Insert: {
+          created_at?: string
+          job_name: string
+          stale_after: string
+        }
+        Update: {
+          created_at?: string
+          job_name?: string
+          stale_after?: string
+        }
+        Relationships: []
       }
       job_heartbeats: {
         Row: {
@@ -816,6 +837,7 @@ export type Database = {
           holder_phone: string | null
           id: string
           order_id: string
+          pms_booked_at: string | null
           pms_booking_id: string | null
           pms_last_polled_at: string | null
           price_cop: number
@@ -844,6 +866,7 @@ export type Database = {
           holder_phone?: string | null
           id?: string
           order_id: string
+          pms_booked_at?: string | null
           pms_booking_id?: string | null
           pms_last_polled_at?: string | null
           price_cop: number
@@ -872,6 +895,7 @@ export type Database = {
           holder_phone?: string | null
           id?: string
           order_id?: string
+          pms_booked_at?: string | null
           pms_booking_id?: string | null
           pms_last_polled_at?: string | null
           price_cop?: number
@@ -2543,6 +2567,20 @@ export type Database = {
           revenue_cop: number
         }[]
       }
+      admin_jobs_status: {
+        Args: never
+        Returns: {
+          alert_active: boolean
+          alerted_at: string
+          checked_at: string
+          job_name: string
+          last_error: string
+          last_ok_at: string
+          last_run_at: string
+          stale_after_minutes: number
+          state: string
+        }[]
+      }
       admin_ledger_entries_list: {
         Args: {
           p_date_from?: string
@@ -2750,6 +2788,10 @@ export type Database = {
           p_order_id: string
         }
         Returns: string
+      }
+      close_order_line_locked: {
+        Args: { p_by: string; p_line_id: string; p_new_status: string }
+        Returns: Json
       }
       consume_partner_invitation: {
         Args: {
@@ -3153,6 +3195,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      notify_order_line_cancelled: {
+        Args: { p_by: string; p_line_id: string }
+        Returns: undefined
+      }
       offboarding_attest_payments: {
         Args: { p_note: string; p_offboarding_id: string }
         Returns: Json
@@ -3169,9 +3215,21 @@ export type Database = {
         Args: { p_horizon?: string; p_product_id: string }
         Returns: undefined
       }
+      order_deposit_collected: {
+        Args: { p_payment_status: string }
+        Returns: boolean
+      }
       order_for_client_jsonb: {
         Args: { p_order: Database["public"]["Tables"]["orders"]["Row"] }
         Returns: Json
+      }
+      order_jsonb_with_client_cancellable: {
+        Args: { p_order: Json }
+        Returns: Json
+      }
+      order_line_client_cancellable: {
+        Args: { p_status: string }
+        Returns: boolean
       }
       order_payment_deadline: {
         Args: { p_created_at: string }
@@ -3323,6 +3381,14 @@ export type Database = {
       release_order_line_capacity: {
         Args: { p_line_id: string }
         Returns: undefined
+      }
+      release_pms_cancellation_claim: {
+        Args: { p_entry_ids: string[] }
+        Returns: number
+      }
+      release_pms_poll_claim: {
+        Args: { p_order_line_ids: string[] }
+        Returns: number
       }
       release_pms_reserve_claim: {
         Args: { p_claimed_at: string; p_order_id: string }
@@ -3476,6 +3542,7 @@ export type Database = {
           p_establishment_id: string
           p_lobby_api_token?: string
           p_reason?: string
+          p_same_lobby_account?: boolean
         }
         Returns: Json
       }

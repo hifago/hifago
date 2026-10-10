@@ -1,14 +1,29 @@
 {
   "email": "casakayam@mock.hifago.test",
   "display_name": "Casa Kayam",
-  "roles": ["operator"],
+  "roles": [
+    "referrer",
+    "operator"
+  ],
   "legal_name": null,
   "identification_type": null,
   "identification_number": null,
   "partner_city": "Guatapé",
   "phone": null,
-  "code": null,
+  "code": "GUAKAYAM",
   "commission_enabled": true,
-  "crm_profile": null,
-  "capability_status": "active"
+  "crm_profile": {
+    "address": "",
+    "barrio": "Guatape",
+    "lat": null,
+    "lon": null,
+    "commercial_status": "activo",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.kayam@mock.hifago.test",
+    "full_name": "Casa Kayam"
+  }
 }

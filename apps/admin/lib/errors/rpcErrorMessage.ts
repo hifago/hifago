@@ -6,10 +6,20 @@
 // de droits, qui mérite d'être dit comme tel ; le détail part au journal du navigateur, où il reste
 // disponible pour le diagnostic. Un motif métier précis à afficher passe par un `reason` rendu par
 // la RPC elle-même, jamais par l'analyse de son message.
+//
+// Un refus métier que la base LÈVE (sans `reason`) et qu'un admin peut provoquer en usage normal
+// porte un code propre au projet, classe HF (20261007003627) : l'écran le reconnaît par ce code,
+// jamais par son texte. `rpcErrorMessage.contract.test.ts` vérifie que la base lève bien ce code.
 
 type RpcError = { code?: string; message?: string } | null | undefined;
 
 const SANS_PERMISSION = "No tienes permiso para esta acción.";
+
+/** Refus métier levés par la base, par code d'erreur (classe HF) → texte pour l'écran. */
+export const REFUS_PAR_CODE: Readonly<Record<string, string>> = {
+  // close_order_line_locked : une commande payée n'expire pas.
+  HF001: "Una reserva pagada no puede marcarse como expirada. Elige otro estado.",
+};
 
 export function rpcErrorMessage(error: RpcError, fallback: string): string {
   if (!error) return fallback;
@@ -17,5 +27,6 @@ export function rpcErrorMessage(error: RpcError, fallback: string): string {
   // 42501 (insufficient_privilege) : le code que lèvent les RPC du projet sur un appelant sans le
   // rôle requis.
   if (error.code === "42501") return SANS_PERMISSION;
+  if (error.code && Object.hasOwn(REFUS_PAR_CODE, error.code)) return REFUS_PAR_CODE[error.code];
   return fallback;
 }

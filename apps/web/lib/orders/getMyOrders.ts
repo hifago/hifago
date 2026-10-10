@@ -39,6 +39,18 @@ export type MyOrderLine = {
   totalCop: number;
   /** `reserved` | `fulfilled` | `no_show` | `cancelled_by_client` | `cancelled_by_provider` | `expired` | `superseded` */
   status: string;
+  /**
+   * Le client peut-il l'annuler ? Décidé EN BASE (`list_my_orders`, même règle que
+   * `cancel_order_line` : `order_line_client_cancellable`, 20261006192424) — jamais déduit ici du
+   * statut, qui ferait vivre la règle une seconde fois.
+   */
+  cancellable: boolean;
+  /**
+   * L'acompte reste acquis si le client annule : `deposit_kept_on_cancel` de `list_my_orders`
+   * (`order_deposit_collected`, la règle même de `close_order_line_locked`, 20261007003627) —
+   * jamais recopié ici. Absent = faux : on ne dit jamais « no se devuelve » sans le savoir.
+   */
+  depositKeptOnCancel: boolean;
 };
 
 export type MyOrder = {
@@ -92,6 +104,8 @@ type RpcLine = {
   acompte_cop: number;
   total_cop: number;
   status: string;
+  cancellable?: boolean;
+  deposit_kept_on_cancel?: boolean;
 };
 
 type RpcOrder = {
@@ -145,6 +159,10 @@ export async function getMyOrders(locale: Locale): Promise<MyOrders | null> {
       acompteCop: line.acompte_cop,
       totalCop: line.total_cop,
       status: line.status,
+      // Absent (base plus ancienne que la migration) = non annulable : jamais un bouton qui
+      // échouerait à coup sûr.
+      cancellable: line.cancellable === true,
+      depositKeptOnCancel: line.deposit_kept_on_cancel === true,
     })),
   }));
 

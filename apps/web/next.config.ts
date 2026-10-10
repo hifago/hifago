@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { legacyRedirects } from "./lib/navigation/legacyRedirects";
 
 // docs/specs/04-gestion-images.md §10 — next/image charge les photos du bucket public
 // catalog-media : le host est dérivé de NEXT_PUBLIC_SUPABASE_URL plutôt que codé en dur, pour
@@ -52,6 +53,10 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   async headers() {
     return [{ source: "/(.*)", headers: SECURITY_HEADERS }];
+  },
+  // URL de l'app legacy encore diffusées (QR imprimés, liens d'e-mail) — lib/navigation/legacyRedirects.ts.
+  async redirects() {
+    return legacyRedirects;
   },
   // Feature 32 — runbook tunnel Mercado Pago (docs/journal/2026-08.md, 2026-08-20 suite 8) :
   // Next 16 bloque par défaut les requêtes cross-origin vers le dev server. Nécessaire

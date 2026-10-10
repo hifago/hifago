@@ -174,8 +174,10 @@ function validerReferences({ partners, tags, establishments, activities, rooms, 
     if (!Number.isInteger(c.duration_days) || c.duration_days < 1) {
       erreurs.push(`${c._fichier} : "duration_days" requis (entier >= 1) pour un camp.`);
     }
-    if (!Array.isArray(c.departures) || c.departures.length === 0) {
-      erreurs.push(`${c._fichier} : "departures" requis (tableau non vide de dates) pour un camp.`);
+    // Un camp « vitrine » (réservé hors ligne via `external_booking_url`, comme les escapades de la
+    // v1 coordonnées par WhatsApp) n'a pas de départs datés ; tout autre camp en exige.
+    if (!c.external_booking_url && (!Array.isArray(c.departures) || c.departures.length === 0)) {
+      erreurs.push(`${c._fichier} : "departures" requis (tableau non vide de dates) pour un camp sans "external_booking_url".`);
     }
     // `program` est facultatif, mais s'il est là il doit être exploitable : c'est le seul endroit
     // où une donnée mock malformée peut atteindre la base, et un jour au-delà de la durée passerait
@@ -247,15 +249,25 @@ async function creerOuRecupererCompte(svc, email, password) {
   return existant;
 }
 
+// Mot de passe d'une personne : celui de son JSON, sinon MOCK_PERSONNE_MDP (variable de session).
+// Le dépôt est PUBLIC : les personnes ajoutées depuis la reprise v1 n'ont AUCUN mot de passe dans
+// leur fichier. Sans la variable, la personne est simplement ignorée (le partenaire est créé quand
+// même, sans compte de connexion), jamais une erreur.
+const MDP_PERSONNE_PAR_DEFAUT = process.env.MOCK_PERSONNE_MDP || null;
+
 async function creerPartenaires(admin, svc, partners) {
   const idParCle = new Map();
   let crees = 0;
   let ignores = 0;
   let personnesCreees = 0;
   let personnesIgnorees = 0;
+  let personnesSansMotDePasse = 0;
 
   for (const cle of [...partners.keys()].sort()) {
     const p = partners.get(cle);
+    const motDePasse = p.person ? (p.person.password ?? MDP_PERSONNE_PAR_DEFAUT) : null;
+    if (p.person && !motDePasse) personnesSansMotDePasse += 1;
+    const avecPersonne = !!p.person && !!motDePasse;
 
     const { data: existant, error: erreurLecture } = await admin.from("partners").select("id").eq("email", p.email).maybeSingle();
     if (erreurLecture) throw new Error(`${p._fichier} : lecture partners : ${erreurLecture.message}`);
@@ -279,7 +291,7 @@ async function creerPartenaires(admin, svc, partners) {
       p_code: p.code ?? null,
       p_commission_enabled: p.commission_enabled ?? true,
       p_crm_profile: p.crm_profile ?? null,
-      p_send_invitation: !!p.person,
+      p_send_invitation: avecPersonne,
       p_invitation_expires_days: 14,
     });
     if (erreurCreation) throw new Error(`${p._fichier} : create_partner_direct : ${erreurCreation.message}`);
@@ -295,13 +307,13 @@ async function creerPartenaires(admin, svc, partners) {
       }
     }
 
-    if (p.person) {
-      await creerOuRecupererCompte(svc, p.person.email, p.person.password);
+    if (avecPersonne) {
+      await creerOuRecupererCompte(svc, p.person.email, motDePasse);
 
       const clientPersonne = createClient(SUPABASE_URL, ANON_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
       const { error: erreurConnexion } = await clientPersonne.auth.signInWithPassword({
         email: p.person.email,
-        password: p.person.password,
+        password: motDePasse,
       });
       if (erreurConnexion) throw new Error(`${p._fichier} : connexion de la personne rattachée : ${erreurConnexion.message}`);
 
@@ -321,7 +333,7 @@ async function creerPartenaires(admin, svc, partners) {
     }
   }
 
-  return { idParCle, crees, ignores, personnesCreees, personnesIgnorees };
+  return { idParCle, crees, ignores, personnesCreees, personnesIgnorees, personnesSansMotDePasse };
 }
 
 // Équipements structurés (migration 20260917110000, décision Jérôme du 2026-09-17) — DIFFÉRENCE
@@ -518,6 +530,12 @@ async function creerProduits(admin, svc, produits, { dossier, type }, idPartenai
       price_cop: item.price_cop ?? null,
       price_label: item.price_label ?? null,
       price_tiers: item.price_tiers ?? null,
+      // Grille d'un hébergement loué en entier (spec 12) et rattachement PMS Lobby : acceptés par
+      // la RPC (liste blanche), à passer ICI — `lobby_category_id` est figé après création
+      // (trigger products_capacity_flags_frozen), donc jamais via `_extra_columns`.
+      stay_rates: item.stay_rates ?? null,
+      lobby_category_id: item.lobby_category_id ?? null,
+      lobby_product_id: item.lobby_product_id ?? null,
       min_qty: item.min_qty ?? null,
       max_qty: item.max_qty ?? null,
       capacity: item.capacity ?? null,
@@ -678,7 +696,10 @@ async function main() {
   const resultatPartenaires = await creerPartenaires(admin, svc, partners);
   console.log(
     `   partenaires : ${resultatPartenaires.crees} créé(s), ${resultatPartenaires.ignores} ignoré(s)` +
-      ` — personnes : ${resultatPartenaires.personnesCreees} créée(s), ${resultatPartenaires.personnesIgnorees} ignorée(s)`
+      ` — personnes : ${resultatPartenaires.personnesCreees} créée(s), ${resultatPartenaires.personnesIgnorees} ignorée(s)` +
+      (resultatPartenaires.personnesSansMotDePasse
+        ? `, ${resultatPartenaires.personnesSansMotDePasse} sans compte (pas de mot de passe : poser MOCK_PERSONNE_MDP)`
+        : "")
   );
 
   const resultatTags = await creerTags(admin, svc, tags);

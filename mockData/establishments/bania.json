@@ -1,12 +1,35 @@
 {
   "partner": "bania",
-  "name": { "es": "Bania Travel" },
-  "description": { "es": "Guatapé · casa completa frente al embalse. Incluye jacuzzi (4:00 pm–10:00 pm), servicio de limpieza, parqueadero, wifi, muelle, gimnasio, cocina y zona de BBQ, mesas de pool y ping pong." },
+  "name": {
+    "es": "Bania Travel"
+  },
+  "description": {
+    "es": "Guatapé · casa completa frente al embalse. Incluye jacuzzi (4:00 pm–10:00 pm), servicio de limpieza, parqueadero, wifi, muelle, gimnasio, cocina y zona de BBQ, mesas de pool y ping pong."
+  },
   "address": "Guatapé, Antioquia, Colombia",
   "lat": 6.2326,
   "lon": -75.1592,
   "operated_directly": false,
   "mode": "whole_house",
+  "check_in_time": "14:00",
+  "check_out_time": "12:00",
   "status": "active",
-  "photos": ["1.jpeg"]
+  "amenities": [
+    "jacuzzi",
+    "parqueadero-gratuito",
+    "wifi",
+    "muelle-privado",
+    "gimnasio",
+    "cocina-dotada",
+    "mesa-de-poker",
+    "mesa-de-ping-pong"
+  ],
+  "photos": [
+    "1.jpeg",
+    "2.webp",
+    "3.webp",
+    "4.webp",
+    "5.webp",
+    "6.webp"
+  ]
 }

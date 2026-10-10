@@ -1,0 +1,35 @@
+{
+  "partner": "organiquia",
+  "establishment": "organiquia",
+  "name": {
+    "es": "Degustacion de quesos maduros locales con vino de jengibre"
+  },
+  "price_cop": 70000,
+  "unit": null,
+  "default_capacity": null,
+  "external_booking_url": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "tags": [
+    "gastronomia"
+  ],
+  "description": {
+    "es": "Incluye tabla de 5 quesos de cabra y/o vaca, carne curada y pan de masa madre. Maridaje con vino Rosita y/o Kambucha."
+  },
+  "_extra_columns": {
+    "category": "gastronomia",
+    "sort": 220,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "slot",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp",
+    "2.webp",
+    "3.webp"
+  ]
+}

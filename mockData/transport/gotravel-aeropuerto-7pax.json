@@ -1,7 +1,9 @@
 {
   "partner": "gotravel",
   "establishment": "gotravel",
-  "name": { "es": "Privado aeropuerto ↔ Guatapé · hasta 7 pers." },
+  "name": {
+    "es": "Privado aeropuerto ↔ Guatapé · hasta 7 pers."
+  },
   "price_cop": 362000,
   "unit": "per_house",
   "min_qty": 1,
@@ -11,5 +13,25 @@
   "transport_departure_lat": 6.1645,
   "transport_departure_lon": -75.4231,
   "tags": [],
-  "photos": []
+  "default_capacity": null,
+  "external_booking_url": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "description": {
+    "es": "Vehículo completo · por trayecto (solo ida)"
+  },
+  "_extra_columns": {
+    "category": null,
+    "sort": 270,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp"
+  ]
 }

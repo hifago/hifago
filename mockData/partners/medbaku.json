@@ -1,0 +1,28 @@
+{
+  "email": "medbaku@mock.hifago.test",
+  "display_name": "Hostel Baku Laureles",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": "MEDBAKU",
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cq. 5 #71A-49, Laureles - Estadio, Medellín, Laureles, Medellín, Antioquia",
+    "barrio": "Laureles",
+    "lat": null,
+    "lon": null,
+    "commercial_status": "activo",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.medbaku@mock.hifago.test",
+    "full_name": "Hostel Baku Laureles"
+  }
+}

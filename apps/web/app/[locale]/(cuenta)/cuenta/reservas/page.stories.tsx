@@ -9,7 +9,8 @@ import AccountOrdersPage from "./page";
 
 // `/cuenta/reservas`. La story « toutes les variantes » montre les huit états de commande et
 // chaque forme de ligne d'un coup ; les autres isolent un cas. Une ligne `reserved` porte
-// « Anular » ; la confirmation prévient quand c'est la dernière ligne vivante de la commande.
+// « Anular » (`cancellable`, décidé en base) ; la confirmation prévient quand c'est la dernière
+// ligne vivante de la commande, et ne parle de l'acompte que si la commande a été encaissée.
 const meta = { title: "Écrans/Mes réservations", id: "ecrans-mes-reservations" } satisfies Meta;
 export default meta;
 
@@ -47,19 +48,37 @@ export const ErrorDeCarga: StoryObj = {
 
 export const ConfirmarAnulacion: StoryObj = {
   ...pagina(),
-  name: "Annulation : confirmation",
+  name: "Annulation : confirmation (commande payée)",
   play: async ({ canvasElement }) => {
     await pulsar(canvasElement, `[data-testid="cancel-line-${LINEA_DE_VARIAS}"]`);
     await expect(await esperar(canvasElement, `[data-testid="cancel-line-${LINEA_DE_VARIAS}-confirm"]`)).toBeVisible();
+    await expect(await esperar(canvasElement, `[data-testid="cancel-line-${LINEA_DE_VARIAS}-no-refund"]`)).toBeVisible();
   },
 };
 
+// Commande impayée : rien n'a été encaissé, la confirmation ne parle d'aucun acompte.
 export const ConfirmarUltimaLinea: StoryObj = {
   ...pagina(),
-  name: "Annulation : dernière ligne de la commande",
+  name: "Annulation : dernière ligne d'une commande impayée",
   play: async ({ canvasElement }) => {
     await pulsar(canvasElement, `[data-testid="cancel-line-${LINEA_UNICA}"]`);
     await expect(await esperar(canvasElement, `[data-testid="cancel-line-${LINEA_UNICA}-last-line"]`)).toBeVisible();
+    await expect(canvasElement.querySelector(`[data-testid="cancel-line-${LINEA_UNICA}-no-refund"]`)).toBeNull();
+  },
+};
+
+// Décision de Gabriel : le client SAIT que l'annulation a eu lieu.
+export const AnulacionHecha: StoryObj = {
+  ...pagina(() =>
+    simularRpc("cancel_order_line", { data: { ok: true, remaining_active_lines: 1 }, error: null })
+  ),
+  name: "Annulation faite",
+  play: async ({ canvasElement }) => {
+    await pulsar(canvasElement, `[data-testid="cancel-line-${LINEA_DE_VARIAS}"]`);
+    await pulsar(canvasElement, `[data-testid="cancel-line-${LINEA_DE_VARIAS}-yes"]`);
+    await expect(await esperar(canvasElement, `[data-testid="cancel-line-${LINEA_DE_VARIAS}-done"]`)).toHaveTextContent(
+      "Anulaste"
+    );
   },
 };
 
@@ -74,7 +93,8 @@ export const Anulando: StoryObj = {
 };
 
 // Défaut connu n° 4 (relevé le 2026-10-01), corrigé par le plan 41, P8 : l'échec ne s'affichait
-// qu'après un clic sur « No ». Il apparaît maintenant sous la confirmation, dès la réponse.
+// qu'après un clic sur « No ». Il apparaît maintenant dès la réponse, avec le texte de son motif
+// (ici : statut changé entre-temps — la confirmation se ferme et l'écran relit la base).
 export const AnulacionFallida: StoryObj = {
   ...pagina(() =>
     simularRpc("cancel_order_line", { data: { ok: false, reason: "line_not_active" }, error: null })

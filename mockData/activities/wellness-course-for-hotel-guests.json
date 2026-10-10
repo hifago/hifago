@@ -1,0 +1,35 @@
+{
+  "partner": "ufit",
+  "establishment": "ufit",
+  "name": {
+    "es": "Wellness course for hotel guests"
+  },
+  "price_cop": 375000,
+  "unit": null,
+  "default_capacity": null,
+  "external_booking_url": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "tags": [
+    "bienestar"
+  ],
+  "description": {
+    "es": "Metabolism and nutrition experience in Guatapé."
+  },
+  "_extra_columns": {
+    "category": "bienestar",
+    "sort": 60,
+    "sellable": true,
+    "acompte_pct": 0.17,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp",
+    "2.webp",
+    "3.webp"
+  ]
+}

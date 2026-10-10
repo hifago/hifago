@@ -186,9 +186,15 @@ select is(
 );
 
 -- process_campaign_batch : consentement (campagne clients ci-dessus) ----------------------------
+-- Les trois appels de ce fichier traitent TOUTES les cibles de leur campagne en un lot
+-- (p_batch_size = nombre de cibles), jamais le lot par défaut de 20 : les audiences `clients` et
+-- `referrers` incluent tout ce que la base contient déjà (seed compris), et une cible de ce fichier
+-- hors des 20 premières resterait `pending` sans défaut de la fonction.
 select is(
   (select (process_campaign_batch(
-     (select (result->>'campaign_id')::uuid from tmp_campaign_clients)
+     (select (result->>'campaign_id')::uuid from tmp_campaign_clients),
+     p_batch_size => (select count(*)::int from comm_campaign_targets
+                       where campaign_id = (select (result->>'campaign_id')::uuid from tmp_campaign_clients))
    )->>'ok')),
   'true',
   'process_campaign_batch traite le lot sans erreur'
@@ -239,7 +245,9 @@ create temp table tmp_campaign_referrers as
 
 select is(
   (select (process_campaign_batch(
-     (select (result->>'campaign_id')::uuid from tmp_campaign_referrers)
+     (select (result->>'campaign_id')::uuid from tmp_campaign_referrers),
+     p_batch_size => (select count(*)::int from comm_campaign_targets
+                       where campaign_id = (select (result->>'campaign_id')::uuid from tmp_campaign_referrers))
    )->>'ok')),
   'true',
   'process_campaign_batch (audience referrers) traite le lot sans erreur'
@@ -276,7 +284,9 @@ select test_login('dd110000-0000-4000-8000-000000000031');
 
 select is(
   (select (process_campaign_batch(
-     (select (result->>'campaign_id')::uuid from tmp_campaign_to_suspend)
+     (select (result->>'campaign_id')::uuid from tmp_campaign_to_suspend),
+     p_batch_size => (select count(*)::int from comm_campaign_targets
+                       where campaign_id = (select (result->>'campaign_id')::uuid from tmp_campaign_to_suspend))
    )->>'ok')),
   'true',
   'process_campaign_batch traite le lot malgré la suspension entre-temps'

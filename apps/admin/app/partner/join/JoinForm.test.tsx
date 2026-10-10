@@ -90,6 +90,34 @@ describe("JoinForm — une seule consommation de l'invitation", () => {
     expect(state.push).not.toHaveBeenCalled();
   });
 
+  it("sans session : un mot de passe hors règle n'est jamais envoyé", async () => {
+    const { container } = render(<JoinForm token="jeton" initialUser={null} />);
+    await remplirEtSoumettre(container, {
+      name: "Ana Pérez",
+      email: "socio@test.local",
+      password: "sinchiffres",
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(state.toastDanger).toHaveBeenCalledWith(
+      "La contraseña debe tener al menos 8 caracteres, con letras y números."
+    );
+  });
+
+  it("sans session : le refus `weak_password` de la route affiche la règle", async () => {
+    reponseInscription = { ok: false, reason: "weak_password" };
+    const { container } = render(<JoinForm token="jeton" initialUser={null} />);
+    await remplirEtSoumettre(container, {
+      name: "Ana Pérez",
+      email: "socio@test.local",
+      password: "secret1234",
+    });
+
+    expect(state.toastDanger).toHaveBeenCalledWith(
+      "La contraseña debe tener al menos 8 caracteres, con letras y números."
+    );
+  });
+
   it("session existante : le formulaire consomme l'invitation lui-même", async () => {
     const { container } = render(
       <JoinForm token="jeton" initialUser={{ email: "g@test.local", fullName: "Gabi" }} />

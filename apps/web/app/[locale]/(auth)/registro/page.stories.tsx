@@ -1,21 +1,22 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect } from "storybook/test";
+import { expect, waitFor } from "storybook/test";
 import { historiaDePagina } from "@/.storybook/support/pagina";
 import { esperar, escribir, pulsar } from "@/.storybook/support/interacciones";
 import { simularErrorAuth, simularPendiente } from "@/.storybook/support/supabaseFalso";
 import SignupPage from "./page";
 
-// `/registro`. Le succès SANS session part vers `/verificar-email` (écran à part) ; aucun code
-// d'erreur n'est distingué (e-mail déjà pris, mot de passe faible…) : un seul message générique.
+// `/registro`. Le succès SANS session part vers `/verificar-email` (écran à part). Un e-mail déjà
+// pris n'est jamais distingué (message générique) ; seule la règle de mot de passe (8 caractères,
+// lettres et chiffres) a son message, dit avant l'envoi.
 const meta = { title: "Écrans/Inscription", id: "ecrans-inscription" } satisfies Meta;
 export default meta;
 
 const pagina = (opciones: { preparar?: () => void; searchParams?: Record<string, string> } = {}) =>
   historiaDePagina({ Page: SignupPage, grupo: "auth", ruta: "/registro", ...opciones });
 
-async function enviar(raiz: HTMLElement, confirmacion = "una-clave-segura") {
+async function enviar(raiz: HTMLElement, confirmacion = "ClaveSegura2026", clave = "ClaveSegura2026") {
   await escribir(raiz, 'input[name="email"]', "laura@ejemplo.co");
-  await escribir(raiz, 'input[name="password"]', "una-clave-segura");
+  await escribir(raiz, 'input[name="password"]', clave);
   await escribir(raiz, 'input[name="confirm-password"]', confirmacion);
   await pulsar(raiz, '[data-testid="signup-submit-button"]');
 }
@@ -36,12 +37,25 @@ export const ContrasenasDistintas: StoryObj = {
   },
 };
 
+export const ContrasenaDebil: StoryObj = {
+  ...pagina(),
+  name: "Mot de passe hors règle",
+  play: async ({ canvasElement }) => {
+    await enviar(canvasElement, "clave-segura", "clave-segura");
+    await expect(await esperar(canvasElement, '[data-testid="signup-error"]')).toHaveTextContent(
+      "al menos 8 caracteres, con letras y números"
+    );
+  },
+};
+
 export const Creando: StoryObj = {
   ...pagina({ preparar: () => simularPendiente("signUp") }),
   name: "Création en cours",
   play: async ({ canvasElement }) => {
     await enviar(canvasElement);
-    await expect(await esperar(canvasElement, '[data-testid="signup-submit-button"]')).toBeDisabled();
+    // `isPending` (react-aria) garde le bouton focalisable : `aria-disabled`, jamais `disabled`.
+    const boton = await esperar(canvasElement, '[data-testid="signup-submit-button"]');
+    await waitFor(() => expect(boton).toHaveAttribute("aria-disabled", "true"));
   },
 };
 

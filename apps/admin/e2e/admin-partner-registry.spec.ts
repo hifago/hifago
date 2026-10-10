@@ -17,15 +17,29 @@ test("admin gère le registre d'un partenaire : capacité, statut, transfert, co
 }) => {
   await loginAs(context, SEEDED_ACCOUNTS.admin, SEEDED_PASSWORD);
 
+  // Propriétaire de départ DÉDIÉ à ce test (horodaté, retiré par le teardown), jamais un partenaire
+  // du seed : create_establishment rattache la ligne operator « en attente » de son propriétaire,
+  // que le transfert retire ensuite — avec « Opérateur Actif Org », chaque run consommait la ligne
+  // en attente du seed (constaté le 2026-10-06). Créé par la RPC, pas par l'écran : ce test ne
+  // porte pas sur la création de partenaire (admin-partner-create.spec.ts).
+  const stamp = Date.now();
+  const ownerName = `Partner E2E Registro ${stamp}`;
+  const adminClient = await createSignedInClient(SEEDED_ACCOUNTS.admin, SEEDED_PASSWORD);
+  const { error: ownerError } = await adminClient.rpc("create_partner_direct", {
+    p_display_name: ownerName,
+    p_roles: ["referrer"],
+    p_send_invitation: false,
+  });
+  expect(ownerError).toBeNull();
+
   // Établissement dédié à ce test — nom unique par run, jamais un établissement déjà partagé par
-  // d'autres tests e2e. Rattaché à "Opérateur Actif Org" au départ (peu importe qui), transféré
-  // plus bas.
-  const establishmentName = `Establecimiento Transfer Test ${Date.now()}`;
+  // d'autres tests e2e. Rattaché au propriétaire ci-dessus au départ, transféré plus bas.
+  const establishmentName = `Establecimiento Transfer Test ${stamp}`;
   await page.goto("/admin/establishments/new");
   // Assistant par étapes (docs/specs/40) — étape 1 "Propietario y gestión" (partner), étape 2
   // "Detalles" (nombre).
   await page.getByTestId("partner-search").click();
-  await page.getByRole("option", { name: /Opérateur Actif/ }).click();
+  await page.getByRole("option", { name: ownerName }).click();
   await goToNextWizardStep(page);
   await page.locator('input[name="nombre"]').fill(establishmentName);
   await page.getByTestId("create-establishment-button").click();
@@ -46,34 +60,48 @@ test("admin gère le registre d'un partenaire : capacité, statut, transfert, co
   await partnerRow.getByRole("link", { name: "Ver" }).click();
   await expect(page).toHaveURL(/\/admin\/partners\/.+/);
 
-  // Transférer l'établissement fraîchement créé vers ce partenaire AVANT d'accorder la capacité
-  // operator — nécessaire pour qu'il apparaisse dans le sélecteur "Otorgar capacidad" ci-dessous,
-  // et surtout pour que la capacité operator accordée juste après soit scopée à CET établissement
-  // précis (unique par run) plutôt qu'"en attente" (establishment_id null) : sans ça, relancer ce
-  // test sans `db reset` entre deux runs entrerait en collision avec l'unique ligne operator "en
-  // attente" déjà créée par un run précédent (index partiel dédié, cf. correctif Tranche 1).
+  // Accorder une capacité operator "en attente" (establishment_id null, choix par défaut du
+  // sélecteur d'établissement), que le transfert ci-dessous rattache à l'établissement transféré
+  // (transfer_establishment, 20261006182227) : un run complet ne laisse donc jamais de ligne en
+  // attente. L'index partiel n'en admet qu'une par partenaire (correctif Tranche 1) : si un run
+  // interrompu entre les deux gestes en a laissé une, l'octroi est sauté et c'est elle que ce run
+  // rattache.
+  const capabilitiesTable = page.getByTestId("capabilities-table");
+  await expect(capabilitiesTable).toBeVisible();
+  const pendingOperatorRow = capabilitiesTable
+    .locator("tr", { hasText: "operator" })
+    .filter({ has: page.locator('[data-label="Establecimiento"]', { hasText: /^—$/ }) });
+  if ((await pendingOperatorRow.count()) === 0) {
+    // Clic et ouverture du menu rejoués ENSEMBLE : sur une machine chargée, un premier clic arrivé
+    // avant l'hydratation du Select est perdu et l'option n'apparaît jamais (vu 1 run sur 5 le
+    // 2026-10-07, 120 s d'attente sur getByRole('option', { name: 'operator' })).
+    await expect(async () => {
+      await page.getByTestId("grant-role-select").click();
+      await expect(page.getByRole("option", { name: "operator" })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30000 });
+    await page.getByRole("option", { name: "operator" }).click();
+    await page.getByTestId("grant-capability-button").click();
+  }
+  await expect(pendingOperatorRow).toHaveCount(1);
+
+  // Transférer l'établissement fraîchement créé vers ce partenaire — jamais en un clic : la
+  // confirmation nomme le propriétaire actuel (cahier admin §3d).
   await page.getByTestId("transfer-establishment-search").click();
   await page.getByRole("option", { name: new RegExp(establishmentName) }).click();
   await page.getByTestId("transfer-establishment-button").click();
+  await expect(page.getByTestId("transfer-establishment-confirmation")).toContainText(ownerName);
+  await page.getByTestId("confirm-transfer-establishment-button").click();
   await expect(
     page.getByTestId("own-establishments-table").getByText(establishmentName)
   ).toBeVisible();
 
-  // Accorder la capacité operator, scopée à cet établissement — la ligne referrer (déjà
-  // existante) reste visible à côté.
-  const capabilitiesTable = page.getByTestId("capabilities-table");
-  await page.getByTestId("grant-role-select").click();
-  await page.getByRole("option", { name: "operator" }).click();
-  await page.getByTestId("grant-establishment-select").click();
-  await page.getByRole("option", { name: establishmentName }).click();
-  await page.getByTestId("grant-capability-button").click();
-  // Scopé à la ligne de CET établissement (nom unique par run) plutôt qu'un texte "operator"
-  // générique : après plusieurs runs sans reset, plusieurs lignes operator coexistent
-  // légitimement (une par établissement, cf. commentaire ci-dessus) et rendraient l'assertion
-  // ambiguë.
+  // La ligne en attente est désormais scopée à CET établissement (nom unique par run — après
+  // plusieurs runs sans reset, plusieurs lignes operator coexistent légitimement, une par
+  // établissement) ; la ligne referrer (déjà existante) reste visible à côté.
   const operatorRow = capabilitiesTable.locator("tr", { hasText: establishmentName });
   await expect(operatorRow).toBeVisible();
   await expect(operatorRow).toContainText("operator");
+  await expect(pendingOperatorRow).toHaveCount(0);
   await expect(capabilitiesTable.getByText("referrer")).toBeVisible();
   // Trigger HeroUI Select : role="button" + aria-haspopup="listbox" (pattern React Aria), pas
   // role="combobox" (pattern de l'ancien socle base-ui/shadcn) — vérifié sur le DOM réel. Ciblé
@@ -83,20 +111,21 @@ test("admin gère le registre d'un partenaire : capacité, statut, transfert, co
   await page.getByRole("option", { name: "suspended" }).click();
   await expect(selectValue(operatorRow)).toContainText("suspended");
 
-  // Désactiver ou réactiver un code d'attribution du partenaire — bascule vers l'état opposé au
+  // Désactiver puis réactiver un code d'attribution du partenaire — bascule vers l'état opposé au
   // départ, jamais une valeur fixe attendue (la base locale n'est pas remise à zéro entre deux
-  // exécutions e2e, cf. la même précaution déjà prise pour le prix en feature 3).
-  const codeSwitch = switchInput(page.getByTestId("code-active-switch-SEED-REFACTIVE"));
+  // exécutions e2e, cf. la même précaution déjà prise pour le prix en feature 3), PUIS retour à
+  // l'état de départ : SEED-REFACTIVE est un code du seed dont d'autres parcours dépendent, un run
+  // ne doit jamais le laisser désactivé (et les deux sens de la bascule sont ainsi prouvés).
+  const codeSwitchRoot = page.getByTestId("code-active-switch-SEED-REFACTIVE");
+  const codeSwitch = switchInput(codeSwitchRoot);
   const wasChecked = await codeSwitch.isChecked();
-  await toggleSwitch(page.getByTestId("code-active-switch-SEED-REFACTIVE"));
   // isSelected est piloté par le prop serveur (code.active), pas d'état local optimiste — le
   // changement visible attend le aller-retour RPC + router.refresh(), plus lent qu'un simple
   // clic client ; délai plus généreux que le défaut pour ne pas confondre lenteur et régression.
-  if (wasChecked) {
-    await expect(codeSwitch).not.toBeChecked({ timeout: 10000 });
-  } else {
-    await expect(codeSwitch).toBeChecked({ timeout: 10000 });
-  }
+  await toggleSwitch(codeSwitchRoot);
+  await expect(codeSwitch).toBeChecked({ checked: !wasChecked, timeout: 10000 });
+  await toggleSwitch(codeSwitchRoot);
+  await expect(codeSwitch).toBeChecked({ checked: wasChecked, timeout: 10000 });
 });
 
 // Refonte responsive mobile (SimpleTable, packages/ui) — test dédié plutôt qu'un ajout en fin du

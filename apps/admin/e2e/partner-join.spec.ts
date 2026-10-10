@@ -74,8 +74,10 @@ test("un admin crée une invitation, un nouveau visiteur la consomme et atterrit
   await visitorPage.getByTestId("join-submit-button").click();
 
   await visitorPage.waitForURL("**/partner");
-  await expect(visitorPage.getByTestId("partner-role-referrer")).toBeVisible();
-  await expect(visitorPage.getByTestId("partner-role-referrer")).toContainText("Referente");
+  // Référent seul, actif dès l'adhésion : son propre bandeau (décision de Gabriel, 2026-10-07),
+  // jamais « Prestador activo / Mi establecimiento ».
+  await expect(visitorPage.getByTestId("partner-status-referrer")).toHaveText("Referente activo");
+  await expect(visitorPage.getByTestId("partner-status-compact")).toHaveCount(0);
 
   // Bug remonté par Jérôme (2026-08-25) : le nom saisi dans ce formulaire n'apparaissait jamais
   // sur "Mi cuenta" — consume_partner_invitation écrivait p_signer_name dans partners.display_name
@@ -142,7 +144,7 @@ test("un visiteur déjà authentifié consomme l'invitation sans recréer de com
   await visitorPage.getByTestId("join-submit-button").click();
 
   await visitorPage.waitForURL("**/partner");
-  await expect(visitorPage.getByTestId("partner-role-referrer")).toBeVisible();
+  await expect(visitorPage.getByTestId("partner-status-referrer")).toHaveText("Referente activo");
 
   await visitorContext.close();
 });

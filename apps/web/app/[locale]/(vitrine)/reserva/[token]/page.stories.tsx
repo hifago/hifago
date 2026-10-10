@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect } from "storybook/test";
+import { expect, waitFor } from "storybook/test";
 import { historiaDePagina } from "@/.storybook/support/pagina";
 import { esperar, pulsar } from "@/.storybook/support/interacciones";
 import { simularRpc, simularSesion } from "@/.storybook/support/supabaseFalso";
+import type { RutasSimuladas } from "@/.storybook/support/fetch";
 import OrderResultPage from "./page";
 
 // `/reserva/<jeton>` : le résultat d'une commande, un état par statut (`deriveOrderState`). La
@@ -21,6 +22,12 @@ const pedido = (
     params: { token },
     ...opciones,
   });
+
+// Une story qui simule aussi des Route Handlers (`/api/*`) : mêmes paramètres, plus `simularFetch`.
+const conFetch = (historia: StoryObj, rutas: RutasSimuladas): StoryObj => ({
+  ...historia,
+  parameters: { ...historia.parameters, simularFetch: rutas },
+});
 
 export const PorPagar: StoryObj = { ...pedido("token-por-pagar"), name: "À payer (invité)" };
 
@@ -50,6 +57,72 @@ export const PagoNoIniciado: StoryObj = {
   },
 };
 
+// Trop tard pour payer (P4c) : la base refuse l'intent passé l'échéance de paiement. L'écran le dit
+// en clair et retire le bouton, jamais une panne de Mercado Pago ni un « réessayer ».
+export const PagoFueraDePlazo: StoryObj = {
+  ...pedido("token-por-pagar", {
+    preparar: () =>
+      simularRpc("create_payment_intent", { data: { ok: false, reason: "order_expiring" }, error: null }),
+  }),
+  name: "Trop tard pour payer",
+  play: async ({ canvasElement }) => {
+    await pulsar(canvasElement, '[data-testid="pay-button"]');
+    const aviso = await esperar(canvasElement, '[data-testid="pms-notice"]');
+    await waitFor(() => expect(aviso).toHaveTextContent("Se agotó el tiempo para pagar"));
+  },
+};
+
+// Nuit PMS sans booking Lobby (P4a, P5d) : l'intent répond `pms_booking_missing`, l'écran tente
+// de réserver chez le logement avant de payer. Requête laissée pendante : l'état « en cours ».
+export const ConfirmandoAlojamiento: StoryObj = {
+  ...conFetch(
+    pedido("token-por-pagar", {
+      preparar: () =>
+        simularRpc("create_payment_intent", { data: { ok: false, reason: "pms_booking_missing" }, error: null }),
+    }),
+    { "/api/pms/reserve-nights": { demora: "nunca" } }
+  ),
+  name: "Logement en cours de confirmation avant paiement",
+  play: async ({ canvasElement }) => {
+    await pulsar(canvasElement, '[data-testid="pay-button"]');
+    const boton = await esperar(canvasElement, '[data-testid="pay-button"]');
+    await waitFor(() => expect(boton).toHaveTextContent("Confirmando con el alojamiento"));
+  },
+};
+
+// Même départ, mais le logement refuse (plus de disponibilité) : rien n'est encaissé, l'écran le
+// dit et ne propose plus de payer. `released` est TOUJOURS dans la réponse de la route : c'est lui
+// qui sépare la réservation déjà annulée de celle qui se libérera seule (`bookingRecovery`).
+const logementRefuse = (released: boolean): StoryObj =>
+  conFetch(
+    pedido("token-por-pagar", {
+      preparar: () =>
+        simularRpc("create_payment_intent", { data: { ok: false, reason: "pms_booking_missing" }, error: null }),
+    }),
+    { "/api/pms/reserve-nights": { status: 409, body: { ok: false, reason: "pms_refused", released } } }
+  );
+
+export const AlojamientoNoConfirmado: StoryObj = {
+  ...logementRefuse(true),
+  name: "Logement non confirmé : réservation annulée",
+  play: async ({ canvasElement }) => {
+    await pulsar(canvasElement, '[data-testid="pay-button"]');
+    const aviso = await esperar(canvasElement, '[data-testid="pms-notice"]');
+    await waitFor(() => expect(aviso).toHaveTextContent("la reserva quedó anulada"));
+  },
+};
+
+// Le refus est arrivé, mais l'annulation de la réservation a échoué : elle se libérera seule.
+export const AlojamientoNoConfirmadoSinLiberar: StoryObj = {
+  ...logementRefuse(false),
+  name: "Logement non confirmé : libération en attente",
+  play: async ({ canvasElement }) => {
+    await pulsar(canvasElement, '[data-testid="pay-button"]');
+    const aviso = await esperar(canvasElement, '[data-testid="pms-notice"]');
+    await waitFor(() => expect(aviso).toHaveTextContent("se liberará sola"));
+  },
+};
+
 export const PagoRechazado: StoryObj = {
   ...pedido("token-por-pagar", { searchParams: { payment: "rejected" } }),
   name: "Retour : paiement refusé",
@@ -61,6 +134,9 @@ export const Pagado: StoryObj = { ...pedido("token-pagado"), name: "Payée" };
 
 export const ConfirmadoSinPago: StoryObj = { ...pedido("token-gratis"), name: "Confirmée sans paiement (gratuit)" };
 
+// Payée mais non honorée : UN écran pour les quatre motifs de la base (payé après expiration ou
+// annulation, écart de montant, nuit PMS sans booking, intent remplacé — P5d). Le motif n'est pas
+// transmis au client ; le texte du détail, exact pour le premier seulement, attend Jérôme (G33).
 export const PagoNoHonrado: StoryObj = { ...pedido("token-no-honrado"), name: "Payée mais non honorée" };
 
 export const Reembolsado: StoryObj = { ...pedido("token-reembolsado"), name: "Remboursée" };

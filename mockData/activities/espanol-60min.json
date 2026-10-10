@@ -1,10 +1,32 @@
 {
   "partner": "kayam",
   "establishment": "kayam",
-  "name": { "es": "Español 60min" },
+  "name": {
+    "es": "ESPANOL 60min"
+  },
   "duration_minutes": 60,
-  "external_booking_url": "https://wa.me/573001112233?text=Hola%2C%20quiero%20reservar%20una%20clase%20de%20Espa%C3%B1ol%20de%2060min%20en%20Casa%20Kayam",
-  "tags": ["arte"],
-  "photos": ["1.webp"],
-  "_extra_columns": { "category": "arte" }
+  "external_booking_url": null,
+  "tags": [
+    "arte"
+  ],
+  "_extra_columns": {
+    "category": "arte",
+    "sort": 110,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "slot",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "price_cop": 46000,
+  "unit": null,
+  "default_capacity": null,
+  "lobby_category_id": null,
+  "lobby_product_id": 519071,
+  "description": null,
+  "photos": [
+    "1.webp"
+  ]
 }

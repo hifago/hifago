@@ -245,11 +245,33 @@ async function runScenario(name, fn) {
   return true;
 }
 
-async function main() {
-  if (!(await runScenario("Scénario 1 — même paiement approuvé par le job ET le webhook", runScenario1))) process.exit(1);
-  if (!(await runScenario("Scénario 2 — expire_payment_order contre modify_order_line", runScenario2))) process.exit(1);
+async function runAll() {
+  if (!(await runScenario("Scénario 1 — même paiement approuvé par le job ET le webhook", runScenario1))) return 1;
+  if (!(await runScenario("Scénario 2 — expire_payment_order contre modify_order_line", runScenario2))) return 1;
   console.log("\nLes deux scénarios ont tenu leurs 5 runs — réconciliation validée sous concurrence réelle.");
-  process.exit(0);
+  return 0;
+}
+
+async function purgeAtEnd() {
+  const client = new Client({ connectionString: CONNECTION_STRING });
+  await client.connect();
+  try {
+    await purgeAll(client);
+  } finally {
+    await client.end();
+  }
+}
+
+// Les codes de sortie sont RENDUS par runAll, jamais `process.exit` en cours de route : un exit
+// dans la boucle sauterait le `finally`, donc la purge finale.
+async function main() {
+  let code = 1;
+  try {
+    code = await runAll();
+  } finally {
+    await purgeAtEnd();
+  }
+  process.exit(code);
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });

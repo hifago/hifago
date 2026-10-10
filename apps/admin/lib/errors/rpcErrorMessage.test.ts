@@ -30,6 +30,26 @@ describe("rpcErrorMessage", () => {
     expect(message).not.toContain("transition");
   });
 
+  it("refus métier HF001 (commande payée → expired) : son texte pour l'écran", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(
+      rpcErrorMessage(
+        { code: "HF001", message: "transition refusée : une commande payée n'expire pas" },
+        "No se pudo cambiar el estado."
+      )
+    ).toBe("Una reserva pagada no puede marcarse como expirada. Elige otro estado.");
+  });
+
+  it("reconnu par son CODE, jamais par son texte", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    // Même texte sans le code : le texte générique du dialogue.
+    expect(
+      rpcErrorMessage({ code: "P0001", message: "transition refusée : une commande payée n'expire pas" }, "repli")
+    ).toBe("repli");
+    // Code inconnu de la classe HF : le texte générique, jamais le message SQL.
+    expect(rpcErrorMessage({ code: "HF999", message: "algo" }, "repli")).toBe("repli");
+  });
+
   it("le détail part au journal du navigateur, pour le diagnostic", () => {
     const journal = vi.spyOn(console, "error").mockImplementation(() => {});
     rpcErrorMessage({ code: "P0001", message: "transition interdite" }, "repli");

@@ -78,11 +78,13 @@ test("un client voit ses prestations dépliées, en annule une, et l'autre reste
   await expect(page.getByTestId("grupo-proximas")).toContainText("HFG-");
 
   // ④ Annuler la première : la confirmation apparaît, sans montant, et SANS la phrase « dernière
-  // prestation » puisqu'une autre reste active.
+  // prestation » puisqu'une autre reste active. La commande sort de `create_order` IMPAYÉE : rien
+  // n'a été encaissé, donc pas un mot sur un acompte retenu (close_order_line_locked, v_paid).
   await page.getByTestId(`cancel-line-${ligne1.id}`).click();
   const confirmation = page.getByTestId(`cancel-line-${ligne1.id}-confirm`);
   await expect(confirmation).toBeVisible();
-  await expect(confirmation).toContainText("no se devuelve");
+  await expect(confirmation).not.toContainText("anticipo");
+  await expect(page.getByTestId(`cancel-line-${ligne1.id}-no-refund`)).toHaveCount(0);
   await expect(page.getByTestId(`cancel-line-${ligne1.id}-last-line`)).toHaveCount(0);
 
   await page.getByTestId(`cancel-line-${ligne1.id}-yes`).click();
@@ -94,6 +96,8 @@ test("un client voit ses prestations dépliées, en annule une, et l'autre reste
   );
   await expect(page.getByTestId(`order-line-${ligne2.id}`)).toHaveAttribute("data-status", "reserved");
   await expect(page.getByTestId(`cancel-line-${ligne2.id}`)).toBeVisible();
+  // Le client SAIT que l'annulation a eu lieu (décision du 2026-10-06), après la relecture de la base.
+  await expect(page.getByTestId(`cancel-line-${ligne1.id}-done`)).toContainText("Anulaste");
 
   // ⑥ Rechargement : la persistance est réelle, pas un état client optimiste — l'écran relit
   // `list_my_orders`, donc la base.
@@ -104,8 +108,8 @@ test("un client voit ses prestations dépliées, en annule une, et l'autre reste
   );
   await expect(page.getByTestId(`order-line-${ligne2.id}`)).toHaveAttribute("data-status", "reserved");
 
-  // ⑦ Sur la prestation restante, la confirmation prévient maintenant que TOUTE la réservation
-  // tombera — c'est la seule règle d'écran que ce parcours ajoute aux tests en base.
+  // ⑦ Sur la prestation restante, la confirmation prévient maintenant qu'il n'en restera aucune en
+  // attente — c'est la seule règle d'écran que ce parcours ajoute aux tests en base.
   await page.getByTestId(`cancel-line-${ligne2.id}`).click();
   await expect(page.getByTestId(`cancel-line-${ligne2.id}-last-line`)).toBeVisible();
 

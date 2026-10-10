@@ -8,13 +8,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const ORIGIN = "http://localhost:3200";
 
 let codeActif: string | null = null;
+let panne = false;
 
 vi.mock("@hifago/supabase/server", () => ({
   createClient: async () => {
     const requete = {
       select: () => requete,
       eq: () => requete,
-      maybeSingle: async () => ({ data: codeActif ? { code: codeActif } : null, error: null }),
+      maybeSingle: async () =>
+        panne
+          ? { data: null, error: { message: "connection refused" } }
+          : { data: codeActif ? { code: codeActif } : null, error: null },
     };
     return { from: () => requete };
   },
@@ -33,6 +37,7 @@ async function redirection(locale: string, code: string) {
 describe("GET /[locale]/r/[code]", () => {
   beforeEach(() => {
     codeActif = null;
+    panne = false;
   });
 
   it.each([["\\evil.com"], ["//evil.com"], ["fr"]])(
@@ -52,5 +57,14 @@ describe("GET /[locale]/r/[code]", () => {
 
   it("un code inconnu redirige vers l'accueil de la locale, sans ?ref=", async () => {
     expect(await redirection("en", "NOPE")).toEqual({ statut: 302, location: `${ORIGIN}/en` });
+  });
+
+  // Une panne n'est jamais une absence : le QR imprimé garde son attribution, create_order
+  // revérifie le code au moment de la commande.
+  it("lecture en panne : ?ref= conservé, jamais l'attribution perdue", async () => {
+    panne = true;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await redirection("es", "ABC")).toEqual({ statut: 302, location: `${ORIGIN}/es?ref=ABC` });
+    vi.restoreAllMocks();
   });
 });

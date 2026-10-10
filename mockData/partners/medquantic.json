@@ -1,0 +1,28 @@
+{
+  "email": "medquantic@mock.hifago.test",
+  "display_name": "Hostal Qantic",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": "MEDQUANTIC",
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Circular 3 #71-40, medellin",
+    "barrio": "Laureles",
+    "lat": null,
+    "lon": null,
+    "commercial_status": "activo",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.medquantic@mock.hifago.test",
+    "full_name": "Hostal Qantic"
+  }
+}

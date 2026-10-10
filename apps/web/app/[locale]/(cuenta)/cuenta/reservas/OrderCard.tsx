@@ -75,8 +75,8 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
       <ul className="flex flex-col divide-y divide-separator">
         {order.lines.map((line) => {
           const isDead = isDeadLine(line.status);
-          // Dernière prestation encore active : la confirmation doit alors prévenir que toute la
-          // réservation va tomber. `activeLines` est calculé sur la commande entière, pas sur la
+          // Dernière prestation encore active : la confirmation doit alors prévenir qu'il n'en
+          // restera aucune en attente. `activeLines` est calculé sur la commande entière, pas sur la
           // ligne — c'est justement l'information qu'une ligne seule ne peut pas connaître.
           const isLastActiveLine = activeLines.length === 1 && line.status === "reserved";
           const fecha = formatLineScheduleLisible(line, locale);
@@ -131,15 +131,19 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
                 />
               </div>
 
-              {line.status === "reserved" ? (
-                <CancelLineButton
-                  lineId={line.id}
-                  productName={line.productName}
-                  dateLabel={fecha}
-                  isLastActiveLine={isLastActiveLine}
-                  testId={`cancel-line-${line.id}`}
-                />
-              ) : null}
+              {/* Rendu pour CHAQUE ligne : il ne montre rien si elle n'est pas annulable, mais garde
+                  son message après une annulation (voir l'en-tête de CancelLineButton). */}
+              <CancelLineButton
+                lineId={line.id}
+                productName={line.productName}
+                dateLabel={fecha}
+                isLastActiveLine={isLastActiveLine}
+                cancellable={line.cancellable}
+                // Acompte acquis (décidé en base) ET non nul : une prestation à acompte nul (evento
+                // gratuit, paiement sur place) n'a rien encaissé à garder.
+                depositRetained={line.depositKeptOnCancel && line.acompteCop > 0}
+                testId={`cancel-line-${line.id}`}
+              />
             </li>
           );
         })}

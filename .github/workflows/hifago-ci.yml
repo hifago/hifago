@@ -127,11 +127,9 @@ jobs:
         # matin sans qu'aucun commit de ce dépôt n'ait bougé.
         with:
           version: 2.116.0
-      # Pas de seed ici, et ce n'est pas un raccourci : aucun des 44 fichiers pgTAP ne référence
-      # un UUID ou un e-mail de seed.sql, et plusieurs comptent des lignes en absolu
-      # (`select count(*) from audit_log` = 0). Ils EXIGENT une base vierge non seedée — c'est
-      # d'ailleurs pourquoi ils échouent sur une base de dev vivante. Le seed reste nécessaire
-      # aux tests de concurrence, qui viendront dans leur propre job.
+      # Base VIERGE ici (aucun fichier pgTAP ne référence un UUID ou un e-mail de seed.sql). La même
+      # suite repasse sur base SEEDÉE à la fin du job `concurrence` : un pgTAP doit être vert sur les
+      # deux, donc scoper ses comptes par ses propres fixtures, jamais compter en absolu.
       - run: supabase start
       - run: supabase test db
       # Restreint à `public` : le schéma `extensions` contient les fonctions de pgTAP
@@ -183,7 +181,102 @@ jobs:
       - run: supabase start
       # Les trois étapes ordonnées : reset sans seed, comptes auth via l'API Admin, puis seed.sql.
       - run: npm run db:setup
+      # Comptes de lignes AVANT/APRÈS les tests de concurrence (audit P12e, 2026-10-06) : chaque
+      # fichier purge ses fixtures en fin de run, dans un `finally`. Une table qui a bougé désigne
+      # celui qui a oublié — et protège l'étape pgTAP ci-dessous d'une base salie en silence.
+      - run: bash scripts/db-row-counts.sh > "$RUNNER_TEMP/comptes-avant.txt"
       - run: npm run test:concurrency
+      - run: bash scripts/db-row-counts.sh --compare "$RUNNER_TEMP/comptes-avant.txt"
+      # Suite pgTAP rejouée sur cette base SEEDÉE et déjà écrite par les tests de concurrence (audit
+      # P12b, 2026-10-06). Le job `db` ne la voit que vierge, où un `count(*)` en absolu passe au
+      # vert : sept fichiers comptaient ainsi et rougissaient sur toute base réelle. C'est la garde
+      # mécanique de la règle « scoper par ses fixtures » (CLAUDE.md §11.20).
+      - run: supabase test db
+
+  # Tests d'intégration RÉELS des six Edge Functions de jobs (audit P12d, décision D4 du 2026-10-06 ;
+  # P6 les avait laissés manuels et renvoyé leur job CI ici). Chaque script démarre sur l'hôte son
+  # serveur de fixtures (LobbyPMS :4545, Resend :4546, Mercado Pago :4547) ; la fonction, servie par
+  # l'edge runtime de `supabase start`, le joint par host.docker.internal. D'où deux préalables :
+  # `supabase/functions/.env` écrit AVANT `start` (le runtime ne le lit qu'au démarrage), et des
+  # fixtures qui écoutent sur toutes les interfaces (sous Linux, une écoute 127.0.0.1 est injoignable
+  # depuis le conteneur). Base NON seedée, volontairement : les lots de ces fonctions sont globaux et
+  # chaque script s'arrête (exit 2) s'il trouve des lignes hors de ses fixtures.
+  # En fin de job, pms_reserve_nights : une route de la vitrine, pas une Edge Function, lancée contre
+  # une vitrine construite et servie dans le job (voir ses étapes).
+  integration-edge:
+    needs: [db]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ci-dummy.apps.googleusercontent.com
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: ci-dummy
+      # Valeurs FACTICES, en UNE seule source : écrites ci-dessous dans supabase/functions/.env pour
+      # les fonctions, et lues telles quelles par les scripts de test. Ceux-ci doivent connaître la
+      # clé exacte de la fonction : send_notification_emails vérifie que RESEND_API_KEY ne fuit
+      # nulle part (et s'arrête sans elle), la fixture Mercado Pago refuse tout autre jeton que
+      # MERCADOPAGO_ACCESS_TOKEN. Les URL visent les fixtures des scripts : aucun appel ne quitte
+      # la machine.
+      LOBBY_API_BASE_URL: http://host.docker.internal:4545
+      RESEND_API_BASE_URL: http://host.docker.internal:4546
+      RESEND_API_KEY: ci-dummy-resend-key
+      MERCADOPAGO_API_BASE_URL: http://host.docker.internal:4547
+      MERCADOPAGO_ACCESS_TOKEN: TEST-fixture-token
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: 2.116.0
+      # Le runtime Edge ne lit ce fichier qu'au démarrage : écrit AVANT `supabase start`, depuis
+      # l'`env:` du job ci-dessus (jamais une seconde copie des valeurs).
+      - name: Secrets factices des Edge Functions (avant supabase start)
+        run: |
+          for v in LOBBY_API_BASE_URL RESEND_API_BASE_URL RESEND_API_KEY MERCADOPAGO_API_BASE_URL MERCADOPAGO_ACCESS_TOKEN; do
+            printf '%s=%s\n' "$v" "${!v}"
+          done > supabase/functions/.env
+      - run: supabase start
+      - run: npm run test:notification-integration
+      - run: npm run test:payments-integration
+      - run: |
+          for f in pms_poll_bookings pms_sync_availability pms_cancel_bookings pms_nightly_contract_check; do
+            node "tests/pms-integration/$f.integration.mjs" || exit 1
+          done
+      # pms_reserve_nights (suite de P12, 2026-10-07 ; D4 l'avait renvoyé à plus tard) : le seul test
+      # qui exerce record_pms_booking et release_order_after_pms_refusal À TRAVERS la route — il lui
+      # faut la vitrine servie, sa route reserve-nights pointée sur la fixture Lobby du script (:4546,
+      # sur l'hôte : la route tourne dans Next, pas dans un conteneur). Clés : celles de la pile qui
+      # vient de démarrer, lues par `supabase status`, jamais recopiées ici — et seulement ces deux-là
+      # (le même `status` porte FUNCTIONS_URL, que les tests Edge ci-dessus prendraient pour l'URL
+      # de leur fonction).
+      - name: Clés de la pile locale pour la vitrine
+        run: |
+          supabase status -o env | sed -n -E \
+            -e 's/^ANON_KEY="?([^"]*)"?$/NEXT_PUBLIC_SUPABASE_ANON_KEY=\1/p' \
+            -e 's/^SERVICE_ROLE_KEY="?([^"]*)"?$/SUPABASE_SERVICE_ROLE_KEY=\1/p' >> "$GITHUB_ENV"
+      - name: Vitrine construite et servie sur :3100, Lobby vers la fixture du test
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_WEB_APP_URL: http://127.0.0.1:3100
+          LOBBY_API_BASE_URL: http://127.0.0.1:4546
+        run: |
+          npm run build --workspace=apps/web
+          nohup npm run start --workspace=apps/web > "$RUNNER_TEMP/web.log" 2>&1 &
+          # Prête dès qu'elle répond quoi que ce soit (le script tolère un /es non 200).
+          for i in $(seq 1 60); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3100/es || true)"
+            [ "$code" != "000" ] && break
+            sleep 2
+          done
+          echo "vitrine : /es → $code"
+          [ "$code" != "000" ]
+      - run: node tests/pms-integration/pms_reserve_nights.integration.mjs
+      - name: Journal de la vitrine (en cas d'échec)
+        if: failure()
+        run: tail -n 200 "$RUNNER_TEMP/web.log" || true
 
   # Sans `needs:` lui non plus : ce job tourne sur des valeurs d'environnement FACTICES et ne touche
   # jamais la base — il n'a jamais rien eu à attendre de `db`. Il attendait pourtant `db` (101 s),

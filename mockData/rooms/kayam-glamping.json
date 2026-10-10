@@ -1,11 +1,36 @@
 {
   "partner": "kayam",
   "establishment": "kayam",
-  "name": { "es": "Glamping" },
+  "name": {
+    "es": "glamping"
+  },
   "price_cop": 165000,
   "unit": "per_two",
-  "capacity": 2,
+  "capacity": 3,
   "unit_count": 3,
   "lodging_kind": "private",
-  "photos": ["1.webp", "2.webp", "3.webp", "4.webp"]
+  "external_booking_url": null,
+  "lobby_category_id": 29376,
+  "lobby_product_id": null,
+  "tags": [],
+  "description": null,
+  "_extra_columns": {
+    "category": null,
+    "sort": 160,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": 3
+  },
+  "photos": [
+    "1.webp",
+    "2.webp",
+    "3.webp",
+    "4.webp",
+    "5.webp",
+    "6.webp"
+  ]
 }

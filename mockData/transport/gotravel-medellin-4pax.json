@@ -1,7 +1,9 @@
 {
   "partner": "gotravel",
   "establishment": "gotravel",
-  "name": { "es": "Privado Medellín ↔ Guatapé · hasta 4 pers." },
+  "name": {
+    "es": "Privado Medellín ↔ Guatapé · hasta 4 pers."
+  },
   "price_cop": 326000,
   "unit": "per_house",
   "min_qty": 1,
@@ -11,5 +13,25 @@
   "transport_departure_lat": 6.2442,
   "transport_departure_lon": -75.5736,
   "tags": [],
-  "photos": []
+  "default_capacity": null,
+  "external_booking_url": null,
+  "lobby_category_id": null,
+  "lobby_product_id": null,
+  "description": {
+    "es": "Puerta a puerta · por trayecto (solo ida)"
+  },
+  "_extra_columns": {
+    "category": null,
+    "sort": 280,
+    "sellable": true,
+    "acompte_pct": 0.15,
+    "referral_pct": 0.1,
+    "schedule": "date",
+    "qty_unit": "qty",
+    "calendar_default_open": true,
+    "max_units": null
+  },
+  "photos": [
+    "1.webp"
+  ]
 }

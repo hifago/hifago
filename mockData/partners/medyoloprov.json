@@ -1,0 +1,24 @@
+{
+  "email": "medyoloprov@mock.hifago.test",
+  "display_name": "Yolo Hostel Provenza",
+  "roles": [
+    "referrer"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": null,
+  "phone": null,
+  "code": null,
+  "commission_enabled": true,
+  "crm_profile": {
+    "address": "Cra. 32d #7a-77, El Poblado",
+    "barrio": "El Poblado",
+    "lat": null,
+    "lon": null,
+    "commercial_status": "prospecto",
+    "tags": [],
+    "notes": null
+  },
+  "capability_status": "active"
+}

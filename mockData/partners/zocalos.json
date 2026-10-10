@@ -1,0 +1,21 @@
+{
+  "email": "zocalos@mock.hifago.test",
+  "display_name": "Maestro Zocalero",
+  "roles": [
+    "referrer",
+    "operator"
+  ],
+  "legal_name": null,
+  "identification_type": null,
+  "identification_number": null,
+  "partner_city": "Guatapé",
+  "phone": null,
+  "code": "GUAZOCALOS",
+  "commission_enabled": true,
+  "crm_profile": null,
+  "capability_status": "active",
+  "person": {
+    "email": "cuenta.zocalos@mock.hifago.test",
+    "full_name": "Maestro Zocalero"
+  }
+}

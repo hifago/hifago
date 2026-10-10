@@ -9,8 +9,12 @@
 // SÛRETÉ : on n'imprime QUE le corps de la RÉPONSE. Jamais l'URL de la requête — elle porte
 // `api_token` en query string (hifago/CLAUDE.md §8). Tronqué court : un corps d'erreur utile tient
 // en deux lignes, et une page HTML d'erreur d'un proxy amont n'a pas à noyer les logs.
-export function describeLobbyErrorBody(body: unknown): string {
-  const text = typeof body === "string" ? body : JSON.stringify(body);
-  if (!text) return "corps vide";
+//
+// `redact` (jobs, P6) : masque les secrets AVANT la coupe à 200 caractères — un jeton à cheval sur la
+// coupure n'est plus présent en entier, et échapperait au masquage par valeur exacte.
+export function describeLobbyErrorBody(body: unknown, redact?: (text: string) => string): string {
+  const raw = typeof body === "string" ? body : JSON.stringify(body);
+  if (!raw) return "corps vide";
+  const text = redact ? redact(raw) : raw;
   return text.length > 200 ? `${text.slice(0, 200)}…` : text;
 }

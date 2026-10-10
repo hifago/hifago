@@ -4,7 +4,7 @@ titre: "Dette technique et QA/UI connue — hifago"
 theme: journal
 statut: vivant
 langue: fr
-maj: 2026-10-01
+maj: 2026-10-07
 resume: >
   Dette signalée et non corrigée du chantier hifago — technique, puis QA/UI mineure. Sortie de
   docs/backlog.md le 2026-09-08 : ce fichier-là plafonne à 60 lignes et prescrit lui-même qu'un
@@ -215,6 +215,13 @@ re-découvrir, pas un arbitrage.
   captures préprod avant de faire confiance au mapping 4xx → `rejected` (spec 39 §10.5).
 - **`/admin/reconciliation` sans pagination** : deux listes en cartes (PMS, Pagos) qui grandissent
   avec l'historique (`Reembolsados` compris) — passer en `DataList` quand le volume le justifiera.
-- **Aucun écran ne lit `job_heartbeats`** : l'admin apprend qu'un job est arrêté par e-mail
-  (`admin_job_stalled`), pas par un voyant. Un bloc « santé des jobs » sur l'accueil admin serait la
-  suite naturelle (RLS admin déjà posée).
+- ~~**Aucun écran ne lit `job_heartbeats`**~~ — **REFERMÉ le 2026-10-06** (PR #55) : le bloc
+  « Procesos » de l'accueil `/admin` les lit via `admin_jobs_status()`, en plus de l'e-mail
+  `admin_job_stalled`.
+
+## Dette relevée par l'audit, du 2026-10-03 au 2026-10-07
+- `admin_jobs_status()` rend `ok` pour un job qui tourne sans jamais réussir, tant qu'il est dans
+  sa période de grâce — défense côté front en place (`JobsStatus.tsx`).
+- `heartbeat_job` horodate en `now()` : fenêtre de quelques ms, sans correctif.
+- `enqueue_pms_cancellations` porte un `join` inutilisé.
+- `KpiCard` importé de `@hifago/ui` dans un Server Component (`apps/admin/app/admin/page.tsx:4`).

@@ -1,11 +1,11 @@
 ---
 id: refonte-emails-transactionnels
-titre: "Emails transactionnels — les 11 envois possibles, leur déclencheur et leur destinataire"
+titre: "Emails transactionnels — les 13 envois possibles, leur déclencheur et leur destinataire"
 theme: cadrage
 statut: "vérifié en envoi RÉEL le 2026-08-31 — les 8 emails sont partis chez Resend depuis la stack locale et reçus en boîte ; secrets Resend posés en préprod, aucun envoi réel en préprod à ce jour"
-maj: 2026-09-22
+maj: 2026-10-07
 resume: >
-  Table de référence des 11 seuls emails que hifago peut envoyer (liste fermée par la contrainte
+  Table de référence des 13 seuls emails que hifago peut envoyer (liste fermée par la contrainte
   check sur notification_emails.event_type) : ce qui les déclenche, à qui ils partent, leur objet
   et leur corps exacts. Décrit le comportement réel du code, pas une cible.
 mots_cles: [email, notification, resend, destinataire, declencheur, notification_emails, spec 23]
@@ -15,10 +15,11 @@ repond_a:
   - "Quel email part au client, lequel part au socio, lequel part à l'admin ?"
 ---
 
-# Emails transactionnels — les 11 envois possibles
+# Emails transactionnels — les 13 envois possibles
 
 > Liste **fermée** : la contrainte `check` sur `notification_emails.event_type`
-> (`supabase/migrations/20260824020000_notification_emails.sql`) n'autorise que ces 8 valeurs.
+> (`supabase/migrations/20260824020000_notification_emails.sql`, élargie depuis — dernière fois par
+> `20261006192424_order_line_cancellations.sql`) n'autorise que ces 13 valeurs.
 > Aucun autre email ne peut sortir de hifago. Spécification d'origine :
 > `docs/specs/23-notifications-email-transactionnelles.md`.
 >
@@ -39,7 +40,9 @@ repond_a:
 | 8 | `partner_camp_evento_blocked` | Une commande contenant une ligne `camp` est créée — **à la réservation, avant le paiement** | Chaque compte du partenaire propriétaire du camp/evento | `Reserva confirmada — recurso bloqueado` |
 | 9 | `client_payment_received_not_honored` | Une entrée `refund_required` de `reason_code` `paid_after_expiry` ou `amount_mismatch` est créée (le client a payé, rien n'est honoré) — spec 39 D3, 2026-09-22 | Le client, sur `orders.holder_email` — **un seul e-mail par entrée** (dédup sur `related_id`) | `Recibimos tu pago — tu reserva <HFG-n> no pudo confirmarse` |
 | 10 | `client_duplicate_payment_refund` | Une entrée `refund_required` de `reason_code` `double_payment` est créée (la réservation EST confirmée, le doublon sera remboursé) | Le client, un e-mail par entrée | `Recibimos un pago duplicado para tu reserva <HFG-n>` |
-| 11 | `admin_job_stalled` | Le watchdog constate que le job `payments-reconcile` n'a pas battu depuis 15 min (`job_heartbeats`) — une seule fois tant qu'il ne repart pas | **Tous les admins actifs**, un email chacun | `El job de conciliación de pagos no responde desde hace 15 min` |
+| 11 | `admin_job_stalled` | Un watchdog constate qu'un job attendu n'a pas réussi depuis son seuil (`job_expectations`, un seuil par job) — ou n'a **jamais été exécuté** passé ce seuil — une seule fois par panne tant qu'il ne repart pas | **Tous les admins actifs**, un email chacun | `El job <job> no responde (sin ejecución exitosa desde hace más de <seuil>)` ; `payments-reconcile` garde le sien : `El job de conciliación de pagos no responde desde hace <seuil>` |
+| 12 | `client_order_line_cancelled` | Une prestation est annulée (`cancelled_by_client` ou `cancelled_by_provider`), par le client, l'admin ou l'établissement — jamais pour `expired` | Le client, sur `orders.holder_email` — jamais une adresse sentinelle `@hifago.local` | `Anulación en tu reserva <HFG-n>` |
+| 13 | `partner_order_line_cancelled` | Même événement que le 12 | Chaque compte de connexion du partenaire propriétaire du produit | `Reserva anulada: <produit>` |
 
 Les emails 5, 6 et 7 partent tous les trois du **même événement** : `apply_payment_webhook` en
 branche `approved`. Un paiement confirmé peut donc générer plusieurs emails d'un coup.
@@ -57,9 +60,10 @@ branche `approved`. Un paiement confirmé peut donc générer plusieurs emails d
 | 7 | `apply_payment_webhook` | idem |
 | 8 | `create_order`, branche `camp` | `supabase/migrations/20260824110000_notify_partner_camp_evento_blocked.sql` |
 | 9-10 | trigger `notify_client_refund_required` sur `payment_reconciliation_entries` (`when new.kind = 'refund_required'`) | `supabase/migrations/20260922100000_payment_refunds.sql` |
-| 11 | `payments_reconcile_watchdog` (pg_cron `*/15`) | `supabase/migrations/20260921100000_payments_reconcile.sql` |
+| 11 | `jobs_watchdog` → `job_watchdog` (pg_cron `jobs-watchdog`, `*/15`) et `payments_reconcile_watchdog` (pg_cron `*/15`), seuils lus dans `job_expectations` | `supabase/migrations/20261003223900_pms_jobs_supervision.sql`, `20261006143045_job_expectations.sql` (et `20260921100000_payments_reconcile.sql`) |
+| 12-13 | `notify_order_line_cancelled`, appelée par `close_order_line_locked` (`cancel_order_line`, `set_order_line_status`) | `supabase/migrations/20261006192424_order_line_cancellations.sql` (redéfinie par `20261006235357_pms_booking_identity.sql`) |
 
-Tous passent par `enqueue_notification_email` (ou `notify_all_admins` pour les deux emails admin),
+Tous passent par `enqueue_notification_email` (ou `notify_all_admins` pour les e-mails admin),
 qui empile dans `notification_emails`. L'envoi physique est fait plus tard par l'Edge Function
 `send-notification-emails`, appelée toutes les 5 minutes par pg_cron.
 
@@ -81,9 +85,11 @@ corrélé à un paiement connu + lien *Ver reconciliaciones pendientes* vers `/a
 **absolu** depuis le 2026-09-20 (secret Vault `admin_app_public_url`, même patron que l'invitation ;
 relatif en repli si le secret manque). Le détail (`failure_reason`, `raw_event`) reste réservé à
 l'écran. Une entrée `kind = 'refund_required'` (argent encaissé sans prestation à honorer —
-migration 20260920120000) porte le sujet dédié ci-dessus. ⚠️ Toujours un e-mail par admin et par
-entrée, sans dédup — la seule borne est l'index unique partiel « une entrée `refund_required` par
-paiement Mercado Pago ».
+migration 20260920120000) porte le sujet dédié ci-dessus. ⚠️ Un e-mail par admin et par entrée,
+sans dédup — sauf les échecs de signature du webhook, étranglés à une entrée notifiée par heure
+glissante, donc au plus un e-mail par admin et par heure (`20261002125023_reconciliation_email_throttle.sql`,
+P5b). L'autre borne est l'index unique partiel « une entrée `refund_required` par paiement Mercado
+Pago ».
 
 **4 · `partner_proposal_decided`**
 « Tu propuesta para "<nom>" fue aprobada. » — ou, en cas de rejet, « …fue rechazada. » suivi de
@@ -108,17 +114,18 @@ este recurso pueden haber quedado no disponibles durante ese período. »
 ## Faiblesses connues de ces contenus
 
 Relevées à la lecture du code, puis **confirmées en boîte** par l'envoi réel du 2026-08-31.
-Aucune n'est corrigée — à traiter avant d'ouvrir l'envoi à de vrais partenaires et clients.
+Mise à jour du 2026-10-07 : les liens relatifs et l'absence d'échappement sont CORRIGÉS (barrés
+ci-dessous) ; le reste est à traiter avant d'ouvrir l'envoi à de vrais partenaires et clients.
 
-- **Emails 2 et 3 : les liens sont relatifs** (`href="/admin/proposals/…"`, `href="/admin/reconciliation"`).
-  Un lien relatif n'a aucune base dans une boîte mail : il est inutilisable. Seul l'email 1
-  construit une URL absolue, via `admin_app_public_url`.
+- ~~**Emails 2 et 3 : les liens sont relatifs**~~ — CORRIGÉ : les liens sont absolus, construits
+  depuis le secret Vault `admin_app_public_url` ; le lien d'une proposition d'établissement porte
+  `?entity=establishment` (migration `20261002160349_email_html_values.sql`).
 - **Emails 5 et 6 : aucun contenu utile.** Ce sont les deux emails qui parlent d'argent à un socio,
   et ils ne portent ni montant, ni nom de produit, ni date, ni lien. Le destinataire ne peut rien
   en faire.
-- **Aucun échappement HTML.** Les noms de produit et d'établissement viennent d'un payload saisi
-  par un socio et sont concaténés bruts dans le corps (emails 2, 4, 7, 8). Une injection de lien
-  dans un email lu par l'admin est possible.
+- ~~**Aucun échappement HTML.**~~ — CORRIGÉ : toute valeur tierce d'un corps d'e-mail passe par
+  `public.html_text(text)` (migrations `20261002125023` et `20261002160349`). Un méta-test pgTAP
+  (`notification_html_escaping`) refuse toute fonction qui émet du HTML sans l'appeler.
 - **Tout est en espagnol**, y compris les deux emails destinés aux admins. La langue était listée
   « à trancher » en §10.9 de la spec 23 ; elle a été tranchée de fait dans le code, jamais reportée
   dans la spec.
@@ -159,9 +166,22 @@ necesitas hacer nada. » + lien *Ver tu reserva* (Vault `web_app_public_url`, om
 segundo pago de $<montant> COP para la misma reserva: te lo reembolsaremos por el mismo medio de
 pago en los próximos días. » + lien. Même réserve de validation.
 
-**11 · `admin_job_stalled`** — dernière exécution réussie, dernier `last_error`, et le rappel que
-tant que le job est arrêté aucune réservation n'expire et aucun paiement tardif n'est concilié
-(vérifier secrets, déploiement de l'Edge Function, `net._http_response`).
+**11 · `admin_job_stalled`** — watchdog générique (`job_watchdog`, cron `jobs-watchdog` toutes les
+15 min) pour chaque job de `job_expectations` : nom du job, dernière exécution réussie (heure de
+Colombie, ou « nunca »), dernier `last_error` ; pour un job jamais exécuté passé son seuil, les NOMS
+à vérifier (déploiement de l'Edge Function, secrets du Vault, `net._http_response`), jamais une
+valeur (`20261006143045_job_expectations.sql`). `payments-reconcile` garde son watchdog et son corps
+dédiés : dernière exécution réussie, dernier `last_error`, et le rappel que tant que le job est
+arrêté aucune réservation n'expire et aucun paiement tardif n'est concilié.
 
-> Liste fermée de **11** événements depuis le 2026-09-22 (contrainte `notification_emails_event_type_check`,
-> migration `20260921100000`).
+**12 · `client_order_line_cancelled`** — « Hola <nom>, » + qui a annulé (« Anulaste », « Anulamos, a
+tu pedido, » ou « El establecimiento anuló ») « <produit> » + dates + référence de la commande + lien
+*Ver tu reserva* (Vault `web_app_public_url`). Le **fait** seulement, sans un mot sur l'argent.
+⚠️ Textes provisoires, **à valider par Jérôme**.
+
+**13 · `partner_order_line_cancelled`** — « Se anuló <produit> » + dates, quantité, référence, auteur
+de l'annulation, puis ce que devient la disponibilité (transmise à LobbyPMS, booking encore actif
+chez Lobby, ou « La disponibilidad quedó liberada »). Rien sur l'argent. Même réserve de validation.
+
+> Liste fermée de **13** événements depuis le 2026-10-06 (contrainte `notification_emails_event_type_check`,
+> migration `20261006192424_order_line_cancellations.sql`).

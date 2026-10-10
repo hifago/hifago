@@ -305,10 +305,10 @@ d'annulation via le trigger existant. Rien n'est encaissé, le panier est conser
 1. **Une nuit refusée défait la commande ; une activité refusée ne la défait pas.** La nuit est
    réelle chez le partenaire — l'annuler parce qu'un extra a échoué coûterait au client son
    logement. L'activité garde donc l'ancien chemin (`pms_reconciliation_entries`).
-2. **Cette fonction rend les places, alors que `cancel_order` refuse de le faire.** Ce n'est pas une
-   incohérence : `cancel_order` garde la place consommée **exprès** (cahier des charges client
-   §7/A3, « en compensation du créneau bloqué pour rien »). Ici personne n'a rien immobilisé — la
-   réservation n'a jamais existé, il n'y a aucune compensation à devoir.
+2. **Cette fonction rend les places** — ⚠️ plus une asymétrie depuis le 2026-10-06 :
+   `20261006192424_order_line_cancellations.sql` fait rendre la place, la ressource partagée et le
+   blocage d'agenda à toute annulation et toute expiration. La règle A3 ne règle que l'argent,
+   jamais l'inventaire ; un evento `rsvp`/`unlimited` ne rend rien, n'ayant rien pris.
 3. **`create_order` n'est pas modifiée.** Elle reste la barrière anti-survente du chemin **non-PMS**
    (verrou `for update` + décrément), que les lignes PMS-backed sautent depuis `20260819130000`.
    Réordonner le PMS ne devait pas déplacer une ligne de ce chemin-là.

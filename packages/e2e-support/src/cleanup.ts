@@ -1,4 +1,6 @@
+import type pg from "pg";
 import { withDb } from "./db";
+import { SEEDED_ACCOUNTS } from "./auth";
 
 // NETTOYAGE DE FIN DE SUITE E2E (2026-09-08, demandé par Jérôme : « les tests devraient delete à
 // la fin des tests »).
@@ -51,6 +53,9 @@ export async function purgerDonneesDeTest(): Promise<{
   produits: number;
   establecimientos: number;
   categorias: number;
+  partenaires: number;
+  comptes: number;
+  journal: number;
 }> {
   return withDb(async (client) => {
     const { rows: cibles } = await client.query<{ id: string }>(
@@ -167,12 +172,125 @@ export async function purgerDonneesDeTest(): Promise<{
     //    CASCADE des deux côtés.
     const cat = await client.query(`delete from catalog_tags where slug ~ $1`, [MOTIF_HORODATAGE]);
 
+    // APRÈS les établissements : un partenaire de test qui en posséderait encore un horodaté ne
+    // pourrait pas partir (FK establishments.partner_id).
+    const partenaires = await purgerPartenairesDeTest(client);
+
     return {
       produits: idsProduits.length,
       establecimientos: est.rowCount ?? 0,
       categorias: cat.rowCount ?? 0,
+      ...partenaires,
     };
   });
+}
+
+/**
+ * Partenaires, codes, invitations et comptes fabriqués par les specs (2026-10-07, suite de l'audit
+ * P12 : `admin-partner-create`, `admin-invitations` et `partner-join` en laissaient à chaque run —
+ * mesuré par comptage avant/après, +4 partenaires, +3 codes, +3 invitations, plus les capacités,
+ * profils, accords et lignes de journal qui vont avec). Même règle que plus haut, l'HORODATAGE :
+ *   • un code portant treize chiffres (`E2ECOMPLETO1788…`, `E2E-REVOKE-1788…`) ;
+ *   • un partenaire dont le nom en porte (`Partner E2E Mínimo 1788…`) ou qui détient un tel code ;
+ *   • un compte dont l'e-mail en porte juste avant l'arobase (`prestador-e2e-1788…@test.local`).
+ * Plus le journal d'audit que les comptes de test (seedés ou fabriqués) ont écrit PENDANT la suite :
+ * chaque geste admin d'un spec en laisse une ligne, y compris sur des données du seed (bascule du
+ * code SEED-REFACTIVE). La borne de début vient de `globalSetup.ts` ; sans elle (teardown lancé à
+ * part), seules les lignes rattachées aux entités purgées partent.
+ *
+ * ⚠️ L'ordre vient de `pg_constraint` (NO ACTION partout) : journal et dépendances d'abord,
+ * partenaires puis comptes ensuite. Un partenaire de test qui porterait encore une donnée non
+ * prévue ici (une commande, un établissement sans horodatage) reste en base et le dit : sa
+ * suppression échoue seule, sans faire échouer le reste.
+ */
+async function purgerPartenairesDeTest(
+  client: pg.Client
+): Promise<{ partenaires: number; comptes: number; journal: number }> {
+  const { rows: codes } = await client.query<{ code: string }>(
+    `select code from partner_codes where code ~ $1`,
+    [MOTIF_HORODATAGE]
+  );
+  const codesTest = codes.map((r) => r.code);
+  const { rows: partenaires } = await client.query<{ id: string }>(
+    `select id from partners
+      where display_name ~ $1
+         or id in (select partner_id from partner_codes where code = any($2) and partner_id is not null)`,
+    [MOTIF_HORODATAGE, codesTest]
+  );
+  const idsPartenaires = partenaires.map((r) => r.id);
+  const { rows: comptes } = await client.query<{ id: string }>(
+    `select id from auth.users where email ~ ($1 || '@')`,
+    [MOTIF_HORODATAGE]
+  );
+  const idsComptes = comptes.map((r) => r.id);
+
+  // Journal : les lignes des comptes fabriqués, celles qui visent une entité purgée ci-dessous, et
+  // — borne connue — tout ce que les comptes de test ont écrit depuis le début de la suite.
+  const { rows: seedes } = await client.query<{ id: string }>(
+    `select id from auth.users where email = any($1)`,
+    [Object.values(SEEDED_ACCOUNTS)]
+  );
+  const debut = process.env.E2E_RUN_STARTED_AT ?? null;
+  const journal = await client.query(
+    `delete from audit_log
+      where actor_id = any($1::uuid[])
+         or entity_id = any($2::uuid[])
+         or entity_id in (select id from partner_capabilities
+                           where partner_id = any($2::uuid[]) or account_id = any($1::uuid[]))
+         or entity_id in (select id from partner_invitations
+                           where promo_code = any($3) or partner_id = any($2::uuid[]))
+         or ($4::timestamptz is not null and created_at >= $4::timestamptz
+             and actor_id = any($5::uuid[]))`,
+    [idsComptes, idsPartenaires, codesTest, debut, seedes.map((r) => r.id)]
+  );
+
+  if (idsPartenaires.length === 0 && idsComptes.length === 0 && codesTest.length === 0) {
+    return { partenaires: 0, comptes: 0, journal: journal.rowCount ?? 0 };
+  }
+
+  const P = idsPartenaires;
+  const A = idsComptes;
+  const C = codesTest;
+  await client.query(`delete from role_agreements where partner_id = any($1::uuid[]) or account_id = any($2::uuid[])`, [P, A]);
+  await client.query(`delete from partner_capabilities where partner_id = any($1::uuid[]) or account_id = any($2::uuid[])`, [P, A]);
+  await client.query(`delete from partner_crm_profile where partner_id = any($1::uuid[])`, [P]);
+  await client.query(`delete from partner_payout_accounts where partner_id = any($1::uuid[])`, [P]);
+  await client.query(`delete from partner_offboarding where partner_id = any($1::uuid[])`, [P]);
+  await client.query(`delete from establishment_proposals where partner_id = any($1::uuid[])`, [P]);
+  await client.query(`delete from product_proposals where partner_id = any($1::uuid[])`, [P]);
+  await client.query(
+    `delete from partner_invitations
+      where promo_code = any($1) or partner_id = any($2::uuid[])
+         or consumed_by_account_id = any($3::uuid[]) or created_by = any($3::uuid[])`,
+    [C, P, A]
+  );
+  await client.query(`update partner_accounts set saved_attribution_code = null where saved_attribution_code = any($1)`, [C]);
+  // TOUS les comptes rattachés, y compris ceux de test supprimés plus bas : partners part AVANT
+  // auth.users, et un compte encore rattaché bloquerait son partenaire (partner_accounts_partner_id_fkey).
+  await client.query(`update partner_accounts set partner_id = null where partner_id = any($1::uuid[])`, [P]);
+  await client.query(`delete from notification_emails where recipient_account_id = any($1::uuid[])`, [A]);
+  await client.query(`delete from cart_items where account_id = any($1::uuid[])`, [A]);
+  await client.query(`delete from carts where account_id = any($1::uuid[])`, [A]);
+  await client.query(`delete from partner_codes where code = any($1) or partner_id = any($2::uuid[])`, [C, P]);
+
+  let partenairesPurges = 0;
+  for (const id of P) {
+    const r = await client.query(`delete from partners where id = $1`, [id]).catch((erreur) => {
+      console.warn(`[e2e cleanup] partenaire de test ${id} conservé :`, (erreur as Error).message);
+      return null;
+    });
+    partenairesPurges += r?.rowCount ?? 0;
+  }
+  // auth.users → partner_accounts en CASCADE.
+  let comptesPurges = 0;
+  for (const id of A) {
+    const r = await client.query(`delete from auth.users where id = $1`, [id]).catch((erreur) => {
+      console.warn(`[e2e cleanup] compte de test ${id} conservé :`, (erreur as Error).message);
+      return null;
+    });
+    comptesPurges += r?.rowCount ?? 0;
+  }
+  return { partenaires: partenairesPurges, comptes: comptesPurges, journal: journal.rowCount ?? 0 };
 }
 
 /**
@@ -194,11 +312,13 @@ export async function purgerDonneesDeTest(): Promise<{
 export default async function globalTeardown() {
   try {
     const bilan = await purgerDonneesDeTest();
-    const total = bilan.produits + bilan.establecimientos + bilan.categorias;
+    const total =
+      bilan.produits + bilan.establecimientos + bilan.categorias + bilan.partenaires + bilan.comptes + bilan.journal;
     if (total > 0) {
       console.log(
         `[e2e cleanup] purgé : ${bilan.produits} produit(s), ` +
-          `${bilan.establecimientos} établissement(s), ${bilan.categorias} catégorie(s).`
+          `${bilan.establecimientos} établissement(s), ${bilan.categorias} catégorie(s), ` +
+          `${bilan.partenaires} partenaire(s), ${bilan.comptes} compte(s), ${bilan.journal} ligne(s) de journal.`
       );
     }
   } catch (erreur) {

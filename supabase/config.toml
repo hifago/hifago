@@ -243,10 +243,14 @@ enable_anonymous_sign_ins = true
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+# 2026-10-06 (décision Gabriel) : 8 caractères, au moins une lettre et un chiffre. Ce fichier ne
+# règle QUE le local : la préprod et la prod se règlent par l'API de gestion, valeurs attendues
+# dans supabase/auth-policy.json (scripts/check-auth-config.mjs garde les deux alignés). Le miroir
+# côté formulaires est `meetsPasswordPolicy` (packages/domain/src/auth/passwordPolicy.ts).
+minimum_password_length = 8
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
-password_requirements = ""
+password_requirements = "letters_digits"
 
 # Configure passkey sign-ins.
 # [auth.passkey]
@@ -300,7 +304,11 @@ double_confirm_changes = true
 # crée le compte déjà confirmé côté serveur (service_role), jamais via ce flux grand public.
 enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
-secure_password_change = false
+# 2026-10-06 (décision Gabriel) : activé. Une session de plus de 24 h doit fournir le code reçu par
+# e-mail (`reauthenticate()`, gabarit `reauthentication` ci-dessous) pour changer de mot de passe :
+# c'est ce que gère PasswordBlock (apps/admin/app/partner/(app)/account). Une session de
+# récupération (lien « mot de passe oublié ») est neuve, donc jamais concernée.
+secure_password_change = true
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
 max_frequency = "1s"
 # Number of characters used in the email OTP.
@@ -337,6 +345,12 @@ content_path = "./supabase/templates/confirmation.html"
 [auth.email.template.recovery]
 subject = "Restablece tu contraseña en Hifago"
 content_path = "./supabase/templates/recovery.html"
+
+# Code de ré-authentification (secure_password_change ci-dessus). Sans ce gabarit, Supabase envoie
+# son texte anglais par défaut.
+[auth.email.template.reauthentication]
+subject = "Tu código de verificación de Hifago"
+content_path = "./supabase/templates/reauthentication.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
@@ -486,6 +500,28 @@ deno_version = 2
 
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
+
+# Les six Edge Functions de jobs (déclenchées par pg_cron via les wrappers `invoke_*`). `verify_jwt`
+# EXPLICITE, jamais le défaut implicite (CLAUDE.md §11.20) : la passerelle exige un jeton signé par le
+# projet, et chaque fonction n'accepte ensuite que la clé service_role (_shared/requireServiceRole.ts).
+# Une section par dossier de supabase/functions — scripts/check-edge-jobs.sh le vérifie.
+[functions.payments-reconcile]
+verify_jwt = true
+
+[functions.pms-cancel-bookings]
+verify_jwt = true
+
+[functions.pms-nightly-contract-check]
+verify_jwt = true
+
+[functions.pms-poll-bookings]
+verify_jwt = true
+
+[functions.pms-sync-availability]
+verify_jwt = true
+
+[functions.send-notification-emails]
+verify_jwt = true
 
 [analytics]
 enabled = false

@@ -34,6 +34,9 @@ function linea(parcial: Partial<MyOrderLine> & Pick<MyOrderLine, "id" | "product
     totalCop: 40000,
     status: "reserved",
     ...parcial,
+    // La règle de la base (`order_line_client_cancellable`) : seule une prestation `reserved`.
+    cancellable: parcial.cancellable ?? (parcial.status ?? "reserved") === "reserved",
+    depositKeptOnCancel: parcial.depositKeptOnCancel ?? true,
   };
 }
 
@@ -45,6 +48,11 @@ function pedido(parcial: Partial<MyOrder> & Pick<MyOrder, "id" | "reference" | "
     paymentReceivedNotHonored: false,
     refundStatus: null,
     ...parcial,
+    // La règle de la base (`order_deposit_collected`) : acompte acquis sur une commande encaissée.
+    lines: parcial.lines.map((l) => ({
+      ...l,
+      depositKeptOnCancel: ["paid", "partially_refunded"].includes(parcial.paymentStatus ?? "paid"),
+    })),
   };
 }
 

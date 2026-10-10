@@ -6,6 +6,8 @@
   "submit": "Create account",
   "submitting": "Creating…",
   "passwordMismatch": "Passwords don't match.",
+  "passwordHint": "At least {min} characters, with letters and numbers.",
+  "passwordPolicy": "Your password must be at least {min} characters long and include letters and numbers.",
   "genericError": "Could not create the account. Check the details and try again.",
   "loginLink": "Already have an account?",
   "loginLinkAction": "Sign in"
