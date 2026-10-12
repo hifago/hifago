@@ -5,7 +5,7 @@ import { EXTRA_TITLE_ROUTES, getNavItems } from "./nav-items";
 describe("resolveActiveNavTitle", () => {
   const items = [
     { href: "/partner", label: "Inicio" },
-    { href: "/partner/establishment", label: "Mi establecimiento y actividades" },
+    { href: "/partner/establishment", label: "Mi establecimiento y servicios" },
     { href: "/partner/reservations", label: "Mis reservas" },
   ];
 
@@ -43,7 +43,7 @@ describe("resolveActiveNavTitle", () => {
     ];
     for (const pathname of productsRoutes) {
       expect(resolveActiveNavTitle(pathname, allItems, "Hifago socio")).toBe(
-        "Mi establecimiento y actividades"
+        "Mi establecimiento y servicios"
       );
     }
   });

@@ -50,11 +50,30 @@ const TYPE_LABELS: Record<string, string> = {
   transport: "Transporte",
 };
 
+// Ordre d'affichage des sections sous un établissement. Un type absent de cette liste (ou une
+// proposition sans type) tombe dans OTHER_SECTION plutôt que de disparaître de l'écran.
+const TYPE_SECTIONS: { type: string; label: string }[] = [
+  { type: "activity", label: "Actividades" },
+  { type: "lodging", label: "Alojamientos" },
+  { type: "evento", label: "Eventos" },
+  { type: "camp", label: "Campamentos" },
+  { type: "transport", label: "Transporte" },
+];
+const OTHER_SECTION = { type: "other", label: "Otros" };
+const KNOWN_TYPES = new Set(TYPE_SECTIONS.map((section) => section.type));
+
+function sectionTypeOf(type: string | null): string {
+  return type && KNOWN_TYPES.has(type) ? type : OTHER_SECTION.type;
+}
+
 // Fusion de ProductsGrid.tsx + PendingProductCreationsList.tsx (refonte vue prestataire,
-// 2026-08-19) — UNE seule CatalogCardGrid par établissement, propositions de création ET activités
-// publiées mélangées, chacune avec son propre tag de statut ("Pendiente de revisión" pour une
-// proposition, "Publicada"/"No publicada" sinon) : demande explicite de Jérôme, jamais deux listes
-// séparées ("ça doit être dans la vue juste avec un tag bien évident de l'état de l'activité").
+// 2026-08-19) — propositions de création ET produits publiés mélangés dans la même grille, chacun
+// avec son propre tag de statut ("Pendiente de revisión" pour une proposition, "Publicada"/"No
+// publicada" sinon) : demande explicite de Jérôme, jamais deux listes séparées par STATUT ("ça doit
+// être dans la vue juste avec un tag bien évident de l'état de l'activité").
+// Depuis le 2026-10-12 (demande Jérôme : « séparés, et non pas tout mélanger »), une section
+// titrée par TYPE — activités, logements, événements, camps, transport — au lieu d'une seule grille
+// « Actividades » qui mélangeait tout. Une section sans rien à montrer n'est pas rendue.
 export function EstablishmentActivities({
   establishmentId,
   products,
@@ -104,111 +123,130 @@ export function EstablishmentActivities({
     );
   }
 
+  const sections = [...TYPE_SECTIONS, OTHER_SECTION]
+    .map((section) => ({
+      ...section,
+      pendingCreations: pendingCreations.filter((p) => sectionTypeOf(p.type) === section.type),
+      products: products.filter((p) => sectionTypeOf(p.type) === section.type),
+    }))
+    .filter((section) => section.pendingCreations.length > 0 || section.products.length > 0);
+
   return (
-    <CatalogCardGrid>
-      {pendingCreations.map((proposal) => {
-        const payload = (proposal.payload ?? {}) as {
-          name?: unknown;
-          photos?: { storage_path: string }[];
-        };
-        const proposedName = resolveLocalizedField(asLocalizedField(payload.name), "es");
-        const photos = (Array.isArray(payload.photos) ? payload.photos : []).map((photo, index) => ({
-          id: `${proposal.id}-${index}`,
-          url: supabase.storage.from("catalog-media").getPublicUrl(photo.storage_path).data.publicUrl,
-          alt: proposedName ?? proposal.id,
-        }));
+    <div className="flex flex-col gap-6">
+      {sections.map((section) => (
+        <section
+          key={section.type}
+          className="flex flex-col gap-3"
+          data-testid={`product-section-${establishmentId}-${section.type}`}
+        >
+          <h2 className="text-base font-semibold text-muted">{section.label}</h2>
+          <CatalogCardGrid>
+            {section.pendingCreations.map((proposal) => {
+              const payload = (proposal.payload ?? {}) as {
+                name?: unknown;
+                photos?: { storage_path: string }[];
+              };
+              const proposedName = resolveLocalizedField(asLocalizedField(payload.name), "es");
+              const photos = (Array.isArray(payload.photos) ? payload.photos : []).map((photo, index) => ({
+                id: `${proposal.id}-${index}`,
+                url: supabase.storage.from("catalog-media").getPublicUrl(photo.storage_path).data.publicUrl,
+                alt: proposedName ?? proposal.id,
+              }));
 
-        return (
-          <CatalogCard
-            key={proposal.id}
-            testId={`pending-product-creation-${proposal.id}`}
-            photos={photos}
-            title={proposedName ?? proposal.id}
-            meta={TYPE_LABELS[proposal.type ?? ""] ?? proposal.type ?? undefined}
-            statusChips={[{ label: "Pendiente de revisión", color: "warning" }]}
-            footer={
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                isDisabled={withdrawingId === proposal.id}
-                onPress={() => handleWithdraw(proposal.id)}
-                data-testid={`withdraw-product-creation-${proposal.id}`}
-              >
-                {withdrawingId === proposal.id ? "Retirando…" : "Retirar"}
-              </Button>
-            }
-          />
-        );
-      })}
+              return (
+                <CatalogCard
+                  key={proposal.id}
+                  testId={`pending-product-creation-${proposal.id}`}
+                  photos={photos}
+                  title={proposedName ?? proposal.id}
+                  meta={TYPE_LABELS[proposal.type ?? ""] ?? proposal.type ?? undefined}
+                  statusChips={[{ label: "Pendiente de revisión", color: "warning" }]}
+                  footer={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      isDisabled={withdrawingId === proposal.id}
+                      onPress={() => handleWithdraw(proposal.id)}
+                      data-testid={`withdraw-product-creation-${proposal.id}`}
+                    >
+                      {withdrawingId === proposal.id ? "Retirando…" : "Retirar"}
+                    </Button>
+                  }
+                />
+              );
+            })}
 
-      {products.map((product) => {
-        // Un tag de statut à la fois, jamais deux empilés : "en révision" prend le pas sur
-        // publié/brouillon plutôt que s'y ajouter — pattern déjà en place (ProductsGrid.tsx),
-        // repris tel quel.
-        const statusChips: CatalogCardStatus[] = product.pendingEdit
-          ? [{ label: "Edición pendiente de revisión", color: "warning" }]
-          : [
-              product.sellable
-                ? { label: "Publicada", color: "success" }
-                : { label: "No publicada", color: "default" },
-            ];
+            {section.products.map((product) => {
+              // Un tag de statut à la fois, jamais deux empilés : "en révision" prend le pas sur
+              // publié/brouillon plutôt que s'y ajouter — pattern déjà en place (ProductsGrid.tsx),
+              // repris tel quel.
+              const statusChips: CatalogCardStatus[] = product.pendingEdit
+                ? [{ label: "Edición pendiente de revisión", color: "warning" }]
+                : [
+                    product.sellable
+                      ? { label: "Publicada", color: "success" }
+                      : { label: "No publicada", color: "default" },
+                  ];
 
-        // Repérer d'un coup d'œil ce qui est adossé au PMS : rien ne le signalait nulle part, alors
-        // que ça change le comportement réel du produit (disponibilité lue chez Lobby, cupos
-        // internes inertes). Posé dans les chips déjà existants plutôt qu'en modifiant CatalogCard.
-        const chips: CatalogCardStatus[] = product.isPmsBacked
-          ? [...statusChips, { label: "LobbyPMS", color: "default" }]
-          : statusChips;
+              // Repérer d'un coup d'œil ce qui est adossé au PMS : rien ne le signalait nulle part, alors
+              // que ça change le comportement réel du produit (disponibilité lue chez Lobby, cupos
+              // internes inertes). Posé dans les chips déjà existants plutôt qu'en modifiant CatalogCard.
+              const chips: CatalogCardStatus[] = product.isPmsBacked
+                ? [...statusChips, { label: "LobbyPMS", color: "default" }]
+                : statusChips;
 
-        const availabilityScreen = availabilityScreenFor(
-          product.type as ProductType,
-          product.hasSlotRules,
-          product.isPmsBacked,
-          product.eventoCapacityMode,
-        );
+              const availabilityScreen = availabilityScreenFor(
+                product.type as ProductType,
+                product.hasSlotRules,
+                product.isPmsBacked,
+                product.eventoCapacityMode,
+              );
 
-        return (
-          <CatalogCard
-            key={product.id}
-            testId={`product-row-${product.id}`}
-            photos={product.photos}
-            title={product.name}
-            tags={product.tags}
-            statusChips={chips}
-            meta={product.priceCop === null ? undefined : formatCop(product.priceCop)}
-            footer={
-              <>
-                <Link
-                  href={`/partner/products/${product.id}/edit`}
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                  data-testid={`edit-link-${product.id}`}
-                >
-                  Proponer edición
-                </Link>
-                {availabilityScreen === "generic" || availabilityScreen === "slot" ? (
-                  <Link
-                    href={`/partner/products/${product.id}/availability`}
-                    className={buttonVariants({ variant: "outline", size: "sm" })}
-                    data-testid={`availability-link-${product.id}`}
-                  >
-                    Calendario
-                  </Link>
-                ) : null}
-                {availabilityScreen === "slot" ? (
-                  <Link
-                    href={`/partner/products/${product.id}/slot-availability`}
-                    className={buttonVariants({ variant: "outline", size: "sm" })}
-                    data-testid={`slot-availability-link-${product.id}`}
-                  >
-                    Cupos por horario
-                  </Link>
-                ) : null}
-              </>
-            }
-          />
-        );
-      })}
-    </CatalogCardGrid>
+              return (
+                <CatalogCard
+                  key={product.id}
+                  testId={`product-row-${product.id}`}
+                  photos={product.photos}
+                  title={product.name}
+                  tags={product.tags}
+                  statusChips={chips}
+                  meta={product.priceCop === null ? undefined : formatCop(product.priceCop)}
+                  footer={
+                    <>
+                      <Link
+                        href={`/partner/products/${product.id}/edit`}
+                        className={buttonVariants({ variant: "outline", size: "sm" })}
+                        data-testid={`edit-link-${product.id}`}
+                      >
+                        Proponer edición
+                      </Link>
+                      {availabilityScreen === "generic" || availabilityScreen === "slot" ? (
+                        <Link
+                          href={`/partner/products/${product.id}/availability`}
+                          className={buttonVariants({ variant: "outline", size: "sm" })}
+                          data-testid={`availability-link-${product.id}`}
+                        >
+                          Calendario
+                        </Link>
+                      ) : null}
+                      {availabilityScreen === "slot" ? (
+                        <Link
+                          href={`/partner/products/${product.id}/slot-availability`}
+                          className={buttonVariants({ variant: "outline", size: "sm" })}
+                          data-testid={`slot-availability-link-${product.id}`}
+                        >
+                          Cupos por horario
+                        </Link>
+                      ) : null}
+                    </>
+                  }
+                />
+              );
+            })}
+          </CatalogCardGrid>
+        </section>
+      ))}
+    </div>
   );
 }
