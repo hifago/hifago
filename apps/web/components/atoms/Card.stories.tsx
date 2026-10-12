@@ -27,7 +27,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 // Une vraie photo de `mockData/`, servie localement par Storybook sous `/mock`.
-const SRC = "/mock/activities/kayak1/photos/1.jpeg";
+const SRC = "/mock/activities/paddle-surf-trek/photos/1.webp";
 // Valeur reprise de la production (CatalogBrowser.tsx:98), pas inventée : grille à une colonne
 // sous 640 px, deux au-delà.
 const SIZES = "(max-width: 640px) 100vw, 50vw";

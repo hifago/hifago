@@ -44,10 +44,13 @@ describe("meetsPasswordPolicy — miroir de la règle de Supabase Auth", () => {
 describe("mots de passe des seeds — conformes à la règle", () => {
   const racine = new URL("../../../../", import.meta.url);
 
+  // Depuis le 2026-10-12, plus aucun partenaire de mockData ne porte de mot de passe (dépôt public :
+  // il vient de MOCK_PERSONNE_MDP). Le garde-fou contre un test vide porte donc sur les fichiers LUS,
+  // et la règle reste vérifiée sur tout mot de passe qui y serait réécrit.
   it("mockData/partners/*.json", () => {
     const dossier = new URL("mockData/partners/", racine);
-    const motsDePasse = readdirSync(dossier)
-      .filter((nom) => nom.endsWith(".json"))
+    const fichiers = readdirSync(dossier).filter((nom) => nom.endsWith(".json"));
+    const motsDePasse = fichiers
       .map((nom) => ({
         nom,
         password: (JSON.parse(readFileSync(new URL(nom, dossier), "utf-8")) as { person?: { password?: string } })
@@ -55,7 +58,7 @@ describe("mots de passe des seeds — conformes à la règle", () => {
       }))
       .filter((fixture): fixture is { nom: string; password: string } => typeof fixture.password === "string");
 
-    expect(motsDePasse.length).toBeGreaterThan(0);
+    expect(fichiers.length).toBeGreaterThan(0);
     expect(motsDePasse.filter((fixture) => !meetsPasswordPolicy(fixture.password)).map((f) => f.nom)).toEqual([]);
   });
 
