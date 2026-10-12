@@ -19,8 +19,8 @@ Supabase cloud (cf. `CLAUDE.md` § 8). Monorepo à deux apps depuis le 2026-08-1
 | `status` | Affiche l'état (Docker up/down, ports 3100/3101 occupés ou libres) |
 
 ## Pièges connus
-- **Machine Windows** : tout tourne dans WSL 2 (bash Ubuntu, clone sous `~`, jamais `/mnt/c`) avec
-  Docker Desktop — installation, base de démo, comptes et dépannage propres à Windows dans
+- **Machine Windows** : tout tourne directement sous Windows (Git Bash + Docker Desktop, jamais
+  WSL) — installation, fins de ligne, base de démo, comptes et dépannage propres à Windows dans
   `DEMARRAGE-LOCAL-WINDOWS.md` (partie H pour l'IA).
 - **Docker non démarré** : `supabase start` échoue avec une erreur peu claire côté Docker — lancer
   Docker Desktop d'abord, ne pas re-diagnostiquer ce symptôme à chaque fois.
