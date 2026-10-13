@@ -29,11 +29,15 @@ export default async function EditProductProposalPage({
   // external_booking_url/price_label (2026-10-13) : le formulaire les renvoie dans chaque
   // proposition, et depuis qu'ils ne sont plus affichés pour un logement, rien ne signalerait leur
   // absence — non lus, ils partiraient à null et l'approbation effacerait le lien posé par un admin.
+  // occurrence_*/start_time/duration_minutes (2026-10-13) : même règle pour un evento. Non lus, le
+  // formulaire affichait « Fecha » et « Hora de inicio » vides sur un evento qui en avait.
+  // online_bookable et ses quatre voisins ne sont jamais proposables (réglage admin) : lus pour
+  // que le formulaire sache qu'un evento se réserve en ligne et n'affiche pas un prix libre vide.
   const scope = await ownerScope(supabase);
   let productQuery = supabase
     .from("products")
     .select(
-      "id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, establishment_id, lobby_category_id, lobby_product_id, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, external_booking_url, price_label, establishment:establishments!inner(partner_id, lobby_connector_active, lobby_has_token)"
+      "id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, establishment_id, lobby_category_id, lobby_product_id, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, external_booking_url, price_label, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, evento_occupies_resource, establishment:establishments!inner(partner_id, lobby_connector_active, lobby_has_token)"
     )
     .eq("id", id);
   if (scope.kind === "partner") {
@@ -133,7 +137,7 @@ export default async function EditProductProposalPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">
+      <h1 className="titre-page">
         Proponer edición — {resolveLocalizedField(asLocalizedField(product.name), "es") ?? product.id}
       </h1>
 

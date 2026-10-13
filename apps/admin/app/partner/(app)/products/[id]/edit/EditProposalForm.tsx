@@ -9,6 +9,7 @@ import { LocalizedTextField, type LocalizedValue } from "@/components/localized-
 import { ProductTypeFields } from "@/components/product-type-fields";
 import type { TagOption } from "@/components/tags-multiselect";
 import { buildProductEditPayload } from "@/lib/products/productEditPayload";
+import { eventoOccurrenceError } from "@/lib/products/eventoOccurrence";
 import { tagIdsIfChanged } from "@/lib/tags/proposedTags";
 import { amenityIdsIfChanged } from "@/lib/amenities/proposedAmenities";
 import {
@@ -109,6 +110,13 @@ export function EditProposalForm({
 
     if (!(name.es ?? "").trim()) {
       toast.danger("El nombre (es) es obligatorio.");
+      return;
+    }
+    // La date d'un evento part dans chaque proposition depuis le 2026-10-13 : la laisser vide
+    // proposerait de la retirer.
+    const occurrenceError = type === "evento" ? eventoOccurrenceError(fields) : null;
+    if (occurrenceError) {
+      toast.danger(occurrenceError);
       return;
     }
 

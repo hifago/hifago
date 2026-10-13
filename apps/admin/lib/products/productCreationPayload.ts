@@ -5,6 +5,7 @@ import { toStayRatesColumn } from "@/lib/products/stayRates";
 import { toProgramColumn } from "@/lib/products/program";
 import { toGroupDiscountColumns } from "@/lib/products/groupDiscount";
 import { toEventoBookableColumns } from "@/lib/products/eventoBookable";
+import { toEventoOccurrenceColumns } from "@/lib/products/eventoOccurrence";
 import { toSlotRuleRows } from "@/lib/products/slotRules";
 import { toTransportInfoColumns } from "@/lib/products/transportInfo";
 import { productTypeGating, type ProductType, type ProductTypeFieldsState } from "@/lib/products/useProductTypeFieldsState";
@@ -151,23 +152,10 @@ export function buildProductCreationPayload(
           // Prix chiffré (evento réservable payant) — jamais posé pour un evento vitrine (price_label
           // fait foi) ni pour un evento gratuit (contrainte DB products_evento_is_free_price_null).
           price_cop: fields.onlineBookable && !fields.isFree ? priceCopOuNull : null,
-          occurrence_type: fields.occurrenceType,
-          // Ancre nécessaire pour les deux modes désormais (cf. product-type-fields.tsx) — plus
-          // seulement "once" : sans elle, un evento récurrent ne peut jamais dire sur quel jour de
-          // semaine il tombe.
-          occurrence_date: fields.occurrenceDate,
-          recurrence_frequency_days:
-            fields.occurrenceType === "recurring" ? Number(fields.recurrenceFrequencyDays) : null,
-          recurrence_end_date:
-            fields.occurrenceType === "recurring" && fields.recurrenceEndKind === "date"
-              ? fields.recurrenceEndDate
-              : null,
-          recurrence_end_count:
-            fields.occurrenceType === "recurring" && fields.recurrenceEndKind === "count"
-              ? Number(fields.recurrenceEndCount)
-              : null,
-          start_time: fields.startTime || null,
-          duration_minutes: fields.durationMinutes ? Number(fields.durationMinutes) : null,
+          // Date, récurrence, heure, durée : `toEventoOccurrenceColumns`, PARTAGÉE avec le chemin
+          // d'édition depuis le 2026-10-13 — écrites ici seulement, elles disparaissaient à la
+          // première modification (eventoOccurrence.ts).
+          ...toEventoOccurrenceColumns(fields),
           external_booking_url: fields.onlineBookable ? null : fields.externalBookingUrl.trim() || null,
         }
       : {}),

@@ -4,6 +4,7 @@ import { toStayRatesColumn } from "@/lib/products/stayRates";
 import { toProgramColumn } from "@/lib/products/program";
 import { toGroupDiscountColumns } from "@/lib/products/groupDiscount";
 import { toEventoBookableColumns } from "@/lib/products/eventoBookable";
+import { toEventoOccurrenceColumns } from "@/lib/products/eventoOccurrence";
 import { toTransportInfoColumns } from "@/lib/products/transportInfo";
 import { productTypeGating, type ProductType, type ProductTypeFieldsState } from "@/lib/products/useProductTypeFieldsState";
 
@@ -69,6 +70,13 @@ export function buildProductEditPayload(
     // silencieusement à leur valeur en base à chaque édition (directe ET proposition) — jamais
     // testé unitairement avant ce chantier. MÊME fonction que productCreationPayload.ts.
     ...(isEvento ? toEventoBookableColumns(fields) : {}),
+    // Date, récurrence, heure, durée d'un evento (2026-10-13) — restées « création seulement »
+    // jusqu'ici : ce fichier ne les émettait pas, donc l'édition admin ne les réécrivait pas et une
+    // proposition socio arrivait à la modération SANS elles (« Exposición Mirarte », la date et
+    // l'heure saisies par le partenaire avaient disparu). MÊME fonction que
+    // productCreationPayload.ts ; les deux pages d'édition les relisent désormais, sinon ce bloc
+    // écrirait des champs vides.
+    ...(isEvento ? toEventoOccurrenceColumns(fields) : {}),
     ...(hasPriceQtyFields
       ? {
           min_qty: fields.minQty.trim() ? Number(fields.minQty) : null,

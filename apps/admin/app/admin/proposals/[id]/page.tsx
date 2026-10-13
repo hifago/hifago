@@ -31,11 +31,15 @@ export default async function AdminProposalDetailPage({
   // approuvée — product:products(...) ressort alors null, cf. garde ci-dessous).
   // Colonnes de products étendues (spec 15 bis, 2026-08-17) : parité de champs avec
   // ProductForm/ProductTypeFields côté "Valor actual" de ModerateProposalForm (branche content).
+  // Étendues encore le 2026-10-13 (price_label, external_booking_url, group_discount_*, occurrence
+  // et réservabilité d'un evento) : ModerateProposalForm s'en sert pour les clés que la proposition
+  // ne porte pas (lib/products/proposalFallback.ts). Non lues ici, elles repartaient à null dans
+  // le payload approuvé.
   const { data: proposal } = checkedRead(
     await supabase
       .from("product_proposals")
       .select(
-        "id, status, version, payload, kind, type, establishment_id, rejection_reason, product:products(id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days), establishment:establishments(id, name, lobby_connector_active, lobby_has_token), partner:partners(display_name)"
+        "id, status, version, payload, kind, type, establishment_id, rejection_reason, product:products(id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, price_label, external_booking_url, group_discount_threshold_qty, group_discount_pct, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, evento_occupies_resource), establishment:establishments(id, name, lobby_connector_active, lobby_has_token), partner:partners(display_name)"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -78,7 +82,7 @@ export default async function AdminProposalDetailPage({
 
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-semibold">
+        <h1 className="titre-page">
           Revisar propuesta de creación — {proposedName ?? "nueva ficha"}
         </h1>
         <p className="text-sm text-muted">
@@ -139,7 +143,7 @@ export default async function AdminProposalDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">
+      <h1 className="titre-page">
         Revisar propuesta{isPhotos ? " de fotos" : ""} —{" "}
         {resolveLocalizedField(asLocalizedField(proposal.product.name), "es") ?? proposal.product.id}
       </h1>
@@ -237,7 +241,7 @@ async function AdminEstablishmentProposalDetail({ id }: { id: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">
+      <h1 className="titre-page">
         Revisar propuesta de {kindLabel} — {currentName ?? proposedName ?? proposal.id}
       </h1>
       <p className="text-sm text-muted">Partner: {proposal.partner?.display_name ?? "—"}</p>

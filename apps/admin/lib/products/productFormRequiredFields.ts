@@ -4,6 +4,7 @@ import { validateGroupDiscount, type GroupDiscount } from "@/lib/products/groupD
 import { validateSlotRules, type DraftSlotRule } from "@/lib/products/slotRules";
 import { validatePriceTiers, type PriceTier } from "@/lib/products/priceTiers";
 import { validateStayRates, type DraftStayRates } from "@/lib/products/stayRates";
+import { eventoOccurrenceError } from "@/lib/products/eventoOccurrence";
 
 // Extraits de `product-form.tsx` (chantier assistant par étapes, docs/specs/40) — mêmes règles,
 // mot pour mot, découpées par la même frontière étape 1/2/3 que l'UI (Establecimiento y tipo /
@@ -60,17 +61,17 @@ export function requiredDetailsStepError(params: {
     if (transportError) return transportError;
   }
 
-  // Gaps préexistants, jamais éditables aujourd'hui (spec 11 §2, "hors scope Jérôme") — reproduits
-  // à l'identique, pas corrigés en silence.
+  // Date et fréquence d'un evento : validées dans LES DEUX modes depuis le 2026-10-13. L'édition
+  // relit et réécrit désormais ces colonnes (eventoOccurrence.ts) — sans cette règle, enregistrer
+  // un evento dont le champ « Fecha » a été vidé lui retirerait sa date.
+  if (params.isEvento) {
+    const occurrenceError = eventoOccurrenceError(params);
+    if (occurrenceError) return occurrenceError;
+  }
+
+  // Gap préexistant, jamais éditable aujourd'hui (spec 11 §2, "hors scope Jérôme") — reproduit à
+  // l'identique, pas corrigé en silence.
   if (!params.isEditing) {
-    if (params.isEvento && !params.occurrenceDate) {
-      return params.occurrenceType === "once"
-        ? "La fecha es obligatoria para un evento puntual."
-        : "La fecha de la primera ocurrencia es obligatoria para un evento recurrente.";
-    }
-    if (params.isEvento && params.occurrenceType === "recurring" && !params.recurrenceFrequencyDays) {
-      return "La frecuencia es obligatoria para un evento recurrente.";
-    }
     if (params.isCamp && (!params.durationDaysInput || Number(params.durationDaysInput) < 1)) {
       return "La duración (días) es obligatoria para un campamento.";
     }
@@ -123,7 +124,9 @@ export function requiredPricingStepError(params: {
     return "El precio es obligatorio para este tipo de producto.";
   }
 
-  // Gaps préexistants, création seulement — cf. requiredDetailsStepError.
+  // Gaps préexistants, création seulement. Le libellé de prix d'un evento reste facultatif en
+  // édition : des eventos déjà en base n'en ont pas, les y contraindre bloquerait toute autre
+  // correction de leur fiche.
   if (!params.isEditing) {
     if (params.isEvento && !params.onlineBookable && !params.priceLabel.trim()) {
       return "El precio en texto libre es obligatorio para un evento.";

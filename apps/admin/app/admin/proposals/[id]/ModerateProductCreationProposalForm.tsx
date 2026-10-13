@@ -10,6 +10,7 @@ import { ProductTypeFields } from "@/components/product-type-fields";
 import type { TagOption } from "@/components/tags-multiselect";
 import { asLocalizedField } from "@hifago/domain";
 import { buildProductCreationPayload } from "@/lib/products/productCreationPayload";
+import { eventoOccurrenceError } from "@/lib/products/eventoOccurrence";
 import {
   payloadToFieldsInit,
   useProductTypeFieldsState,
@@ -98,6 +99,13 @@ export function ModerateProductCreationProposalForm({
     }
     if (decision === "reject" && !rejectionReason.trim()) {
       toast.danger("El motivo es obligatorio para rechazar.");
+      return;
+    }
+    // Même règle que les trois autres écrans (eventoOccurrence.ts) : un evento ne se crée pas sans
+    // date, même si l'admin a vidé le champ en corrigeant la proposition.
+    const occurrenceError = decision === "approve" && type === "evento" ? eventoOccurrenceError(fields) : null;
+    if (occurrenceError) {
+      toast.danger(occurrenceError);
       return;
     }
 

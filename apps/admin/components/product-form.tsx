@@ -71,14 +71,24 @@ export type EditableProduct = {
   // parent, nécessaire en édition pour savoir si le picker (vs saisie manuelle) doit s'afficher.
   lobby_connector_active?: boolean | null;
   lobby_has_token?: boolean | null;
-  // Evento réservable en ligne (2026-09-15) — contrairement aux autres champs evento (price_label,
-  // occurrence_*…, "gap préexistant, création seulement" ci-dessus), ceux-ci sont réellement
-  // éditables : chargés ici ET réécrits dans l'update() plus bas.
+  // Evento réservable en ligne (2026-09-15) — chargés ici ET réécrits dans l'update() plus bas.
   online_bookable: boolean;
   evento_capacity_mode: string | null;
   is_free: boolean;
   evento_payment_mode: string | null;
   evento_occupies_resource: boolean;
+  // Libellé de prix et occurrence d'un evento (2026-10-13) — chargés ET réécrits eux aussi.
+  // `price_label` était réécrit par l'update() depuis le dédoublonnage du 2026-09-17 SANS être lu :
+  // enregistrer un evento depuis cet écran effaçait son libellé. Les sept colonnes d'occurrence
+  // n'étaient ni lues ni écrites (eventoOccurrence.ts).
+  price_label: string | null;
+  occurrence_type: string | null;
+  occurrence_date: string | null;
+  recurrence_frequency_days: number | null;
+  recurrence_end_date: string | null;
+  recurrence_end_count: number | null;
+  start_time: string | null;
+  duration_minutes: number | null;
   // Transport informatif (migration 20260916150000). Chargés ici ET réécrits dans l'update() plus
   // bas, comme les champs evento réservable — pas le gap « création seulement » de
   // duration_days/group_discount_*. ⚠️ Le lieu de départ est `transport_departure_address`, pas
@@ -130,8 +140,9 @@ function entityNoun(type: ProductType): string {
 // Spec 11 — un seul composant pour la création ET l'édition d'un produit (fusionne
 // NewProductForm.tsx/EditProductForm.tsx, supprimés) : `product` absent = création, présent =
 // édition. Établissement/type restent création-only (immuables après création, comportement
-// préexistant) ; les champs evento/camp restent création-only (gap préexistant, jamais éditables
-// aujourd'hui, hors scope Jérôme — "on va rester encore sur une activité"). Nom/description/lieu/
+// préexistant) ; la durée d'un camp aussi. Les champs d'un evento (date, récurrence, heure, durée,
+// libellé de prix) sont éditables depuis le 2026-10-13 — ils étaient restés création-only, et un
+// socio qui les ressaisissait les voyait disparaître avant la modération. Nom/description/lieu/
 // prix-tramos/min-max deviennent identiques dans les deux modes — c'est le cœur du fix demandé.
 // Photos/tags/créneaux sont "stagés" en création (rattachés au produit dans le MÊME clic de
 // soumission que l'insert, cf. handleSubmit) et délégués en édition à des blocs séparés à
@@ -203,6 +214,14 @@ export function ProductForm({
           isFree: product.is_free,
           eventoPaymentMode: product.evento_payment_mode as "online" | "on_site" | null,
           eventoOccupiesResource: product.evento_occupies_resource,
+          priceLabel: product.price_label,
+          occurrenceType: product.occurrence_type === "recurring" ? "recurring" : "once",
+          occurrenceDate: product.occurrence_date,
+          recurrenceFrequencyDays: product.recurrence_frequency_days,
+          recurrenceEndDate: product.recurrence_end_date,
+          recurrenceEndCount: product.recurrence_end_count,
+          startTime: product.start_time,
+          durationMinutes: product.duration_minutes,
           transportFirstDepartureTime: product.transport_first_departure_time,
           transportLastDepartureTime: product.transport_last_departure_time,
           transportSeatsPerDeparture: product.transport_seats_per_departure,
@@ -429,7 +448,13 @@ export function ProductForm({
         .eq("id", product.id);
 
       if (updateError) {
-        toast.danger("No se pudo guardar la actividad.");
+        // Le trigger products_capacity_flags_frozen refuse de déplacer un evento qui porte des
+        // réservations en cours (migration 20261013212500) : le dire, plutôt qu'un échec muet.
+        toast.danger(
+          updateError.message.includes("capacity_flags_frozen_while_reserved")
+            ? "Este producto tiene reservas en curso: su fecha, su recurrencia y su modo de cupo no pueden cambiar hasta que se realicen o se cancelen."
+            : "No se pudo guardar la actividad.",
+        );
         setIsSubmitting(false);
         return;
       }
