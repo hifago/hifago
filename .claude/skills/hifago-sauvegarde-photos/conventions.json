@@ -1,0 +1,56 @@
+{
+  "_lisezmoi": "Table de nommage de /hifago-sauvegarde-photos. Les clés sont les slugs du site ; une fiche absente d'ici reçoit un sujet calculé (slug sans mots creux, 4 mots au plus). Les valeurs sont en minuscules, sans accents, mots séparés par des tirets.",
+  "sources": {
+    "prod": "https://hifago.co",
+    "preprod": "https://hifago-staging.vercel.app"
+  },
+  "rubriques": {
+    "actividades": "activite",
+    "alojamientos": "hebergement",
+    "eventos": "evenement",
+    "transportes": "transport",
+    "camps": "camp",
+    "establecimientos": "etablissement"
+  },
+  "partenaires": {
+    "bania-travel": "bania",
+    "siddharta-travel": "siddharta"
+  },
+  "etablissements": {
+    "casa-kayam": { "sujet": "exterieur" },
+    "bania-travel": { "rubrique": "hebergement", "sujet": "casa-completa" }
+  },
+  "fiches": {
+    "bus-compartido-desde-laureles-o-el-poblado-ida-y-vuelta": { "sujet": "bus-compartido-medellin" },
+    "plan-asado-en-casa-bote": { "sujet": "asado-casa-bote" },
+    "bania-travel": { "sujet": "casa-completa" },
+    "clase-de-guitarra": { "sujet": "clase-guitarra" },
+    "clase-dj-o-produccion": { "sujet": "clase-dj-produccion" },
+    "coaching-musical-canto-1h": { "sujet": "coaching-canto" },
+    "ensayo-hora": { "sujet": "ensayo" },
+    "espanol-30min": { "sujet": "clase-espanol" },
+    "espanol-60min": { "sujet": "clase-espanol" },
+    "hora-de-grabacion": { "sujet": "grabacion" },
+    "movilidad-session": { "sujet": "movilidad" },
+    "yoga-session": { "sujet": "yoga" },
+    "kayam-s-jam": { "sujet": "kayams-jam" },
+    "kayams-jam": { "sujet": "kayams-jam" },
+    "convocatoria-oficial-guatape-film-fest-2026": { "partenaire": "guatape", "sujet": "film-fest-2026" },
+    "festival-gastronomico-guatabandeja": { "partenaire": "guatape", "sujet": "festival-guatabandeja" },
+    "fiestas-zocalos-y-flores-silletas-y-colores": { "partenaire": "guatape", "sujet": "fiestas-zocalos-flores" },
+    "media-maraton-de-guatape-3-version": { "partenaire": "guatape", "sujet": "media-maraton" },
+    "tour-privado-en-frances": { "sujet": "tour-privado-frances" },
+    "van-por-colombia-guatape": { "sujet": "van-colombia-guatape" },
+    "van-por-colombia-guatape-san-rafael": { "sujet": "van-colombia-san-rafael" },
+    "chocolate-workshops-guatape": { "sujet": "chocolate-workshop" },
+    "jet-ski": { "sujet": "jetski" },
+    "tour-de-lancha-rapida": { "sujet": "tour-lancha-rapida" },
+    "privado-medellin-guatape-hasta-4-pers": { "sujet": "transporte-privado" },
+    "privado-medellin-guatape-hasta-7-pers": { "sujet": "transporte-privado" },
+    "privado-aeropuerto-guatape-hasta-4-pers": { "sujet": "transporte-privado" },
+    "privado-aeropuerto-guatape-hasta-7-pers": { "sujet": "transporte-privado" },
+    "taller-de-zocalos": { "sujet": "taller-zocalos" },
+    "degustacion-de-quesos-maduros-locales-con-vino-de-jengibre": { "sujet": "degustacion-quesos-vino" },
+    "wellness-course-for-hotel-guests": { "sujet": "wellness-course" }
+  }
+}
