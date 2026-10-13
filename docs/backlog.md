@@ -24,9 +24,7 @@ repond_a:
 > le 2026-10-12 Jérôme pilote : tout nouveau point va dans la première section (les autres : le dev).
 
 ## Ouvert par Jérôme depuis sa reprise (2026-10-12)
-- **Migration `20261013195100_platform_partner_and_guatape_place` à pousser en préprod** (2026-10-13, suite 10) : partenaire `Hifago`, lieu « Guatapé », rattachement des quatre événements — décidée par Jérôme, appliquée en local seulement ; part au prochain `/push-db`. Elle refuse de passer si un de ces événements porte une commande ou une proposition en attente.
-- **Étiquettes de gamme de prix (`$` à `$$$$`)** (2026-10-13, suite 6) : l'admin les crée désormais (slug `precio-N`), mais `seed-mock-data.mjs` calcule encore ses slugs par le `slugify` SQL (slug vide pour `$$`) — à aligner AVANT d'en mettre dans `mockData/` ; et aucune contrainte en base n'interdit un slug vide sur `catalog_tags`. Nommage `precio-N` à confirmer par Jérôme.
-- **Migration `20261013192000_lodging_unico_hereda_tags` à pousser en préprod** (2026-10-13, suite 8) : un logement unique hérite des étiquettes de son établissement — appliquée en local seulement, la préprod garde l'ancienne règle tant qu'elle n'est pas poussée.
+- **Étiquettes de gamme de prix (`$` à `$$$$`)** (2026-10-13, suite 6) : l'admin les crée désormais (slug `precio-N`), mais `seed-mock-data.mjs` calcule encore ses slugs par le `slugify` SQL (slug vide pour `$$`) — à aligner AVANT d'en mettre dans `mockData/` ; et aucune contrainte en base n'interdit un slug vide sur `catalog_tags`. Nommage `precio-N` à confirmer par Jérôme. **En préprod, aucune étiquette de prix n'existe** (constaté après le `/push-db` du 2026-10-13, suite 12) : `/es/alojamientos` y reste sous « Otros alojamientos » bien que l'héritage soit en place — à créer depuis l'admin de préprod, ou par migration une fois le nommage confirmé.
 
 ## Arbitrage Jérôme requis
 - **Equipamiento : ouvrir le renommage / la suppression depuis l'admin ?** Les étiquettes le permettent depuis le 2026-10-13 (dialogue « Editar o eliminar etiquetas ») ; `catalog_amenities` reste une liste fermée peuplée par migration (décision du 2026-09-17, libellés es/en). Journal 2026-10-13 (suite 5).
