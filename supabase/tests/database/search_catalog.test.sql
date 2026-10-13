@@ -18,7 +18,7 @@
 -- geste que les policies `_select_public` laissent bien passer ce qu'il faut.
 
 begin;
-select plan(43);
+select plan(47);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────────────────────────
 insert into partners (id, display_name) values
@@ -204,6 +204,97 @@ insert into catalog_tags (id, label, slug) values
 
 insert into establishment_tag_assignments (establishment_id, tag_id) values
   ('aaaa1111-0000-0000-0000-00000000000e', 'aaaa1111-0000-0000-0000-000000000304');
+
+-- ── Ordre des cartes dans une section (migration 20261013215000, demande Jérôme du 2026-10-13) ───
+-- ⚠️ Ces trois lots s'affirment en ORDRE EXACT, ce que le reste du fichier s'interdit (d'autres
+-- lignes existent dans la base). C'est possible ici parce que chaque lot porte un mot INVENTÉ dans
+-- son nom (`zqmix`, `zqcamp`, `zqalt`) : `p_query` réduit alors les candidats à ces seules
+-- fixtures, et l'ordre obtenu ne dépend plus de ce que la base contient par ailleurs.
+--
+-- `created_at` est posé À LA MAIN : dans une transaction, `now()` vaut la même chose pour toutes
+-- les lignes, et l'ordre de base (« le plus récent d'abord ») se jouerait sur l'identifiant.
+
+-- Mélange des catégories : trois « agua », une « arte », une « musica », de la plus récente à la
+-- plus ancienne. Par date de création seule, les trois « agua » se suivraient.
+insert into catalog_tags (id, label, slug) values
+  ('aaaa1111-0000-0000-0000-000000000311', '{"es":"Agua de prueba"}'::jsonb, 'sc-mix-agua'),
+  ('aaaa1111-0000-0000-0000-000000000312', '{"es":"Arte de prueba"}'::jsonb, 'sc-mix-arte'),
+  ('aaaa1111-0000-0000-0000-000000000313', '{"es":"Musica de prueba"}'::jsonb, 'sc-mix-musica');
+
+insert into products
+  (id, partner_id, establishment_id, type, slug, name, price_cop, sellable, created_at)
+values
+  ('aaaa1111-0000-0000-0000-000000000601', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'activity', 'sc-mix-1',
+   '{"es":"Zqmix uno"}'::jsonb, 10000, true, timestamptz '2030-01-05 12:00+00'),
+  ('aaaa1111-0000-0000-0000-000000000602', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'activity', 'sc-mix-2',
+   '{"es":"Zqmix dos"}'::jsonb, 10000, true, timestamptz '2030-01-04 12:00+00'),
+  ('aaaa1111-0000-0000-0000-000000000603', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'activity', 'sc-mix-3',
+   '{"es":"Zqmix tres"}'::jsonb, 10000, true, timestamptz '2030-01-03 12:00+00'),
+  ('aaaa1111-0000-0000-0000-000000000604', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'activity', 'sc-mix-4',
+   '{"es":"Zqmix cuatro"}'::jsonb, 10000, true, timestamptz '2030-01-02 12:00+00'),
+  ('aaaa1111-0000-0000-0000-000000000605', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'activity', 'sc-mix-5',
+   '{"es":"Zqmix cinco"}'::jsonb, 10000, true, timestamptz '2030-01-01 12:00+00');
+
+insert into product_tag_assignments (product_id, tag_id) values
+  ('aaaa1111-0000-0000-0000-000000000601', 'aaaa1111-0000-0000-0000-000000000311'),
+  ('aaaa1111-0000-0000-0000-000000000602', 'aaaa1111-0000-0000-0000-000000000311'),
+  ('aaaa1111-0000-0000-0000-000000000603', 'aaaa1111-0000-0000-0000-000000000311'),
+  ('aaaa1111-0000-0000-0000-000000000604', 'aaaa1111-0000-0000-0000-000000000312'),
+  ('aaaa1111-0000-0000-0000-000000000605', 'aaaa1111-0000-0000-0000-000000000313');
+
+-- Camps : le plus RÉCEMMENT créé part le plus tard, le plus ancien part le plus tôt, et celui du
+-- milieu n'a plus qu'un départ passé — trois ordres différents selon la règle appliquée.
+insert into products
+  (id, partner_id, establishment_id, type, slug, name, price_cop, sellable, duration_days, created_at)
+values
+  ('aaaa1111-0000-0000-0000-000000000511', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'camp', 'sc-camp-lejos',
+   '{"es":"Zqcamp lejos"}'::jsonb, 500000, true, 3, timestamptz '2030-01-03 12:00+00'),
+  ('aaaa1111-0000-0000-0000-000000000512', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'camp', 'sc-camp-pasado',
+   '{"es":"Zqcamp pasado"}'::jsonb, 500000, true, 3, timestamptz '2030-01-02 12:00+00'),
+  ('aaaa1111-0000-0000-0000-000000000513', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'camp', 'sc-camp-cerca',
+   '{"es":"Zqcamp cerca"}'::jsonb, 500000, true, 3, timestamptz '2030-01-01 12:00+00');
+
+insert into product_availability (product_id, date, capacity, booked) values
+  ('aaaa1111-0000-0000-0000-000000000511', today_in_bogota() + 20, 20, 0),
+  ('aaaa1111-0000-0000-0000-000000000512', today_in_bogota() - 3, 20, 0),
+  -- Deux départs : c'est le PROCHAIN qui classe, pas le premier jamais saisi (déjà passé).
+  ('aaaa1111-0000-0000-0000-000000000513', today_in_bogota() - 30, 20, 0),
+  ('aaaa1111-0000-0000-0000-000000000513', today_in_bogota() + 5, 20, 0);
+
+-- Events : trois ponctuels à venir, deux récurrents (dont un SANS date d'ancrage — la forme réelle
+-- de « Kayam's Jam » dans mockData), un ponctuel passé.
+insert into products (
+  id, partner_id, establishment_id, type, slug, name, price_cop, sellable,
+  occurrence_type, occurrence_date, recurrence_frequency_days
+) values
+  ('aaaa1111-0000-0000-0000-000000000411', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'evento', 'sc-alt-puntual-1',
+   '{"es":"Zqalt puntual uno"}'::jsonb, 50000, true, 'once', today_in_bogota() + 3, null),
+  ('aaaa1111-0000-0000-0000-000000000412', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'evento', 'sc-alt-puntual-2',
+   '{"es":"Zqalt puntual dos"}'::jsonb, 50000, true, 'once', today_in_bogota() + 12, null),
+  ('aaaa1111-0000-0000-0000-000000000413', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'evento', 'sc-alt-puntual-3',
+   '{"es":"Zqalt puntual tres"}'::jsonb, 50000, true, 'once', today_in_bogota() + 40, null),
+  -- Ancre à −70 j, tous les 7 j : sa prochaine occurrence tombe AUJOURD'HUI, donc avant tous les
+  -- ponctuels. Par prochaine date seule, il serait premier.
+  ('aaaa1111-0000-0000-0000-000000000414', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'evento', 'sc-alt-recurrente-1',
+   '{"es":"Zqalt recurrente uno"}'::jsonb, 50000, true, 'recurring', today_in_bogota() - 70, 7),
+  ('aaaa1111-0000-0000-0000-000000000415', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'evento', 'sc-alt-recurrente-2',
+   '{"es":"Zqalt recurrente dos"}'::jsonb, 50000, true, 'recurring', null, 14),
+  ('aaaa1111-0000-0000-0000-000000000416', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'evento', 'sc-alt-pasado',
+   '{"es":"Zqalt pasado"}'::jsonb, 50000, true, 'once', today_in_bogota() - 2, null);
 
 set local role anon;
 
@@ -510,13 +601,17 @@ select ok(
   'evento ponctuel le plus proche (+10j) est classé avant celui le plus éloigné (+30j)'
 );
 
+-- ⚠️ L'assertion « un récurrent plus proche passe avant un ponctuel » a été RETIRÉE le 2026-10-13 :
+-- depuis la migration 20261013215000 les ponctuels et les récurrents alternent, et le rang d'un
+-- récurrent par rapport à un ponctuel dépend alors du nombre d'events de chaque sorte présents dans
+-- la base. L'alternance s'affirme plus bas, en ordre exact, sur un lot isolé par `p_query`.
 select ok(
   (select rango_seccion from search_catalog(p_limite => 100000, p_tipos => array['evento'])
-    where id = 'aaaa1111-0000-0000-0000-000000000404') -- E4, recurring, prochaine occurrence < 7j
+    where id = 'aaaa1111-0000-0000-0000-000000000404') -- E4, récurrent en cours
   <
   (select rango_seccion from search_catalog(p_limite => 100000, p_tipos => array['evento'])
-    where id = 'aaaa1111-0000-0000-0000-000000000402'), -- E2, +10j
-  'evento récurrent dont la prochaine occurrence est plus proche (<7j) qu''un ponctuel à +10j est classé avant'
+    where id = 'aaaa1111-0000-0000-0000-000000000403'), -- E3, ponctuel déjà passé
+  'evento récurrent en cours est classé avant un ponctuel déjà passé'
 );
 
 select ok(
@@ -535,6 +630,38 @@ select ok(
   (select rango_seccion from search_catalog(p_limite => 100000, p_tipos => array['evento'])
     where id = 'aaaa1111-0000-0000-0000-000000000401'), -- E1, à venir
   'evento récurrent dont la série est terminée (recurrence_end_date passée) est classé après ceux à venir'
+);
+
+-- ── Ordre des cartes dans une section (2026-10-13) ──────────────────────────────────────────────
+-- Chaque lot est isolé par son mot inventé (cf. les fixtures) : l'ordre s'affirme en entier.
+select is(
+  (select string_agg(slug, ' ' order by rango_seccion)
+   from search_catalog(p_limite => 100000, p_tipos => array['activity'], p_query => 'zqmix')),
+  'sc-mix-1 sc-mix-4 sc-mix-2 sc-mix-5 sc-mix-3',
+  'activités : les catégories alternent — jamais deux cartes « agua » de suite quand c''est évitable'
+);
+
+select is(
+  (select string_agg(slug, ' ' order by rango_seccion)
+   from search_catalog(
+     p_limite => 100000, p_tipos => array['activity'], p_query => 'zqmix', p_por_tipo => 3
+   )),
+  'sc-mix-1 sc-mix-4 sc-mix-2',
+  'le plafond par section coupe APRÈS le mélange : les trois premières cartes sont déjà mélangées'
+);
+
+select is(
+  (select string_agg(slug, ' ' order by rango_seccion)
+   from search_catalog(p_limite => 100000, p_tipos => array['camp'], p_query => 'zqcamp')),
+  'sc-camp-cerca sc-camp-lejos sc-camp-pasado',
+  'camps : par prochain départ, du plus proche au plus lointain ; sans départ à venir, en dernier'
+);
+
+select is(
+  (select string_agg(slug, ' ' order by rango_seccion)
+   from search_catalog(p_limite => 100000, p_tipos => array['evento'], p_query => 'zqalt')),
+  'sc-alt-puntual-1 sc-alt-recurrente-1 sc-alt-puntual-2 sc-alt-recurrente-2 sc-alt-puntual-3 sc-alt-pasado',
+  'events : le ponctuel le plus proche, un récurrent, le ponctuel suivant, un récurrent… les passés en dernier'
 );
 
 select * from finish();

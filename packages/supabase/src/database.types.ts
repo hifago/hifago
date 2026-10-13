@@ -3007,6 +3007,10 @@ export type Database = {
         Returns: undefined
       }
       html_text: { Args: { p_value: string }; Returns: string }
+      interleave_by_category: {
+        Args: { p_categories: string[] }
+        Returns: number[]
+      }
       invoke_payments_reconcile: { Args: never; Returns: undefined }
       invoke_pms_cancel_bookings: { Args: never; Returns: undefined }
       invoke_pms_nightly_contract_check: { Args: never; Returns: undefined }

@@ -62,7 +62,7 @@
 - [Propagation d'une annulation hifago vers LobbyPMS (C2)](specs/25-propagation-annulation-lobbypms.md) 11K ✓ · sans §0
 - [Référencement de la vitrine : Google et moteurs de réponse IA](specs/26-referencement-seo-et-moteurs-ia.md) 32K ✓ · §0 offset 47 limit 83
 - [Architecture de la vitrine : routes, zones, coquilles et couche…](specs/27-architecture-vitrine-et-routage.md) 32K ✓ · §0 offset 52 limit 116
-- [Vitrine : l'accueil, qui est aussi l'écran de résultats de recherche](specs/28-vitrine-accueil-et-resultats.md) 47K ✓ · §0 offset 57 limit 153
+- [Vitrine : l'accueil, qui est aussi l'écran de résultats de recherche](specs/28-vitrine-accueil-et-resultats.md) 48K ✓ · §0 offset 57 limit 158
 - [Vitrine : les pages de listing et l'index de catégories](specs/29-vitrine-listings-et-index-de-categories.md) 71K ✓ · §0 offset 67 limit 196
 - [Vitrine : les fiches produit et établissement](specs/30-vitrine-fiches-produit-et-etablissement.md) 82K ✓ · §0 offset 68 limit 218
 - [Identité anonyme de l'invité](specs/31-identite-anonyme.md) 21K ◐ · §0 offset 45 limit 137 · reste : Les 4 tranches sont livrées (2026-09-10). Reste le point de vérification de la Tranche 4…
