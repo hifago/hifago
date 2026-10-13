@@ -37,7 +37,12 @@ schéma JSON exacts : `mockData/README.md`.
    ⚠️ Base locale PARTAGÉE : avant tout `db:setup` ou application de mockData, demander le jeton de
    la pile à l'orchestrateur d'audit s'il y en a un (`AGENTS-PARALLELES.md` §3).
 
-2. **Préprod** : `/hifago-verify-compte` d'abord (jamais par défaut). Un compte admin équivalent à
+2. **Préprod** : ⚠️ **ne pas lancer sur la préprod actuelle** (constat du 2026-10-04, revérifié le
+   2026-10-13). Elle porte les partenaires réels de la v1 ; ceux de `mockData/` ont une
+   adresse `@mock.hifago.test` (sauf `hifago`, posé par migration), et la clé d'idempotence d'un
+   partenaire est son e-mail : chacun serait recréé en double. Une donnée qui doit exister en préprod s'écrit en migration idempotente
+   (`/push-db`). Ce qui suit ne vaut que pour une préprod repartie d'une base vide.
+   `/hifago-verify-compte` d'abord (jamais par défaut). Un compte admin équivalent à
    `admin@hifago.test` doit exister sur ce projet et avoir une capacité `admin` `active` — sinon le
    script ne peut pas s'authentifier pour les RPC. Mêmes variables, credentials cloud en variable
    de session uniquement, jamais dans un fichier (`CLAUDE.md` §8.2).

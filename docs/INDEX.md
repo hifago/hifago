@@ -32,7 +32,7 @@
 - [Choix de stack et architecture cible](04-architecture-cible.md) 78K
 - [Référence technique — patterns validés et extensions requises](05-reference-technique.md) 9K
 - [Emails transactionnels — les 13 envois possibles, leur déclencheur…](06-emails-transactionnels.md) 15K
-- [Runbook des environnements — préprod et prod, variable par variable](runbook-environnements.md) 13K
+- [Runbook des environnements — préprod et prod, variable par variable](runbook-environnements.md) 14K
 
 ## Specs — une feature chacune
 - [Admin crée un partenaire](specs/01-admin-creation-partenaire.md) 21K ✓ · sans §0

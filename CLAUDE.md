@@ -146,6 +146,10 @@ docs/ai-index.json` — jamais parcourir `docs/` en entier ni lire un gros fichi
    de réglage projet, redéployer à froid (`vercel deploy --force`) ; `vercel env ls` n'affiche PAS
    les variables "Shared Environment" d'équipe. Le relais réseau (Vultr) se relance par
    `systemctl restart`, jamais `reload` (systemd ne relit l'`EnvironmentFile` qu'au démarrage).
+5. **Préprod : la base part avant le code, par `scripts/deploy-preprod.mjs`** (`/push-db`, `/push`,
+   `/upload-db`) — jamais un `git push` nu vers `staging` (le hook `pre-push` refuse une migration
+   non vérifiée), jamais `mockData/` sur la préprod (ses e-mails sont fictifs : doublons). Une
+   donnée qui doit exister partout s'écrit en migration idempotente (panne du 2026-10-13).
 
 ## 8. Sécurité opérationnelle — non négociable (leçon du 2026-08-12)
 1. **Avant toute action touchant une ressource cloud réelle** (Supabase, Vercel, tout MCP),

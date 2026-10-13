@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Hook git pre-push — lance `npm run verify` avant tout push (~35 s).
+# Hook git pre-push — lance `npm run verify` avant tout push (~35 s), et refuse qu'un push vers
+# `staging` envoie une migration que la préprod n'a pas reçue (garde « la base avant le code »).
 #
 # POURQUOI (revue de CI du 2026-09-19). Rien ne vérifiait quoi que ce soit avant le push :
 # `.git/hooks/` ne contenait que des `.sample`, et les seuls hooks du dépôt étaient ceux de Claude
@@ -23,6 +24,49 @@ set -uo pipefail
 
 racine="$(git rev-parse --show-toplevel)"
 cd "$racine" || exit 0
+
+# GARDE « LA BASE AVANT LE CODE » (panne du 2026-10-13, déjà survenue le 2026-10-01). Vercel déploie
+# `staging` dès le push ; si les commits poussés AJOUTENT une migration que la préprod n'a pas
+# reçue, le code part lire une colonne qui n'existe pas encore — toute fiche de la vitrine est
+# restée en « Algo salió mal » pendant des heures. L'ordre était écrit au runbook §4, rien ne le
+# tenait. `scripts/deploy-preprod.mjs` applique les migrations PUIS pousse, en posant
+# HIFAGO_DEPLOY_PREPROD=<sha poussé> : c'est le seul chemin que cette garde laisse passer.
+#
+# Elle ne lit que ce que git lui donne sur l'entrée standard (une ligne par ref poussée) et ne
+# contacte rien : elle ne SAIT pas si la préprod est à jour, elle sait que personne ne l'a vérifié.
+# Seul `staging` est concerné — une branche de travail ne déploie pas la préprod.
+zero="0000000000000000000000000000000000000000"
+sha_staging=""
+migrations_ajoutees=""
+while read -r _ref_local sha_local ref_distant sha_distant; do
+  [ "$ref_distant" = "refs/heads/staging" ] || continue
+  # Suppression de la branche, ou branche absente du dépôt distant : rien à comparer.
+  [ "$sha_local" = "$zero" ] && continue
+  [ "$sha_distant" = "$zero" ] && continue
+  sha_staging="$sha_local"
+  migrations_ajoutees="$(git diff --name-only --diff-filter=A "$sha_distant" "$sha_local" -- supabase/migrations 2>/dev/null)"
+done
+
+if [ -n "$migrations_ajoutees" ] && [ "${HIFAGO_DEPLOY_PREPROD:-}" != "$sha_staging" ]; then
+  echo "╭──────────────────────────────────────────────────────────────────────────────╮"
+  echo "│ Push interrompu : ces commits ajoutent des migrations.                       │"
+  echo "│ Vercel déploierait le code AVANT que la préprod ait reçu son schéma.         │"
+  echo "╰──────────────────────────────────────────────────────────────────────────────╯"
+  echo "$migrations_ajoutees" | sed 's/^/    /'
+  echo
+  echo "  À la place :  node scripts/deploy-preprod.mjs all     (ou /push-db)"
+  echo "  Il applique les migrations sur la préprod, pousse le code, puis contrôle les fiches."
+  echo "  Pour pousser quand même : git push --no-verify"
+  exit 1
+fi
+
+# `deploy-preprod.mjs` vient de lancer `npm run verify` sur ce même commit, avant de toucher à la
+# base : le relancer ici doublerait l'attente sans rien apprendre. Lié au sha — un marqueur resté
+# dans l'environnement ne dispense aucun autre commit.
+if [ -n "${HIFAGO_VERIFY_FAIT:-}" ] && [ "${HIFAGO_VERIFY_FAIT}" = "$(git rev-parse HEAD)" ]; then
+  echo "pre-push : contrôles déjà passés sur ce commit (scripts/deploy-preprod.mjs)."
+  exit 0
+fi
 
 # Pas de node_modules (clone frais, machine d'un collègue) : on ne bloque pas un push pour ça.
 if [ ! -d node_modules ]; then
