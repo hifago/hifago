@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Input, Label, ListBox, Select, buttonVariants } from "@hifago/ui";
 import { SearchableCombobox } from "@/components/searchable-combobox";
-import { PRODUCT_TYPES } from "@/lib/lists/filters";
+import { PRODUCT_TYPES, PRODUCT_TYPE_LABELS } from "@/lib/lists/filters";
 import { LEDGER_STATUS_LABELS } from "./ledgerStatusLabels";
 
 export type ReferrerOption = { id: string; name: string };
@@ -116,8 +116,8 @@ export function LedgerFilterBar({ values, hiddenParams, referrers, establishment
                 <ListBox.ItemIndicator />
               </ListBox.Item>
               {PRODUCT_TYPES.map((type) => (
-                <ListBox.Item key={type} id={type} textValue={type}>
-                  {type}
+                <ListBox.Item key={type} id={type} textValue={PRODUCT_TYPE_LABELS[type]}>
+                  {PRODUCT_TYPE_LABELS[type]}
                   <ListBox.ItemIndicator />
                 </ListBox.Item>
               ))}

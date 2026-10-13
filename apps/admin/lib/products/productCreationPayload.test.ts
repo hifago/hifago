@@ -78,9 +78,11 @@ describe("buildProductCreationPayload", () => {
       "address", "lat", "lon", "tag_ids", "price_cop", "price_tiers", "min_qty", "max_qty",
       "check_in_time", "check_out_time", "capacity", "unit_count", "lodging_kind", "unit",
       "stay_rates", "lobby_category_id", "default_capacity", "external_booking_url", "price_label",
+      "amenity_ids",
     ]) {
       expect(payload).toHaveProperty(key);
     }
+    expect(payload.amenity_ids).toEqual(["amenity-wifi"]);
     for (const key of [
       "lobby_product_id", "slot_rules", "transport_contact_phone", "duration_days",
       "group_discount_pct", "program", "online_bookable", "occurrence_type",

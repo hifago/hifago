@@ -12,6 +12,11 @@ import { productTypeGating, type ProductType, type ProductTypeFieldsState } from
 // ProductForm.handleSubmit (product-form.tsx) : mêmes champs, jamais tags/photos/slot_rules/
 // (délégués à des blocs séparés à sauvegarde immédiate côté admin, jamais couverts par
 // ce même submit là non plus — cf. tête de migration 20260817150000).
+//
+// Les étiquettes d'une PROPOSITION d'édition (migration 20261013144848) ne passent pas par ici :
+// ce payload sert aussi à l'update direct de ProductForm, où `tag_ids` n'est pas une colonne. Les
+// deux formulaires de proposition (EditProposalForm, ModerateProposalForm) ajoutent la clé
+// eux-mêmes, et seulement quand elle doit y être (lib/tags/proposedTags.ts).
 export function buildProductEditPayload(
   type: ProductType,
   name: LocalizedValue,

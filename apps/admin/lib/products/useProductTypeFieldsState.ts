@@ -34,11 +34,9 @@ export type ProductTypeFieldsInit = {
   lat?: number | null;
   lon?: number | null;
   tagIds?: string[];
-  // Équipements structurés stagés à la CRÉATION (migration 20260917110000) — même patron que
-  // tagIds : liste d'ids, rattachée après l'insert (product-form.tsx), jamais dans une RPC de
-  // proposition socio (les équipements restent un geste admin, cf. journal 2026-09-17). Absent de
-  // RawProductFieldsPayload/payloadToFieldsInit à dessein : aucun payload de proposition n'en porte
-  // jamais.
+  // Équipements structurés d'un logement (migration 20260917110000) — même patron que tagIds :
+  // liste d'ids, rattachée après l'insert en création admin directe (product-form.tsx), portée par
+  // le payload (`amenity_ids`) dans une proposition socio depuis la migration 20261013151206.
   amenityIds?: string[];
   priceCop?: number | null;
   priceTiers?: unknown;
@@ -269,6 +267,8 @@ export type RawProductFieldsPayload = {
   lat?: number | null;
   lon?: number | null;
   tag_ids?: string[];
+  // Équipements d'un logement dans une proposition (migration 20261013151206).
+  amenity_ids?: string[];
   price_cop?: number | null;
   price_tiers?: unknown;
   min_qty?: number | null;
@@ -321,6 +321,7 @@ export function payloadToFieldsInit(payload: RawProductFieldsPayload): ProductTy
     lat: payload.lat,
     lon: payload.lon,
     tagIds: payload.tag_ids,
+    amenityIds: payload.amenity_ids,
     priceCop: payload.price_cop,
     priceTiers: payload.price_tiers,
     minQty: payload.min_qty,

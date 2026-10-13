@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
+import { filaPorNombre } from "./support/filas";
 import { toggleCheckbox } from "@hifago/e2e-support";
 
 // Feature 26 (docs/specs/01-admin-creation-partenaire.md) — la garde /admin/* (compte non-admin
@@ -67,7 +68,7 @@ test("un compte admin crea un partner prestador con código, perfil comercial e 
   // ne montre que le statut active — les capacités créées ici démarrent pending_review par design,
   // spec §10 — donc la vérification des rôles se fait sur la fiche détail, pas la liste).
   await page.goto("/admin/partners");
-  const partnerRow = page.locator("tr", { hasText: displayName });
+  const partnerRow = filaPorNombre(page, displayName);
   await expect(partnerRow).toBeVisible();
   await partnerRow.getByRole("link", { name: "Ver" }).click();
   const capabilitiesTable = page.getByTestId("capabilities-table");

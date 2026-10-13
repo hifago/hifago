@@ -4,6 +4,7 @@ import { createClient } from "@hifago/supabase/server";
 import { checkedRead } from "@/lib/supabase/checkedRead";
 import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
+import { toTagOptions } from "@/lib/tags/proposedTags";
 import { ModerateProposalForm } from "./ModerateProposalForm";
 import { PhotoModerationForm } from "./PhotoModerationForm";
 import { ModerateProductCreationProposalForm } from "./ModerateProductCreationProposalForm";
@@ -69,6 +70,11 @@ export default async function AdminProposalDetailPage({
       id: tag.id,
       label: resolveLocalizedField(asLocalizedField(tag.label), "es") ?? tag.id,
     }));
+    // Équipements proposés avec un logement (migration 20261013151206).
+    const { data: amenitiesRaw } = checkedRead(
+      await supabase.from("catalog_amenities").select("id, label").order("category_key").order("sort_order"),
+      "catalog_amenities",
+    );
 
     return (
       <div className="flex flex-col gap-6">
@@ -90,6 +96,7 @@ export default async function AdminProposalDetailPage({
             type={proposal.type as ProductType}
             payload={proposal.payload}
             availableTags={availableTags}
+            availableAmenities={toTagOptions(amenitiesRaw)}
             establishmentId={proposal.establishment_id ?? ""}
             establishmentLobbyConnected={Boolean(
               proposal.establishment?.lobby_connector_active && proposal.establishment?.lobby_has_token
@@ -106,6 +113,29 @@ export default async function AdminProposalDetailPage({
   if (!proposal.product) {
     notFound();
   }
+
+  // Étiquettes (migration 20261013144848) — une proposition de contenu peut désormais en changer :
+  // le modérateur compare celles en place à celles proposées, comme pour tout autre champ.
+  const { data: tagsRaw } = checkedRead(
+    await supabase.from("catalog_tags").select("id, label").order("slug"),
+    "catalog_tags",
+  );
+  const { data: tagAssignments } = checkedRead(
+    await supabase.from("product_tag_assignments").select("tag_id").eq("product_id", proposal.product.id),
+    "product_tag_assignments",
+  );
+  // Équipements d'un logement (migration 20261013151206) — même comparaison en place / proposé.
+  const { data: amenitiesRaw } = checkedRead(
+    await supabase.from("catalog_amenities").select("id, label").order("category_key").order("sort_order"),
+    "catalog_amenities",
+  );
+  const { data: amenityAssignments } = checkedRead(
+    await supabase
+      .from("product_amenity_assignments")
+      .select("amenity_id")
+      .eq("product_id", proposal.product.id),
+    "product_amenity_assignments",
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -139,6 +169,10 @@ export default async function AdminProposalDetailPage({
           type={proposal.product.type as ProductType}
           currentPayload={proposal.product}
           proposedPayload={proposal.payload as Record<string, unknown>}
+          availableTags={toTagOptions(tagsRaw)}
+          currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
+          availableAmenities={toTagOptions(amenitiesRaw)}
+          currentAmenityIds={(amenityAssignments ?? []).map((row) => row.amenity_id)}
         />
       )}
     </div>
@@ -174,7 +208,25 @@ async function AdminEstablishmentProposalDetail({ id }: { id: string }) {
     lat?: number | null;
     lon?: number | null;
     photos?: { storage_path: string }[];
+    tag_ids?: unknown;
   };
+
+  // Étiquettes (migration 20261013144848) — édition seulement : une proposition de création n'en
+  // porte pas, et l'établissement n'existe pas encore.
+  const { data: tagsRaw } = checkedRead(
+    await supabase.from("catalog_tags").select("id, label").order("slug"),
+    "catalog_tags",
+  );
+  const establishmentId = proposal.establishment?.id;
+  const { data: tagAssignments } = establishmentId
+    ? checkedRead(
+        await supabase
+          .from("establishment_tag_assignments")
+          .select("tag_id")
+          .eq("establishment_id", establishmentId),
+        "establishment_tag_assignments",
+      )
+    : { data: [] as { tag_id: string }[] };
 
   const currentName = proposal.establishment
     ? (resolveLocalizedField(asLocalizedField(proposal.establishment.name), "es") ?? proposal.establishment.id)
@@ -212,6 +264,8 @@ async function AdminEstablishmentProposalDetail({ id }: { id: string }) {
           kind={proposal.kind as "create" | "edit"}
           currentPayload={proposal.establishment}
           proposedPayload={proposedPayload}
+          availableTags={toTagOptions(tagsRaw)}
+          currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
         />
       )}
     </div>

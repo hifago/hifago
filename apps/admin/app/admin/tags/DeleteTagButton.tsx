@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@hifago/supabase/client";
 import { Button, Modal, toast } from "@hifago/ui";
+import { deleteCatalogTag } from "@/lib/tags/editCatalogTag";
 
 // Mirroir de apps/admin/app/admin/invitations/RevokeInvitationButton.tsx — pattern déjà utilisé
 // dans le projet pour une confirmation destructive (Modal + Button variant="danger"), pas
@@ -24,13 +24,12 @@ export function DeleteTagButton({
   async function handleDelete() {
     setIsSubmitting(true);
 
-    const supabase = createClient();
-    const { error: deleteError } = await supabase.from("catalog_tags").delete().eq("id", tagId);
+    const deleteError = await deleteCatalogTag(tagId);
 
     setIsSubmitting(false);
 
     if (deleteError) {
-      toast.danger("No se pudo eliminar la etiqueta.");
+      toast.danger(deleteError);
       return;
     }
 

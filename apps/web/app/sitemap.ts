@@ -100,7 +100,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const sinCriterios = leerCriterios({});
   const [products, establishments, ...categoriasPorTipo] = await Promise.all([
     supabase.from("products").select("slug, name, updated_at").eq("sellable", true),
-    supabase.from("establishments").select("slug, name, updated_at").eq("status", "active"),
+    // Un lieu (`is_place`) n'a pas de fiche : sa page rend 404, donc jamais une entrée ici — même
+    // filtre que `getEstablecimientoPorSlug`. Celui-ci n'est PAS une redite de la RLS.
+    supabase
+      .from("establishments")
+      .select("slug, name, updated_at")
+      .eq("status", "active")
+      .eq("is_place", false),
     ...ORDEN_SECCIONES.map((tipo) =>
       buscarCategorias(tipo, sinCriterios, { porCategoria: 1, locale: routing.defaultLocale }).catch(
         (cause: unknown) => {

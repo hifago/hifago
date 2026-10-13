@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@hifago/supabase/client";
 import { Button, Input, Label, TextField, toast } from "@hifago/ui";
-import { slugify } from "@/lib/utils";
+import { createCatalogTag } from "@/lib/tags/createCatalogTag";
 
 export function NewTagForm() {
   const router = useRouter();
@@ -20,28 +19,11 @@ export function NewTagForm() {
     }
 
     setIsSubmitting(true);
-
-    const supabase = createClient();
-    const { error: insertError } = await supabase.from("catalog_tags").insert({
-      label: { es: labelEs.trim() },
-      slug: slugify(labelEs),
-    });
-
+    const result = await createCatalogTag(labelEs);
     setIsSubmitting(false);
 
-    if (insertError) {
-      toast.danger(
-        insertError.code === "23505"
-          ? "Ya existe una etiqueta con ese nombre."
-          : insertError.code === "23514"
-            ? // ⚠️ Le slug est dérivé du nom (`slugify`), jamais saisi : un admin qui écrit
-              // « Otras » déclenche la contrainte `catalog_tags_slug_reservado` sans avoir
-              // rien fait de visiblement interdit. Sans ce message, il lirait « No se pudo
-              // crear » et réessaierait à l'identique. `otras` est réservé à la page des
-              // activités qu'aucune catégorie ne classe (spec 29 §6a).
-              "«\u00a0Otras\u00a0» está reservado para la página de actividades sin categoría. Usa otro nombre."
-            : "No se pudo crear la etiqueta.",
-      );
+    if ("error" in result) {
+      toast.danger(result.error);
       return;
     }
 

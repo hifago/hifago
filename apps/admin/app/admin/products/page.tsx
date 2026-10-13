@@ -12,7 +12,10 @@ type ProductQueryRow = {
   name: unknown;
   type: string;
   price_cop: number | null;
+  price_tiers: unknown;
+  is_free: boolean;
   sellable: boolean;
+  establishment_id: string;
   establishments: { name: unknown } | null;
   product_tag_assignments?: { tag_id: string }[];
 };
@@ -51,7 +54,11 @@ export default async function AdminProductsPage({
   // Les deux ne dépendent que du filtre "établissement" respectif, jamais l'un de l'autre —
   // lancées en concurrence (même idiome que la fiche client, [client_key]/page.tsx).
   const [establishmentsResult, tagsResult] = await Promise.all([
-    supabase.from("establishments").select("id, name").order("name->>es", { ascending: true }).limit(10),
+    // Édition en ligne (2026-10-13) : la cellule « Establecimiento » propose TOUS les
+    // établissements (une fiche peut partir vers n'importe lequel), donc plus de `.limit(10)` sur
+    // la requête. Le plafond de 10 du FILTRE est inchangé : il est repris plus bas par un
+    // `slice(0, 10)` sur ce même ordre alphabétique — mêmes dix options qu'avant.
+    supabase.from("establishments").select("id, name").order("name->>es", { ascending: true }),
     // Revue admin étiquettes (Jérôme, 2026-08-20) — pas de plafond ni d'échappatoire texte
     // (contrairement à établissement, cf. commentaire ci-dessous) : catalog_tags est une
     // taxonomie curée par l'admin (dizaines attendues), pas une collection qui grossit à chaque
@@ -61,10 +68,11 @@ export default async function AdminProductsPage({
   // Une panne LÈVE (lib/supabase/checkedRead.ts) : des filtres vides la cacheraient.
   const { data: establishments } = checkedRead(establishmentsResult, "establishments");
   const { data: tags } = checkedRead(tagsResult, "catalog_tags");
-  const establishmentOptions = (establishments ?? []).map((establishment) => ({
+  const allEstablishmentOptions = (establishments ?? []).map((establishment) => ({
     value: establishment.id,
     label: resolveLocalizedField(asLocalizedField(establishment.name), "es") ?? establishment.id,
   }));
+  const establishmentOptions = allEstablishmentOptions.slice(0, 10);
   const tagOptions = (tags ?? []).map((tag) => ({
     value: tag.id,
     label: resolveLocalizedField(asLocalizedField(tag.label), "es") ?? tag.id,
@@ -79,7 +87,8 @@ export default async function AdminProductsPage({
   // sans aucune étiquette disparaîtrait de la liste par défaut (même piège LEFT JOIN vs INNER JOIN
   // déjà documenté pour list_partners_admin). (product_id, tag_id) est la clé primaire de la table
   // : filtrer sur un tag_id précis ne peut jamais dupliquer une ligne produit.
-  let selectColumns = "id, name, type, price_cop, sellable, establishments!inner(name)";
+  let selectColumns =
+    "id, name, type, price_cop, price_tiers, is_free, sellable, establishment_id, establishments!inner(name)";
   if (filters.tag_id) {
     selectColumns += ", product_tag_assignments!inner(tag_id)";
   }
@@ -110,15 +119,43 @@ export default async function AdminProductsPage({
 
   const { data: products, count } = checkedRead(await query.returns<ProductQueryRow[]>(), "products");
 
-  const rows: ProductRow[] = (products ?? []).map((product) => ({
-    id: product.id,
-    name: resolveLocalizedField(asLocalizedField(product.name), "es") ?? product.id,
-    establishmentName:
-      resolveLocalizedField(asLocalizedField(product.establishments?.name), "es") ?? "—",
-    type: product.type,
-    priceCop: product.price_cop,
-    sellable: product.sellable,
-  }));
+  // Étiquettes de la page courante, pour la colonne éditable « Etiquetas » — par une requête À
+  // PART, jamais par l'embed `product_tag_assignments!inner` ci-dessus : sous le filtre `tag_id`,
+  // cet embed ne rend que l'étiquette filtrée. La cellule afficherait alors une seule étiquette,
+  // et l'enregistrer (la RPC REMPLACE les assignations) retirerait toutes les autres.
+  const productIds = (products ?? []).map((product) => product.id);
+  const { data: tagAssignments } =
+    productIds.length > 0
+      ? checkedRead(
+          await supabase.from("product_tag_assignments").select("product_id, tag_id").in("product_id", productIds),
+          "product_tag_assignments",
+        )
+      : { data: [] as { product_id: string; tag_id: string }[] };
+  const tagIdsByProduct = new Map<string, string[]>();
+  for (const assignment of tagAssignments ?? []) {
+    tagIdsByProduct.set(assignment.product_id, [
+      ...(tagIdsByProduct.get(assignment.product_id) ?? []),
+      assignment.tag_id,
+    ]);
+  }
+
+  const rows: ProductRow[] = (products ?? []).map((product) => {
+    // `price_tiers` vaut souvent `'null'::jsonb` (pas SQL NULL) : seul un tableau non vide est un
+    // vrai barème — même lecture que la garde `price_has_tiers` de admin_update_product_inline.
+    const hasPriceTiers = Array.isArray(product.price_tiers) && product.price_tiers.length > 0;
+    return {
+      id: product.id,
+      name: resolveLocalizedField(asLocalizedField(product.name), "es") ?? product.id,
+      establishmentId: product.establishment_id,
+      establishmentName:
+        resolveLocalizedField(asLocalizedField(product.establishments?.name), "es") ?? "—",
+      type: product.type,
+      priceCop: product.price_cop,
+      priceMode: product.is_free ? "free" : hasPriceTiers ? "tiers" : product.price_cop === null ? "none" : "simple",
+      sellable: product.sellable,
+      tagIds: tagIdsByProduct.get(product.id) ?? [],
+    };
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -137,6 +174,7 @@ export default async function AdminProductsPage({
         filterValues={filters}
         extraParams={extraParams}
         establishmentOptions={establishmentOptions}
+        allEstablishmentOptions={allEstablishmentOptions}
         tagOptions={tagOptions}
       />
     </div>

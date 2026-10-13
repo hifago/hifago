@@ -159,10 +159,10 @@ export function ProductForm({
   establishments?: Establishment[];
   initialEstablishmentId?: string;
   allTags?: TagOption[];
-  // Équipements structurés (migration 20260917110000) — stagés à la création ADMIN uniquement
-  // (jamais pour variant "socio-proposal", cf. le commentaire de showAmenities dans
-  // product-type-fields.tsx). En édition, ce prop n'est pas lu : ProductAmenitiesBlock (rendu par
-  // la page) reprend la main avec son propre chargement.
+  // Équipements structurés (migration 20260917110000) — choisis à la création, par l'admin comme
+  // par le socio (dont la proposition les porte depuis la migration 20261013151206). En édition,
+  // ce prop n'est pas lu : ProductAmenitiesBlock (rendu par la page) reprend la main avec son
+  // propre chargement.
   allAmenities?: TagOption[];
   product?: EditableProduct;
   variant?: "admin" | "socio-proposal";
@@ -247,7 +247,11 @@ export function ProductForm({
   const usesTiers = hasPriceQtyFields && fields.priceMode === "tiers";
   // MIROIR EXACT de la contrainte `products_price_cop_required_unless_vitrine` (2026-09-08) : un
   // evento OU une offre en vitrine (URL externe posée) est dispensé de prix chiffré.
-  const enVitrina = Boolean(fields.externalBookingUrl.trim());
+  // Un socio ne voit pas le lien de réservation externe d'un logement (showAdminLodgingOptions,
+  // plus bas). Une URL saisie sous un autre type avant de basculer sur « Alojamiento » resterait
+  // dans l'état, invisible : elle ne compte ni pour la validation du prix ni dans la proposition.
+  const vitrinaOculta = variant === "socio-proposal" && isLodging;
+  const enVitrina = !vitrinaOculta && Boolean(fields.externalBookingUrl.trim());
   const eventoOnlinePaid = isEvento && fields.onlineBookable && !fields.isFree;
   const needsOwnPrice = (!isEvento && !enVitrina) || eventoOnlinePaid;
 
@@ -299,7 +303,7 @@ export function ProductForm({
       minQty: fields.minQty,
       maxQty: fields.maxQty,
       stayRates: fields.stayRates,
-      externalBookingUrl: fields.externalBookingUrl,
+      externalBookingUrl: vitrinaOculta ? "" : fields.externalBookingUrl,
     });
   }
 
@@ -459,7 +463,10 @@ export function ProductForm({
     const establishment = establishments.find((item) => item.id === establishmentId)!;
 
     if (variant === "socio-proposal") {
-      const payload = buildProductCreationPayload(type, name, description, fields, stagedPhotos);
+      const payload = {
+        ...buildProductCreationPayload(type, name, description, fields, stagedPhotos),
+        ...(vitrinaOculta ? { external_booking_url: null, price_label: null } : {}),
+      };
       const { data, error: rpcError } = await supabase.rpc("submit_product_creation_proposal", {
         p_establishment_id: establishment.id,
         p_type: type,
@@ -508,12 +515,13 @@ export function ProductForm({
     // demande de porter `price_cop: null` quand aucun prix n'est saisi, ce qui change le chemin
     // socio du même geste : hors du périmètre de ce correctif-ci, ouvert dans docs/backlog.md.
     //
-    // `photos`/`tag_ids`/`slot_rules` ne sont pas des colonnes de `products` : la RPC de
-    // proposition les transpose côté SQL, ce chemin-ci les rattache lui-même APRÈS l'insert
+    // `photos`/`tag_ids`/`amenity_ids`/`slot_rules` ne sont pas des colonnes de `products` : la RPC
+    // de proposition les transpose côté SQL, ce chemin-ci les rattache lui-même APRÈS l'insert
     // (Promise.all ci-dessous). Leur retrait est délibéré, jamais un oubli.
     const productColumns = buildProductCreationPayload(type, name, description, fields);
     delete productColumns.photos; // rattachées par add_catalog_media, ci-dessous
     delete productColumns.tag_ids; // rattachés par product_tag_assignments, ci-dessous
+    delete productColumns.amenity_ids; // rattachés par product_amenity_assignments, ci-dessous
     delete productColumns.slot_rules; // rattachées par product_slot_rules, ci-dessous
 
     const { data: newProduct, error: insertError } = await supabase
@@ -564,10 +572,9 @@ export function ProductForm({
       })(),
       (async () => {
         // Équipements structurés (migration 20260917110000) — même discipline que les tags
-        // juste au-dessus : `fields.selectedAmenityIds` reste `[]` pour variant "socio-proposal"
-        // (showAmenities y vaut toujours false, rien à saisir), donc cette insertion est un no-op
-        // silencieux et sûr dans ce cas.
-        if (fields.selectedAmenityIds.length === 0) return;
+        // juste au-dessus. Le variant "socio-proposal" ne passe jamais ici : sa proposition porte
+        // `amenity_ids` et c'est create_product_from_proposal qui les pose à l'approbation.
+        if (!isLodging || fields.selectedAmenityIds.length === 0) return;
         const { error: amenitiesError } = await supabase
           .from("product_amenity_assignments")
           .insert(fields.selectedAmenityIds.map((amenityId) => ({ product_id: newProduct.id, amenity_id: amenityId })));
@@ -656,8 +663,9 @@ export function ProductForm({
     campDurationDays: product?.duration_days ?? null,
     onApplyLobbyRoomData: applyLobbyRoomData,
     availableTags: allTags,
-    showAmenities: !isEditing && variant === "admin",
+    showAmenities: !isEditing,
     availableAmenities: allAmenities,
+    showAdminLodgingOptions: variant === "admin",
   };
 
   if (isEditing) {

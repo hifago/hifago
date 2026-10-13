@@ -30,7 +30,9 @@ const CREATION_ONLY: Record<ProductType, string[]> = {
   ],
   // duration_days : productCreationPayload.ts, "gap préexistant, jamais éditable aujourd'hui".
   camp: ["photos", "tag_ids", "duration_days"],
-  lodging: ["photos", "tag_ids"],
+  // amenity_ids : comme tag_ids, ajouté à une proposition d'édition par le formulaire lui-même et
+  // seulement si la sélection change (lib/amenities/proposedAmenities.ts).
+  lodging: ["photos", "tag_ids", "amenity_ids"],
   transport: ["photos", "tag_ids"],
 };
 

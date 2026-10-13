@@ -5,7 +5,7 @@ theme: specs
 public: [ia, dev, jerome]
 langue: fr
 statut: brouillon
-maj: 2026-10-02
+maj: 2026-10-13
 resume: >
   Étendre le style de l'accueil (charte Hifago 2026) à toutes les pages de la vitrine : analyse
   mesurée de l'accueil, règles du style, constats écran par écran, puis un plan d'items identifiés
@@ -64,7 +64,7 @@ repond_a:
 | 7 | Ordre conseillé, lots, et chemin minimal par page | Jérôme, IA |
 | 8 | Inventaire écrans → fichiers → stories → e2e | IA, dev |
 | 9 | Annexes — contrastes, mesures, titres en dur | IA, dev |
-| 10 | Suivi des items (à cocher) | tous |
+| 10 | Suivi des items (à cocher) — et §10.1, points ouverts et validations en attente de Jérôme | tous |
 
 ## 0. Contrat compact (pour appliquer un item — lire seul, sans le reste)
 
@@ -2241,3 +2241,18 @@ remarque.
 | G3 | README des composants | fait | 2026-10-03 | non commité | Constats périmés retirés ; tableau « Où va quoi » et groupes Storybook alignés sur `TituloRubrica`, `PuceEstado`, `Aviso`, `TeselaOferta`, `BandeauPagina`, `EnlaceGo` et `SeccionRiel` ; story Tesela rangée sous `Affichage/` |
 | G4 | Planche `Playground/Charte` | fait | 2026-10-03 | non commité | Nouvelle référence de page : rôles Anton/Poppins, trois surfaces et leurs contrastes, champs/boutons, rayons, quatre tons d'`Aviso`, puces et rail signature à trois tuiles avec `EnlaceGo`. Vérifiée à 390 et 1 280 px, sans alerte ni débordement |
 | G5 | Ménage final | fait | 2026-10-03 | non commité | Retrait de `BandaTitulo`, `SeccionOfertas`, `CarruselConSombra`, `SiteMenu`, `Card overlay` et des variantes historiques de `PageShell`; crochet du carrousel intégré à `FilaRiel`, menu des types remonté en organisme. D9 appliqué : vitrine claire uniquement. Après archivage au journal de septembre et accord explicite de Jérôme, les cinq pistes comparatives, leurs globals Storybook et environ 660 lignes CSS ont été retirés. Grep : aucune clé de piste, `data-piste`, `data-mode` ni variante sombre résiduelle |
+
+### 10.1 Points ouverts et validations en attente de Jérôme
+
+Sortis de `docs/backlog.md` le 2026-10-13 (il était à son plafond de 60 lignes), recopiés tels
+quels, sans élagage : le backlog ne garde qu'un renvoi vers cette section. Un point refermé se
+retire d'ici comme il se retirait du backlog — sur preuve, et en le disant au journal.
+
+⚠️ Non vérifié lors du déplacement : la dernière ligne dit les pages P1–P12 toutes réalisées, alors
+que le tableau ci-dessus garde P3 à P7 « à faire » et que le journal n'a pas d'entrée pour elles.
+
+- **Héros de l'accueil, seconde maquette (2026-10-02)** — reproduite, cinq écarts à valider : (1) l'asset de la rue ne monte pas au-dessus de son cadre : descendue comme sur la maquette, elle apparaît en **fondu** sous le header au lieu de toucher le haut de l'écran (alternative : collée en haut, tout le dessin 87 px plus haut) ; (2) l'**icône du compte** absente de la maquette est GARDÉE (sinon plus d'accès connexion depuis l'accueil) ; (3) titre en **Poppins ExtraBold**, pas dans la police de titre de la charte ; (4) le `<h1>` perd ses mots-clés (« Actividades y alojamientos en Guatapé » → le slogan) ; (5) anglais choisi « Guatapé is worth / more than a day. » (même largeur que l'espagnol). Journal du 2026-10-02.
+- **Tuiles de l'accueil sur mobile (2026-10-02)** : depuis le cartouche + bulles (référence « La Comète Argentique »), une tuile de 97 px à 390 px est à moitié couverte et l'établissement tronqué. Garder trois tuiles par écran (maquette du 01/10) ou les agrandir sous `md` ? Et quelles infos de plus dans les bulles (durée, prochaine date, catégorie) — demande que `search_catalog` les rende. Journal du 2026-10-02. ⚠️ La première moitié semble résolue depuis « une carte par section » sous `md` (tuile de 288 px à 390, mesurée le 2026-10-02) : à confirmer par Jérôme avant de réduire la ligne aux bulles.
+- **Catégories partout (2026-09-14) — deux choix pris sans confirmation explicite de Jérôme**, à revalider : (1) l'image/texte éditorial d'une catégorie (`catalog_tags.description`/`image_path`, saisis via l'admin) ne s'affiche plus sur l'index (le pattern accueil n'a ni photo ni texte par section) — le texte reste visible sur la page dédiée `/[type]/[categoria]` (chapô du bandeau depuis le plan 41, P2) ; l'image, qui ne s'affichait NULLE PART, est rendue depuis le 2026-10-03 en décor du bandeau de cette même page, à partir de `lg` (plan 41, D16 tranché par Jérôme, item P2) — reste à valider : son absence de l'index ; (2) plafond arbitraire de 6 offres par catégorie sur l'index (`POR_CATEGORIA`, `IndiceCategoriasConOfertas.tsx`), aucune valeur donnée dans la demande.
+- **Design du front : chaque écran de la vitrine est dans Storybook, dans chacun de ses états** (livré le 2026-10-01, 16 écrans en 128 stories + 5 parcours en 25 étapes, sans Docker : `npm run storybook -w @hifago/web`, guide « Pour Jérôme » dans `apps/web/components/README.md`) — **palette et typographie tranchées le 2026-10-01** par la charte graphique (voir plus bas) ; la barre de comparaison et ses cinq pistes ont été retirées le 2026-10-03, Storybook montre désormais la même charte claire que la production. Restent à parcourir pour le **responsive** les défauts encore ouverts dans `docs/dette-technique.md`. Ouverts : exécuter les `play` en CI (`@storybook/addon-vitest`, nouvelle dépendance) et une planche « tous les états d'un écran » (`@storybook/addon-docs`).
+- **Charte sur toute la vitrine — ce plan (2026-10-02)**, à appliquer par `/hifago-charte` (rendu par `/hifago-rendu`) : 46 items. **D1–D16 tranchés par Jérôme le 2026-10-02** (§5 ; notamment header or, pied marine, boutons à 8 px, **Anton confirmé** — pas de licence Sugo, mode sombre désactivé). **Lots 1 à 9 réalisés le 2026-10-03** : toutes les pages P1–P12, composants signature, assets web, planche de référence et ménage final ; bande décorative du pied et favicon « GO » confirmés par Jérôme, cinq pistes comparatives archivées puis supprimées avec son accord. **Restent ouverts** : les chapôs des index P1 (Jérôme doit fournir 40 à 60 mots, `es` et `en`, D14), la question D8 hors plan sur les 8 libellés « Campamento » de l'admin, et les validations visuelles déjà listées pour l'accueil/compte pro/planchers des tuiles. Hors plan : logo **horizontal large** à demander au graphiste (A5), 5ᵉ image brun/crème hors palette, pastille « NOUVEAU » et étiquettes sur photo sans donnée.

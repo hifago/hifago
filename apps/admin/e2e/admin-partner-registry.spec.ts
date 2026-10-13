@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
+import { filaPorNombre } from "./support/filas";
 import {
   confirmAndContinue,
   createActiveOperatorEstablishment,
@@ -56,7 +57,7 @@ test("admin gère le registre d'un partenaire : capacité, statut, transfert, co
   await abrirFiltros(page);
   await page.getByTestId("filter-q").fill("Référent Actif Org");
   await page.getByTestId("server-filters-submit").click();
-  const partnerRow = page.locator("tr", { hasText: "Référent Actif Org" });
+  const partnerRow = filaPorNombre(page, "Référent Actif Org");
   await partnerRow.getByRole("link", { name: "Ver" }).click();
   await expect(page).toHaveURL(/\/admin\/partners\/.+/);
 

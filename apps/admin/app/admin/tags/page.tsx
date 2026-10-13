@@ -47,6 +47,9 @@ export default async function AdminTagsPage({ searchParams }: PageProps<"/admin/
   const rows: TagRow[] = (tags ?? []).map((tag) => ({
     id: tag.id,
     label: resolveLocalizedField(asLocalizedField(tag.label), "es") ?? tag.slug,
+    // Toutes les langues du libellé : l'édition en ligne ne réécrit que `es` et renvoie les autres
+    // telles quelles (TagsList.tsx).
+    labelTranslations: asLocalizedField(tag.label) ?? {},
     usageCount: tag.product_tag_assignments[0]?.count ?? 0,
     createdAt: tag.created_at,
   }));

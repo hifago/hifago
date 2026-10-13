@@ -12,7 +12,8 @@ import { productTypeGating, type ProductType, type ProductTypeFieldsState } from
 // Construit le payload jsonb attendu par submit_product_creation_proposal / le
 // p_corrected_payload de moderate_product_proposal (kind='create') — et, depuis le 2026-09-09, la
 // SEULE source des colonnes de `products` pour la création ADMIN-DIRECTE également : product-form.tsx
-// l'appelle puis retire les trois clés hors-colonnes (photos/tag_ids/slot_rules) avant son insert.
+// l'appelle puis retire les clés hors-colonnes (photos/tag_ids/amenity_ids/slot_rules) avant son
+// insert.
 // Ce fichier n'était jusque-là qu'un « miroir exact » de l'insert écrit à la main en face, et les
 // deux avaient fini par diverger — le bloc « vitrine » plus bas (external_booking_url/price_label
 // sur un non-evento) n'existait que d'un seul côté. Une seule définition, plus de miroir à tenir.
@@ -33,7 +34,7 @@ export function buildProductCreationPayload(
 ): Record<string, unknown> {
   const {
     isEvento, isCamp, isLodging, isActivity, isTransport,
-    hasLocationAndTags, hasTags, hasPriceQtyFields, hasCheckInOut, hasDefaultCapacity,
+    hasLocationAndTags, hasTags, hasAmenities, hasPriceQtyFields, hasCheckInOut, hasDefaultCapacity,
   } = productTypeGating(type);
   const usesTiers = hasPriceQtyFields && fields.priceMode === "tiers";
   // `Number("")` vaut 0, PAS NaN : un champ prix laissé vide franchissait donc `Number.isFinite`
@@ -60,6 +61,10 @@ export function buildProductCreationPayload(
     // Séparé d'hasLocationAndTags ci-dessus (retour Jérôme 2026-08-18) : camp a des tags
     // ("servicios incluidos") sans avoir d'adresse propre.
     ...(hasTags ? { tag_ids: fields.selectedTagIds } : {}),
+    // Équipements d'un logement (migration 20261013151206) : whitelistés par
+    // submit_product_creation_proposal, posés par create_product_from_proposal. Comme `tag_ids`,
+    // ce n'est pas une colonne de `products` — la création admin directe retire la clé.
+    ...(hasAmenities ? { amenity_ids: fields.selectedAmenityIds } : {}),
     ...(hasPriceQtyFields
       ? {
           price_cop: usesTiers ? lowestTierPrice(fields.priceTiers) : priceCopOuNull,

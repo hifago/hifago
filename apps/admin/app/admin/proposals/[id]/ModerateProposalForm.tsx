@@ -8,7 +8,10 @@ import { asLocalizedField, resolveLocalizedField, formatCop } from "@hifago/doma
 import { Button, Label, TextArea, TextField, toast } from "@hifago/ui";
 import { LocalizedTextField, type LocalizedValue } from "@/components/localized-text-field";
 import { ProductTypeFields } from "@/components/product-type-fields";
+import type { TagOption } from "@/components/tags-multiselect";
 import { buildProductEditPayload } from "@/lib/products/productEditPayload";
+import { proposedTagIds, tagLabels } from "@/lib/tags/proposedTags";
+import { proposedAmenityIds } from "@/lib/amenities/proposedAmenities";
 import { lodgingKindLabel } from "@/lib/products/lodgingKindLabels";
 import { lodgingUnitLabel } from "@/lib/products/lodgingUnitLabels";
 import {
@@ -42,12 +45,20 @@ export function ModerateProposalForm({
   type,
   currentPayload,
   proposedPayload,
+  availableTags,
+  currentTagIds,
+  availableAmenities,
+  currentAmenityIds,
 }: {
   proposalId: string;
   expectedVersion: number;
   type: ProductType;
   currentPayload: ProductFieldsPayload;
   proposedPayload: ProductFieldsPayload;
+  availableTags: TagOption[];
+  currentTagIds: string[];
+  availableAmenities: TagOption[];
+  currentAmenityIds: string[];
 }) {
   const router = useRouter();
   const [name, setName] = useState<LocalizedValue>(() => ({ ...(asLocalizedField(proposedPayload.name) ?? {}) }));
@@ -72,6 +83,15 @@ export function ModerateProposalForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Étiquettes (migration 20261013144848). Une proposition ne porte `tag_ids` QUE si le socio a
+  // changé la sélection : le champ n'est monté, et la clé renvoyée, que dans ce cas. La renvoyer
+  // toujours ferait de chaque approbation un écrasement des étiquettes en place — même distinction
+  // absent/présent que le programme ci-dessus, tenue ici parce que ce formulaire reconstruit le
+  // payload final.
+  const proposesTags = proposedTagIds(proposedPayload) !== null;
+  // Équipements d'un logement (migration 20261013151206) : même distinction absent/présent.
+  const proposesAmenities = proposedAmenityIds(proposedPayload) !== null;
+
   const { hasLocationAndTags, hasPriceQtyFields, hasCheckInOut, isLodging, isEvento, isCamp } =
     productTypeGating(type);
   const needsOwnPrice = !isEvento;
@@ -90,7 +110,13 @@ export function ModerateProposalForm({
 
     const supabase = createClient();
     const correctedPayload =
-      decision === "approve" ? buildProductEditPayload(type, name, description, fields) : null;
+      decision === "approve"
+        ? {
+            ...buildProductEditPayload(type, name, description, fields),
+            ...(proposesTags ? { tag_ids: fields.selectedTagIds } : {}),
+            ...(proposesAmenities ? { amenity_ids: fields.selectedAmenityIds } : {}),
+          }
+        : null;
     const { data, error: rpcError } = await supabase.rpc("moderate_product_proposal", {
       p_proposal_id: proposalId,
       p_decision: decision,
@@ -158,6 +184,22 @@ export function ModerateProposalForm({
                 : ""}
             </dd>
           </div>
+          <div data-testid="current-tags">
+            <dt className="inline font-medium text-foreground">Etiquetas: </dt>
+            <dd className="inline">
+              {tagLabels(currentTagIds, availableTags)}
+              {proposesTags ? "" : " (sin cambios propuestos)"}
+            </dd>
+          </div>
+          {isLodging ? (
+            <div data-testid="current-amenities">
+              <dt className="inline font-medium text-foreground">Equipamiento: </dt>
+              <dd className="inline">
+                {tagLabels(currentAmenityIds, availableAmenities)}
+                {proposesAmenities ? "" : " (sin cambios propuestos)"}
+              </dd>
+            </div>
+          ) : null}
           {hasPriceQtyFields ? (
             <div>
               <dt className="inline font-medium text-foreground">Cantidad mín/máx: </dt>
@@ -234,7 +276,15 @@ export function ModerateProposalForm({
           fieldTestId="description-textarea"
         />
 
-        <ProductTypeFields type={type} state={fields} />
+        <ProductTypeFields
+          type={type}
+          state={fields}
+          showTags={proposesTags}
+          allowCreateTags
+          availableTags={availableTags}
+          showAmenities={proposesAmenities}
+          availableAmenities={availableAmenities}
+        />
 
         <TextField value={rejectionReason} onChange={setRejectionReason}>
           <Label>Motivo de rechazo — obligatorio para rechazar</Label>

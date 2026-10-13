@@ -7,7 +7,10 @@ import { asLocalizedField, nowIsoInstant, resolveLocalizedField } from "@hifago/
 import { Button, toast } from "@hifago/ui";
 import { LocalizedTextField, type LocalizedValue } from "@/components/localized-text-field";
 import { ProductTypeFields } from "@/components/product-type-fields";
+import type { TagOption } from "@/components/tags-multiselect";
 import { buildProductEditPayload } from "@/lib/products/productEditPayload";
+import { tagIdsIfChanged } from "@/lib/tags/proposedTags";
+import { amenityIdsIfChanged } from "@/lib/amenities/proposedAmenities";
 import {
   payloadToFieldsInit,
   useProductTypeFieldsState,
@@ -36,14 +39,28 @@ type PendingProposal = { id: string; payload: unknown; created_at: string } | nu
 // (jamais migré vers LocalizedTextField comme le reste, spec 11) et une `category` fixe abandonnée
 // par ProductForm admin-direct depuis la spec 08 (tags). Réécrit pour réutiliser exactement les
 // mêmes briques que ProductForm/ProductTypeFields (spec 15) : parité totale avec le parcours
-// d'édition admin-direct — mêmes champs, même gating par type, jamais tags/photos/slot_rules
+// d'édition admin-direct — mêmes champs, même gating par type, jamais photos/slot_rules
 // (délégués côté admin à des blocs séparés à sauvegarde immédiate, jamais couverts par ce même
 // submit là non plus, cf. migration 20260817150000).
+//
+// Les ÉTIQUETTES, elles, y sont depuis le 2026-10-13 (demande Jérôme, migration 20261013144848).
+// Côté admin elles vivent dans un bloc à sauvegarde immédiate qu'un socio ne peut pas avoir (RLS
+// admin-only) : sans champ ici, il les choisissait à la création puis ne pouvait plus jamais les
+// changer. Elles partent donc dans la proposition, modérées comme le reste — et le socio choisit
+// parmi les étiquettes existantes, sans en créer (même règle qu'à la création).
+//
+// Les ÉQUIPEMENTS d'un logement suivent le même chemin (migration 20261013151206). À l'inverse, le
+// dépôt et le lien de réservation externe d'un logement sont des options admin : ils ne sont pas
+// affichés ici, mais restent dans l'état et repartent tels quels dans la proposition.
 export function EditProposalForm({
   productId,
   type,
   currentPayload,
   pendingProposal,
+  availableTags,
+  currentTagIds,
+  availableAmenities,
+  currentAmenityIds,
   establishmentId,
   establishmentLobbyConnected,
 }: {
@@ -51,6 +68,10 @@ export function EditProposalForm({
   type: ProductType;
   currentPayload: RawProductFieldsPayload & { name?: unknown; description?: unknown };
   pendingProposal: PendingProposal;
+  availableTags: TagOption[];
+  currentTagIds: string[];
+  availableAmenities: TagOption[];
+  currentAmenityIds: string[];
   // Corrigé le 2026-08-26 : ce formulaire rendait <ProductTypeFields type state /> SANS ces deux
   // props, donc la garde interne du bloc LobbyPMS (establishmentLobbyConnected) était toujours
   // fausse et le bloc n'était JAMAIS monté côté socio — un prestataire ne pouvait pas voir à quoi
@@ -71,7 +92,12 @@ export function EditProposalForm({
   // ce que le commentaire du select d'admin/products/[id]/edit/page.tsx interdit. Il repart donc
   // par la prop campDurationDays, qui n'alimente que l'éditeur de programme.
   const fields = useProductTypeFieldsState(
-    payloadToFieldsInit({ ...currentPayload, duration_days: null }),
+    payloadToFieldsInit({
+      ...currentPayload,
+      duration_days: null,
+      tag_ids: currentTagIds,
+      amenity_ids: currentAmenityIds,
+    }),
   );
 
   const [proposal, setProposal] = useState(pendingProposal);
@@ -88,7 +114,11 @@ export function EditProposalForm({
 
     setIsSubmitting(true);
 
-    const payload = buildProductEditPayload(type, name, description, fields);
+    const payload = {
+      ...buildProductEditPayload(type, name, description, fields),
+      ...tagIdsIfChanged(currentTagIds, fields.selectedTagIds),
+      ...amenityIdsIfChanged(currentAmenityIds, fields.selectedAmenityIds),
+    };
     const supabase = createClient();
     const { data, error: rpcError } = await supabase.rpc("submit_product_proposal", {
       p_product_id: productId,
@@ -188,6 +218,12 @@ export function EditProposalForm({
         <ProductTypeFields
           type={type}
           state={fields}
+          showTags
+          allowCreateTags={false}
+          availableTags={availableTags}
+          showAmenities
+          availableAmenities={availableAmenities}
+          showAdminLodgingOptions={false}
           establishmentId={establishmentId}
           establishmentLobbyConnected={establishmentLobbyConnected}
           lobbyLinkReadOnly

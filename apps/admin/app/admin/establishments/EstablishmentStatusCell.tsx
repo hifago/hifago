@@ -22,6 +22,18 @@ export function EstablishmentStatusCell({ row }: { row: EstablishmentRow }) {
         labels={ESTABLISHMENT_STATUS_LABELS}
         testId={`establishment-status-${row.id}`}
       />
+      <EstablishmentStatusFlags row={row} />
+    </div>
+  );
+}
+
+// Les deux signaux secondaires, sortis de la cellule le 2026-10-13 : en édition en ligne le statut
+// principal devient un `select`, et ces pastilles — calculées, jamais éditables — s'affichent
+// sous lui (EstablishmentsList.tsx, `edit.adornment`).
+export function EstablishmentStatusFlags({ row }: { row: EstablishmentRow }) {
+  if (!row.pendingProposal && !row.operatorInactive) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1">
       {row.pendingProposal ? (
         <a
           // `?entity=establishment` : sans lui, la page de modération cherche une proposition de

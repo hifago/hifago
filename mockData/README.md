@@ -92,7 +92,8 @@ reprise, hors dépôt, qui vérifie qu'aucune valeur personnelle réelle n'y fig
 
 **Depuis le 2026-10-12, `mockData/` ne contient plus que ce catalogue** — celui de la préprod :
 46 partenaires, 14 établissements, 38 produits (20 activités, 5 hébergements, 5 événements,
-5 transports, 3 camps), 6 tags, 100 photos. Tout le jeu de démonstration a été retiré à la demande
+5 transports, 3 camps), 6 tags, 100 photos (plus, depuis le 2026-10-13, le partenaire plateforme
+`hifago` et son établissement `guatape` — voir « Produit sans partenaire réel » plus bas). Tout le jeu de démonstration a été retiré à la demande
 de Jérôme : `partners/user1…5` et `hifago`, `establishments/etablissement1…5` et `hifago`, les
 chambres `hilton*`/`room*`/`dorm1`, les activités `jetski1`/`kayak1`/…, les fixtures
 `events/evento-*`, `jamsession`, `guatapemedellin`, les camps `campamento*`, les tags
@@ -122,6 +123,7 @@ décrivent le format, pas des fichiers présents.
   "mode": "rooms",                       // "rooms" | "whole_house" | absent
   "contact_phone": "+573001234567",
   "status": "active",                    // "active" | "archived"
+  "is_place": false,                     // optionnel — true = un LIEU, pas un prestataire (cf. ci-dessous)
   "amenities": ["wifi", "piscina-privada", "muelle-privado"],  // optionnel, cf. § Équipements ci-dessous
   "photos": ["1.jpg", "2.png", "3.jpg"]
 }
@@ -363,10 +365,20 @@ n'importe quelle date, contraire au calendrier de départs fixes voulu ici.
 `docs/specs/14-admin-transporte.md`). Pour un produit géré par l'admin sans socio propriétaire
 (événement général, transport inter-villes), rattacher à un partenaire plateforme et à son
 établissement — jamais laisser `establishment`/`partner` vide dans le JSON, jamais inventer une
-dérogation de schéma pour ce cas. ⚠️ Le partenaire plateforme mock (`partners/hifago.json` +
-`establishments/hifago.json`) a été retiré le 2026-10-12 avec le jeu de démonstration (il n'existe
-pas en préprod, où les événements de Guatapé sont rattachés à Casa Kayam) : le recréer avant
-d'ajouter un tel produit.
+dérogation de schéma pour ce cas.
+
+Depuis le 2026-10-13 (demande de Jérôme), le partenaire plateforme est `partners/hifago.json` et
+son établissement `establishments/guatape.json` — **« Guatapé », le village, pas un prestataire** :
+les quatre événements du municipio (`fiestas-zocalos-flores`, `festival-guatabandeja`,
+`media-maraton-guatape`, `convocatoria-oficial-guatape-film-fest-2026`) y sont rattachés ; seul
+`kayams-jam` reste à Casa Kayam.
+
+`"is_place": true` (migration `20261013145953_establishment_is_place.sql`, posé par la RPC
+`set_establishment_is_place`) marque cet établissement comme un LIEU : son nom reste affiché sur
+ses événements, mais il n'a **ni fiche publique** (`/establecimientos/guatape` rend 404), **ni
+entrée au sitemap**, ni JSON-LD de commerce, et plus aucun lien ne mène vers lui. Un lieu ne porte
+jamais d'hébergement (`mode` interdit par une contrainte, la RPC refuse s'il a un produit
+`lodging`).
 
 ## Limites connues
 

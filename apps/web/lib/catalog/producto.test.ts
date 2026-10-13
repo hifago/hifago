@@ -188,6 +188,22 @@ describe("getProductoPorSlug — panne ≠ absence", () => {
     expect(await getProductoPorSlug("kayak", { locale: "es" })).not.toBeNull();
   });
 
+  // Un LIEU (`establishments.is_place`) n'a pas de fiche : la fiche produit garde son NOM mais
+  // perd son slug — et avec lui tous les liens vers `/establecimientos/<slug>`, qui rendraient 404.
+  it("un établissement ordinaire garde le slug de sa fiche", async () => {
+    const ficha = await getProductoPorSlug("kayak", { locale: "es" });
+    expect(ficha?.establecimiento).toMatchObject({ slug: "casa", nombre: "Casa" });
+  });
+
+  it("un lieu garde son nom mais n'a plus de slug : aucun lien vers une fiche", async () => {
+    fauxSupabase.state.principale = {
+      ...ACTIVIDAD,
+      establishment: { ...ACTIVIDAD.establishment, slug: "guatape", name: { es: "Guatapé" }, is_place: true },
+    };
+    const ficha = await getProductoPorSlug("fiestas", { locale: "es" });
+    expect(ficha?.establecimiento).toMatchObject({ slug: null, nombre: "Guatapé" });
+  });
+
   it("porte le plafond par ligne de create_order : max_qty, replié à 20", async () => {
     expect((await getProductoPorSlug("kayak", { locale: "es" }))?.maxQty).toBe(20);
     fauxSupabase.state.principale = { ...ACTIVIDAD, max_qty: 4 };

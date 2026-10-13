@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
+import { filaPorNombre } from "./support/filas";
 import {
   confirmAndContinue,
   goToNextWizardStep,
@@ -66,7 +67,7 @@ test("admin déroule les 4 étapes d'offboarding d'un partenaire, ses activités
   await confirmAndContinue(page, "establishment-form-confirmation");
   await expect(page).toHaveURL(/\/admin\/establishments$/);
 
-  const establishmentRow = page.locator("tr", { hasText: establishmentName });
+  const establishmentRow = filaPorNombre(page, establishmentName);
   await establishmentRow.getByRole("link", { name: "+ Actividad" }).click();
   await expect(page).toHaveURL(/\/admin\/products\/new\?establishment=/);
   // Spec 11 — ProductForm est nettement plus lourd à hydrater que l'ancien NewProductForm
@@ -103,7 +104,7 @@ test("admin déroule les 4 étapes d'offboarding d'un partenaire, ses activités
   // Ouvre l'offboarding du partenaire ------------------------------------------------------------
   await loginAs(context, SEEDED_ACCOUNTS.admin, SEEDED_PASSWORD);
   await page.goto("/admin/partners");
-  const partnerRow = page.locator("tr", { hasText: partnerName });
+  const partnerRow = filaPorNombre(page, partnerName);
   await partnerRow.getByRole("link", { name: "Ver" }).click();
   await page.getByTestId("offboarding-link").click();
   await expect(page).toHaveURL(/\/admin\/partners\/.+\/offboarding$/);

@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
 import { checkedRead } from "@/lib/supabase/checkedRead";
-import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { ProductForm } from "@/components/product-form";
+import { toTagOptions } from "@/lib/tags/proposedTags";
 
 // Spec 15 — pendant de /admin/products/new côté socio : mêmes champs/gating (ProductForm,
 // variant="socio-proposal"), mais écrit via submit_product_creation_proposal (proposition
@@ -23,14 +23,18 @@ export default async function NewProductProposalPage() {
   // catalog_tags ne dépend ni de partnerId ni des établissements ci-dessous — lancée en parallèle
   // de la RPC partner_id_for_account plutôt qu'en dernier maillon d'une chaîne séquentielle à 4
   // niveaux.
-  const [partnerIdResult, tagsResult] = await Promise.all([
+  // Équipements (migration 20261013151206) : un socio les choisit en proposant un logement. Chargés
+  // sans condition, comme les tags — le type n'est choisi que dans le formulaire.
+  const [partnerIdResult, tagsResult, amenitiesResult] = await Promise.all([
     supabase.rpc("partner_id_for_account", { uid: user.id }),
     supabase.from("catalog_tags").select("id, label").order("slug"),
+    supabase.from("catalog_amenities").select("id, label").order("category_key").order("sort_order"),
   ]);
   // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
   // affichait « aucun établissement avec capacité d'operator » à un operator qui en a.
   const { data: partnerId } = checkedRead(partnerIdResult, "partner_id_for_account");
   const { data: tagsRaw } = checkedRead(tagsResult, "catalog_tags");
+  const { data: amenitiesRaw } = checkedRead(amenitiesResult, "catalog_amenities");
 
   const { data: activeCapabilities } = checkedRead(
     partnerId
@@ -60,10 +64,8 @@ export default async function NewProductProposalPage() {
     "establishments",
   );
 
-  const allTags = (tagsRaw ?? []).map((tag) => ({
-    id: tag.id,
-    label: resolveLocalizedField(asLocalizedField(tag.label), "es") ?? tag.id,
-  }));
+  const allTags = toTagOptions(tagsRaw);
+  const allAmenities = toTagOptions(amenitiesRaw);
 
   return (
     <div className="flex flex-col gap-6">
@@ -77,7 +79,12 @@ export default async function NewProductProposalPage() {
           Aún no tienes ningún establecimiento con capacidad de operador activa.
         </p>
       ) : (
-        <ProductForm establishments={establishments ?? []} allTags={allTags} variant="socio-proposal" />
+        <ProductForm
+          establishments={establishments ?? []}
+          allTags={allTags}
+          allAmenities={allAmenities}
+          variant="socio-proposal"
+        />
       )}
     </div>
   );

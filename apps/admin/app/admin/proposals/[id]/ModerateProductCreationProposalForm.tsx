@@ -52,6 +52,7 @@ export function ModerateProductCreationProposalForm({
   type,
   payload,
   availableTags,
+  availableAmenities,
   establishmentId,
   establishmentLobbyConnected,
 }: {
@@ -60,6 +61,8 @@ export function ModerateProductCreationProposalForm({
   type: ProductType;
   payload: unknown;
   availableTags: TagOption[];
+  // Équipements proposés avec un logement (migration 20261013151206), corrigibles comme les tags.
+  availableAmenities: TagOption[];
   // Refonte parcours partenaire ↔ LobbyPMS (2026-08-25) — l'établissement est déjà fixé à la
   // soumission (immuable ici, contrairement à ProductForm), donc toujours connu de la page parente.
   establishmentId: string;
@@ -188,6 +191,8 @@ export function ModerateProductCreationProposalForm({
         showSlotRulesEditor
         allowCreateTags
         availableTags={availableTags}
+        showAmenities
+        availableAmenities={availableAmenities}
         establishmentId={establishmentId}
         establishmentLobbyConnected={establishmentLobbyConnected}
         allowManualLobbyEntry

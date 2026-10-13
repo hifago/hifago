@@ -263,6 +263,17 @@ redirections de connexion peuvent te déconnecter.
 Sur la vitrine, la réservation se fait sans compte. Pour tester l'inscription client, crée un
 compte depuis la vitrine : l'email de confirmation arrive dans la boîte mail locale (port 54324).
 
+**Se connecter à l'admin par Google** (il faut les vrais identifiants Google dans `.env`, étape
+B3) : un Gmail inconnu de la base locale est refusé, son compte doit exister avant. Crée-le avec
+sa capacité admin, à refaire après chaque `npm run db:setup` :
+
+```bash
+npm run db:google-admin -- ton.adresse@gmail.com
+```
+
+À la première connexion Google, l'admin demande d'enrôler un 2FA (QR code à scanner avec une
+application d'authentification).
+
 Si un écran de code 2FA apparaît pour l'admin (cas rare), génère le code du moment avec :
 
 ```bash

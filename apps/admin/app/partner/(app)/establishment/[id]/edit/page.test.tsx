@@ -72,6 +72,8 @@ describe("/partner/establishment/[id]/edit", () => {
       "establishment_proposals#1": { data: null, error: null },
       "establishment_proposals#2": { data: null, error: null },
       establishment_media: { data: [], error: null },
+      catalog_tags: { data: [], error: null },
+      establishment_tag_assignments: { data: [], error: null },
     };
   });
 
@@ -96,6 +98,8 @@ describe("/partner/establishment/[id]/edit", () => {
     ["establishment_proposals#1"],
     ["establishment_proposals#2"],
     ["establishment_media"],
+    ["catalog_tags"],
+    ["establishment_tag_assignments"],
   ])("lecture %s en panne : la page lève, jamais introuvable ni vide", async (cle) => {
     reponses[cle] = PANNE;
     const resultat = ouvrir();

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Chip, DataList, type DataListAction, type DataListColumn, type DataListSort } from "@hifago/ui";
 import { formatCop } from "@hifago/domain";
 import { statusChip } from "@/components/status-chip";
+import { PRODUCT_TYPE_LABELS } from "@/lib/lists/filters";
 import { LEDGER_STATUS_CHIP_STYLE, LEDGER_STATUS_LABELS } from "./ledgerStatusLabels";
 import { LedgerFilterBar, type EstablishmentOption, type ReferrerOption } from "./LedgerFilterBar";
 import { MarkPaidDialog } from "./MarkPaidDialog";
@@ -55,7 +56,13 @@ export function LedgerTable({
   const columns: DataListColumn<LedgerRow>[] = [
     { id: "referrerName", header: "Referente" },
     { id: "establishmentName", header: "Establecimiento" },
-    { id: "productType", header: "Tipo" },
+    {
+      id: "productType",
+      header: "Tipo",
+      // Même libellé que la colonne « Tipo » du catálogo (PRODUCT_TYPE_LABELS) — une valeur
+      // inconnue s'affiche telle quelle plutôt que de disparaître.
+      cell: (row) => (PRODUCT_TYPE_LABELS as Record<string, string>)[row.productType] ?? row.productType,
+    },
     { id: "date", header: "Fecha" },
     {
       id: "status",

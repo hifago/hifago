@@ -6,6 +6,8 @@ import { createClient } from "@hifago/supabase/client";
 import { asLocalizedField } from "@hifago/domain";
 import { Button, Checkbox, Input, Label, TextArea, TextField, toast } from "@hifago/ui";
 import { LocalizedTextField, buildLocalizedPayload, type LocalizedValue } from "@/components/localized-text-field";
+import { TagsMultiSelect, type TagOption } from "@/components/tags-multiselect";
+import { proposedTagIds, tagLabels } from "@/lib/tags/proposedTags";
 
 // storage_path résolu en URL publique côté client (bucket "catalog-media" public en lecture,
 // aucun aller-retour réseau) — même idiome que ModerateProductCreationProposalForm.tsx.
@@ -32,6 +34,8 @@ type EstablishmentFieldsPayload = {
   // moderate_establishment_proposal) ; lobby_api_token_provided reste comme trace après coup.
   lobby_api_token?: string;
   lobby_api_token_provided?: boolean;
+  // Étiquettes (migration 20261013144848) — présentes seulement si le socio a changé la sélection.
+  tag_ids?: unknown;
 };
 
 // Aperçu "valeur actuelle" vide pour kind='create' (l'établissement n'existe pas encore, donc
@@ -46,12 +50,16 @@ export function ModerateEstablishmentProposalForm({
   kind,
   currentPayload,
   proposedPayload,
+  availableTags,
+  currentTagIds,
 }: {
   proposalId: string;
   expectedVersion: number;
   kind: "create" | "edit";
   currentPayload: EstablishmentFieldsPayload | null;
   proposedPayload: EstablishmentFieldsPayload;
+  availableTags: TagOption[];
+  currentTagIds: string[];
 }) {
   const router = useRouter();
   const [name, setName] = useState<LocalizedValue>(() => ({ ...(asLocalizedField(proposedPayload.name) ?? {}) }));
@@ -63,6 +71,10 @@ export function ModerateEstablishmentProposalForm({
   const [lon, setLon] = useState(proposedPayload.lon != null ? String(proposedPayload.lon) : "");
   const [rejectionReason, setRejectionReason] = useState("");
   const [lobbyApiToken, setLobbyApiToken] = useState(proposedPayload.lobby_api_token ?? "");
+  // `null` = la proposition ne touche pas aux étiquettes : le champ n'est pas monté et la clé
+  // n'est pas renvoyée, moderate_establishment_proposal laisse alors celles en place.
+  const proposedTags = kind === "edit" ? proposedTagIds(proposedPayload) : null;
+  const [selectedTagIds, setSelectedTagIds] = useState(proposedTags ?? []);
   const [activatePmsConnector, setActivatePmsConnector] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionTestResult, setConnectionTestResult] = useState<string | null>(null);
@@ -80,6 +92,7 @@ export function ModerateEstablishmentProposalForm({
       // Refonte parcours partenaire ↔ LobbyPMS (2026-08-25) — vide = l'admin a effacé le champ,
       // moderate_establishment_proposal traite "" comme "aucun token" (nullif(btrim(...), '')).
       lobby_api_token: lobbyApiToken.trim(),
+      ...(proposedTags ? { tag_ids: selectedTagIds } : {}),
     };
   }
 
@@ -200,6 +213,10 @@ export function ModerateEstablishmentProposalForm({
                   {currentPayload?.lon != null ? String(currentPayload.lon) : "—"}
                 </dd>
               </div>
+              <div data-testid="current-tags">
+                <dt className="inline font-medium text-foreground">Etiquetas: </dt>
+                <dd className="inline">{tagLabels(currentTagIds, availableTags)}</dd>
+              </div>
             </dl>
           )}
         </div>
@@ -233,6 +250,14 @@ export function ModerateEstablishmentProposalForm({
                 {proposedPayload.lon != null ? String(proposedPayload.lon) : "—"}
               </dd>
             </div>
+            {kind === "edit" ? (
+              <div data-testid="proposed-tags">
+                <dt className="inline font-medium text-foreground">Etiquetas: </dt>
+                <dd className="inline">
+                  {proposedTags ? tagLabels(proposedTags, availableTags) : "sin cambios"}
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </div>
       </div>
@@ -295,6 +320,15 @@ export function ModerateEstablishmentProposalForm({
             <Input id="lon" name="lon" />
           </TextField>
         </div>
+
+        {proposedTags ? (
+          <TagsMultiSelect
+            availableTags={availableTags}
+            selectedTagIds={selectedTagIds}
+            onChange={setSelectedTagIds}
+            testId="moderate-tags"
+          />
+        ) : null}
 
         {/* Refonte parcours partenaire ↔ LobbyPMS (2026-08-25) — le token proposé n'est visible ici
             que tant que la proposition est "pending" (rédigé après décision, cf.

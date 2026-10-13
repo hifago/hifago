@@ -24,7 +24,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 // Toutes les écritures nécessaires (`create_partner_direct`, `set_capability_status`,
 // `create_establishment`, `update_establishment_stay_details`, `update_establishment_contact`,
-// `set_establishment_status`, `add_catalog_media`, `create_product_from_proposal`, l'insert direct
+// `set_establishment_status`, `set_establishment_is_place`, `add_catalog_media`, `create_product_from_proposal`, l'insert direct
 // dans `catalog_tags`) sont `security definer`/`security invoker` ou RLS directe, mais vérifient
 // TOUTES `is_admin(auth.uid())` — un client `service_role` pur (`auth.uid()` null) échoue sur
 // toutes. D'où :
@@ -456,6 +456,17 @@ async function creerEtablissements(admin, svc, establishments, idPartenaireParCl
       });
       if (error) throw new Error(`${e._fichier} : update_establishment_contact : ${error.message}`);
       if (!resultat?.ok) throw new Error(`${e._fichier} : update_establishment_contact a renvoyé ok=false (${resultat?.reason})`);
+    }
+
+    // Un LIEU (le village, qui porte les événements du municipio) : pas de fiche publique
+    // (migration 20261013145953). La RPC refuse un établissement qui porte un hébergement.
+    if (e.is_place) {
+      const { data: resultat, error } = await admin.rpc("set_establishment_is_place", {
+        p_establishment_id: idEtablissement,
+        p_is_place: true,
+      });
+      if (error) throw new Error(`${e._fichier} : set_establishment_is_place : ${error.message}`);
+      if (!resultat?.ok) throw new Error(`${e._fichier} : set_establishment_is_place a renvoyé ok=false (${resultat?.reason})`);
     }
 
     if (e.status && e.status !== "active") {

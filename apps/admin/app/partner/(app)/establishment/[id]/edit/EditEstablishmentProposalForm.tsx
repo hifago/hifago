@@ -6,6 +6,8 @@ import { nowIsoInstant } from "@hifago/domain";
 import { Button, Input, Label, TextArea, TextField, cn, toast } from "@hifago/ui";
 import { mountAddressAutocomplete } from "@/components/address-autocomplete";
 import { ActionConfirmation } from "@/components/action-confirmation";
+import { TagsMultiSelect, type TagOption } from "@/components/tags-multiselect";
+import { tagIdsIfChanged } from "@/lib/tags/proposedTags";
 
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 type DescriptionLang = "es" | "en";
@@ -31,6 +33,10 @@ type PendingProposal = { id: string; payload: unknown; created_at: string } | nu
 // de sûreté que EditProposalForm.tsx, produits) — un champ non retouché porte sa valeur actuelle
 // dans le payload envoyé au serveur. operated_directly n'apparaît jamais ici : jamais proposable
 // par le socio (docs/specs/06-gestion-etablissement.md §3).
+//
+// Étiquettes (2026-10-13, migration 20261013144848) : proposables ici, modérées comme le reste —
+// le bloc admin à sauvegarde immédiate (EstablishmentTagsBlock) n'a pas d'équivalent socio. Le
+// socio choisit parmi les étiquettes existantes, sans en créer.
 export function EditEstablishmentProposalForm({
   establishmentId,
   initialNameEs,
@@ -40,6 +46,8 @@ export function EditEstablishmentProposalForm({
   initialLat,
   initialLon,
   pendingProposal,
+  availableTags,
+  currentTagIds,
 }: {
   establishmentId: string;
   initialNameEs: string;
@@ -49,6 +57,8 @@ export function EditEstablishmentProposalForm({
   initialLat: string;
   initialLon: string;
   pendingProposal: PendingProposal;
+  availableTags: TagOption[];
+  currentTagIds: string[];
 }) {
   const [nombre, setNombre] = useState(initialNameEs);
   const [descriptionEs, setDescriptionEs] = useState(initialDescriptionEs);
@@ -58,6 +68,7 @@ export function EditEstablishmentProposalForm({
   const [lat, setLat] = useState(initialLat);
   const [lon, setLon] = useState(initialLon);
   const [lobbyApiToken, setLobbyApiToken] = useState("");
+  const [selectedTagIds, setSelectedTagIds] = useState(currentTagIds);
 
   const [proposal, setProposal] = useState(pendingProposal);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -111,6 +122,7 @@ export function EditEstablishmentProposalForm({
       lon: lon.trim() ? Number(lon) : null,
       // Refonte parcours partenaire ↔ LobbyPMS (2026-08-25) — cf. NewEstablishmentProposalForm.tsx.
       ...(lobbyApiToken.trim() ? { lobby_api_token: lobbyApiToken.trim() } : {}),
+      ...tagIdsIfChanged(currentTagIds, selectedTagIds),
     };
 
     const supabase = createClient();
@@ -261,6 +273,15 @@ export function EditEstablishmentProposalForm({
             />
           </div>
         </div>
+
+        <TagsMultiSelect
+          availableTags={availableTags}
+          selectedTagIds={selectedTagIds}
+          onChange={setSelectedTagIds}
+          allowCreate={false}
+          placeholder="Buscar una etiqueta…"
+          testId="edit-proposal-tags"
+        />
 
         <TextField fullWidth value={lobbyApiToken} onChange={setLobbyApiToken}>
           <Label>Token LobbyPMS — opcional</Label>
