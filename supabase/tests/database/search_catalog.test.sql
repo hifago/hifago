@@ -18,7 +18,7 @@
 -- geste que les policies `_select_public` laissent bien passer ce qu'il faut.
 
 begin;
-select plan(39);
+select plan(43);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────────────────────────
 insert into partners (id, display_name) values
@@ -181,6 +181,29 @@ insert into establishment_tag_assignments (establishment_id, tag_id) values
   -- L'Hotel Agrupado (A) lui-même, au niveau ÉTABLISSEMENT, avec un tag DIFFÉRENT de celui posé
   -- sur sa chambre : c'est CE tag-ci qui doit le faire apparaître.
   ('aaaa1111-0000-0000-0000-00000000000a', 'aaaa1111-0000-0000-0000-000000000302');
+
+-- Logement UNIQUE (migration 20261013192000) — Établissement E : UN seul couchage vendable (carte
+-- PRODUIT) et une activité, avec un tag posé UNIQUEMENT sur l'établissement. Le couchage en hérite,
+-- l'activité non.
+insert into establishments (id, partner_id, name, status) values
+  ('aaaa1111-0000-0000-0000-00000000000e', 'aaaa1111-0000-0000-0000-000000000001',
+   '{"es":"Cabaña Heredera"}'::jsonb, 'active');
+
+insert into products
+  (id, partner_id, establishment_id, type, slug, name, price_cop, sellable, capacity, max_qty, schedule)
+values
+  ('aaaa1111-0000-0000-0000-000000000108', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000e', 'lodging', 'sc-cabana-heredera',
+   '{"es":"Cabaña heredera"}'::jsonb, 120000, true, 2, null, 'date'),
+  ('aaaa1111-0000-0000-0000-000000000205', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000e', 'activity', 'sc-actividad-heredera',
+   '{"es":"Actividad de la cabaña heredera"}'::jsonb, 50000, true, null, null, 'date');
+
+insert into catalog_tags (id, label, slug) values
+  ('aaaa1111-0000-0000-0000-000000000304', '{"es":"Heredado de prueba"}'::jsonb, 'sc-tag-heredado');
+
+insert into establishment_tag_assignments (establishment_id, tag_id) values
+  ('aaaa1111-0000-0000-0000-00000000000e', 'aaaa1111-0000-0000-0000-000000000304');
 
 set local role anon;
 
@@ -446,6 +469,33 @@ select is(
   (select count(*)::int from search_catalog(p_limite => 100000, p_sin_tag => true)
    where id = 'aaaa1111-0000-0000-0000-00000000000a' and es_establecimiento),
   0, '…et écarte une carte groupée dont l''établissement porte un tag'
+);
+
+-- ── Logement unique : il hérite des tags de son établissement (2026-10-13) ───────────────────────
+-- Même règle que dans `search_catalog_categorias` (migration 20261013192000) : sans elle, l'index
+-- des catégories montrerait une catégorie que cette page-ci rendrait vide.
+select is(
+  (select count(*)::int from search_catalog(p_limite => 100000, p_tag_slug => 'sc-tag-heredado')
+   where id = 'aaaa1111-0000-0000-0000-000000000108' and not es_establecimiento),
+  1, 'un tag posé sur l''ÉTABLISSEMENT d''un couchage unique fait apparaître sa carte produit'
+);
+
+select is(
+  (select count(*)::int from search_catalog(p_limite => 100000, p_tag_slug => 'sc-tag-heredado')
+   where id = 'aaaa1111-0000-0000-0000-000000000205'),
+  0, '…mais pas une ACTIVITÉ du même établissement : seul un couchage unique hérite'
+);
+
+select is(
+  (select count(*)::int from search_catalog(p_limite => 100000, p_sin_tag => true)
+   where id = 'aaaa1111-0000-0000-0000-000000000108'),
+  0, 'p_sin_tag écarte un couchage unique dont l''établissement porte un tag'
+);
+
+select is(
+  (select count(*)::int from search_catalog(p_limite => 100000, p_sin_tag => true)
+   where id = 'aaaa1111-0000-0000-0000-000000000205'),
+  1, '…et garde l''activité du même établissement, que rien ne classe'
 );
 
 -- ── Tri des evento par prochaine occurrence (2026-09-15) ────────────────────────────────────────

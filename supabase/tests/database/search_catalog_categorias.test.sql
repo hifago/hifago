@@ -15,7 +15,7 @@
 -- `_select_public`/`establishment_tag_assignments_select` laissent bien passer ce qu'il faut.
 
 begin;
-select plan(14);
+select plan(19);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────────────────────────
 insert into partners (id, display_name) values
@@ -72,6 +72,34 @@ insert into product_tag_assignments (product_id, tag_id) values
 -- définition).
 insert into establishment_tag_assignments (establishment_id, tag_id) values
   ('cccc3333-0000-0000-0000-00000000000b', 'cccc3333-0000-0000-0000-000000000302');
+
+-- Logement UNIQUE (migration 20261013192000) — Établissement C : UN seul couchage vendable (carte
+-- PRODUIT) et une activité. `scc-heredado` n'est posé QUE sur l'établissement ; `scc-doble` l'est
+-- sur l'établissement ET sur la fiche du couchage, pour prouver qu'elle n'y compte qu'une fois.
+insert into establishments (id, partner_id, name, status) values
+  ('cccc3333-0000-0000-0000-00000000000c', 'cccc3333-0000-0000-0000-000000000001',
+   '{"es":"Cabaña Única SCC"}'::jsonb, 'active');
+
+insert into products
+  (id, partner_id, establishment_id, type, slug, name, price_cop, sellable, capacity, max_qty, schedule)
+values
+  ('cccc3333-0000-0000-0000-000000000203', 'cccc3333-0000-0000-0000-000000000001',
+   'cccc3333-0000-0000-0000-00000000000c', 'lodging', 'scc-cabana-unica',
+   '{"es":"Cabaña única SCC"}'::jsonb, 120000, true, 2, null, 'date'),
+  ('cccc3333-0000-0000-0000-000000000105', 'cccc3333-0000-0000-0000-000000000001',
+   'cccc3333-0000-0000-0000-00000000000c', 'activity', 'scc-actividad-heredera',
+   '{"es":"Sccunico actividad de la cabaña"}'::jsonb, 50000, true, null, null, 'date');
+
+insert into catalog_tags (id, label, slug) values
+  ('cccc3333-0000-0000-0000-000000000304', '{"es":"Heredado SCC"}'::jsonb, 'scc-heredado'),
+  ('cccc3333-0000-0000-0000-000000000305', '{"es":"Doble SCC"}'::jsonb, 'scc-doble');
+
+insert into establishment_tag_assignments (establishment_id, tag_id) values
+  ('cccc3333-0000-0000-0000-00000000000c', 'cccc3333-0000-0000-0000-000000000304'),
+  ('cccc3333-0000-0000-0000-00000000000c', 'cccc3333-0000-0000-0000-000000000305');
+
+insert into product_tag_assignments (product_id, tag_id) values
+  ('cccc3333-0000-0000-0000-000000000203', 'cccc3333-0000-0000-0000-000000000305');
 
 set local role anon;
 
@@ -145,6 +173,40 @@ select is(
    where es_sin_tag and es_establecimiento
      and id = 'cccc3333-0000-0000-0000-00000000000b'),
   0, 'une carte groupée déjà classée n''apparaît pas AUSSI dans le rattrapage'
+);
+
+-- ── Logement unique : il hérite des tags de son établissement (2026-10-13) ───────────────────────
+-- Le cas constaté par Jérôme : « $$ » posé sur l'établissement Bania Travel (un seul couchage),
+-- et la vitrine le rangeait quand même sous « Otros alojamientos ».
+select is(
+  (select count(*)::int from search_catalog_categorias(p_tipo => 'lodging', p_por_categoria => 10)
+   where categoria_slug = 'scc-heredado' and not es_establecimiento
+     and id = 'cccc3333-0000-0000-0000-000000000203'),
+  1, 'un tag posé sur l''ÉTABLISSEMENT d''un couchage unique range sa carte produit dans la catégorie'
+);
+
+select is(
+  (select count(*)::int from search_catalog_categorias(p_tipo => 'lodging', p_por_categoria => 10)
+   where es_sin_tag and id = 'cccc3333-0000-0000-0000-000000000203'),
+  0, '…et ce couchage ne tombe plus dans le rattrapage'
+);
+
+select is(
+  (select count(*)::int from search_catalog_categorias(p_tipo => 'lodging', p_por_categoria => 10)
+   where categoria_slug = 'scc-doble' and id = 'cccc3333-0000-0000-0000-000000000203'),
+  1, 'un tag posé sur l''établissement ET sur la fiche ne compte le couchage qu''UNE fois'
+);
+
+select is(
+  (select count(*)::int from search_catalog_categorias(p_tipo => 'activity', p_por_categoria => 10)
+   where categoria_slug in ('scc-heredado', 'scc-doble')),
+  0, 'une ACTIVITÉ n''hérite pas des tags de son établissement — seul un couchage unique le fait'
+);
+
+select is(
+  (select count(*)::int from search_catalog_categorias(p_tipo => 'activity', p_por_categoria => 10)
+   where es_sin_tag and id = 'cccc3333-0000-0000-0000-000000000105'),
+  1, '…elle reste donc dans le rattrapage tant que sa propre fiche ne porte aucun tag'
 );
 
 -- ── Les critères de recherche s'appliquent, sans être recopiés ──────────────────────────────────
