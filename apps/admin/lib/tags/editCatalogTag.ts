@@ -1,5 +1,5 @@
 import { createClient } from "@hifago/supabase/client";
-import { slugify } from "@/lib/utils";
+import { TAG_NAME_WITHOUT_SLUG, tagSlug } from "@/lib/tags/tagSlug";
 
 // Renommer et supprimer une étiquette — UNE écriture pour tous les endroits où un admin le fait
 // (demande Jérôme, 2026-10-13 : partout où une étiquette se choisit, elle doit pouvoir se modifier
@@ -9,7 +9,7 @@ import { slugify } from "@/lib/utils";
 //
 // Chaque fonction rend `null`, ou le texte à afficher — l'appelant choisit son toast.
 
-// ⚠️ Renommer RECALCULE le slug (`slugify`), comme à la création : l'adresse publique de la
+// ⚠️ Renommer RECALCULE le slug (`tagSlug`), comme à la création : l'adresse publique de la
 // catégorie (`/actividades/<slug>`) suit le nom.
 // Seule la clé `es` change : les autres langues du libellé sont gardées. `knownLabel` évite la
 // lecture préalable à l'appelant qui les a déjà (la liste de /admin/tags).
@@ -20,6 +20,8 @@ export async function renameCatalogTag(
 ): Promise<string | null> {
   const label = labelEs.trim();
   if (!label) return "El nombre de la etiqueta es obligatorio.";
+  const slug = tagSlug(label);
+  if (!slug) return TAG_NAME_WITHOUT_SLUG;
 
   const supabase = createClient();
   let translations = knownLabel;
@@ -40,7 +42,7 @@ export async function renameCatalogTag(
 
   const { error } = await supabase
     .from("catalog_tags")
-    .update({ label: { ...translations, es: label }, slug: slugify(label) })
+    .update({ label: { ...translations, es: label }, slug })
     .eq("id", tagId);
   if (!error) return null;
   // 23505 = doublon de slug ; 23514 = `otras`, réservé à la page des activités qu'aucune catégorie

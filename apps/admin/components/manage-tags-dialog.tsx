@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button, Input, Label, Modal, TextField, toast } from "@hifago/ui";
 import { countCatalogTagUsage, deleteCatalogTag, renameCatalogTag } from "@/lib/tags/editCatalogTag";
-import { slugify } from "@/lib/utils";
+import { tagMatchesQuery } from "@/lib/tags/tagSlug";
 
 export type ManagedTag = { id: string; label: string };
 
@@ -54,9 +54,8 @@ export function ManageTagsDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const visibleTags = useMemo(() => {
-    const needle = slugify(query);
     const sorted = [...tags].sort((a, b) => a.label.localeCompare(b.label, "es"));
-    return needle ? sorted.filter((tag) => slugify(tag.label).includes(needle)) : sorted;
+    return query.trim() ? sorted.filter((tag) => tagMatchesQuery(tag.label, query)) : sorted;
   }, [tags, query]);
 
   function handleOpenChange(next: boolean) {

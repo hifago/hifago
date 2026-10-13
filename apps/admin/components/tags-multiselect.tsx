@@ -5,7 +5,7 @@ import type { Key } from "react";
 import { ComboBox, Input, Label, ListBox, Tag, TagGroup, toast } from "@hifago/ui";
 import { ManageTagsDialog } from "@/components/manage-tags-dialog";
 import { createCatalogTag } from "@/lib/tags/createCatalogTag";
-import { slugify } from "@/lib/utils";
+import { isExistingTagName, tagMatchesQuery } from "@/lib/tags/tagSlug";
 
 export type TagOption = { id: string; label: string };
 
@@ -83,15 +83,17 @@ export function TagsMultiSelect({
     [allTags, selectedTagIds],
   );
 
-  const filtered = useMemo(() => {
-    const needle = slugify(query);
-    return needle ? selectableTags.filter((t) => slugify(t.label).includes(needle)) : selectableTags;
-  }, [selectableTags, query]);
-
   const trimmedQuery = query.trim();
-  const hasExactMatch = trimmedQuery
-    ? allTags.some((t) => slugify(t.label) === slugify(trimmedQuery))
-    : true;
+
+  const filtered = useMemo(
+    () => (trimmedQuery ? selectableTags.filter((t) => tagMatchesQuery(t.label, trimmedQuery)) : selectableTags),
+    [selectableTags, trimmedQuery],
+  );
+
+  const hasExactMatch = isExistingTagName(
+    trimmedQuery,
+    allTags.map((t) => t.label),
+  );
   const canCreate = allowCreate && trimmedQuery.length > 0 && !hasExactMatch;
 
   const listItems = canCreate
