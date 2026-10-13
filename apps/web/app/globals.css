@@ -14,3 +14,14 @@
  * Chemin relatif à CE fichier. (2026-09-01)
  */
 @source "../**/*.{ts,tsx}";
+
+/* Le défilement de `components/molecules/BandeauLogos.tsx` (2026-10-13). Chaque groupe glisse de
+ * sa propre largeur plus l'écart qui le sépare du suivant : `--bandeau-ecart` est posé par le
+ * composant, sur le conteneur. Déclaré ici plutôt que dans `@theme` : une `--animate-*` de thème
+ * est résolue sur `:root`, où la durée posée par le composant n'existe pas encore.
+ */
+@keyframes bandeau {
+  to {
+    transform: translateX(calc(-100% - var(--bandeau-ecart, 0px)));
+  }
+}
