@@ -114,6 +114,7 @@ export default async function EditProductProposalPage({
   const media = mediaResult.data;
   const pendingPhotosProposal = pendingPhotosResult.data;
   const tagAssignments = tagAssignmentsResult.data;
+  const amenityAssignments = amenityAssignmentsResult.data;
 
   const photos = (media ?? []).map((m) => ({
     id: m.id,
@@ -154,7 +155,7 @@ export default async function EditProductProposalPage({
         availableTags={toTagOptions(tagsResult.data)}
         currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
         availableAmenities={toTagOptions(amenitiesResult.data)}
-        currentAmenityIds={(amenityAssignmentsResult.data ?? []).map((row) => row.amenity_id)}
+        currentAmenityIds={(amenityAssignments ?? []).map((row) => row.amenity_id)}
         establishmentId={product.establishment_id}
         establishmentLobbyConnected={Boolean(
           product.establishment?.lobby_connector_active && product.establishment?.lobby_has_token
