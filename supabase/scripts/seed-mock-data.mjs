@@ -89,6 +89,19 @@ const PREFIXE = "mock";
 
 const RACINE_MOCK_DATA = fileURLToPath(new URL("../../mockData", import.meta.url));
 
+// Le partenaire plateforme est posé par une migration (toute base, préprod et prod comprises) ET
+// décrit dans `mockData/partners/hifago.json` : ce script le reconnaît à son e-mail, comme tout
+// partenaire. Deux adresses différentes = un second « Hifago » créé à chaque base locale
+// reconstruite, et les événements du municipio rattachés à un établissement qui n'est pas le sien.
+const MIGRATION_PARTENAIRE_PLATEFORME = fileURLToPath(
+  new URL("../migrations/20261013195100_platform_partner_and_guatape_place.sql", import.meta.url)
+);
+
+function emailPartenairePlateforme() {
+  const sql = readFileSync(MIGRATION_PARTENAIRE_PLATEFORME, "utf8");
+  return sql.match(/c_email constant text := '([^']+)'/)?.[1] ?? null;
+}
+
 // Formats acceptés TELS QUELS, sans conversion : pas de dépendance `sharp` (elle vit dans
 // apps/admin, pas ici) juste pour reproduire la conversion webp du vrai pipeline d'upload — sans
 // impact réel pour des données de test en volume limité.
@@ -158,6 +171,18 @@ function validerReferences({ partners, tags, establishments, activities, rooms, 
       erreurs.push(`${p._fichier} : "code" requis dès que "person" est présent (create_partner_direct l'exige pour envoyer une invitation).`);
     }
     if (p.person && !p.person.email) erreurs.push(`${p._fichier} : "person.email" requis.`);
+  }
+
+  const plateforme = partners.get("hifago");
+  if (plateforme) {
+    const attendu = emailPartenairePlateforme();
+    if (!attendu) {
+      erreurs.push(`migration du partenaire plateforme : adresse introuvable (témoin "c_email constant text" absent).`);
+    } else if (plateforme.email !== attendu) {
+      erreurs.push(
+        `${plateforme._fichier} : "email" (${plateforme.email}) différent de celui de la migration du partenaire plateforme (${attendu}) — le script créerait un second « Hifago ».`
+      );
+    }
   }
 
   for (const [, e] of establishments) {

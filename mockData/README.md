@@ -88,7 +88,9 @@ Les établissements, produits, camps, événements et photos de la v1 (sauvegard
 les hostels apporteurs et prospects du CRM en `partners/med*.json`. **Les personnes sont fictives** :
 emails `@mock.hifago.test`, aucun téléphone, contact, note ou tag CRM, banque ni identité réels —
 ils ne sortent jamais de la machine de reprise. Générés par `vers-mockdata.mjs` (outillage de
-reprise, hors dépôt, qui vérifie qu'aucune valeur personnelle réelle n'y figure).
+reprise, hors dépôt, qui vérifie qu'aucune valeur personnelle réelle n'y figure). Seule adresse
+réelle du dossier : celle du partenaire plateforme `partners/hifago.json`, imposée par sa
+migration (voir « Produit sans partenaire réel » plus bas).
 
 **Depuis le 2026-10-12, `mockData/` ne contient plus que ce catalogue** — celui de la préprod :
 46 partenaires, 14 établissements, 38 produits (20 activités, 5 hébergements, 5 événements,
@@ -372,6 +374,15 @@ son établissement `establishments/guatape.json` — **« Guatapé », le villag
 les quatre événements du municipio (`fiestas-zocalos-flores`, `festival-guatabandeja`,
 `media-maraton-guatape`, `convocatoria-oficial-guatape-film-fest-2026`) y sont rattachés ; seul
 `kayams-jam` reste à Casa Kayam.
+
+**Ce partenaire et ce lieu existent dans TOUTE base avant que ce script ne passe** : la migration
+`20261013195100_platform_partner_and_guatape_place.sql` les pose (préprod et prod comprises, où
+`mockData/` ne va pas) et y rattache les quatre événements. Ici le script les trouve et les
+ignore. Les deux fichiers JSON restent nécessaires : les événements les référencent. ⚠️ L'`email`
+de `partners/hifago.json` doit rester celui de la migration — c'est la clé par laquelle le script
+reconnaît le partenaire ; la validation statique du script refuse de démarrer s'ils diffèrent.
+Ce partenaire n'a aucun compte de connexion et n'en aura pas (pas de `"person"`) : « Guatapé » se
+gère depuis `/admin`.
 
 `"is_place": true` (migration `20261013145953_establishment_is_place.sql`, posé par la RPC
 `set_establishment_is_place`) marque cet établissement comme un LIEU : son nom reste affiché sur
