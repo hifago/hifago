@@ -56,7 +56,7 @@ export default async function AdminOrderDetailPage({
         <Link href="/admin/orders" className="text-sm text-muted hover:underline">
           ← Pedidos
         </Link>
-        <h1 className="text-2xl font-semibold">{order.holder_name}</h1>
+        <h1 className="titre-page">{order.holder_name}</h1>
         <p className="text-sm text-muted" data-testid="order-meta">
           Referente: {order.referrer?.display_name ?? "Directo"} · Creado el{" "}
           {formatDateInBogota(order.created_at, "es")}
@@ -64,7 +64,7 @@ export default async function AdminOrderDetailPage({
         {hasReconciliationEntry ? (
           <Link
             href="/admin/reconciliation"
-            className="text-sm text-accent hover:underline"
+            className="text-sm text-link underline"
             data-testid="reconciliation-entry-link"
           >
             Ver entrada en la cola de reconciliación PMS

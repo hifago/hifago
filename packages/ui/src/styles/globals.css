@@ -12,91 +12,158 @@
 
 /*
  * Deux thèmes nommés sur le même design system HeroUI (aucun composant dupliqué, seules les
- * valeurs de tokens changent) : "vitrine" (apps/web, orienté conversion, valeurs par défaut de
- * HeroUI conservées) et "admin" (apps/admin, plus dense, back-office).
+ * valeurs de tokens changent) : "vitrine" (apps/web, orienté conversion) et "admin" (apps/admin,
+ * admin + socio, plus dense, back-office).
  *
- * Palette de marque admin — piste "Argile" (fond beige, aplats de teinte sans bordure, accent
- * terracotta), tranchée par Jérôme le 2026-08-15 après comparaison visuelle de 3 pistes. Détail et
- * justification de chaque jeton : docs/specs/09-design-system-admin.md.
+ * Thème admin — LA CHARTE HIFAGO 2026, réglée pour un outil de travail (demande de Jérôme,
+ * 2026-10-13 : « applique la charte graphique de hifago à /partner et admin, en favorisant la
+ * lisibilité et la facilité d'utilisation au style »). Elle remplace la piste « Argile » (fond
+ * beige, coins carrés, accent terracotta) du 2026-08-15 : docs/specs/09-design-system-admin.md,
+ * section « Révision du 2026-10-13 », dit ce qui change et ce qui reste.
+ *
+ * Les mêmes cinq couleurs que la vitrine, avec les mêmes interdits MESURÉS (bloc « LA CHARTE »
+ * plus bas) : jamais de texte or sur clair (2.07:1), jamais de blanc sur l'or, le bleu ciel
+ * n'identifie aucun composant. Ce que l'admin règle autrement, parce qu'on y lit et saisit toute
+ * la journée :
+ *  - **L'or est rare** : l'action principale d'un écran et « où je suis » dans la navigation, rien
+ *    d'autre. La barre latérale est MARINE (blanc 13.07:1, lien actif marine sur or 6.31:1), pas
+ *    or : une colonne or de 224 px à côté d'un tableau dense fatigue, et le bouton or n'y
+ *    ressortirait plus.
+ *  - **Le texte discret est un marine adouci**, pas le bleu moyen de la vitrine : ici près de
+ *    200 libellés et aides le portent à côté de vrais liens — deux rôles, deux couleurs.
+ *  - **Anton sur le seul titre de page** (`.titre-page`) ; tous les autres titres restent en
+ *    Poppins : ils font 14 à 20 px, et Anton ne se rend jamais sous 20 px.
+ *  - **Un seul rayon, 8 px**, pour boutons, champs et panneaux ; 16 px pour ce qui flotte.
  */
 @layer base {
   [data-theme="admin"] {
-    color-scheme: light;
+    color-scheme: only light;
 
-    --radius: 0rem;
-    --border-width: 0px;
-    /* Champs de formulaire : seule exception à "pas de bordure" (voir --field-background
-       ci-dessous — constaté en usage réel le 2026-08-15, corrige docs/specs/09-design-system-admin.md
-       §0 Cas limites, qui anticipait le risque sans encore le trancher). Un champ interactif doit
-       rester repérable quel que soit son conteneur, pas seulement posé sur une --surface. */
+    /* Les cinq couleurs de charte, brutes (mêmes valeurs que le bloc de la vitrine). */
+    --charte-or: oklch(77.2% 0.156 88.9);
+    --charte-bleu-poudre: oklch(84% 0.045 252.5);
+    --charte-bleu-ciel: oklch(67.2% 0.095 244.4);
+    --charte-bleu-moyen: oklch(47.7% 0.093 246.2);
+    --charte-marine: oklch(31.5% 0.095 260.9);
+
+    /* RAYONS — `--radius` à 8 px : `rounded-lg` (les panneaux de l'admin) et `.rounded` rendent
+       8 px, comme les boutons et les champs. ⚠️ Un `<Button>` HeroUI brut TRIPLE le jeton
+       (`rounded-3xl`, 24 px = une pilule à 36 px de haut) : il est ramené à `--rayon-bouton` par
+       la règle `.button` plus bas. `--radius-3xl` plafonne à 16 px ce que HeroUI arrondit par
+       `min(32px, var(--radius-3xl))` — cartes, modales, popovers, toasts. */
+    --radius: 0.5rem;
+    --radius-3xl: 1rem;
+    --rayon-bouton: 0.5rem;
+    --field-radius: var(--rayon-bouton);
+    --border-width: 1px;
     --field-border-width: 1px;
 
-    /* Valeurs identiques, chiffre pour chiffre, à la piste "Argile" comparée et retenue le
-       2026-08-15 (docs/specs/09-design-system-admin.md, artifact de comparaison des 3 pistes) —
-       PAS une réinterprétation. Un essai de chroma remontée (2026-08-15, même journée) a été fait
-       puis explicitement rejeté par Jérôme : à ne pas reproduire sans qu'il le redemande. */
-    /* Retour Jérôme (2026-08-20) : fond de page plus clair partout SAUF l'aside/la nav, qui garde
-       ce taupe-200 d'origine (--sidebar-background, consommé par AppNavShell) — --background
-       lui-même passe à un ton quasi blanc (taupe-50 légèrement plus sombre que --surface, pour
-       que les cartes/panneaux qui utilisent --surface restent visuellement distincts de la page). */
-    --sidebar-background: oklch(92.2% 0.005 34.3); /* taupe-200 — ancien --background, réservé à l'aside/nav */
-    --background: oklch(97.3% 0.003 40); /* taupe-75, quasi blanc mais pas blanc */
-    --foreground: oklch(21.4% 0.009 43.1); /* taupe-900 */
+    /* Base — texte marine (11.99:1 sur la page, 13.07:1 sur carte). */
+    --background: oklch(97% 0.01 247);
+    --foreground: var(--charte-marine);
 
-    --surface: oklch(98.6% 0.002 67.8); /* taupe-50 */
-    --surface-foreground: oklch(21.4% 0.009 43.1);
-
-    /* Absents de la maquette (statique, sans HeroUI) — nécessaires ici car le Table compound HeroUI
-       les consomme pour son cadre (voir plus bas). Dérivés de --surface/--surface-foreground avec
-       le même mécanisme color-mix que HeroUI utilise pour ses jetons -secondary/-tertiary déjà
-       corrects (--background-secondary, --border-secondary), avec un ratio assez large pour rester
-       nettement sous --background (92.2%) — jamais recoller dessus par coïncidence de calcul. */
-    --surface-secondary: color-mix(in oklab, var(--surface) 80%, var(--surface-foreground) 20%);
-    --surface-secondary-foreground: var(--surface-foreground);
-    --surface-tertiary: color-mix(in oklab, var(--surface) 65%, var(--surface-foreground) 35%);
-    --surface-tertiary-foreground: var(--surface-foreground);
-
-    --overlay: oklch(99.2% 0.001 67.8); /* absent de la maquette — palier le plus clair, cohérent avec --surface */
-    --overlay-foreground: oklch(21.4% 0.009 43.1);
-
-    --muted: oklch(54.7% 0.021 43.1);
-
-    --default: oklch(86.8% 0.007 39.5);
-    --default-foreground: oklch(21.4% 0.009 43.1);
-
-    --accent: oklch(52% 0.13 38); /* terracotta */
-    --accent-foreground: oklch(98% 0.004 67.8);
-
-    /* --overlay (le palier le plus clair) plutôt que --background : un champ doit rester visible
-       posé directement sur la page, pas seulement "creusé" dans une carte --surface (constaté cassé
-       en usage réel le 2026-08-15 — seule déviation volontaire de la maquette, fonctionnelle, pas
-       esthétique). */
-    --field-background: var(--overlay);
-    --field-foreground: oklch(21.4% 0.009 43.1);
-    --field-placeholder: oklch(54.7% 0.021 43.1); /* = --muted */
-    --field-border: oklch(86.8% 0.007 39.5); /* = --default, seule couleur de la maquette assez visible pour un champ à 1px */
-
-    --success: oklch(0.55 0.09 140);
-    --success-foreground: oklch(98% 0 0);
-    --warning: oklch(0.74 0.13 80);
-    --warning-foreground: oklch(20% 0 0);
-    --danger: oklch(0.52 0.16 25);
-    --danger-foreground: oklch(98% 0 0);
-
-    --border: oklch(94% 0.004 45); /* "quasi invisible", tel quel dans la maquette */
-    --separator: oklch(95% 0.003 50);
-    --focus: var(--accent);
-    --link: var(--accent);
-
+    --surface: oklch(100% 0 0);
+    --surface-foreground: var(--foreground);
+    --surface-secondary: oklch(94% 0.016 252.5);
+    --surface-secondary-foreground: var(--foreground);
+    --surface-tertiary: oklch(89% 0.028 252.5);
+    --surface-tertiary-foreground: var(--foreground);
     --surface-shadow: none;
+
+    --overlay: oklch(100% 0 0);
+    --overlay-foreground: var(--foreground);
+
+    /* Texte discret — marine adouci : 6.28:1 sur la page, 6.84:1 sur carte, 5.74:1 sur
+       `--surface-secondary` (le survol d'une ligne). */
+    --muted: oklch(47% 0.06 260.9);
+
+    /* Neutre / bouton secondaire — bleu poudre, marine dessus (8.02:1). */
+    --default: var(--charte-bleu-poudre);
+    --default-foreground: var(--foreground);
+
+    /* Accent / bouton primaire — l'or exact de la charte, marine dessus (6.31:1). */
+    --accent: var(--charte-or);
+    --accent-foreground: var(--charte-marine);
+    /* Même recalage que la vitrine : la formule de HeroUI garde 70 % d'or dans le TEXTE d'un
+       badge translucide (3.10:1 mesuré). Le texte d'un badge or est à dominante marine. */
+    --accent-soft-foreground: color-mix(in oklab, var(--accent) 20%, var(--foreground) 80%);
+
+    /* Lien et focus — bleu moyen, DÉCOUPLÉS de l'accent : un lien or serait illisible, un anneau
+       de focus or invisible sur clair. */
+    --link: var(--charte-bleu-moyen);
+    --focus: var(--link);
+
+    /* Champs — fond blanc, bordure bleu moyen (6.03:1 sur la page) : un champ se reconnaît sans
+       avoir à le chercher, y compris dans une liste éditable. */
+    --field-background: oklch(100% 0 0);
+    --field-foreground: var(--foreground);
+    --field-placeholder: var(--muted);
+    --field-border: var(--charte-bleu-moyen);
     --field-shadow: none;
+
+    /* Statuts — écartés de l'or (88.9°) : 61° / 39° / 74°. Tous lisibles EN TEXTE sur clair
+       (succès 7.04:1, alerte 4.93:1 sur la page, danger 7.12:1), blanc dessus en aplat. */
+    --success: oklch(45% 0.12 150);
+    --success-foreground: oklch(99% 0.007 88.6);
+    --warning: oklch(54% 0.16 50);
+    --warning-foreground: oklch(99% 0.007 88.6);
+    --danger: oklch(46% 0.19 15);
+    --danger-foreground: oklch(99% 0.007 88.6);
+
+    /* Filets — bleu poudre : un panneau blanc se détache de la page par son fond ET son filet,
+       sans le trait marine de la vitrine, trop lourd sur des dizaines de panneaux imbriqués. */
+    --segment: oklch(100% 0 0);
+    --border: var(--charte-bleu-poudre);
+    --separator: oklch(91% 0.022 252.5);
+
+    /* Barre latérale et barre mobile — la surface marine (`data-superficie="marine"`, plus bas). */
+    --sidebar-background: var(--charte-marine);
+
+    /* POLICES — Poppins pour tout, Anton pour le titre de page. `next/font` les charge dans
+       `apps/admin/app/layout.tsx` ; le raccord vers `--font-sans` se fait ICI (avant ce bloc,
+       l'admin chargeait Geist sous `--font-geist-sans` sans que rien ne la lise : pile système). */
+    --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+    --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+    --font-titre: var(--font-anton), var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+    --tracking-titre: 0.04em;
+
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
   }
 
-  /* --border-width: 0 supprime le filet entre lignes de SimpleTable — sans lui, une liste dense
-     (réservations, calendrier) redevient illisible. Le zébrage prend le relais, scopé au thème
-     admin uniquement (le thème vitrine garde ses filets 1px, pas besoin de zébrage là-bas). */
+  /* LA SURFACE MARINE — navigation de l'admin et du socio. Même mécanisme que les surfaces de la
+     vitrine : l'élément qui porte le fond redéfinit les jetons de ce qui s'y lit, et les
+     composants posés dessus (liens `text-muted`, bouton `outline`) n'ont rien à savoir.
+     ⚠️ Une custom property est substituée sur l'élément qui la DÉCLARE : `--default-hover` et les
+     jetons `-soft`, calculés sur <html>, ne suivent pas — `--default-hover` est redéclaré ici.
+     Focus en or : le bleu moyen tombe à 1.99:1 sur le marine. */
+  [data-theme="admin"] [data-superficie="marine"] {
+    background-color: var(--charte-marine);
+    color: var(--foreground);
+    --foreground: oklch(100% 0 0);
+    --muted: var(--charte-bleu-poudre);
+    --link: var(--charte-or);
+    --focus: var(--charte-or);
+    --border: color-mix(in oklab, var(--charte-bleu-poudre) 35%, transparent);
+    --separator: color-mix(in oklab, var(--charte-bleu-poudre) 35%, transparent);
+    --surface-secondary: color-mix(in oklab, var(--charte-marine) 86%, oklch(100% 0 0));
+    --default: color-mix(in oklab, var(--charte-marine) 80%, oklch(100% 0 0));
+    --default-hover: color-mix(in oklab, var(--charte-marine) 74%, oklch(100% 0 0));
+    --default-foreground: oklch(100% 0 0);
+  }
+
+  /* Une carte HeroUI n'a AUCUNE bordure par défaut (seule l'ombre la détache, et l'ombre est
+     neutralisée) : blanche sur une page à 97 % de clarté, elle ne se verrait plus. Même règle que
+     la vitrine, avec le filet bleu poudre. */
+  [data-theme="admin"] [data-slot="card"]:not(.card--transparent) {
+    border: var(--border-width) solid var(--border);
+  }
+
+  /* Le zébrage reste, en plus du filet entre lignes : sur une liste dense (catalogue,
+     réservations), l'œil suit une ligne par son fond plus sûrement que par son trait. */
   [data-theme="admin"] [data-slot="table-body"] [data-slot="table-row"]:nth-child(even) {
-    background-color: color-mix(in oklch, var(--surface) 96%, var(--foreground) 4%);
+    background-color: color-mix(in oklab, var(--surface) 50%, var(--background) 50%);
   }
 
   /* google.maps.places.PlaceAutocompleteElement (apps/admin/components/address-autocomplete.ts) :
@@ -112,31 +179,17 @@
     border-color: var(--field-border);
   }
 
-  /* Tailwind : les utilitaires "bruts" (.border, .border-t/b/l/r/x/y, .rounded) figent une
-     largeur/un radius en dur (1px / .25rem) — seules les variantes graduées (.border-b-2,
-     .rounded-md/lg/…) sont recalculées depuis --border-width/--radius par HeroUI. La grande
-     majorité des cartes/panneaux d'apps/admin utilisent la forme brute (ex. "rounded-lg border" —
-     des dizaines d'occurrences) : plutôt que de retoucher chaque fichier, un seul recalage ici,
-     scopé au thème admin, aligne tout l'existant sur les jetons sans toucher un composant. */
-  [data-theme="admin"] .border,
-  [data-theme="admin"] .border-t,
-  [data-theme="admin"] .border-b,
-  [data-theme="admin"] .border-l,
-  [data-theme="admin"] .border-r,
-  [data-theme="admin"] .border-x,
-  [data-theme="admin"] .border-y {
-    border-width: var(--border-width);
-  }
+  /* Tailwind : l'utilitaire "brut" `.rounded` fige un rayon en dur (.25rem) — seules les variantes
+     graduées (.rounded-md/lg/…) sont recalculées depuis --radius par HeroUI. Recalé ici, une fois,
+     pour que les panneaux écrits `rounded border` suivent le jeton sans retoucher chaque fichier.
+     ⚠️ Le recalage équivalent des `.border`, `.border-t/b/l/r/x/y` et l'exception
+     `.border-dashed` ont été RETIRÉS le 2026-10-13 : ils n'avaient de sens qu'avec
+     `--border-width: 0` (piste « Argile »). Écrits `border-width: var(--border-width)`, ils
+     posaient la largeur sur les QUATRE côtés — indolore à 0, mais à 1 px un simple `border-t`
+     dessinait un cadre entier (constaté au rendu : chaque ligne de « Procesos », le pied de la barre
+     latérale). Tailwind donne déjà 1 px, du bon côté. */
   [data-theme="admin"] .rounded {
     border-radius: var(--radius);
-  }
-
-  /* Exception au recalage ci-dessus : une bordure en pointillés n'est jamais décorative dans ce
-     projet, toujours l'affordance d'une zone de dépôt/action (ex. "Añadir foto" de MediaGallery) —
-     la mettre à 0 la rend invisible et le contrôle semble avoir disparu. Après la règle .border
-     ci-dessus pour gagner sur la même propriété (spécificité égale, l'ordre décide). */
-  [data-theme="admin"] .border-dashed {
-    border-width: 1px;
   }
 
   /* Aucun env(safe-area-inset-*) n'existe encore ailleurs dans le projet — le toast (Toast.Provider,
@@ -148,6 +201,61 @@
   [data-theme="admin"] .toast-region--bottom-start,
   [data-theme="admin"] .toast-region--bottom-end {
     bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Thème admin — ce qui se règle sur les classes de HeroUI, à couche égale (`@layer components`,
+   comme la section « LES CHAMPS DE FORMULAIRE » de la vitrine) : `[data-theme="admin"] .button`
+   (0,2,0) bat `.button` (0,1,0), et tout utilitaire posé par un écran le bat encore. */
+@layer components {
+  /* LE TITRE DE PAGE — le seul texte en Anton de l'admin. 400 : Anton n'a qu'une graisse, tout
+     `font-semibold` à côté fabriquerait un faux gras. 28 px, au-dessus du plancher de 20 px. */
+  [data-theme="admin"] .titre-page {
+    font-family: var(--font-titre);
+    font-size: 1.75rem;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: var(--tracking-titre);
+  }
+
+  /* Bouton : le rayon de la charte (8 px) au lieu de la pilule de HeroUI. */
+  [data-theme="admin"] .button {
+    border-radius: var(--rayon-bouton);
+  }
+
+  /* Le contour d'un bouton `outline` est un composant à lui seul (WCAG 1.4.11, 3:1) : le filet
+     bleu poudre des panneaux ne suffit pas, il prend la couleur de son texte. */
+  [data-theme="admin"] .button--outline {
+    border-color: color-mix(in oklab, var(--default-foreground) 55%, transparent);
+  }
+
+  /* Focus : un contour de 2 px DÉCALÉ plutôt que l'anneau collé de HeroUI — il reste visible sur
+     la bordure bleu moyen d'un champ, qu'un anneau de la même couleur prolongerait sans se voir. */
+  [data-theme="admin"] :is(.input, .textarea):is(:focus, [data-focused="true"]),
+  [data-theme="admin"] .select__trigger:is(:focus-visible, [data-focus-visible="true"]) {
+    box-shadow: none;
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  /* Erreur : la BORDURE du champ passe au rouge, survol et focus compris. */
+  [data-theme="admin"] :is(.input, .textarea, .select__trigger):is([data-invalid="true"], [aria-invalid="true"]),
+  [data-theme="admin"] .select:is([data-invalid="true"]) .select__trigger {
+    --field-border: var(--danger);
+    --field-border-hover: var(--danger);
+    --field-border-focus: var(--danger);
+    outline-color: var(--danger);
+  }
+
+  /* Sous `md`, toute cible tactile fait 44 px (boutons 40 px et champs 42 px chez HeroUI). Au-dessus,
+     les hauteurs denses de HeroUI restent. */
+  @media (width < 48rem) {
+    [data-theme="admin"] :is(.button, .input, .select__trigger) {
+      min-height: 2.75rem;
+    }
+    [data-theme="admin"] .button--icon-only {
+      min-width: 2.75rem;
+    }
   }
 }
 

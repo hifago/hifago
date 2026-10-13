@@ -65,7 +65,7 @@ export default async function AdminProposalsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Propuestas pendientes</h1>
+      <h1 className="titre-page">Propuestas pendientes</h1>
 
       <ProposalsTable proposals={rows} />
     </div>

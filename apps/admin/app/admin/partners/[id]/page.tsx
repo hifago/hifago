@@ -95,8 +95,8 @@ export default async function AdminPartnerDetailPage({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-start justify-between gap-4">
-        <h1 className="text-2xl font-semibold">{partner.display_name}</h1>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <h1 className="titre-page">{partner.display_name}</h1>
         <Link
           href={`/admin/partners/${partner.id}/offboarding`}
           className={buttonVariants({ variant: "outline", size: "sm" })}

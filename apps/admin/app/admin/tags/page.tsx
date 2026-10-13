@@ -56,7 +56,7 @@ export default async function AdminTagsPage({ searchParams }: PageProps<"/admin/
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Etiquetas</h1>
+      <h1 className="titre-page">Etiquetas</h1>
 
       <NewTagForm />
 

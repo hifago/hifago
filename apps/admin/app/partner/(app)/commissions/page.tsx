@@ -105,7 +105,7 @@ export default async function PartnerCommissionsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Mis comisiones</h1>
+      <h1 className="titre-page">Mis comisiones</h1>
       <CommissionsTable
         rows={rows}
         page={page}

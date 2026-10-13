@@ -30,7 +30,7 @@ export default function ErrorAdmin({
       className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center gap-4 p-6 text-center sm:p-8"
       data-testid="error-admin"
     >
-      <h1 className="text-2xl font-semibold">Algo salió mal</h1>
+      <h1 className="titre-page">Algo salió mal</h1>
       <p className="max-w-prose text-muted">
         No pudimos cargar esta pantalla. Vuelve a intentarlo en un momento.
       </p>

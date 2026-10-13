@@ -64,8 +64,8 @@ export default async function AdminPartnersPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Partners</h1>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h1 className="titre-page">Partners</h1>
         <Link href="/admin/partners/new" className={buttonVariants()} data-testid="new-partner-link">
           Nuevo partner
         </Link>

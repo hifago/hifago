@@ -88,6 +88,9 @@ lancer "Jetons de couleur (vitrine)"                 bash scripts/check-tokens.s
 # rougit sur un fichier fautif, et le script sort en code 2 si une règle ne retrouve pas son témoin
 # synthétique (la première version passait au vert sans rien lire).
 lancer "Charte Hifago (titres, or, <main>, rayons)"  bash scripts/check-charte.sh
+# Pendant admin + socio (2026-10-13) — vérifié PAR MUTATION sur ses deux règles (un `text-accent`,
+# un `titre-page font-semibold`), et code 2 si une règle ne retrouve pas son témoin.
+lancer "Charte Hifago, admin (texte or, faux gras)"  bash scripts/check-charte-admin.sh
 lancer "Couche d'accès (pas de requête en route)"    bash scripts/check-data-layer.sh
 lancer "Panne ≠ absence (error lu, pas de loading)"  bash scripts/check-supabase-errors.sh
 lancer "Navigation localisée (@/i18n/navigation)"    bash scripts/check-i18n-links.sh

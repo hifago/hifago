@@ -47,7 +47,7 @@ export default async function PartnerCommissionDetailPage({
         <Link href="/partner/commissions" className="text-sm text-muted hover:underline">
           ← Volver a Mis comisiones
         </Link>
-        <h1 className="text-2xl font-semibold" data-testid="commission-detail-product">
+        <h1 className="titre-page" data-testid="commission-detail-product">
           {productName}
         </h1>
       </div>

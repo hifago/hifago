@@ -104,7 +104,7 @@ export function OffboardingChecklist({
   return (
     <div className="flex flex-col gap-6">
       {capabilityRevokedAt ? (
-        <p data-testid="offboarding-complete-banner" className="text-sm font-medium text-accent">
+        <p data-testid="offboarding-complete-banner" className="text-sm font-medium text-success">
           Offboarding completado — la capacidad operador de este partner ha sido retirada.
         </p>
       ) : null}
@@ -115,7 +115,7 @@ export function OffboardingChecklist({
           Todas las actividades vendibles de este partner dejan de estar disponibles a la venta.
         </p>
         {unpublishedAt ? (
-          <p data-testid="offboarding-step1-done" className="text-sm text-accent">
+          <p data-testid="offboarding-step1-done" className="text-sm text-success">
             ✓ Despublicado
           </p>
         ) : (
@@ -147,7 +147,7 @@ export function OffboardingChecklist({
       >
         <h2 className="font-medium">3. Atestiguar el pago de lo adeudado</h2>
         {paymentsSettledAt ? (
-          <p data-testid="offboarding-step3-done" className="text-sm text-accent">
+          <p data-testid="offboarding-step3-done" className="text-sm text-success">
             ✓ Pago atestiguado — {offboarding?.payments_settled_note}
           </p>
         ) : (
@@ -179,7 +179,7 @@ export function OffboardingChecklist({
       >
         <h2 className="font-medium">4. Retirar la capacidad</h2>
         {capabilityRevokedAt ? (
-          <p data-testid="offboarding-step4-done" className="text-sm text-accent">
+          <p data-testid="offboarding-step4-done" className="text-sm text-success">
             ✓ Capacidad retirada
           </p>
         ) : (

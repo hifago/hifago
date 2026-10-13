@@ -44,8 +44,8 @@ export default async function AdminTagDetailPage({ params }: PageProps<"/admin/t
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold" data-testid="tag-detail-label">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h1 className="titre-page" data-testid="tag-detail-label">
           {label}
         </h1>
         <div className="flex gap-2">

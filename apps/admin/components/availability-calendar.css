@@ -74,16 +74,18 @@
 /* products.default_capacity (migration 20260818090000) : le jour est réservable via ce cupo par
    défaut, mais aucune ligne product_availability explicite n'existe encore pour cette date — état
    intermédiaire entre "unconfigured" (gris plein, vide) et "configured" (plein, --accent) : un
-   contour en pointillé sur le même token --accent, fond transparent, distingue visuellement "il y a
-   une valeur qui compte" de "rien n'est configuré" sans se confondre avec un override explicite.
+   contour en pointillé, fond transparent, distingue visuellement "il y a une valeur qui compte" de
+   "rien n'est configuré" sans se confondre avec un override explicite. Contour et texte en
+   --foreground (marine) depuis la charte du 2026-10-13 : --accent y est l'or, qui ne porte jamais
+   de texte sur clair (2.07:1).
    Sélecteur composé `.availability-badge.availability-badge--default` (spécificité 0,2,0, même
    niveau que `.availability-badge.fc-event` ci-dessus qui pose `border: none`) nécessaire pour que
    ce `border` gagne réellement — un simple `.availability-badge--default` (0,1,0) serait toujours
    perdant face à `border: none` quel que soit l'ordre dans le fichier. */
 .availability-badge.availability-badge--default {
   background-color: transparent;
-  border: 1px dashed var(--accent);
-  color: var(--accent);
+  border: 1px dashed var(--foreground);
+  color: var(--foreground);
   font-weight: 500;
 }
 

@@ -69,7 +69,7 @@ export default async function NewProductProposalPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Proponer una nueva ficha</h1>
+      <h1 className="titre-page">Proponer una nueva ficha</h1>
       <p className="text-sm text-muted">
         Un admin revisará tu propuesta antes de que la ficha exista en el catálogo. No podrás
         agregar fotos hasta que sea aprobada.

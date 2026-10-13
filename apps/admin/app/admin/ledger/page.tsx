@@ -95,7 +95,7 @@ export default async function AdminLedgerPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Ledger de liquidación</h1>
+      <h1 className="titre-page">Ledger de liquidación</h1>
       <LedgerTable
         rows={rows}
         page={page}

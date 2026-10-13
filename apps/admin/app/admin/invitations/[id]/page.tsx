@@ -55,8 +55,8 @@ export default async function AdminInvitationDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold" data-testid="invitation-detail-code">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h1 className="titre-page" data-testid="invitation-detail-code">
           {invitation.promo_code}
         </h1>
         {invitation.status === "pending" ? <RevokeInvitationButton invitationId={invitation.id} /> : null}

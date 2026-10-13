@@ -86,8 +86,8 @@ export default async function AdminCampaignsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Campañas</h1>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h1 className="titre-page">Campañas</h1>
         <Link href="/admin/campaigns/new" className={buttonVariants()} data-testid="new-campaign-link">
           Nueva campaña
         </Link>

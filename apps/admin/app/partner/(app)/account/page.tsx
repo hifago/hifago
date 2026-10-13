@@ -65,7 +65,7 @@ export default async function PartnerAccountPage() {
 
   return (
     <div className="flex max-w-xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Mi cuenta</h1>
+      <h1 className="titre-page">Mi cuenta</h1>
 
       <ProfileBlock
         initialFullName={account?.full_name ?? ""}

@@ -35,8 +35,13 @@ export function ClientsList({
   extraParams,
 }: ClientsListProps) {
   const columns: DataListColumn<ClientRow>[] = [
-    { id: "name", header: "Nombre", sortable: true },
-    { id: "email", header: "Email", cell: (row) => row.email ?? "—" },
+    { id: "name", header: "Nombre", sortable: true, className: "md:whitespace-normal md:[overflow-wrap:anywhere]" },
+    {
+      id: "email",
+      header: "Email",
+      cell: (row) => row.email ?? "—",
+      className: "md:whitespace-normal md:[overflow-wrap:anywhere]",
+    },
     { id: "phone", header: "Teléfono", cell: (row) => row.phone ?? "—" },
     {
       id: "stage",

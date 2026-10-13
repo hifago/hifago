@@ -1,13 +1,30 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Anton, Geist_Mono, Poppins } from "next/font/google";
 import { Toast } from "@hifago/ui";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Les polices de la charte Hifago 2026, les mêmes que la vitrine (apps/web/app/[locale]/layout.tsx).
+// ⚠️ Les noms de variables comptent : HeroUI et Tailwind lisent `--font-sans`, pas le nom que pose
+// `next/font`. Le raccord se fait dans `packages/ui/src/styles/globals.css`, sur le thème admin
+// (`--font-sans: var(--font-poppins), …`) — sans lui la police est chargée et jamais appliquée,
+// ce qui était le cas de Geist ici jusqu'au 2026-10-13 (l'admin rendait en pile système).
+// Quatre graisses seulement : l'admin n'emploie ni la 300 ni la 800 de la vitrine.
+const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
+// Anton : le titre de page seul (classe `titre-page`), jamais sous 20 px, jamais en gras.
+const anton = Anton({
+  variable: "--font-anton",
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+});
+
+// Hors charte, conservée : codes partenaires, identifiants de tâches, montants tabulaires.
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
@@ -31,7 +48,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
     <html
       lang="es"
       data-theme="admin"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${poppins.variable} ${anton.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body
         className="min-h-full flex flex-col bg-background text-foreground"

@@ -4,6 +4,7 @@ import { safeNextPath } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/server";
 import { checkMfaGuard } from "@/lib/mfaGuard";
 import { MfaVerifyForm } from "./MfaVerifyForm";
+import { LogoHifago } from "@/components/logo-hifago";
 
 export const metadata: Metadata = {
   title: "Verificación en dos pasos",
@@ -32,7 +33,8 @@ export default async function MfaVerifyPage({ searchParams }: PageProps<"/mfa/ve
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-2xl font-semibold">Verificación en dos pasos</h1>
+      <LogoHifago variante="clair" hauteur="h-16" />
+      <h1 className="titre-page">Verificación en dos pasos</h1>
       <p className="max-w-sm text-center text-sm text-muted">
         Ingresa el código de 6 dígitos de tu app de autenticación.
       </p>

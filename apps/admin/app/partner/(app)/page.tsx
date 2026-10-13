@@ -205,6 +205,10 @@ export default async function PartnerHomePage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Un socio sans établissement (référent, ou opérateur en attente) n'a pas d'agenda, donc pas
+          le <h1> « Agenda » du bas de page : sans celui-ci l'écran n'avait aucun titre — sur mobile
+          il empruntait celui de la barre de navigation, qui n'est plus un <h1> (2026-10-13). */}
+      {establishmentIds.length === 0 ? <h1 className="titre-page">Inicio</h1> : null}
       {header === "first-establishment" ? (
         // Remplace l'ancienne double carte ("Tus roles" détaillée par rôle + bloc "agenda vide/
         // Crear producto" en dessous, redondant — "créer un produit" n'a jamais été la bonne
@@ -263,7 +267,7 @@ export default async function PartnerHomePage() {
 
       {establishmentIds.length > 0 ? (
         <>
-          <h1 className="text-2xl font-semibold">Agenda</h1>
+          <h1 className="titre-page">Agenda</h1>
           <PartnerAgenda events={events} productOptions={productOptions} />
         </>
       ) : null}

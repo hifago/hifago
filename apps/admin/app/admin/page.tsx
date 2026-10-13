@@ -170,7 +170,7 @@ export default async function AdminHomePage({
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-semibold">Inicio</h1>
+      <h1 className="titre-page">Inicio</h1>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard testId="kpi-revenue" label="Ingresos generados" value={formatCop(totalRevenue)} />

@@ -45,7 +45,7 @@ export function WizardStepper({
                 // d'écran n'entendait rien d'autre que le chiffre.
                 aria-label={`Paso ${index + 1} de ${titles.length}: ${title}${status === "done" ? " (completado)" : ""}`}
                 className={cn(
-                  "h-7 w-7 justify-self-center border text-xs font-bold",
+                  "h-7 w-7 justify-self-center rounded-full border text-xs font-bold",
                   status === "done" && "cursor-pointer border-foreground bg-foreground text-surface",
                   status === "current" && "border-accent bg-accent text-accent-foreground",
                   status === "upcoming" && "border-default bg-surface text-muted",

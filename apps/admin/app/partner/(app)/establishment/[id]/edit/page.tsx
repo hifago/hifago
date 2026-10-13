@@ -112,7 +112,7 @@ export default async function EditEstablishmentProposalPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">
+      <h1 className="titre-page">
         Proponer edición —{" "}
         {resolveLocalizedField(asLocalizedField(establishment.name), "es") ?? establishment.id}
       </h1>

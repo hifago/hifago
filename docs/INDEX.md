@@ -43,7 +43,7 @@
 - [Gestion d'un établissement — admin édite, partenaire propose…](specs/06-gestion-etablissement.md) 51K ✓ · §0 offset 57 limit 60
 - [Connexion/inscription complète : Google, email+mot de passe,…](specs/07-connexion-inscription-complete.md) 36K ✓ · sans §0
 - [Admin gère une activité (tags, paliers de prix, bornes de quantité,…](specs/08-admin-gestion-activite.md) 25K ✓ · sans §0
-- [Design system admin — fond beige, coins carrés (piste Argile)](specs/09-design-system-admin.md) 17K ✓ · §0 offset 40 limit 97
+- [Design system admin — charte Hifago 2026 (remplace la piste Argile)](specs/09-design-system-admin.md) 21K ✓ · §0 offset 43 limit 54
 - [Listes admin/socio standardisées — pagination, tri, filtres,…](specs/10-listes-standardisees-admin-socio.md) 51K ✓ · §0 offset 53 limit 108
 - [Admin : parcours unifié création/édition d'une activité — i18n…](specs/11-admin-activite-parcours-unifie-creneaux.md) 17K ✓ · §0 offset 51 limit 63
 - [Admin : active products.type='lodging' (« house ») dans le parcours…](specs/12-admin-alojamiento-house.md) 18K ✓ · §0 offset 56 limit 75

@@ -693,7 +693,9 @@ export function DataList<Row>(props: DataListProps<Row>): React.ReactElement {
         const visibleActions = (actions ?? []).filter((action) => !action.isVisible || action.isVisible(row));
         if (visibleActions.length === 0) return null;
         return (
-          <div className="flex gap-2">
+          // Sous `md` (ligne refluée en carte), trois actions ne tiennent pas sur 390 px : elles
+          // passent à la ligne au lieu de sortir de la carte. Au-dessus, la rangée reste d'un trait.
+          <div className="flex gap-2 max-md:flex-wrap max-md:justify-end">
             {visibleActions.map((action) =>
               action.render ? (
                 <React.Fragment key={action.id}>{action.render(row)}</React.Fragment>
@@ -773,7 +775,7 @@ export function DataList<Row>(props: DataListProps<Row>): React.ReactElement {
             <Disclosure.Trigger
               data-testid="filters-toggle"
               className={cn(
-                "flex w-full items-center gap-2 border border-default bg-overlay px-3.5 py-2.5 text-sm font-medium text-foreground transition-colors",
+                "flex min-h-11 w-full items-center gap-2 rounded-lg border border-default bg-overlay px-3.5 py-2.5 text-sm font-medium text-foreground transition-colors md:min-h-0",
                 // Desktop : plus besoin d'un vrai bouton, les champs sont déjà visibles — juste un
                 // petit lien discret pour qui veut regagner la hauteur.
                 "md:w-auto md:border-0 md:bg-transparent md:p-0 md:text-xs md:font-normal md:text-muted md:underline md:underline-offset-2 md:hover:text-foreground"
@@ -783,7 +785,7 @@ export function DataList<Row>(props: DataListProps<Row>): React.ReactElement {
               {isFiltersExpanded ? "Ocultar filtros" : "Filtros"}
               {!isFiltersExpanded && activeFilterCount > 0 ? (
                 <span
-                  className="inline-flex h-[18px] min-w-[18px] items-center justify-center bg-accent px-1 text-[11px] font-semibold text-accent-foreground md:hidden"
+                  className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[11px] font-semibold text-accent-foreground md:hidden"
                   data-testid="filters-active-count"
                 >
                   {activeFilterCount}
@@ -815,7 +817,7 @@ export function DataList<Row>(props: DataListProps<Row>): React.ReactElement {
         // Collante en haut de page : sur une liste de 20 lignes, le bouton reste sous la main
         // quelle que soit la ligne en cours d'édition.
         <div
-          className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border border-border bg-surface px-3 py-2"
+          className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2"
           data-testid="edit-bar"
         >
           <p className="text-sm text-muted" aria-live="polite" data-testid="edit-bar-status">

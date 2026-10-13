@@ -1,5 +1,6 @@
 import { createClient } from "@hifago/supabase/server";
 import { JoinForm } from "./JoinForm";
+import { LogoHifago } from "@/components/logo-hifago";
 
 // Premier écran du portail socio (/partner) dans tout le projet. Cette app n'est pas localisée (cf.
 // hifago/CLAUDE.md — i18n/next-intl ne vise qu'apps/web) : tout le texte de cet écran, y compris
@@ -35,7 +36,8 @@ export default async function PartnerJoinPage({
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 p-8">
-      <h1 className="text-2xl font-semibold">Únete a Hifago</h1>
+      <LogoHifago variante="clair" hauteur="h-16" />
+      <h1 className="titre-page">Únete a Hifago</h1>
       <JoinForm token={token} initialUser={initialUser} />
     </main>
   );

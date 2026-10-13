@@ -4,6 +4,7 @@ import { safeNextPath } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/server";
 import { checkMfaGuard } from "@/lib/mfaGuard";
 import { MfaEnrollForm } from "./MfaEnrollForm";
+import { LogoHifago } from "@/components/logo-hifago";
 
 export const metadata: Metadata = {
   title: "Activar verificación en dos pasos",
@@ -32,7 +33,8 @@ export default async function MfaEnrollPage({ searchParams }: PageProps<"/mfa/en
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-2xl font-semibold">Activar verificación en dos pasos</h1>
+      <LogoHifago variante="clair" hauteur="h-16" />
+      <h1 className="titre-page">Activar verificación en dos pasos</h1>
       <p className="max-w-sm text-center text-sm text-muted">
         Tu cuenta tiene permisos de administrador — la verificación en dos pasos es obligatoria.
         Escanea este código con tu app de autenticación (Google Authenticator, 1Password, etc.).

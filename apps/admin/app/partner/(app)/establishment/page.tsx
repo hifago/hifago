@@ -238,7 +238,7 @@ export default async function PartnerEstablishmentPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold">Mi establecimiento y servicios</h1>
+        <h1 className="titre-page">Mi establecimiento y servicios</h1>
         <div className="flex flex-wrap gap-2">
           {/* Sans établissement existant, l'écran /partner/products/new n'a nulle part où proposer
               l'activité (message "Aún no tienes ningún establecimiento con capacidad de operador

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ResendConfirmationForm } from "./ResendConfirmationForm";
+import { LogoHifago } from "@/components/logo-hifago";
 
 export const metadata: Metadata = {
   title: "Revisa tu correo",
@@ -16,7 +17,8 @@ export default async function VerifyEmailPage({ searchParams }: PageProps<"/veri
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center">
-      <h1 className="text-2xl font-semibold">Revisa tu correo</h1>
+      <LogoHifago variante="clair" hauteur="h-16" />
+      <h1 className="titre-page">Revisa tu correo</h1>
       <p className="max-w-sm text-sm text-muted">
         {email ? (
           <>

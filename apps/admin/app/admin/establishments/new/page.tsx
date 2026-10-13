@@ -42,7 +42,7 @@ export default async function NewEstablishmentPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Nuevo establecimiento</h1>
+      <h1 className="titre-page">Nuevo establecimiento</h1>
       <NewEstablishmentForm
         partners={partners ?? []}
         defaultPartnerId={defaultPartnerId}

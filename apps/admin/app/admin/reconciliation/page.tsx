@@ -9,7 +9,7 @@ export default async function AdminReconciliationPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-semibold">Reconciliación</h1>
+      <h1 className="titre-page">Reconciliación</h1>
       <section className="flex flex-col gap-4" aria-labelledby="reconciliation-pagos">
         <h2 id="reconciliation-pagos" className="text-xl font-semibold">
           Pagos

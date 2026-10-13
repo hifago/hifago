@@ -103,7 +103,7 @@ export default async function AdminClientDetailPage({
         <Link href="/admin/clients" className="text-sm text-muted hover:underline">
           ← Clientes
         </Link>
-        <h1 className="text-2xl font-semibold">{identity.holder_name}</h1>
+        <h1 className="titre-page">{identity.holder_name}</h1>
         <p className="text-sm text-muted" data-testid="client-detail-meta">
           {identity.holder_email ?? "—"} · {identity.holder_phone ?? "—"} · {orders.length}{" "}
           {orders.length === 1 ? "pedido" : "pedidos"}

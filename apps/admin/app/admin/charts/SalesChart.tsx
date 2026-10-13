@@ -12,7 +12,7 @@ export function SalesChart({ data }: { data: Array<{ day: string; ventas: number
         <XAxis dataKey="day" tick={{ fontSize: 11 }} minTickGap={20} />
         <YAxis tick={{ fontSize: 11 }} width={70} tickFormatter={(v) => formatCop(v)} />
         <Tooltip formatter={(value) => formatCop(Number(value))} />
-        <Line type="monotone" dataKey="ventas" stroke="var(--accent)" dot={false} strokeWidth={2} />
+        <Line type="monotone" dataKey="ventas" stroke="var(--charte-bleu-moyen)" dot={false} strokeWidth={2} />
       </LineChart>
     </ChartCard>
   );
