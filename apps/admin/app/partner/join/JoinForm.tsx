@@ -34,7 +34,13 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_request: "Indica tu nombre, tu correo y una contraseña.",
   // Même règle que le formulaire, revérifiée par la route (le formulaire peut être contourné).
   weak_password: PASSWORD_POLICY_ERROR,
+  // Invitation envoyée par e-mail : seul un compte à cette adresse peut la consommer
+  // (consume_partner_invitation ; invitation laissée en attente). Texte précisé par
+  // `messageFor` quand l'adresse est connue.
+  email_mismatch: "Esta invitación fue enviada a otra dirección de correo: usa esa misma dirección para unirte.",
 };
+
+const memeAdresse = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 type ConsumeResult = { ok: boolean; reason?: string; roles?: string[]; partner_id?: string };
 type SignupResult = { ok: boolean; reason?: string };
@@ -43,17 +49,43 @@ type InitialUser = { email: string; fullName: string } | null;
 export function JoinForm({
   token,
   initialUser,
+  invitedEmail = null,
+  initialError = null,
 }: {
   token: string | null;
   initialUser: InitialUser;
+  /** Adresse à laquelle l'invitation a été envoyée (`check_partner_invitation`) ; null : simple lien. */
+  invitedEmail?: string | null;
+  /** Motif relayé par l'URL (retour du callback Google), seulement `email_mismatch`. */
+  initialError?: "email_mismatch" | null;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initialUser?.fullName ?? "");
-  const [email, setEmail] = useState("");
+  // Invitation envoyée par e-mail : le champ porte cette adresse, et elle ne se change pas.
+  const [email, setEmail] = useState(invitedEmail ?? "");
   const [password, setPassword] = useState("");
   const [consent, setConsent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
+
+  // Connecté (retour Google, session existante) avec un autre compte que celui de l'invitation :
+  // la consommation serait refusée (`email_mismatch`). Prévenu tout de suite, avec de quoi changer
+  // de compte sans quitter l'invitation.
+  const mauvaisCompte = Boolean(invitedEmail && initialUser && !memeAdresse(initialUser.email, invitedEmail));
+
+  function messageFor(reason: string | undefined) {
+    if (reason === "email_mismatch" && invitedEmail) {
+      return `Esta invitación fue enviada a ${invitedEmail}: usa esa misma dirección para unirte.`;
+    }
+    return ERROR_MESSAGES[reason ?? ""];
+  }
+
+  // Reste sur l'invitation, sans le motif d'erreur de l'URL : la page se relit sans session.
+  async function changerDeCompte() {
+    await createClient().auth.signOut();
+    router.replace(`/partner/join?token=${encodeURIComponent(token ?? "")}`);
+    router.refresh();
+  }
 
   if (!token) {
     return (
@@ -91,7 +123,7 @@ export function JoinForm({
 
       if (!signupResult.ok) {
         toast.danger(
-          ERROR_MESSAGES[signupResult.reason ?? ""] ??
+          messageFor(signupResult.reason) ??
             "No se pudo crear la cuenta. Revisa tus datos o inicia sesión si ya tienes una cuenta."
         );
         setIsSubmitting(false);
@@ -122,7 +154,7 @@ export function JoinForm({
 
       const result = data as ConsumeResult;
       if (!result.ok) {
-        toast.danger(ERROR_MESSAGES[result.reason ?? ""] ?? "Ocurrió un error. Inténtalo de nuevo.");
+        toast.danger(messageFor(result.reason) ?? "Ocurrió un error. Inténtalo de nuevo.");
         return;
       }
     }
@@ -136,6 +168,11 @@ export function JoinForm({
 
   return (
     <div className="flex w-full flex-col gap-4">
+      {initialError === "email_mismatch" ? (
+        <p role="alert" data-testid="join-email-mismatch" className="text-sm text-danger">
+          {messageFor("email_mismatch")}
+        </p>
+      ) : null}
       {!initialUser ? (
         // Le jeton survit à l'aller-retour Google via OAuthSection → GoogleButton →
         // /auth/callback?next=… (même mécanique que /login et /signup, cf. GoogleButton.tsx) — au
@@ -149,6 +186,19 @@ export function JoinForm({
             Conectado como <span className="font-medium">{initialUser.email}</span>.
           </p>
         ) : null}
+        {initialUser && invitedEmail ? (
+          <p className="text-sm text-muted" data-testid="join-invited-email-session">
+            Esta invitación fue enviada a <span className="font-medium">{invitedEmail}</span>.
+          </p>
+        ) : null}
+        {mauvaisCompte ? (
+          <div role="alert" data-testid="join-wrong-account" className="flex flex-col items-start gap-2 text-sm text-danger">
+            <p>Para usar esta invitación, inicia sesión con {invitedEmail}.</p>
+            <Button type="button" variant="outline" size="sm" onPress={changerDeCompte} data-testid="join-switch-account">
+              Cerrar sesión
+            </Button>
+          </div>
+        ) : null}
 
         <TextField fullWidth name="name" value={name} onChange={setName} isRequired>
           <Label>Nombre completo</Label>
@@ -156,9 +206,21 @@ export function JoinForm({
         </TextField>
         {!initialUser ? (
           <>
-            <TextField fullWidth name="email" value={email} onChange={setEmail} isRequired>
+            <TextField
+              fullWidth
+              name="email"
+              value={email}
+              onChange={setEmail}
+              isRequired
+              isReadOnly={Boolean(invitedEmail)}
+            >
               <Label>Correo electrónico</Label>
-              <Input type="email" autoComplete="email" />
+              <Input type="email" autoComplete="email" data-testid="join-email-input" />
+              {invitedEmail ? (
+                <Description data-testid="join-invited-email">
+                  Esta invitación fue enviada a {invitedEmail}.
+                </Description>
+              ) : null}
             </TextField>
             <TextField fullWidth name="password" value={password} onChange={setPassword} isRequired>
               <Label>Contraseña</Label>

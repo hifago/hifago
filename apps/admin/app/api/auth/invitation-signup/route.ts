@@ -47,12 +47,19 @@ export async function POST(request: Request) {
   const { data: check, error: checkError } = await supabaseAnon.rpc("check_partner_invitation", {
     p_token: token,
   });
-  const checkResult = check as { ok: boolean; reason?: string } | null;
+  const checkResult = check as { ok: boolean; reason?: string; invited_email?: unknown } | null;
   if (checkError || !checkResult?.ok) {
     return Response.json(
       { ok: false, reason: checkResult?.reason ?? "invitation_not_found" },
       { status: 404 }
     );
+  }
+  // Invitation envoyée PAR E-MAIL : la base refusera à la consommation un compte à une autre
+  // adresse (`email_mismatch`). Le dire ICI évite de créer puis défaire un compte pour rien. La base
+  // reste l'autorité : sans `invited_email` (simple lien, base antérieure), rien n'est vérifié ici.
+  const invitedEmail = typeof checkResult.invited_email === "string" ? checkResult.invited_email.trim() : "";
+  if (invitedEmail !== "" && invitedEmail.toLowerCase() !== String(email).trim().toLowerCase()) {
+    return Response.json({ ok: false, reason: "email_mismatch" }, { status: 409 });
   }
 
   const service = createServiceRoleClient();
