@@ -56,6 +56,12 @@ insert into products (id, partner_id, establishment_id, type, name, slug, sellab
    '7c720000-0000-4000-8000-000000000011', 'lodging', jsonb_build_object('es', 'Cabaña'),
    'modify-guards-cabana', true, 100000, null, 4, false, null, null, true, null, null);
 
+-- Migration 20261014211700 : la ligne d'un evento en ligne ne se déplace que sur une occurrence —
+-- les eventos 22 à 24 ont lieu chaque jour de mars 2029, dates que visent leurs cas.
+update products set occurrence_type = 'recurring', occurrence_date = '2029-03-01', recurrence_frequency_days = 1
+ where id in ('7c720000-0000-4000-8000-000000000022', '7c720000-0000-4000-8000-000000000023',
+              '7c720000-0000-4000-8000-000000000024');
+
 insert into product_availability (product_id, date, capacity, booked) values
   -- Activité : 1 réservé pour une ligne de 2 (anomalie : une place manque).
   ('7c720000-0000-4000-8000-000000000021', '2029-03-01', 3, 1),

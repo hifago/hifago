@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // modify_order_line refuse de modifier en place une prestation liée au PMS ou qui occupe l'espace
-// partagé (20261006204938) : l'écran le dit, au lieu de « No se pudo modificar ».
+// partagé (20261006204938), et de déplacer la ligne d'un evento hors de ses dates (20261014211700) :
+// l'écran le dit, au lieu de « No se pudo modificar ».
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), danger: vi.fn(), info: vi.fn() }));
 let reponse: { data: unknown; error: { code?: string; message: string } | null } = {
@@ -23,6 +24,7 @@ const { ModifyOrderLineDialog, describeModifyFailure } = await import("./ModifyO
 
 const PMS = "Esta reserva está vinculada al PMS del alojamiento y no se puede modificar desde aquí.";
 const RESSOURCE = "Esta reserva ocupa el espacio compartido del establecimiento y no se puede modificar.";
+const OCCURRENCE = "Este evento no tiene lugar en la fecha elegida: elige una de sus fechas.";
 
 async function soumettre() {
   render(
@@ -50,6 +52,7 @@ describe("ModifyOrderLineDialog — refus de modification", () => {
   it.each([
     ["pms_line_not_modifiable", PMS],
     ["resource_line_not_modifiable", RESSOURCE],
+    ["invalid_occurrence_date", OCCURRENCE],
   ])("refus %s rendu par la RPC : son texte dans le toast", async (reason, texte) => {
     reponse = { data: { ok: false, reason }, error: null };
     await soumettre();
