@@ -1,5 +1,5 @@
 -- Codes partenaires : un code se vérifie à l'unité, la lecture des lignes est limitée à leur
--- propriétaire et à l'admin (20261014025905 puis 20261014030255).
+-- propriétaire et à l'admin (20261014025905 puis 20261014073414).
 --
 -- La fonction partner_code_is_active ne rend qu'un booléen « existe et actif » : jamais une ligne,
 -- une liste ni un partenaire. Les lignes de partner_codes ne se lisent plus que par leur
