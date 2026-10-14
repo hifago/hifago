@@ -162,9 +162,9 @@ insert into product_slot_availability (product_id, slot_date, slot_start_time, s
   ('b1c70000-0000-4000-8000-000000000028', public.today_in_bogota() + 6, '09:00', 60, 2, 1);
 -- Ressource partagée : 5 places de J+3 à J+5 chez 11 (camp de 3 jours), une seule à J+3 chez 14.
 insert into provider_resource_calendar (establishment_id, slot_date, capacity, booked)
-select 'b1c70000-0000-4000-8000-000000000011', public.today_in_bogota() + d, 5, 0 from generate_series(3, 5) d
+select 'b1c70000-0000-4000-8000-000000000011'::uuid, public.today_in_bogota() + d, 5, 0 from generate_series(3, 5) d
 union all
-select 'b1c70000-0000-4000-8000-000000000014', public.today_in_bogota() + 3, 1, 0;
+select 'b1c70000-0000-4000-8000-000000000014'::uuid, public.today_in_bogota() + 3, 1, 0;
 insert into product_calendar (product_id, date, open) values
   ('b1c70000-0000-4000-8000-000000000025', public.today_in_bogota() + 20, false);
 -- Une ligne dans le panier d'un AUTRE compte.
