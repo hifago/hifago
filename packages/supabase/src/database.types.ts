@@ -2716,6 +2716,14 @@ export type Database = {
       }
       attach_orders_to_account: { Args: never; Returns: Json }
       cancel_order_line: { Args: { p_line_id: string }; Returns: Json }
+      cart_lines_availability: {
+        Args: never
+        Returns: {
+          available: boolean
+          id: string
+          reason: string
+        }[]
+      }
       check_partner_invitation: { Args: { p_token: string }; Returns: Json }
       claim_notification_email_batch: {
         Args: { p_limit?: number }
