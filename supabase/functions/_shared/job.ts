@@ -10,7 +10,8 @@
 //      que le passage s'est déroulé ; sinon `last_error`, affiché aux admins ;
 //   4. aucun secret dans ce qui sort (heartbeat, journaux, réponse) : tout texte d'erreur passe par
 //      redactSecrets, avec les secrets de l'environnement et les jetons lus en base.
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+// Version EXACTE, jamais une plage : `@2` se résout au déploiement (scripts/check-deno-imports.sh).
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.117.3";
 import { createCallBudget } from "../../../packages/domain/src/jobs/callBudget.ts";
 import { describeJobError, redactSecrets } from "../../../packages/domain/src/jobs/jobError.ts";
 import { requireServiceRole } from "./requireServiceRole.ts";

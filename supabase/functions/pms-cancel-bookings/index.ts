@@ -10,7 +10,8 @@
 // Depuis P6 (2026-10) : squelette commun des jobs (_shared/job.ts — contrôle d'appelant, budget de
 // temps, heartbeat à chaque passage, aucun secret dans ce qui sort) ; « déjà annulé » se lit sur le
 // 422 RECORD_NOT_FOUND (isLobbyCancelAlreadyDone), jamais sur un 404 ; délai par appel.
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+// Version EXACTE, jamais une plage : `@2` se résout au déploiement (scripts/check-deno-imports.sh).
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.117.3";
 import { type JobContext, type JobOutcome, serveJob } from "../_shared/job.ts";
 import { cancelLobbyBooking, LOBBY_DEFAULT_BASE_URL } from "../../../packages/domain/src/pms/lobbyClient.ts";
 import { describeLobbyErrorBody } from "../../../packages/domain/src/pms/describeLobbyErrorBody.ts";
