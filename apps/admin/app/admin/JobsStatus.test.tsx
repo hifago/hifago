@@ -16,6 +16,8 @@ function job(partiel: Partial<JobStatusRow> & { jobName: string }): JobStatusRow
     alertedAt: null,
     state: "ok",
     alertActive: false,
+    lastWarning: null,
+    lastWarningAt: null,
     ...partiel,
   };
 }
@@ -137,5 +139,43 @@ describe("JobsStatus — bloc « Procesos » de l'accueil admin", () => {
     render(<JobsStatus jobs={[]} checkedAt={null} />);
     expect(resume().getAttribute("role")).toBe("alert");
     expect(resume().textContent).toBe("Ningún proceso declarado.");
+  });
+
+  // Un avertissement n'est pas une panne : affiché sur la ligne, avec son heure, sans toucher ni
+  // l'état, ni la pastille, ni le résumé.
+  it("avertissement : texte et heure de Guatapé sur la ligne, état et résumé inchangés", () => {
+    render(
+      <JobsStatus
+        jobs={[
+          job({
+            jobName: "payments-reconcile",
+            lastWarning: "2 decisiones tomadas sin control de identidad",
+            lastWarningAt: "2026-10-06T19:58:00Z",
+          }),
+        ]}
+        checkedAt={CHECKED_AT}
+      />
+    );
+    expect(screen.getByTestId("job-warning-payments-reconcile").textContent).toBe(
+      "Aviso (6/10/2026, 14:58:00): 2 decisiones tomadas sin control de identidad"
+    );
+    expect(screen.getByTestId("job-state-payments-reconcile").textContent).toBe("Al día");
+    expect(resume().textContent).toBe("Todos los procesos al día.");
+    expect(resume().getAttribute("role")).toBe("status");
+  });
+
+  it("avertissement sans heure : le texte seul", () => {
+    render(
+      <JobsStatus
+        jobs={[job({ jobName: "payments-reconcile", lastWarning: "texto", lastWarningAt: null })]}
+        checkedAt={CHECKED_AT}
+      />
+    );
+    expect(screen.getByTestId("job-warning-payments-reconcile").textContent).toBe("Aviso: texto");
+  });
+
+  it("aucun avertissement (ou base sans la colonne) : rien n'est affiché", () => {
+    render(<JobsStatus jobs={[job({ jobName: "payments-reconcile" })]} checkedAt={CHECKED_AT} />);
+    expect(screen.queryByTestId("job-warning-payments-reconcile")).toBeNull();
   });
 });
