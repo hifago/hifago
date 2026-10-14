@@ -57,6 +57,7 @@ import { createClient } from "@supabase/supabase-js";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, extname } from "node:path";
+import { slugGammePrix } from "../../scripts/lib/tag-slug.mjs";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
@@ -392,8 +393,18 @@ async function creerTags(admin, svc, tags) {
   for (const cle of [...tags.keys()].sort()) {
     const t = tags.get(cle);
 
-    const { data: slug, error: erreurSlug } = await admin.rpc("slugify", { p_text: t.label.es });
-    if (erreurSlug) throw new Error(`${t._fichier} : slugify : ${erreurSlug.message}`);
+    // Slug calculé comme l'admin (apps/admin/lib/tags/tagSlug.ts) : une gamme de prix « $ » à
+    // « $$$$ » → `precio-N` ; sinon le slugify de la base, qui rend "" pour un libellé sans lettre
+    // ni chiffre — refusé ici comme l'admin le refuse (la base aussi, depuis 20261014210927).
+    let slug = slugGammePrix(t.label.es);
+    if (slug === null) {
+      const { data, error: erreurSlug } = await admin.rpc("slugify", { p_text: t.label.es });
+      if (erreurSlug) throw new Error(`${t._fichier} : slugify : ${erreurSlug.message}`);
+      slug = data;
+    }
+    if (!slug) {
+      throw new Error(`${t._fichier} : le libellé « ${t.label.es} » ne donne aucun slug (il faut au moins une lettre ou un chiffre).`);
+    }
 
     const { data: existant, error: erreurLecture } = await admin.from("catalog_tags").select("id").eq("slug", slug).maybeSingle();
     if (erreurLecture) throw new Error(`${t._fichier} : lecture catalog_tags : ${erreurLecture.message}`);
