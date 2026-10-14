@@ -100,17 +100,18 @@ async function connectBuyer(open, i) {
 const order = (client) =>
   run(client, "select create_order('Occurrence Buyer', p_holder_email => 'occurrence-buyer@hifago.test') as r");
 
-async function waitForLockWait(seed, fragment) {
+// Par pid : une autre session de la pile partagée ne peut pas passer pour celle-ci.
+async function waitForLockWait(seed, client, who) {
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     const { rows } = await seed.query(
-      "select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and query like $1",
-      [`%${fragment}%`]
+      "select count(*)::int as n from pg_stat_activity where pid = $1 and wait_event_type = 'Lock'",
+      [client.processID]
     );
     if (rows[0].n > 0) return;
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
-  throw new Error(`aucune attente de verrou constatée pour ${fragment}`);
+  throw new Error(`aucune attente de verrou constatée pour ${who}`);
 }
 
 /** Lignes `reserved` de l'evento hors des occurrences de sa définition FINALE. */
@@ -138,14 +139,14 @@ async function deterministic(seed, open, first) {
   let adminCall;
   if (first === "buyer") {
     buyerCall = order(buyer);
-    await waitForLockWait(seed, "create_order");
+    await waitForLockWait(seed, buyer, "l'acheteur");
     adminCall = run(admin, CHANGE);
-    await waitForLockWait(seed, "recurrence_frequency_days");
+    await waitForLockWait(seed, admin, "l'admin");
   } else {
     adminCall = run(admin, CHANGE);
-    await waitForLockWait(seed, "recurrence_frequency_days");
+    await waitForLockWait(seed, admin, "l'admin");
     buyerCall = order(buyer);
-    await waitForLockWait(seed, "create_order");
+    await waitForLockWait(seed, buyer, "l'acheteur");
   }
   await coordinator.query("rollback");
   const [b, a] = await Promise.all([buyerCall, adminCall]);
