@@ -7,24 +7,59 @@ import { tagMatchesQuery } from "@/lib/tags/tagSlug";
 
 export type ManagedTag = { id: string; label: string };
 
+export type CatalogUsage = { products: number; establishments: number };
+
+/**
+ * Ce que le dialogue renomme et supprime. Une étiquette (`TAG_EDITOR`, le défaut) et un équipement
+ * (`AMENITY_EDITOR`, lib/amenities/editCatalogAmenity.ts) partagent le même dialogue : seuls les
+ * écritures, les textes et les langues renommées changent.
+ */
+export type CatalogItemEditor = {
+  texts: { manage: string; title: string; search: string; empty: string; renamed: string; deleted: string };
+  /** Les champs du renommage, dans l'ordre ; `es` d'abord, toujours (c'est le libellé affiché). */
+  languages: readonly { key: string; label: string }[];
+  /** Libellés actuels des langues autres que `es` (le sélecteur ne porte que `es`). */
+  loadLabels?: (id: string) => Promise<Record<string, string> | null>;
+  rename: (id: string, labels: Record<string, string>) => Promise<string | null>;
+  remove: (id: string) => Promise<string | null>;
+  countUsage: (id: string) => Promise<CatalogUsage | null>;
+  /** `undefined` : comptage en cours ; `null` : comptage impossible (jamais un zéro rassurant). */
+  usageWarning: (usage: CatalogUsage | null | undefined) => string;
+};
+
 type ActiveRow =
-  | { id: string; mode: "rename"; draft: string }
+  // `drafts` absent : libellés en cours de lecture (`loadLabels`).
+  | { id: string; mode: "rename"; drafts?: Record<string, string>; original?: Record<string, string> }
   // `usage` : undefined = comptage en cours, null = comptage impossible.
-  | { id: string; mode: "delete"; usage?: { products: number; establishments: number } | null };
+  | { id: string; mode: "delete"; usage?: CatalogUsage | null };
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
-function deleteWarning(usage: { products: number; establishments: number } | null | undefined): string {
-  if (usage === undefined) return "Comprobando dónde se usa…";
-  if (usage === null) return "Se quitará de todas las fichas que la usan. Esta acción no se puede deshacer.";
-  const parts = [
-    usage.products > 0 ? plural(usage.products, "actividad", "actividades") : null,
-    usage.establishments > 0 ? plural(usage.establishments, "establecimiento", "establecimientos") : null,
-  ].filter(Boolean);
-  return parts.length > 0
-    ? `Se quitará de ${parts.join(" y ")}. Esta acción no se puede deshacer.`
-    : "Ninguna ficha la usa. Esta acción no se puede deshacer.";
-}
+export const TAG_EDITOR: CatalogItemEditor = {
+  texts: {
+    manage: "Editar o eliminar etiquetas",
+    title: "Editar o eliminar etiquetas",
+    search: "Buscar una etiqueta",
+    empty: "Ninguna etiqueta.",
+    renamed: "Etiqueta renombrada.",
+    deleted: "Etiqueta eliminada.",
+  },
+  languages: [{ key: "es", label: "Nombre" }],
+  rename: (id, labels) => renameCatalogTag(id, labels.es ?? ""),
+  remove: deleteCatalogTag,
+  countUsage: countCatalogTagUsage,
+  usageWarning(usage) {
+    if (usage === undefined) return "Comprobando dónde se usa…";
+    if (usage === null) return "Se quitará de todas las fichas que la usan. Esta acción no se puede deshacer.";
+    const parts = [
+      usage.products > 0 ? plural(usage.products, "actividad", "actividades") : null,
+      usage.establishments > 0 ? plural(usage.establishments, "establecimiento", "establecimientos") : null,
+    ].filter(Boolean);
+    return parts.length > 0
+      ? `Se quitará de ${parts.join(" y ")}. Esta acción no se puede deshacer.`
+      : "Ninguna ficha la usa. Esta acción no se puede deshacer.";
+  },
+};
 
 // Renommer ou supprimer une étiquette là où elle se choisit (demande Jérôme, 2026-10-13), sans
 // passer par /admin/tags : ouvert depuis TagsMultiSelect (fiches, blocs, modération) et depuis la
@@ -42,12 +77,14 @@ export function ManageTagsDialog({
   tags,
   onRenamed,
   onDeleted,
+  editor = TAG_EDITOR,
 }: {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   tags: ManagedTag[];
   onRenamed: (tagId: string, label: string) => void;
   onDeleted: (tagId: string) => void;
+  editor?: CatalogItemEditor;
 }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState<ActiveRow | null>(null);
@@ -66,40 +103,64 @@ export function ManageTagsDialog({
     onOpenChange(next);
   }
 
+  async function startRename(tag: ManagedTag) {
+    if (!editor.loadLabels) {
+      setActive({ id: tag.id, mode: "rename", drafts: { es: tag.label }, original: { es: tag.label } });
+      return;
+    }
+    setActive({ id: tag.id, mode: "rename" });
+    const loaded = await editor.loadLabels(tag.id);
+    if (!loaded) {
+      toast.danger("No se pudieron leer los nombres actuales. Inténtalo de nuevo.");
+      setActive((current) => (current?.id === tag.id && current.mode === "rename" ? null : current));
+      return;
+    }
+    const labels: Record<string, string> = Object.fromEntries(
+      editor.languages.map(({ key }) => [key, loaded[key] ?? ""])
+    );
+    labels.es = tag.label;
+    // L'admin a pu annuler ou passer à une autre ligne pendant la lecture.
+    setActive((current) =>
+      current?.id === tag.id && current.mode === "rename" ? { ...current, drafts: labels, original: labels } : current
+    );
+  }
+
   async function startDelete(tagId: string) {
     setActive({ id: tagId, mode: "delete" });
-    const usage = await countCatalogTagUsage(tagId);
+    const usage = await editor.countUsage(tagId);
     // L'admin a pu annuler ou passer à une autre ligne pendant le comptage.
     setActive((current) => (current?.id === tagId && current.mode === "delete" ? { ...current, usage } : current));
   }
 
-  async function confirmRename(tag: ManagedTag, draft: string) {
-    const label = draft.trim();
-    if (label === tag.label) {
+  async function confirmRename(tag: ManagedTag, drafts: Record<string, string>, original: Record<string, string>) {
+    const labels: Record<string, string> = Object.fromEntries(
+      editor.languages.map(({ key }) => [key, (drafts[key] ?? "").trim()])
+    );
+    if (editor.languages.every(({ key }) => labels[key] === (original[key] ?? "").trim())) {
       setActive(null);
       return;
     }
     setIsSubmitting(true);
-    const error = await renameCatalogTag(tag.id, label);
+    const error = await editor.rename(tag.id, labels);
     setIsSubmitting(false);
     if (error) {
       toast.danger(error);
       return;
     }
-    toast.success("Etiqueta renombrada.");
+    toast.success(editor.texts.renamed);
     setActive(null);
-    onRenamed(tag.id, label);
+    onRenamed(tag.id, labels.es);
   }
 
   async function confirmDelete(tag: ManagedTag) {
     setIsSubmitting(true);
-    const error = await deleteCatalogTag(tag.id);
+    const error = await editor.remove(tag.id);
     setIsSubmitting(false);
     if (error) {
       toast.danger(error);
       return;
     }
-    toast.success("Etiqueta eliminada.");
+    toast.success(editor.texts.deleted);
     setActive(null);
     onDeleted(tag.id);
   }
@@ -111,18 +172,18 @@ export function ManageTagsDialog({
           <Modal.Dialog>
             <Modal.CloseTrigger aria-label="Cerrar" />
             <Modal.Header>
-              <Modal.Heading>Editar o eliminar etiquetas</Modal.Heading>
+              <Modal.Heading>{editor.texts.title}</Modal.Heading>
             </Modal.Header>
             <Modal.Body className="flex flex-col gap-4">
               <p className="text-sm text-muted">
                 Los cambios se aplican de inmediato y en todo el catálogo, no solo en esta ficha.
               </p>
-              <TextField fullWidth value={query} onChange={setQuery} aria-label="Buscar una etiqueta">
-                <Input placeholder="Buscar una etiqueta…" data-testid="manage-tags-search" />
+              <TextField fullWidth value={query} onChange={setQuery} aria-label={editor.texts.search}>
+                <Input placeholder={`${editor.texts.search}…`} data-testid="manage-tags-search" />
               </TextField>
               {visibleTags.length === 0 ? (
                 <p className="text-sm text-muted" data-testid="manage-tags-empty">
-                  Ninguna etiqueta.
+                  {editor.texts.empty}
                 </p>
               ) : (
                 <ul className="flex flex-col divide-y divide-border" data-testid="manage-tags-list">
@@ -130,24 +191,37 @@ export function ManageTagsDialog({
                     const row = active?.id === tag.id ? active : null;
                     return (
                       <li key={tag.id} className="flex flex-col gap-2 py-2" data-testid={`manage-tag-${tag.id}`}>
-                        {row?.mode === "rename" ? (
+                        {row?.mode === "rename" && !row.drafts ? (
+                          <p className="text-sm text-muted" data-testid={`manage-tag-loading-${tag.id}`}>
+                            Cargando los nombres actuales…
+                          </p>
+                        ) : row?.mode === "rename" && row.drafts ? (
                           <form
                             noValidate
                             className="flex flex-col gap-2 md:flex-row md:items-end"
                             onSubmit={(event) => {
                               event.preventDefault();
-                              void confirmRename(tag, row.draft);
+                              void confirmRename(tag, row.drafts ?? {}, row.original ?? {});
                             }}
                           >
-                            <TextField
-                              fullWidth
-                              autoFocus
-                              value={row.draft}
-                              onChange={(draft) => setActive({ id: tag.id, mode: "rename", draft })}
-                            >
-                              <Label>Nombre</Label>
-                              <Input data-testid={`manage-tag-input-${tag.id}`} />
-                            </TextField>
+                            {editor.languages.map(({ key, label }, index) => (
+                              <TextField
+                                key={key}
+                                fullWidth
+                                autoFocus={index === 0}
+                                value={row.drafts?.[key] ?? ""}
+                                onChange={(value) =>
+                                  setActive({ ...row, drafts: { ...(row.drafts ?? {}), [key]: value } })
+                                }
+                              >
+                                <Label>{label}</Label>
+                                <Input
+                                  data-testid={
+                                    key === "es" ? `manage-tag-input-${tag.id}` : `manage-tag-input-${tag.id}-${key}`
+                                  }
+                                />
+                              </TextField>
+                            ))}
                             <div className="flex gap-2">
                               <Button
                                 type="submit"
@@ -166,7 +240,7 @@ export function ManageTagsDialog({
                             <p className="text-sm">
                               ¿Eliminar «{tag.label}»?{" "}
                               <span className="text-muted" data-testid={`manage-tag-warning-${tag.id}`}>
-                                {deleteWarning(row.usage)}
+                                {editor.usageWarning(row.usage)}
                               </span>
                             </p>
                             <div className="flex gap-2">
@@ -191,7 +265,7 @@ export function ManageTagsDialog({
                               <button
                                 type="button"
                                 disabled={isSubmitting}
-                                onClick={() => setActive({ id: tag.id, mode: "rename", draft: tag.label })}
+                                onClick={() => void startRename(tag)}
                                 data-testid={`manage-tag-rename-${tag.id}`}
                                 className="text-sm font-medium text-foreground hover:underline max-md:min-h-11"
                               >

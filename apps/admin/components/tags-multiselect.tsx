@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Key } from "react";
 import { ComboBox, Input, Label, ListBox, Tag, TagGroup, toast } from "@hifago/ui";
-import { ManageTagsDialog } from "@/components/manage-tags-dialog";
+import { ManageTagsDialog, TAG_EDITOR, type CatalogItemEditor } from "@/components/manage-tags-dialog";
 import { createCatalogTag } from "@/lib/tags/createCatalogTag";
 import { isExistingTagName, tagMatchesQuery } from "@/lib/tags/tagSlug";
 
@@ -37,8 +37,10 @@ export function TagsMultiSelect({
   placeholder = "Buscar o crear un tag…",
   // Renommer / supprimer une étiquette depuis le sélecteur (demande Jérôme, 2026-10-13). Suit
   // `allowCreate` par défaut : même droit d'écriture sur `catalog_tags` (admin-only), donc mêmes
-  // écrans — jamais le socio, jamais les équipements (liste fermée, autre table).
+  // écrans — jamais le socio. Les équipements (liste fermée, sans création) l'activent
+  // explicitement, avec leur propre éditeur (`manageEditor`), dans l'admin seulement.
   allowManage = allowCreate,
+  manageEditor = TAG_EDITOR,
 }: {
   availableTags: TagOption[];
   selectedTagIds: string[];
@@ -49,6 +51,7 @@ export function TagsMultiSelect({
   allowCreate?: boolean;
   placeholder?: string;
   allowManage?: boolean;
+  manageEditor?: CatalogItemEditor;
 }) {
   const [query, setQuery] = useState("");
   // Tags créés depuis ce composant pendant sa durée de vie — le parent (Server Component) n'a pas
@@ -186,11 +189,12 @@ export function TagsMultiSelect({
             data-testid={`${testId}-manage`}
             className="self-start text-sm font-medium text-foreground hover:underline max-md:min-h-11"
           >
-            Editar o eliminar etiquetas
+            {manageEditor.texts.manage}
           </button>
           <ManageTagsDialog
             isOpen={isManaging}
             onOpenChange={setIsManaging}
+            editor={manageEditor}
             tags={allTags}
             onRenamed={(tagId, label) => setRenamedLabels((previous) => ({ ...previous, [tagId]: label }))}
             onDeleted={handleDeleted}
