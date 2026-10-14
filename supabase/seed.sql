@@ -637,6 +637,12 @@ from generate_series(5, 12) as dia;
 -- SQL : il y faudrait le binaire. Les tuiles rendront donc l'aplat gris en local comme en e2e —
 -- c'est le substitut prévu par l'atome `Image`, et la variante illustrée est couverte par la story
 -- `Affichage/TarjetaCategoria` → `Completa` et par son test de composant.
+--
+-- `20261014160938_contenu_admin_local_du_13.sql` crée « cultura » dans TOUTE base, celle-ci
+-- comprise : le seed passe après les migrations, et sa ligne garde l'identifiant fixe que les
+-- rattachements ci-dessous citent. La copie de la migration n'a encore aucun rattachement ici (les
+-- fiches qu'elle vise n'existent pas dans le seed) : elle est retirée avant l'insert.
+delete from catalog_tags where slug = 'cultura' and id <> 'c0000000-0000-4000-8000-000000000003';
 insert into catalog_tags (id, label, slug, description) values
   (
     'c0000000-0000-4000-8000-000000000001',
