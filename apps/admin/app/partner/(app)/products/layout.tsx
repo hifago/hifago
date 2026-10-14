@@ -33,7 +33,7 @@ export default async function PartnerProductsLayout({
     redirect("/login?next=/partner/products");
   }
 
-  const { partnerId, isAdmin } = await requirePartnerOrAdmin(supabase, user.id);
+  const { partnerId, isAdmin } = await requirePartnerOrAdmin(supabase);
 
   // Refonte vue référent (2026-08-20, docs/specs/22-vue-referent-restreinte.md) — même garde
   // qu'establishment/layout.tsx : /partner/products/new redirige déjà vers /partner/establishment

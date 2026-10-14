@@ -46,7 +46,7 @@ export default async function PartnerEstablishmentPage() {
   // affichait « aucun établissement », ou des fiches sans photos ni propositions.
   const partnerId = user
     ? checkedRead(
-        await supabase.rpc("partner_id_for_account", { uid: user.id }),
+        await supabase.rpc("partner_id_for_account"),
         "partner_id_for_account",
       ).data
     : null;

@@ -122,7 +122,7 @@ export async function GET(request: Request) {
   // 2FA admin déclenchée à la connexion elle-même (§8) — un compte admin qui vient de confirmer
   // son email ou de se connecter via Google n'échappe pas à l'AAL2.
   if (user) {
-    const mfa = await checkMfaGuard(supabase, user.id);
+    const mfa = await checkMfaGuard(supabase);
     if (mfa.action === "enroll") {
       return NextResponse.redirect(
         new URL(`/mfa/enroll?next=${encodeURIComponent(next)}`, url.origin)

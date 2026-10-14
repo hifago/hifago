@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   }
   // Échec fermé (2026-10-01), motif de lib/pms/lobbyEstablishment.ts : un rôle illisible répond
   // 503, jamais 403 « pas admin ».
-  const { data: isAdmin, error: isAdminError } = await supabase.rpc("is_admin", { uid: user.id });
+  const { data: isAdmin, error: isAdminError } = await supabase.rpc("is_admin");
   if (isAdminError) {
     console.error("test-connection : rôle indéterminable", isAdminError.message);
     return Response.json({ ok: false, reason: "authorization_unavailable" }, { status: 503 });

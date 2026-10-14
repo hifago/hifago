@@ -16,12 +16,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // « aucun rôle », il renvoyait un partenaire ou un admin en panne de base sur `fallbackPath`.
 export async function requirePartnerOrAdmin(
   supabase: SupabaseClient,
-  userId: string,
   fallbackPath = "/partner"
 ): Promise<{ partnerId: string | null; isAdmin: boolean }> {
   const [partnerResult, adminResult] = await Promise.all([
-    supabase.rpc("partner_id_for_account", { uid: userId }),
-    supabase.rpc("is_admin", { uid: userId }),
+    supabase.rpc("partner_id_for_account"),
+    supabase.rpc("is_admin"),
   ]);
   if (partnerResult.error) {
     throw new Error(`Lecture de l'organisation impossible (partner_id_for_account) : ${partnerResult.error.message}`);

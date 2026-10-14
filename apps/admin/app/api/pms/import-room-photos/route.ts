@@ -197,7 +197,7 @@ async function handleAttach(input: { productId?: unknown }) {
   //
   // Échec fermé (2026-10-01), motif de lib/pms/lobbyEstablishment.ts : « je n'ai pas pu le
   // savoir » répond 503, jamais un faux refus, un faux « introuvable » ni une galerie crue vide.
-  const { data: isAdmin, error: isAdminError } = await supabase.rpc("is_admin", { uid: user.id });
+  const { data: isAdmin, error: isAdminError } = await supabase.rpc("is_admin");
   if (isAdminError) {
     console.error(`import-room-photos : rôle indéterminable (produit ${productId})`, isAdminError.message);
     return Response.json({ ok: false, reason: "authorization_unavailable" }, { status: 503 });

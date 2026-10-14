@@ -108,9 +108,8 @@ export async function resolveLobbyEstablishment(
   // chaque ouverture du sélecteur). Toutes les autorisations restent évaluées AVANT le premier
   // appel Lobby et avant toute écriture Storage.
   const [adminResult, capabilityResult, establishmentResult] = await Promise.all([
-    supabase.rpc("is_admin", { uid: user.id }),
+    supabase.rpc("is_admin"),
     supabase.rpc("has_capability", {
-      uid: user.id,
       p_role: "operator",
       p_establishment_id: establishmentId,
     }),
