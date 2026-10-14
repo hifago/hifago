@@ -163,12 +163,14 @@ export function ModifyOrderLineDialog({
 }
 
 // Refus rendus par modify_order_line (20261006204938) : la prestation ne peut pas être modifiée en
-// place. Les autres refus de la RPC restent des exceptions (texte générique, rpcErrorMessage).
+// place ; depuis 20261014211700, la ligne d'un evento ne se déplace que sur une de ses dates. Les
+// autres refus de la RPC restent des exceptions (texte générique, rpcErrorMessage).
 const MODIFY_FAILURE_MESSAGES: Record<string, string> = {
   pms_line_not_modifiable:
     "Esta reserva está vinculada al PMS del alojamiento y no se puede modificar desde aquí.",
   resource_line_not_modifiable:
     "Esta reserva ocupa el espacio compartido del establecimiento y no se puede modificar.",
+  invalid_occurrence_date: "Este evento no tiene lugar en la fecha elegida: elige una de sus fechas.",
 };
 
 export function describeModifyFailure(
