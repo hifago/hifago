@@ -35,10 +35,10 @@ export default async function PartnerToolsPage() {
     "partner_id_for_account",
   );
 
-  // partner_codes_select_public (lecture déjà publique, Tranche 1) — scopée ici au partenaire
-  // connecté (pas tous les codes existants, cf. plan feature 18). active=true seulement : un
-  // partenaire ne doit distribuer que des codes qui résolvent réellement une attribution, même
-  // filtre que /r/[code] et que create_order côté résolution.
+  // partner_codes_select_own (20261014025905) : un partenaire ne lit que les codes de SON
+  // organisation — le filtre partner_id ci-dessous le redit, la policy le garantit. active=true
+  // seulement : un partenaire ne doit distribuer que des codes qui résolvent réellement une
+  // attribution, même règle que /r/[code] (partner_code_is_active) et que create_order.
   // Sans organisation, rien à lire — jamais un filtre sur un identifiant vide, qui échouerait.
   const { data: codes } = checkedRead(
     partnerId

@@ -90,7 +90,12 @@ select is(
         -- elle n'expose qu'un AGRÉGAT (sum(qty) groupé par date) — jamais une ligne individuelle,
         -- jamais de PII. Publique par conception : le compteur RSVP doit être visible sur la fiche
         -- evento par n'importe quel visiteur, pas seulement un compte connecté.
-        'get_evento_rsvp_counts'
+        'get_evento_rsvp_counts',
+        -- Même famille que check_partner_invitation (20261014025905) : vérifie UN code
+        -- d'attribution pour la route publique des liens et QR imprimés (/[locale]/r/[code]),
+        -- forcément sans compte. Ne rend qu'un booléen « existe et actif » — jamais une ligne, une
+        -- liste ni un partenaire. partner_codes_read.test.sql vérifie ce contrat (type de retour).
+        'partner_code_is_active'
       )
   ),
   '',
