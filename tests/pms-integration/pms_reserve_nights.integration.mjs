@@ -150,6 +150,20 @@ async function creerCommande(accountId, email) {
   }
 }
 
+// Migration 20261014211217 : un refus défait la commande ET rend ses lignes au panier du client.
+async function panierRendu(client, accountId, dateIso, endIso) {
+  const { rows } = await client.query(
+    `select to_char(ci.date, 'YYYY-MM-DD') as debut, to_char(ci.end_date, 'YYYY-MM-DD') as fin, ci.qty,
+            exists (select 1 from carts c where c.account_id = ci.account_id) as panier
+       from cart_items ci where ci.account_id = $1 and ci.product_id = $2`,
+    [accountId, ids.product]
+  );
+  return {
+    ok: rows.length === 1 && rows[0].debut === dateIso && rows[0].fin === endIso && rows[0].qty === 1 && rows[0].panier,
+    rows,
+  };
+}
+
 async function main() {
   const server = await startFixtureServer();
   const client = new Client({ connectionString: CONNECTION_STRING });
@@ -240,7 +254,7 @@ async function main() {
 
     // ── 2. Lobby refuse la nuit ─────────────────────────────────────────────────────────────────
     refuserLeBooking = true;
-    const { result: result2 } = await creerCommande(
+    const { result: result2, dateIso: debut2, endIso: fin2 } = await creerCommande(
       ids.acheteur2,
       `reserve-nights-refus-${ids.acheteur2.slice(0, 8)}@hifago.test`
     );
@@ -269,6 +283,11 @@ async function main() {
     );
     const { rows: paiement } = await client.query("select payment_status from orders where id = $1", [orderId2]);
     verifier(paiement[0]?.payment_status === "unpaid", `la commande reste 'unpaid' (${paiement[0]?.payment_status})`);
+    const panier2 = await panierRendu(client, ids.acheteur2, debut2, fin2);
+    verifier(
+      panier2.ok,
+      `après le refus, le panier du client contient de nouveau la ligne relâchée (${JSON.stringify(panier2.rows)})`
+    );
 
     // ── 3. Dix POST simultanés sur la même commande → UN SEUL booking chez Lobby ────────────────
     // Migration 20260930221837 : le claim sérialise les appels — un seul réserve la commande, les
@@ -305,7 +324,7 @@ async function main() {
     // ── 4. Connecteur coupé ENTRE create_order et la route ──────────────────────────────────────
     // CLAUDE.md §4.4 : un logement PMS dont le connecteur est coupé n'a plus aucun contrôle de
     // capacité — la commande est défaite (échec fermé).
-    const { result: result4 } = await creerCommande(
+    const { result: result4, dateIso: debut4, endIso: fin4 } = await creerCommande(
       ids.acheteur4,
       `reserve-nights-coupe-${ids.acheteur4.slice(0, 8)}@hifago.test`
     );
@@ -326,6 +345,11 @@ async function main() {
     verifier(appels.bookings === bookingsAvant4, "Lobby n'est jamais appelé pour un connecteur coupé");
     const { rows: apres4 } = await client.query("select status from order_lines where order_id = $1", [orderId4]);
     verifier(apres4[0]?.status === "cancelled_by_provider", `la ligne est défaite (${apres4[0]?.status})`);
+    const panier4 = await panierRendu(client, ids.acheteur4, debut4, fin4);
+    verifier(
+      panier4.ok,
+      `connecteur coupé : le panier du client contient de nouveau la ligne relâchée (${JSON.stringify(panier4.rows)})`
+    );
 
     // ── 5. Trop tard pour payer (migration 20261001194704) ──────────────────────────────────────
     // Passé limite de paiement − bail (28 − 5 = 23 min), le claim refuse `order_expiring` : Lobby
@@ -376,7 +400,10 @@ async function main() {
 
 async function nettoyer(client) {
   const comptes = [ids.acheteur, ids.acheteur2, ids.acheteur3, ids.acheteur4, ids.acheteur5];
+  // cart_items PUIS carts, avant le compte : un refus les recrée (20261014211217), et carts tient
+  // une clé étrangère sur partner_accounts, supprimé en cascade avec auth.users plus bas.
   await client.query(`delete from cart_items where account_id = any($1::uuid[])`, [comptes]);
+  await client.query(`delete from carts where account_id = any($1::uuid[])`, [comptes]);
   await client.query(
     `delete from pms_cancellation_queue where pms_booking_id in (
        select pms_booking_id from order_lines where product_id = $1 and pms_booking_id is not null)`,
