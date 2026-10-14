@@ -126,9 +126,9 @@ function git(...parametres) {
 // `npx supabase`, jamais un binaire supposé installé : c'est la forme que tout le dépôt emploie.
 // `shell: true` parce que `npx` est un `.cmd` sous Windows ; les arguments sont tous des constantes
 // de ce fichier ou un chemin temporaire, mis entre guillemets.
-function supabase(ligne, { tolereEchec = false } = {}) {
+function supabase(ligne, { tolereEchec = false, dossier = RACINE } = {}) {
   const r = spawnSync(`npx supabase ${ligne}`, {
-    cwd: RACINE,
+    cwd: dossier,
     shell: true,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -381,11 +381,14 @@ async function envoyerPhotos(copie, enAttente) {
             "qui la cite la rattacherait à vide. Démarrer la pile locale (/hifago-dev), puis relancer — rien n'a été appliqué."
         );
       }
-      const fichier = path.join(dossier, path.basename(chemin));
-      fs.writeFileSync(fichier, Buffer.from(await reponse.arrayBuffer()));
+      const nom = path.basename(chemin);
+      fs.writeFileSync(path.join(dossier, nom), Buffer.from(await reponse.arrayBuffer()));
       const type = PHOTOS.types[chemin.split(".").pop()];
+      // Source en chemin RELATIF, lancé depuis son dossier : un chemin Windows absolu (`C:\…`) est
+      // lu comme une URL par la CLI, qui refuse en `StorageUnsupportedOperationError` (2026-10-14).
       supabase(
-        `storage cp "${fichier}" "ss:///${PHOTOS.bucket}/${chemin}" --content-type ${type} --linked --experimental --workdir "${copie}"`
+        `storage cp "${nom}" "ss:///${PHOTOS.bucket}/${chemin}" --content-type ${type} --linked --experimental --workdir "${copie}"`,
+        { dossier }
       );
       const verification = await lire(`${PHOTOS.preprod}/${chemin}`, { tentatives: 2, delai: 20_000 });
       if (!verification.ok) {
