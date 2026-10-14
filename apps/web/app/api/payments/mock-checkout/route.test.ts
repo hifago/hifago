@@ -71,12 +71,14 @@ describe("GET /api/payments/mock-checkout", () => {
     const response = await GET(requete());
     expect(response.status).toBe(200);
     const html = await response.text();
-    const expectedAmount = new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      maximumFractionDigits: 0,
-    }).format(17000);
-    expect(html).toContain(expectedAmount);
+    // Le format des montants du site (formatCop) : séparateur de milliers, « COP » après.
+    expect(html).toContain("17.000\u00a0COP");
+  });
+
+  it("groupe aussi les milliers sous 10 000 (« 3.400 COP »)", async () => {
+    paymentRow = { amount_cop: 3400, status: "pending" };
+    const html = await (await GET(requete())).text();
+    expect(html).toContain("3.400\u00a0COP");
   });
 
   it("porte le bandeau explicite de simulateur", async () => {

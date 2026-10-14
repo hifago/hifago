@@ -1,3 +1,4 @@
+import { formatCop } from "@hifago/domain";
 import { createServiceRoleClient } from "@hifago/supabase/service";
 import { isPaymentsMockEnabled } from "@/lib/mercadopago/mock";
 
@@ -43,11 +44,8 @@ export async function GET(request: Request) {
     return new Response("Not found", { status: 404 });
   }
 
-  const amount = new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(payment.amount_cop);
+  // Le format des montants du site (formatCop), jamais un second : « 3.400 COP ».
+  const amount = formatCop(payment.amount_cop);
 
   const html = `<!doctype html>
 <html lang="es">
