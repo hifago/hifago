@@ -8,17 +8,21 @@
 --     nombre de réservations et leurs dates (`occurrence_change_orphans_reservations`, HF002) ;
 --   - les lignes `reserved` déjà PASSÉES sont ignorées : leur occurrence a eu lieu, elles ne
 --     bloquent pas un changement d'avenir ;
---   - seul un evento vendu en ligne (avant ou après le changement) est contrôlé : ses lignes sont
---     passées par le contrôle d'occurrence de create_order. Les présences d'un evento informatif
---     (lignes manuelles) ne sont pas tenues à ses dates ;
+--   - lignes tenues aux dates : toute ligne vendue en ligne (même si l'evento ne l'est plus), et
+--     toute ligne d'un evento vendu en ligne. Les présences saisies à la main (operator_manual)
+--     d'un evento informatif ne sont pas tenues à ses dates ;
+--   - contrôle sur un VRAI changement de date ou de récurrence, ou sur l'activation de la vente en
+--     ligne (qui tient alors toutes les lignes) — jamais sur une édition qui renvoie les mêmes
+--     valeurs ;
 --   - heure et durée restent libres ; lobby_category_id, evento_capacity_mode et
 --     evento_occupies_resource restent gelés (trigger BEFORE inchangé pour eux).
 -- Cupo : une date conservée garde sa ligne product_availability (et ses réservations), une date
 -- nouvelle n'en porte aucune et part de default_capacity, une date retirée n'a plus de ligne
 -- vivante — aucun cupo faux.
--- Course : create_order et create_manual_order_line lisent les occurrences d'un evento en ligne
--- sous verrou PARTAGÉ de la ligne products (avant tout verrou de capacité) ; l'UPDATE de l'admin
--- prend le verrou exclusif — l'un attend l'autre, jamais deux vues périmées.
+-- Course : create_order (evento en ligne) et create_manual_order_line (tout evento, online_bookable
+-- relu sous le verrou) lisent les occurrences sous verrou PARTAGÉ de la ligne products, avant tout
+-- verrou de capacité ; l'UPDATE de l'admin prend le verrou exclusif — l'un attend l'autre, jamais
+-- deux vues périmées. modify_order_line, qui déplace une ligne existante, n'est pas couvert ici.
 --
 -- Codes d'erreur propres au projet (classe HF) : HF002 — changement d'occurrence qui laisserait
 -- des réservations hors des dates de l'evento.
@@ -60,18 +64,20 @@ set search_path = ''
 as $$
 declare
   v_count int;
-  v_dates text[];
+  v_dates date[];
 begin
-  if not (coalesce(old.online_bookable, false) or coalesce(new.online_bookable, false)) then
-    return null;
-  end if;
   -- AFTER UPDATE : expand_event_occurrences lit déjà la nouvelle définition de l'evento.
+  -- Lignes tenues aux dates : toute ligne vendue en ligne, même si l'evento ne l'est plus
+  -- (décocher la vente en ligne puis changer la date ne contourne rien), et toute ligne d'un
+  -- evento vendu en ligne. Seules les présences saisies à la main (operator_manual) d'un evento
+  -- informatif restent libres.
   select count(*), array_agg(distinct ol.date order by ol.date)
     into v_count, v_dates
     from public.order_lines ol
    where ol.product_id = new.id
      and ol.status = 'reserved'
      and ol.date >= public.today_in_bogota()
+     and (coalesce(new.online_bookable, false) or ol.commission_case <> 'operator_manual')
      and not exists (select 1 from public.expand_event_occurrences(new.id, ol.date, ol.date));
   if v_count > 0 then
     raise exception 'occurrence_change_orphans_reservations'
@@ -88,16 +94,25 @@ begin
 end;
 $$;
 comment on function public.products_occurrence_change_guard() is
-  'Refuse un changement de date ou de récurrence d''un evento vendu en ligne qui laisserait une '
-  'réservation à venir hors de ses occurrences (HF002, détail en espagnol). Lignes passées ignorées. '
-  '20261014204354.';
+  'Refuse un changement de date ou de récurrence d''un evento — ou l''activation de sa vente en ligne — '
+  'qui laisserait une réservation à venir hors de ses occurrences (HF002, détail en espagnol). Lignes '
+  'passées ignorées ; présences manuelles d''un evento informatif libres. 20261014204354.';
 
+-- Seulement sur un VRAI changement : les formulaires renvoient toujours ces colonnes, et une ligne
+-- déjà hors date ne doit pas bloquer l'édition d'une description. Décocher la vente en ligne ne
+-- déplace rien et ne relâche rien (les lignes vendues en ligne restent tenues) : pas de contrôle.
 create trigger products_occurrence_change_guard
   after update of occurrence_type, occurrence_date, recurrence_frequency_days,
-                  recurrence_end_date, recurrence_end_count
+                  recurrence_end_date, recurrence_end_count, online_bookable
   on public.products
   for each row
-  when (new.type = 'evento')
+  when (new.type = 'evento' and (
+          old.occurrence_type is distinct from new.occurrence_type
+       or old.occurrence_date is distinct from new.occurrence_date
+       or old.recurrence_frequency_days is distinct from new.recurrence_frequency_days
+       or old.recurrence_end_date is distinct from new.recurrence_end_date
+       or old.recurrence_end_count is distinct from new.recurrence_end_count
+       or (new.online_bookable and not coalesce(old.online_bookable, false))))
   execute function public.products_occurrence_change_guard();
 
 CREATE OR REPLACE FUNCTION public.create_order(p_holder_name text, p_holder_email text DEFAULT NULL::text, p_holder_phone text DEFAULT NULL::text, p_marketing_consent boolean DEFAULT false)
@@ -1095,11 +1110,13 @@ begin
   v_occupies_resource := v_product_type = 'evento' and v_evento_occupies_resource;
 
   -- Même défense que create_order : un evento vendu en ligne n'a lieu qu'à ses occurrences.
-  -- Migration 20261014204354 : lues sous verrou partagé de l'evento, comme create_order — un
-  -- changement de date concurrent est attendu, ou attend cette ligne.
-  if v_product_type = 'evento' and v_online_bookable then
-    perform 1 from public.products where id = p_product_id for share;
-    if not exists (
+  -- Migration 20261014204354 : tout evento sous verrou PARTAGÉ, comme create_order, et
+  -- online_bookable relu sous ce verrou — un changement de date ou une activation de la vente en
+  -- ligne concurrents sont attendus puis lus, ou attendent cette ligne et la trouvent.
+  if v_product_type = 'evento' then
+    select online_bookable into v_online_bookable
+      from public.products where id = p_product_id for share;
+    if v_online_bookable and not exists (
       select 1 from public.expand_event_occurrences(p_product_id, p_date, p_date)
     ) then
       return jsonb_build_object('ok', false, 'reason', 'invalid_occurrence_date');
