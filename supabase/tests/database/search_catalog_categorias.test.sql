@@ -15,7 +15,7 @@
 -- `_select_public`/`establishment_tag_assignments_select` laissent bien passer ce qu'il faut.
 
 begin;
-select plan(19);
+select plan(22);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────────────────────────
 insert into partners (id, display_name) values
@@ -100,6 +100,37 @@ insert into establishment_tag_assignments (establishment_id, tag_id) values
 
 insert into product_tag_assignments (product_id, tag_id) values
   ('cccc3333-0000-0000-0000-000000000203', 'cccc3333-0000-0000-0000-000000000305');
+
+-- Carte à DEUX étiquettes — Établissement D : un couchage unique, `scc-multi-ficha` sur sa fiche et
+-- `scc-multi-heredada` sur l'établissement seul. Établissement E : un autre couchage unique, plus
+-- récent, dans `scc-multi-ficha` seulement — il passe devant D dans cette section, pas dans l'autre.
+insert into establishments (id, partner_id, name, status) values
+  ('cccc3333-0000-0000-0000-00000000000d', 'cccc3333-0000-0000-0000-000000000001',
+   '{"es":"Cabaña Multi SCC"}'::jsonb, 'active'),
+  ('cccc3333-0000-0000-0000-00000000000e', 'cccc3333-0000-0000-0000-000000000001',
+   '{"es":"Cabaña Vecina SCC"}'::jsonb, 'active');
+
+insert into products
+  (id, partner_id, establishment_id, type, slug, name, price_cop, sellable, capacity, max_qty, schedule,
+   created_at)
+values
+  ('cccc3333-0000-0000-0000-000000000204', 'cccc3333-0000-0000-0000-000000000001',
+   'cccc3333-0000-0000-0000-00000000000d', 'lodging', 'scc-cabana-multi',
+   '{"es":"Cabaña multi SCC"}'::jsonb, 120000, true, 2, null, 'date', now() - interval '1 day'),
+  ('cccc3333-0000-0000-0000-000000000205', 'cccc3333-0000-0000-0000-000000000001',
+   'cccc3333-0000-0000-0000-00000000000e', 'lodging', 'scc-cabana-vecina',
+   '{"es":"Cabaña vecina SCC"}'::jsonb, 120000, true, 2, null, 'date', now());
+
+insert into catalog_tags (id, label, slug) values
+  ('cccc3333-0000-0000-0000-000000000306', '{"es":"Multi ficha SCC"}'::jsonb, 'scc-multi-ficha'),
+  ('cccc3333-0000-0000-0000-000000000307', '{"es":"Multi heredada SCC"}'::jsonb, 'scc-multi-heredada');
+
+insert into product_tag_assignments (product_id, tag_id) values
+  ('cccc3333-0000-0000-0000-000000000204', 'cccc3333-0000-0000-0000-000000000306'),
+  ('cccc3333-0000-0000-0000-000000000205', 'cccc3333-0000-0000-0000-000000000306');
+
+insert into establishment_tag_assignments (establishment_id, tag_id) values
+  ('cccc3333-0000-0000-0000-00000000000d', 'cccc3333-0000-0000-0000-000000000307');
 
 set local role anon;
 
@@ -207,6 +238,34 @@ select is(
   (select count(*)::int from search_catalog_categorias(p_tipo => 'activity', p_por_categoria => 10)
    where es_sin_tag and id = 'cccc3333-0000-0000-0000-000000000105'),
   1, '…elle reste donc dans le rattrapage tant que sa propre fiche ne porte aucun tag'
+);
+
+-- ── Une carte à plusieurs étiquettes figure dans CHACUNE de ses sections (2026-10-14) ────────────
+-- Voulu : une carte n'est jamais dédoublonnée entre sections, chaque section a ses propres compte
+-- et rang. Une étiquette héritée de l'établissement vaut une étiquette de la fiche.
+select is(
+  (select array_agg(coalesce(categoria_slug, '(rattrapage)') order by categoria_slug)
+     from search_catalog_categorias(p_tipo => 'lodging')
+    where id = 'cccc3333-0000-0000-0000-000000000204'),
+  array['scc-multi-ficha', 'scc-multi-heredada'],
+  'une carte à deux étiquettes (fiche + héritée) figure dans les deux sections, jamais en rattrapage'
+);
+
+select is(
+  (select array_agg(categoria_slug || ' ' || total_categoria || ' ' || rango_categoria
+                    order by categoria_slug)
+     from search_catalog_categorias(p_tipo => 'lodging')
+    where id = 'cccc3333-0000-0000-0000-000000000204'),
+  array['scc-multi-ficha 2 2', 'scc-multi-heredada 1 1'],
+  '…avec, dans chaque section, le compte et le rang de CETTE section'
+);
+
+select is(
+  (select array_agg(categoria_slug order by categoria_slug)
+     from search_catalog_categorias(p_tipo => 'lodging', p_por_categoria => 1)
+    where id = 'cccc3333-0000-0000-0000-000000000204'),
+  array['scc-multi-heredada'],
+  '…et le plafond s''applique section par section : 2e dans l''une, la carte reste 1re dans l''autre'
 );
 
 -- ── Les critères de recherche s'appliquent, sans être recopiés ──────────────────────────────────
