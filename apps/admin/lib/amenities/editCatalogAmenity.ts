@@ -63,14 +63,16 @@ export async function countCatalogAmenityUsage(
 }
 
 // Les libellés actuels, pour pré-remplir les deux champs du renommage (le sélecteur ne porte que
-// l'espagnol). `null` : lecture impossible — le dialogue le dit, il ne pré-remplit pas de vide.
+// l'espagnol). `null` : PANNE de la lecture — le dialogue le dit, il ne pré-remplit pas de vide.
+// Équipement disparu entre-temps : aucun libellé (`{}`), et le renommage le dira (« ya no existe »).
 export async function loadCatalogAmenityLabels(amenityId: string): Promise<Record<string, string> | null> {
   const { data, error } = await createClient()
     .from("catalog_amenities")
     .select("label")
     .eq("id", amenityId)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error) return null;
+  if (!data) return {};
   return Object.fromEntries(
     Object.entries((data.label ?? {}) as Record<string, unknown>).filter(
       (entry): entry is [string, string] => typeof entry[1] === "string"

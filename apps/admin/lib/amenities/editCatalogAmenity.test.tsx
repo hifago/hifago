@@ -158,6 +158,16 @@ describe("Dialogue « Editar o eliminar equipamiento »", () => {
     expect(screen.queryByTestId("manage-tag-input-a-1")).toBeNull();
   });
 
+  it("équipement disparu entre-temps : le renommage s'ouvre (es du sélecteur), sans libellé en", async () => {
+    etat.libelle = { data: null, error: null };
+    render(<Picker />);
+    await ouvrir();
+    await userEvent.click(await screen.findByTestId("manage-tag-rename-a-1"));
+    await waitFor(() => expect(champ("manage-tag-input-a-1").value).toBe("Jacuzzi"));
+    expect(champ("manage-tag-input-a-1-en").value).toBe("");
+    expect(etat.toastDanger).not.toHaveBeenCalled();
+  });
+
   it("supprimer annonce ce qui sera retiré, puis retire l'équipement de la sélection", async () => {
     render(<Picker />);
     await ouvrir();
