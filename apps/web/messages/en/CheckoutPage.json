@@ -35,6 +35,7 @@
     "invalid_occurrence_date": "This date doesn't match any session of this event.",
     "no_matching_tier": "There is no rate for the selected quantity of this service. Change the quantity.",
     "price_missing": "This service has no price for now. Please contact the establishment.",
+    "date_in_past": "This date has already passed. Choose another date for this service.",
     "email_required": "Email is required.",
     "email_invalid": "Email is not valid.",
     "phone_required": "WhatsApp number is required.",
