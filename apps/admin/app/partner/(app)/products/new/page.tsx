@@ -26,7 +26,7 @@ export default async function NewProductProposalPage() {
   // Équipements (migration 20261013151206) : un socio les choisit en proposant un logement. Chargés
   // sans condition, comme les tags — le type n'est choisi que dans le formulaire.
   const [partnerIdResult, tagsResult, amenitiesResult] = await Promise.all([
-    supabase.rpc("partner_id_for_account", { uid: user.id }),
+    supabase.rpc("partner_id_for_account"),
     supabase.from("catalog_tags").select("id, label").order("slug"),
     supabase.from("catalog_amenities").select("id, label").order("category_key").order("sort_order"),
   ]);

@@ -48,8 +48,8 @@ export async function POST(request: Request, context: RouteContext<"/api/upload/
     return Response.json({ ok: false, reason: "anonymous_not_allowed" }, { status: 403 });
   }
   const [adminResult, partnerResult] = await Promise.all([
-    supabase.rpc("is_admin", { uid: user.id }),
-    supabase.rpc("partner_id_for_account", { uid: user.id }),
+    supabase.rpc("is_admin"),
+    supabase.rpc("partner_id_for_account"),
   ]);
   // Même discipline que lib/pms/lobbyEstablishment.ts : « je n'ai pas pu le savoir » n'est jamais
   // « tu as le droit » — 503 explicite, fermé par défaut.

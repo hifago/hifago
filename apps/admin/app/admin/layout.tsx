@@ -40,7 +40,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   // Un compte connecté SANS rôle admin (socio, référent) est renvoyé à l'aiguillage `/`, qui
   // l'envoie sur sa propre page. L'ancien `/login?next=/admin` bouclait : le login rend le
   // formulaire à un compte déjà connecté, qui, une fois reconnecté, repartait vers /admin.
-  const { data: isAdmin, error: isAdminError } = await supabase.rpc("is_admin", { uid: user.id });
+  const { data: isAdmin, error: isAdminError } = await supabase.rpc("is_admin");
   if (isAdminError) {
     throw new Error(`Lecture du rôle impossible (is_admin) : ${isAdminError.message}`);
   }

@@ -83,7 +83,7 @@ export default async function PartnerHomePage() {
   // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
   // affichait « Aún no tienes ningún rol asignado », ou un agenda vide.
   const { data: partnerId } = checkedRead(
-    await supabase.rpc("partner_id_for_account", { uid: user.id }),
+    await supabase.rpc("partner_id_for_account"),
     "partner_id_for_account",
   );
 

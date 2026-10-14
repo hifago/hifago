@@ -23,7 +23,7 @@ export default async function MfaVerifyPage({ searchParams }: PageProps<"/mfa/ve
     redirect(`/login?next=${encodeURIComponent(`/mfa/verify?next=${encodeURIComponent(next)}`)}`);
   }
 
-  const guard = await checkMfaGuard(supabase, user.id);
+  const guard = await checkMfaGuard(supabase);
   if (guard.action === "enroll") redirect(`/mfa/enroll?next=${encodeURIComponent(next)}`);
   if (guard.action === "none") redirect(next);
 

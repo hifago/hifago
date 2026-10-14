@@ -10,11 +10,8 @@ export type MfaGuardResult =
 // ET app/partner/(app)/layout.tsx. has_admin_capability (pas is_admin, volontairement gelé à false
 // tant que l'AAL2 n'est pas atteinte, cf. migration 20260815250000_admin_2fa_aal2.sql) décide si ce
 // compte est concerné ; getAuthenticatorAssuranceLevel() décide où l'envoyer.
-export async function checkMfaGuard(
-  supabase: SupabaseClient,
-  userId: string
-): Promise<MfaGuardResult> {
-  const { data: hasAdminCapability } = await supabase.rpc("has_admin_capability", { uid: userId });
+export async function checkMfaGuard(supabase: SupabaseClient): Promise<MfaGuardResult> {
+  const { data: hasAdminCapability } = await supabase.rpc("has_admin_capability");
   if (!hasAdminCapability) return { action: "none" };
 
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();

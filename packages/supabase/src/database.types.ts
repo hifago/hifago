@@ -3006,11 +3006,18 @@ export type Database = {
         }
         Returns: Json
       }
-      has_admin_capability: { Args: { uid: string }; Returns: boolean }
-      has_capability: {
-        Args: { p_establishment_id?: string; p_role: string; uid: string }
-        Returns: boolean
-      }
+      has_admin_capability:
+        | { Args: never; Returns: boolean }
+        | { Args: { uid: string }; Returns: boolean }
+      has_capability:
+        | {
+            Args: { p_establishment_id?: string; p_role: string }
+            Returns: boolean
+          }
+        | {
+            Args: { p_establishment_id?: string; p_role: string; uid: string }
+            Returns: boolean
+          }
       haversine_km: {
         Args: { p_lat1: number; p_lat2: number; p_lon1: number; p_lon2: number }
         Returns: number
@@ -3036,7 +3043,9 @@ export type Database = {
       invoke_pms_poll_bookings: { Args: never; Returns: undefined }
       invoke_pms_sync_availability: { Args: never; Returns: undefined }
       invoke_send_notification_emails: { Args: never; Returns: undefined }
-      is_admin: { Args: { uid: string }; Returns: boolean }
+      is_admin:
+        | { Args: never; Returns: boolean }
+        | { Args: { uid: string }; Returns: boolean }
       is_anonymous_session: { Args: never; Returns: boolean }
       job_watchdog: {
         Args: { p_job: string; p_stale: string }
@@ -3321,7 +3330,9 @@ export type Database = {
           total_count: number
         }[]
       }
-      partner_id_for_account: { Args: { uid: string }; Returns: string }
+      partner_id_for_account:
+        | { Args: never; Returns: string }
+        | { Args: { uid: string }; Returns: string }
       partner_reservation_detail: {
         Args: { p_order_line_id: string }
         Returns: {

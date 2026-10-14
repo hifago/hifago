@@ -27,7 +27,7 @@ export default async function MfaEnrollPage({ searchParams }: PageProps<"/mfa/en
 
   // Navigation directe vers cet écran alors que l'enrôlement n'est plus nécessaire (déjà fait, ou
   // pas admin) — ne pas bloquer, rediriger vers l'écran pertinent.
-  const guard = await checkMfaGuard(supabase, user.id);
+  const guard = await checkMfaGuard(supabase);
   if (guard.action === "verify") redirect(`/mfa/verify?next=${encodeURIComponent(next)}`);
   if (guard.action === "none") redirect(next);
 

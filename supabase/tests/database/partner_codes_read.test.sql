@@ -74,17 +74,21 @@ select is(
   'partner_codes_select_admin|SELECT|authenticated, partner_codes_select_own|SELECT|authenticated',
   'partner_codes porte une policy de lecture propriétaire et une policy admin, réservées à authenticated'
 );
-select ok(
-  (select bool_and(case policyname
-                     when 'partner_codes_select_own'
-                       then qual ~ 'partner_id = \( SELECT (public\.)?partner_id_for_account\(auth\.uid\(\)\)'
-                     when 'partner_codes_select_admin'
-                       then qual ~ '\( SELECT (public\.)?is_admin\(auth\.uid\(\)\)'
-                   end)
-     from pg_policies
-    where schemaname = 'public' and tablename = 'partner_codes'
-      and policyname in ('partner_codes_select_admin', 'partner_codes_select_own')),
-  'propriétaire : partner_id = son organisation ; admin : is_admin — prédicats enveloppés en ( SELECT … )'
+-- La fonction appelée se lit dans pg_depend, jamais dans le texte de la policy (réécrit vers les
+-- surcharges sans paramètre par 20261014204210) ; seul l'enveloppement ( SELECT … ) se lit dans le
+-- texte, quels que soient les arguments.
+select is(
+  (select string_agg(pol.polname || '|' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')|'
+                     || (pg_get_expr(pol.polqual, pol.polrelid) ~ ('\( SELECT (public\.)?' || p.proname || '\('))::text,
+                     ', ' order by pol.polname)
+     from pg_policy pol
+     join pg_depend d on d.classid = 'pg_policy'::regclass and d.objid = pol.oid
+                     and d.refclassid = 'pg_proc'::regclass
+     join pg_proc p on p.oid = d.refobjid
+    where pol.polrelid = 'public.partner_codes'::regclass
+      and pol.polname in ('partner_codes_select_admin', 'partner_codes_select_own')),
+  'partner_codes_select_admin|is_admin()|true, partner_codes_select_own|partner_id_for_account()|true',
+  'propriétaire : partner_id_for_account() ; admin : is_admin() — surcharges sans paramètre, appels enveloppés en ( SELECT … )'
 );
 
 -- Lecture des lignes : aucune pour anon, son organisation pour un partenaire, tout pour l'admin ---
