@@ -2576,6 +2576,7 @@ export type Database = {
           revenue_cop: number
         }[]
       }
+      admin_delete_catalog_amenity: { Args: { p_amenity_id: string }; Returns: Json }
       admin_jobs_status: {
         Args: never
         Returns: {
@@ -2669,6 +2670,10 @@ export type Database = {
           total_cop: number
           total_count: number
         }[]
+      }
+      admin_rename_catalog_amenity: {
+        Args: { p_amenity_id: string; p_label_en: string; p_label_es: string }
+        Returns: Json
       }
       admin_rename_establishment: {
         Args: { p_establishment_id: string; p_name_es: string; p_note?: string }
