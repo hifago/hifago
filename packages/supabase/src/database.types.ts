@@ -3277,6 +3277,7 @@ export type Database = {
           status: string
         }[]
       }
+      partner_code_is_active: { Args: { p_code: string }; Returns: boolean }
       partner_commissions_list: {
         Args: {
           p_date_from?: string
