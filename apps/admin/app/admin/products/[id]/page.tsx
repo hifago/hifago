@@ -32,9 +32,9 @@ export default async function AdminProductDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">
+          <h1 className="titre-page">
             {resolveLocalizedField(asLocalizedField(product.name), "es") ?? product.id}
           </h1>
           <div className="mt-1 flex items-center gap-2 text-sm text-muted">
@@ -51,7 +51,7 @@ export default async function AdminProductDetailPage({
             </Chip>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link
             href={`/admin/products/${product.id}/edit`}
             className={buttonVariants({ variant: "outline", size: "sm" })}

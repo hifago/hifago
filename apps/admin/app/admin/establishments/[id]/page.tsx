@@ -130,7 +130,7 @@ export default async function AdminEstablishmentDetailPage({
         >
           ← Establecimientos
         </Link>
-        <h1 className="text-2xl font-semibold">
+        <h1 className="titre-page">
           {resolveLocalizedField(asLocalizedField(establishment.name), "es") ?? establishment.id}
         </h1>
       </div>

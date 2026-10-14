@@ -1,6 +1,7 @@
 import path from "node:path";
 import { test, expect } from "@playwright/test";
 import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
+import { filaPorNombre } from "./support/filas";
 import { confirmAndContinue, createSignedInClient, goToNextWizardStep, webProductUrl } from "@hifago/e2e-support";
 import { slugify } from "../lib/utils";
 
@@ -40,7 +41,7 @@ test("admin crée un transport (prix par tramos de capacidad de vehículo), l'é
   await confirmAndContinue(page, "establishment-form-confirmation");
   await expect(page).toHaveURL(/\/admin\/establishments$/);
 
-  const row = page.locator("tr", { hasText: establishmentName });
+  const row = filaPorNombre(page, establishmentName);
   await row.getByRole("link", { name: "+ Actividad" }).click();
   await expect(page).toHaveURL(/\/admin\/products\/new\?establishment=/);
   // Même piège d'hydratation que ProductForm pour une activité (CLAUDE.md §11.8) — le composant

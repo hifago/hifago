@@ -1,0 +1,19 @@
+{
+  "partner": "hifago",
+  "name": {
+    "es": "Guatapé"
+  },
+  "description": {
+    "es": "El pueblo de los zócalos, a orillas del embalse: aquí están las fiestas, ferias y eventos del municipio que no dependen de ningún establecimiento."
+  },
+  "address": "Guatapé, Antioquia, Colombia",
+  "lat": 6.2326,
+  "lon": -75.1592,
+  "operated_directly": false,
+  "is_place": true,
+  "mode": null,
+  "check_in_time": null,
+  "check_out_time": null,
+  "status": "active",
+  "photos": []
+}

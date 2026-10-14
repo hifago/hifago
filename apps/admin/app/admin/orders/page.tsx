@@ -69,7 +69,7 @@ export default async function AdminOrdersPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Pedidos</h1>
+      <h1 className="titre-page">Pedidos</h1>
       <OrdersTable
         rows={rows}
         page={page}

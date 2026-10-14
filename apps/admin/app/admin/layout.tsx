@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
 import { isRealAccount } from "@hifago/supabase/identity";
+import { UnsavedChangesProvider } from "@/components/unsaved-changes";
 import { AdminNav } from "./AdminNav";
 
 // Premier écran de cette app (feature 1) — garde posée une fois ici, héritée automatiquement par
@@ -70,9 +71,13 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const pendingProposalsCount = productProposalsPending + establishmentProposalsPending;
 
   return (
-    <div className="flex min-h-screen w-full flex-col md:flex-row">
-      <AdminNav pendingProposalsCount={pendingProposalsCount} />
-      <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-1 flex-col gap-6 p-4 md:p-8">{children}</div>
-    </div>
+    // Garde-fou « cambios sin guardar » des listes éditables (2026-10-13) : il enveloppe la
+    // barre latérale ET le contenu, parce que ce sont les liens de la barre qu'il doit retenir.
+    <UnsavedChangesProvider>
+      <div className="flex min-h-screen w-full flex-col md:flex-row">
+        <AdminNav pendingProposalsCount={pendingProposalsCount} />
+        <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-1 flex-col gap-6 p-4 md:p-8">{children}</div>
+      </div>
+    </UnsavedChangesProvider>
   );
 }

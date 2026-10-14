@@ -162,7 +162,7 @@ export const ConImagen: Story = {
     chapo: "Kayak, jetski y paseos en lancha por el embalse.",
     imagen: (
       <div className="relative size-40 overflow-hidden rounded-[16px]">
-        <NextImage src="/mock/activities/jetski1/photos/2.jpeg" alt="" fill sizes="160px" className="object-cover" />
+        <NextImage src="/mock/activities/jet-ski/photos/1.webp" alt="" fill sizes="160px" className="object-cover" />
       </div>
     ),
   },

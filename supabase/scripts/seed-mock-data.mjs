@@ -24,7 +24,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 // Toutes les écritures nécessaires (`create_partner_direct`, `set_capability_status`,
 // `create_establishment`, `update_establishment_stay_details`, `update_establishment_contact`,
-// `set_establishment_status`, `add_catalog_media`, `create_product_from_proposal`, l'insert direct
+// `set_establishment_status`, `set_establishment_is_place`, `add_catalog_media`, `create_product_from_proposal`, l'insert direct
 // dans `catalog_tags`) sont `security definer`/`security invoker` ou RLS directe, mais vérifient
 // TOUTES `is_admin(auth.uid())` — un client `service_role` pur (`auth.uid()` null) échoue sur
 // toutes. D'où :
@@ -88,6 +88,19 @@ const BUCKET = "catalog-media";
 const PREFIXE = "mock";
 
 const RACINE_MOCK_DATA = fileURLToPath(new URL("../../mockData", import.meta.url));
+
+// Le partenaire plateforme est posé par une migration (toute base, préprod et prod comprises) ET
+// décrit dans `mockData/partners/hifago.json` : ce script le reconnaît à son e-mail, comme tout
+// partenaire. Deux adresses différentes = un second « Hifago » créé à chaque base locale
+// reconstruite, et les événements du municipio rattachés à un établissement qui n'est pas le sien.
+const MIGRATION_PARTENAIRE_PLATEFORME = fileURLToPath(
+  new URL("../migrations/20261013195100_platform_partner_and_guatape_place.sql", import.meta.url)
+);
+
+function emailPartenairePlateforme() {
+  const sql = readFileSync(MIGRATION_PARTENAIRE_PLATEFORME, "utf8");
+  return sql.match(/c_email constant text := '([^']+)'/)?.[1] ?? null;
+}
 
 // Formats acceptés TELS QUELS, sans conversion : pas de dépendance `sharp` (elle vit dans
 // apps/admin, pas ici) juste pour reproduire la conversion webp du vrai pipeline d'upload — sans
@@ -158,6 +171,18 @@ function validerReferences({ partners, tags, establishments, activities, rooms, 
       erreurs.push(`${p._fichier} : "code" requis dès que "person" est présent (create_partner_direct l'exige pour envoyer une invitation).`);
     }
     if (p.person && !p.person.email) erreurs.push(`${p._fichier} : "person.email" requis.`);
+  }
+
+  const plateforme = partners.get("hifago");
+  if (plateforme) {
+    const attendu = emailPartenairePlateforme();
+    if (!attendu) {
+      erreurs.push(`migration du partenaire plateforme : adresse introuvable (témoin "c_email constant text" absent).`);
+    } else if (plateforme.email !== attendu) {
+      erreurs.push(
+        `${plateforme._fichier} : "email" (${plateforme.email}) différent de celui de la migration du partenaire plateforme (${attendu}) — le script créerait un second « Hifago ».`
+      );
+    }
   }
 
   for (const [, e] of establishments) {
@@ -456,6 +481,17 @@ async function creerEtablissements(admin, svc, establishments, idPartenaireParCl
       });
       if (error) throw new Error(`${e._fichier} : update_establishment_contact : ${error.message}`);
       if (!resultat?.ok) throw new Error(`${e._fichier} : update_establishment_contact a renvoyé ok=false (${resultat?.reason})`);
+    }
+
+    // Un LIEU (le village, qui porte les événements du municipio) : pas de fiche publique
+    // (migration 20261013145953). La RPC refuse un établissement qui porte un hébergement.
+    if (e.is_place) {
+      const { data: resultat, error } = await admin.rpc("set_establishment_is_place", {
+        p_establishment_id: idEtablissement,
+        p_is_place: true,
+      });
+      if (error) throw new Error(`${e._fichier} : set_establishment_is_place : ${error.message}`);
+      if (!resultat?.ok) throw new Error(`${e._fichier} : set_establishment_is_place a renvoyé ok=false (${resultat?.reason})`);
     }
 
     if (e.status && e.status !== "active") {

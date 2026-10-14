@@ -60,8 +60,9 @@ export function EstablishmentStack({
         }
       />
 
-      <div className="flex flex-col gap-3 pl-0 md:pl-4">
-        <h2 className="text-base font-semibold text-muted">Actividades</h2>
+      {/* Les titres de section (Actividades, Alojamientos, Eventos…) sont rendus par
+          EstablishmentActivities, un par type de produit présent. */}
+      <div className="pl-0 md:pl-4">
         <EstablishmentActivities
           establishmentId={establishment.id}
           products={products}

@@ -304,6 +304,7 @@ export type DatosTransporte = {
 /** L'établissement, vu depuis une fiche produit. */
 export type ResumenEstablecimiento = {
   id: string;
+  /** Le slug de sa FICHE — `null` quand il n'en a pas (un lieu, `establishments.is_place`). */
   slug: string | null;
   nombre: string;
   descripcion: string | null;

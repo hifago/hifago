@@ -5,6 +5,7 @@ import { toStayRatesColumn } from "@/lib/products/stayRates";
 import { toProgramColumn } from "@/lib/products/program";
 import { toGroupDiscountColumns } from "@/lib/products/groupDiscount";
 import { toEventoBookableColumns } from "@/lib/products/eventoBookable";
+import { toEventoOccurrenceColumns } from "@/lib/products/eventoOccurrence";
 import { toSlotRuleRows } from "@/lib/products/slotRules";
 import { toTransportInfoColumns } from "@/lib/products/transportInfo";
 import { productTypeGating, type ProductType, type ProductTypeFieldsState } from "@/lib/products/useProductTypeFieldsState";
@@ -12,7 +13,8 @@ import { productTypeGating, type ProductType, type ProductTypeFieldsState } from
 // Construit le payload jsonb attendu par submit_product_creation_proposal / le
 // p_corrected_payload de moderate_product_proposal (kind='create') — et, depuis le 2026-09-09, la
 // SEULE source des colonnes de `products` pour la création ADMIN-DIRECTE également : product-form.tsx
-// l'appelle puis retire les trois clés hors-colonnes (photos/tag_ids/slot_rules) avant son insert.
+// l'appelle puis retire les clés hors-colonnes (photos/tag_ids/amenity_ids/slot_rules) avant son
+// insert.
 // Ce fichier n'était jusque-là qu'un « miroir exact » de l'insert écrit à la main en face, et les
 // deux avaient fini par diverger — le bloc « vitrine » plus bas (external_booking_url/price_label
 // sur un non-evento) n'existait que d'un seul côté. Une seule définition, plus de miroir à tenir.
@@ -33,7 +35,7 @@ export function buildProductCreationPayload(
 ): Record<string, unknown> {
   const {
     isEvento, isCamp, isLodging, isActivity, isTransport,
-    hasLocationAndTags, hasTags, hasPriceQtyFields, hasCheckInOut, hasDefaultCapacity,
+    hasLocationAndTags, hasTags, hasAmenities, hasPriceQtyFields, hasCheckInOut, hasDefaultCapacity,
   } = productTypeGating(type);
   const usesTiers = hasPriceQtyFields && fields.priceMode === "tiers";
   // `Number("")` vaut 0, PAS NaN : un champ prix laissé vide franchissait donc `Number.isFinite`
@@ -60,6 +62,10 @@ export function buildProductCreationPayload(
     // Séparé d'hasLocationAndTags ci-dessus (retour Jérôme 2026-08-18) : camp a des tags
     // ("servicios incluidos") sans avoir d'adresse propre.
     ...(hasTags ? { tag_ids: fields.selectedTagIds } : {}),
+    // Équipements d'un logement (migration 20261013151206) : whitelistés par
+    // submit_product_creation_proposal, posés par create_product_from_proposal. Comme `tag_ids`,
+    // ce n'est pas une colonne de `products` — la création admin directe retire la clé.
+    ...(hasAmenities ? { amenity_ids: fields.selectedAmenityIds } : {}),
     ...(hasPriceQtyFields
       ? {
           price_cop: usesTiers ? lowestTierPrice(fields.priceTiers) : priceCopOuNull,
@@ -146,23 +152,10 @@ export function buildProductCreationPayload(
           // Prix chiffré (evento réservable payant) — jamais posé pour un evento vitrine (price_label
           // fait foi) ni pour un evento gratuit (contrainte DB products_evento_is_free_price_null).
           price_cop: fields.onlineBookable && !fields.isFree ? priceCopOuNull : null,
-          occurrence_type: fields.occurrenceType,
-          // Ancre nécessaire pour les deux modes désormais (cf. product-type-fields.tsx) — plus
-          // seulement "once" : sans elle, un evento récurrent ne peut jamais dire sur quel jour de
-          // semaine il tombe.
-          occurrence_date: fields.occurrenceDate,
-          recurrence_frequency_days:
-            fields.occurrenceType === "recurring" ? Number(fields.recurrenceFrequencyDays) : null,
-          recurrence_end_date:
-            fields.occurrenceType === "recurring" && fields.recurrenceEndKind === "date"
-              ? fields.recurrenceEndDate
-              : null,
-          recurrence_end_count:
-            fields.occurrenceType === "recurring" && fields.recurrenceEndKind === "count"
-              ? Number(fields.recurrenceEndCount)
-              : null,
-          start_time: fields.startTime || null,
-          duration_minutes: fields.durationMinutes ? Number(fields.durationMinutes) : null,
+          // Date, récurrence, heure, durée : `toEventoOccurrenceColumns`, PARTAGÉE avec le chemin
+          // d'édition depuis le 2026-10-13 — écrites ici seulement, elles disparaissaient à la
+          // première modification (eventoOccurrence.ts).
+          ...toEventoOccurrenceColumns(fields),
           external_booking_url: fields.onlineBookable ? null : fields.externalBookingUrl.trim() || null,
         }
       : {}),

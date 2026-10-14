@@ -1,6 +1,7 @@
 "use client";
 
 import { AppNavShell } from "@hifago/ui";
+import { LogoHifago } from "@/components/logo-hifago";
 import { LogoutButton } from "@/components/LogoutButton";
 import { getAdminNavItems } from "./nav-items";
 
@@ -22,6 +23,7 @@ export function AdminNav({ pendingProposalsCount }: { pendingProposalsCount: num
         mobileTitle: "admin-mobile-nav-title",
         mobileLinkPrefix: "admin-mobile-nav-link",
       }}
+      brand={<LogoHifago variante="sombre" hauteur="h-10 md:h-16" href="/admin" />}
       desktopFooter={<LogoutButton className="w-full" data-testid="logout-button-nav" />}
       mobileFooter={<LogoutButton className="w-full" data-testid="logout-button-mobile-nav" />}
     />

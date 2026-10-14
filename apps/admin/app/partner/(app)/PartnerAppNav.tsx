@@ -1,6 +1,7 @@
 "use client";
 
 import { AppNavShell } from "@hifago/ui";
+import { LogoHifago } from "@/components/logo-hifago";
 import { LogoutButton } from "@/components/LogoutButton";
 import { buildWhatsAppLink, SUPPORT_WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { EXTRA_TITLE_ROUTES, getNavItems } from "./nav-items";
@@ -28,6 +29,7 @@ export function PartnerAppNav({ hasOperatorCapability }: { hasOperatorCapability
         mobileTitle: "partner-mobile-nav-title",
         mobileLinkPrefix: "partner-mobile-nav-link",
       }}
+      brand={<LogoHifago variante="sombre" hauteur="h-10 md:h-16" href="/partner" />}
       desktopFooter={
         <>
           <a
@@ -35,7 +37,7 @@ export function PartnerAppNav({ hasOperatorCapability }: { hasOperatorCapability
             target="_blank"
             rel="noopener noreferrer"
             data-testid="partner-nav-whatsapp"
-            className="rounded-md px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface-secondary"
+            className="rounded-md px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
           >
             WhatsApp Hifago
           </a>

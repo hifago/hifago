@@ -1,6 +1,7 @@
 import path from "node:path";
 import { test, expect } from "@playwright/test";
 import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
+import { filaPorNombre } from "./support/filas";
 import {
   checkboxInput,
   confirmAndContinue,
@@ -39,7 +40,7 @@ test("admin crée une actividad avec tous les champs (i18n, lieu, foto, tramos, 
   await confirmAndContinue(page, "establishment-form-confirmation");
   await expect(page).toHaveURL(/\/admin\/establishments$/);
 
-  const row = page.locator("tr", { hasText: establishmentName });
+  const row = filaPorNombre(page, establishmentName);
   await expect(row).toContainText("0 actividades");
 
   await row.getByRole("link", { name: "+ Actividad" }).click();

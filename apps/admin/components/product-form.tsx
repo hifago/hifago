@@ -71,14 +71,24 @@ export type EditableProduct = {
   // parent, nécessaire en édition pour savoir si le picker (vs saisie manuelle) doit s'afficher.
   lobby_connector_active?: boolean | null;
   lobby_has_token?: boolean | null;
-  // Evento réservable en ligne (2026-09-15) — contrairement aux autres champs evento (price_label,
-  // occurrence_*…, "gap préexistant, création seulement" ci-dessus), ceux-ci sont réellement
-  // éditables : chargés ici ET réécrits dans l'update() plus bas.
+  // Evento réservable en ligne (2026-09-15) — chargés ici ET réécrits dans l'update() plus bas.
   online_bookable: boolean;
   evento_capacity_mode: string | null;
   is_free: boolean;
   evento_payment_mode: string | null;
   evento_occupies_resource: boolean;
+  // Libellé de prix et occurrence d'un evento (2026-10-13) — chargés ET réécrits eux aussi.
+  // `price_label` était réécrit par l'update() depuis le dédoublonnage du 2026-09-17 SANS être lu :
+  // enregistrer un evento depuis cet écran effaçait son libellé. Les sept colonnes d'occurrence
+  // n'étaient ni lues ni écrites (eventoOccurrence.ts).
+  price_label: string | null;
+  occurrence_type: string | null;
+  occurrence_date: string | null;
+  recurrence_frequency_days: number | null;
+  recurrence_end_date: string | null;
+  recurrence_end_count: number | null;
+  start_time: string | null;
+  duration_minutes: number | null;
   // Transport informatif (migration 20260916150000). Chargés ici ET réécrits dans l'update() plus
   // bas, comme les champs evento réservable — pas le gap « création seulement » de
   // duration_days/group_discount_*. ⚠️ Le lieu de départ est `transport_departure_address`, pas
@@ -130,8 +140,9 @@ function entityNoun(type: ProductType): string {
 // Spec 11 — un seul composant pour la création ET l'édition d'un produit (fusionne
 // NewProductForm.tsx/EditProductForm.tsx, supprimés) : `product` absent = création, présent =
 // édition. Établissement/type restent création-only (immuables après création, comportement
-// préexistant) ; les champs evento/camp restent création-only (gap préexistant, jamais éditables
-// aujourd'hui, hors scope Jérôme — "on va rester encore sur une activité"). Nom/description/lieu/
+// préexistant) ; la durée d'un camp aussi. Les champs d'un evento (date, récurrence, heure, durée,
+// libellé de prix) sont éditables depuis le 2026-10-13 — ils étaient restés création-only, et un
+// socio qui les ressaisissait les voyait disparaître avant la modération. Nom/description/lieu/
 // prix-tramos/min-max deviennent identiques dans les deux modes — c'est le cœur du fix demandé.
 // Photos/tags/créneaux sont "stagés" en création (rattachés au produit dans le MÊME clic de
 // soumission que l'insert, cf. handleSubmit) et délégués en édition à des blocs séparés à
@@ -159,10 +170,10 @@ export function ProductForm({
   establishments?: Establishment[];
   initialEstablishmentId?: string;
   allTags?: TagOption[];
-  // Équipements structurés (migration 20260917110000) — stagés à la création ADMIN uniquement
-  // (jamais pour variant "socio-proposal", cf. le commentaire de showAmenities dans
-  // product-type-fields.tsx). En édition, ce prop n'est pas lu : ProductAmenitiesBlock (rendu par
-  // la page) reprend la main avec son propre chargement.
+  // Équipements structurés (migration 20260917110000) — choisis à la création, par l'admin comme
+  // par le socio (dont la proposition les porte depuis la migration 20261013151206). En édition,
+  // ce prop n'est pas lu : ProductAmenitiesBlock (rendu par la page) reprend la main avec son
+  // propre chargement.
   allAmenities?: TagOption[];
   product?: EditableProduct;
   variant?: "admin" | "socio-proposal";
@@ -203,6 +214,14 @@ export function ProductForm({
           isFree: product.is_free,
           eventoPaymentMode: product.evento_payment_mode as "online" | "on_site" | null,
           eventoOccupiesResource: product.evento_occupies_resource,
+          priceLabel: product.price_label,
+          occurrenceType: product.occurrence_type === "recurring" ? "recurring" : "once",
+          occurrenceDate: product.occurrence_date,
+          recurrenceFrequencyDays: product.recurrence_frequency_days,
+          recurrenceEndDate: product.recurrence_end_date,
+          recurrenceEndCount: product.recurrence_end_count,
+          startTime: product.start_time,
+          durationMinutes: product.duration_minutes,
           transportFirstDepartureTime: product.transport_first_departure_time,
           transportLastDepartureTime: product.transport_last_departure_time,
           transportSeatsPerDeparture: product.transport_seats_per_departure,
@@ -247,7 +266,11 @@ export function ProductForm({
   const usesTiers = hasPriceQtyFields && fields.priceMode === "tiers";
   // MIROIR EXACT de la contrainte `products_price_cop_required_unless_vitrine` (2026-09-08) : un
   // evento OU une offre en vitrine (URL externe posée) est dispensé de prix chiffré.
-  const enVitrina = Boolean(fields.externalBookingUrl.trim());
+  // Un socio ne voit pas le lien de réservation externe d'un logement (showAdminLodgingOptions,
+  // plus bas). Une URL saisie sous un autre type avant de basculer sur « Alojamiento » resterait
+  // dans l'état, invisible : elle ne compte ni pour la validation du prix ni dans la proposition.
+  const vitrinaOculta = variant === "socio-proposal" && isLodging;
+  const enVitrina = !vitrinaOculta && Boolean(fields.externalBookingUrl.trim());
   const eventoOnlinePaid = isEvento && fields.onlineBookable && !fields.isFree;
   const needsOwnPrice = (!isEvento && !enVitrina) || eventoOnlinePaid;
 
@@ -299,7 +322,7 @@ export function ProductForm({
       minQty: fields.minQty,
       maxQty: fields.maxQty,
       stayRates: fields.stayRates,
-      externalBookingUrl: fields.externalBookingUrl,
+      externalBookingUrl: vitrinaOculta ? "" : fields.externalBookingUrl,
     });
   }
 
@@ -425,7 +448,13 @@ export function ProductForm({
         .eq("id", product.id);
 
       if (updateError) {
-        toast.danger("No se pudo guardar la actividad.");
+        // Le trigger products_capacity_flags_frozen refuse de déplacer un evento qui porte des
+        // réservations en cours (migration 20261013212500) : le dire, plutôt qu'un échec muet.
+        toast.danger(
+          updateError.message.includes("capacity_flags_frozen_while_reserved")
+            ? "Este producto tiene reservas en curso: su fecha, su recurrencia y su modo de cupo no pueden cambiar hasta que se realicen o se cancelen."
+            : "No se pudo guardar la actividad.",
+        );
         setIsSubmitting(false);
         return;
       }
@@ -459,7 +488,10 @@ export function ProductForm({
     const establishment = establishments.find((item) => item.id === establishmentId)!;
 
     if (variant === "socio-proposal") {
-      const payload = buildProductCreationPayload(type, name, description, fields, stagedPhotos);
+      const payload = {
+        ...buildProductCreationPayload(type, name, description, fields, stagedPhotos),
+        ...(vitrinaOculta ? { external_booking_url: null, price_label: null } : {}),
+      };
       const { data, error: rpcError } = await supabase.rpc("submit_product_creation_proposal", {
         p_establishment_id: establishment.id,
         p_type: type,
@@ -508,12 +540,13 @@ export function ProductForm({
     // demande de porter `price_cop: null` quand aucun prix n'est saisi, ce qui change le chemin
     // socio du même geste : hors du périmètre de ce correctif-ci, ouvert dans docs/backlog.md.
     //
-    // `photos`/`tag_ids`/`slot_rules` ne sont pas des colonnes de `products` : la RPC de
-    // proposition les transpose côté SQL, ce chemin-ci les rattache lui-même APRÈS l'insert
+    // `photos`/`tag_ids`/`amenity_ids`/`slot_rules` ne sont pas des colonnes de `products` : la RPC
+    // de proposition les transpose côté SQL, ce chemin-ci les rattache lui-même APRÈS l'insert
     // (Promise.all ci-dessous). Leur retrait est délibéré, jamais un oubli.
     const productColumns = buildProductCreationPayload(type, name, description, fields);
     delete productColumns.photos; // rattachées par add_catalog_media, ci-dessous
     delete productColumns.tag_ids; // rattachés par product_tag_assignments, ci-dessous
+    delete productColumns.amenity_ids; // rattachés par product_amenity_assignments, ci-dessous
     delete productColumns.slot_rules; // rattachées par product_slot_rules, ci-dessous
 
     const { data: newProduct, error: insertError } = await supabase
@@ -564,10 +597,9 @@ export function ProductForm({
       })(),
       (async () => {
         // Équipements structurés (migration 20260917110000) — même discipline que les tags
-        // juste au-dessus : `fields.selectedAmenityIds` reste `[]` pour variant "socio-proposal"
-        // (showAmenities y vaut toujours false, rien à saisir), donc cette insertion est un no-op
-        // silencieux et sûr dans ce cas.
-        if (fields.selectedAmenityIds.length === 0) return;
+        // juste au-dessus. Le variant "socio-proposal" ne passe jamais ici : sa proposition porte
+        // `amenity_ids` et c'est create_product_from_proposal qui les pose à l'approbation.
+        if (!isLodging || fields.selectedAmenityIds.length === 0) return;
         const { error: amenitiesError } = await supabase
           .from("product_amenity_assignments")
           .insert(fields.selectedAmenityIds.map((amenityId) => ({ product_id: newProduct.id, amenity_id: amenityId })));
@@ -656,8 +688,9 @@ export function ProductForm({
     campDurationDays: product?.duration_days ?? null,
     onApplyLobbyRoomData: applyLobbyRoomData,
     availableTags: allTags,
-    showAmenities: !isEditing && variant === "admin",
+    showAmenities: !isEditing,
     availableAmenities: allAmenities,
+    showAdminLodgingOptions: variant === "admin",
   };
 
   if (isEditing) {

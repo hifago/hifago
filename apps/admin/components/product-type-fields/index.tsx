@@ -48,6 +48,7 @@ export function ProductTypeFields({
   onApplyLobbyRoomData,
   lobbyLinkReadOnly = false,
   allowOnlineBookableConfig = false,
+  showAdminLodgingOptions = true,
   campDurationDays = null,
 }: {
   type: ProductType;
@@ -65,14 +66,16 @@ export function ProductTypeFields({
   showSlotRulesEditor?: boolean;
   allowCreateTags?: boolean;
   availableTags?: TagOption[];
-  // Équipements structurés (migration 20260917110000) — MÊME gating "création seulement" que
-  // showTags, mais admin-only en plus (jamais passé `true` par le variant socio-proposal ni par
-  // ModerateProductCreationProposalForm) : ces deux consommateurs omettent la prop, qui reste
-  // `undefined`/falsy, le bloc ne se rend donc jamais pour eux — les équipements restent un geste
-  // admin post-création par défaut (ProductAmenitiesBlock en édition), staged ici seulement pour la
-  // création ADMIN directe (cf. product-form.tsx).
+  // Équipements structurés d'un logement (migration 20260917110000) — décidé par l'appelant, comme
+  // showTags. Montés à la création (admin directe ET proposition socio) et dans les écrans de
+  // proposition, où ils voyagent dans le payload (`amenity_ids`, migration 20261013151206) ; jamais
+  // par ProductForm en édition admin, où ProductAmenitiesBlock les sauvegarde à part.
   showAmenities?: boolean;
   availableAmenities?: TagOption[];
+  // Options d'un logement réservées à l'admin (demande Jérôme du 2026-10-13) : le dépôt et le lien
+  // de réservation externe, avec son prix en texte libre. L'espace socio passe `false` ; les
+  // valeurs déjà posées restent dans l'état et repartent telles quelles dans la proposition.
+  showAdminLodgingOptions?: boolean;
   // Refonte parcours partenaire ↔ LobbyPMS (2026-08-25) — remplace l'ancien showLobbyFields
   // (booléen unique, admin-only). establishmentLobbyConnected (dérivé de
   // lobby_connector_active && lobby_has_token côté appelant) contrôle si le bloc s'affiche DU TOUT
@@ -123,6 +126,9 @@ export function ProductTypeFields({
           selectedTagIds={state.selectedTagIds}
           onChange={state.setSelectedTagIds}
           allowCreate={allowCreateTags}
+          // Sans création possible (socio), le texte par défaut « Buscar o crear un tag… »
+          // promettrait un geste que la liste ne propose pas.
+          placeholder={allowCreateTags === false ? "Buscar una etiqueta…" : undefined}
           testId="tags-multiselect"
         />
       ) : null}
@@ -229,6 +235,7 @@ export function ProductTypeFields({
           section={section}
           hasCheckInOut={hasCheckInOut}
           establishmentLobbyConnected={establishmentLobbyConnected}
+          showDeposit={showAdminLodgingOptions}
         />
       ) : null}
 
@@ -236,7 +243,9 @@ export function ProductTypeFields({
         <EventoFields state={state} section={section} allowOnlineBookableConfig={allowOnlineBookableConfig} />
       ) : null}
 
-      {showPricing && !isEvento ? <VitrineFields state={state} /> : null}
+      {showPricing && !isEvento && (showAdminLodgingOptions || !isLodging) ? (
+        <VitrineFields state={state} />
+      ) : null}
 
       {showPricing && showSlotRulesEditor && isActivity ? (
         <div className="flex flex-col gap-1.5">

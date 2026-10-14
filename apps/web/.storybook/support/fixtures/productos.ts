@@ -4,8 +4,9 @@ import type { FichaProducto, FilaFranja, ResumenEstablecimiento } from "@/lib/ca
 // Fiches produit des stories d'écran (2026-10-01). Une fiche par cas que Jérôme doit voir pour
 // décider du design. Les textes sont RÉALISTES, pas du lorem ipsum : on ne juge pas une
 // typographie sur un faux texte. Les photos sont les vraies de `mockData/`, servies sous `/mock`
-// par `staticDirs` (.storybook/main.ts). ⚠️ Jamais `establishments/etablissement{1..4}/` : ce sont des
-// LOGOS de marques (Goélia, Club Med, UCPA, Hilton), pas des photos de lieu.
+// par `staticDirs` (.storybook/main.ts). Depuis le 2026-10-12, `mockData/` ne contient plus que le
+// catalogue réel de la préprod : les fiches fictives d'ici (kayak, caminata, escalada…) empruntent
+// donc la photo réelle la plus proche, pas une photo de leur propre sujet.
 //
 // ⚠️ Les dates sont RELATIVES à aujourd'hui à Guatapé, jamais écrites en dur : une story figée sur
 // une date passée afficherait un calendrier entièrement fermé dès la semaine suivante.
@@ -78,8 +79,8 @@ export const ACTIVIDAD_KAYAK: FichaProducto = {
     "Una hora de kayak entre las islas del embalse de Guatapé, con chaleco, remo y una breve " +
     "explicación antes de salir. Apto para principiantes: el agua es tranquila por la mañana.",
   fotos: [
-    { url: "/mock/activities/kayak1/photos/1.jpeg" },
-    { url: "/mock/activities/kayak1/photos/2.jpeg" },
+    { url: "/mock/activities/paddle-surf-trek/photos/1.webp" },
+    { url: "/mock/activities/paddle-surf-trek/photos/2.webp" },
   ],
   precio: { tipo: "monto", cop: 20000 },
   unidad: "per_person",
@@ -117,8 +118,8 @@ export const ACTIVIDAD_CAMINATA: FichaProducto = {
     "Tres horas de sendero entre bosque y potreros hasta la cascada de La Culebra, con guía local y " +
     "refrigerio. Nivel medio: hay barro después de la lluvia.",
   fotos: [
-    { url: "/mock/activities/hikinggroup1/photos/1.jpeg" },
-    { url: "/mock/tags/hiking/photos/1.jpeg" },
+    { url: "/mock/camps/tour-privado-en-frances/photos/1.webp" },
+    { url: "/mock/establishments/kayam/photos/2.webp" },
   ],
   precio: { tipo: "monto", cop: 45000 },
   unidad: "per_person",
@@ -141,9 +142,9 @@ export const CAMP_ESCALADA: FichaProducto = {
     "Cinco días para aprender a escalar en roca en la Piedra del Peñol y sus alrededores: técnica, " +
     "nudos, seguridad y una salida final a una vía de varios largos.",
   fotos: [
-    { url: "/mock/activities/climbing1/photos/1.jpeg" },
-    { url: "/mock/activities/climbing1/photos/2.jpeg" },
-    { url: "/mock/tags/climbing/photos/1.jpg" },
+    { url: "/mock/transport/aeroturex-bus-compartido/photos/1.webp" },
+    { url: "/mock/activities/plan-asado-en-casa-bote/photos/2.webp" },
+    { url: "/mock/camps/van-por-colombia-guatape/photos/1.webp" },
   ],
   precio: { tipo: "monto", cop: 900000 },
   unidad: "per_person",
@@ -281,7 +282,7 @@ export const TRANSPORTE_LANCHA: FichaProducto = {
   tipo: "transport",
   nombre: "Lancha Guatapé – El Peñol",
   descripcion: "Traslado en lancha por el embalse entre el malecón de Guatapé y el muelle de El Peñol.",
-  fotos: [{ url: "/mock/activities/partyboat1/photos/2.jpeg" }],
+  fotos: [{ url: "/mock/activities/plan-asado-en-casa-bote/photos/4.webp" }],
   precio: { tipo: "monto", cop: 15000 },
   unidad: "per_person",
   modoReserva: "vitrina",

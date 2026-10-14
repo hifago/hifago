@@ -22,6 +22,7 @@ export function LodgingFields({
   section,
   hasCheckInOut,
   establishmentLobbyConnected,
+  showDeposit = true,
 }: {
   state: ProductTypeFieldsState;
   // Assistant par étapes (docs/specs/40) — la grille check-in/capacidad/tipo décrit le logement
@@ -30,6 +31,8 @@ export function LodgingFields({
   section?: "details" | "pricing";
   hasCheckInOut: boolean;
   establishmentLobbyConnected?: boolean;
+  // `false` dans l'espace socio (cf. `showAdminLodgingOptions` de ProductTypeFields).
+  showDeposit?: boolean;
 }) {
   const showDetails = !section || section === "details";
   const showPricing = !section || section === "pricing";
@@ -148,7 +151,9 @@ export function LodgingFields({
         </div>
       ) : null}
 
-      {showPricing ? <StayRatesEditor value={state.stayRates} onChange={state.setStayRates} /> : null}
+      {showPricing ? (
+        <StayRatesEditor value={state.stayRates} onChange={state.setStayRates} showDeposit={showDeposit} />
+      ) : null}
     </>
   );
 }

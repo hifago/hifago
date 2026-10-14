@@ -14,19 +14,46 @@ import { Button, Slider } from "@heroui/react";
  */
 export type ImageCropProps = {
   imageSrc: string;
-  /** Largeur/hauteur, ex. 4/3 ou 1 pour un carré — undefined = recadrage libre. */
+  /**
+   * Largeur/hauteur du cadre. Carré par défaut (Jérôme, 2026-10-13) : toutes les fiches de la
+   * vitrine affichent leurs photos au carré (tuiles, galerie de fiche, image de catégorie), le
+   * cadre montre donc exactement ce qui sera vu. Avant : non renseigné, donc le 4/3 par défaut de
+   * `react-easy-crop` — la vitrine rognait ensuite les côtés d'un cadrage choisi en 4/3.
+   */
   aspect?: number;
   onCancel: () => void;
   /** Peut rendre une promesse : « Confirmar recorte » reste inactif jusqu'à sa résolution. */
   onConfirm: (blob: Blob) => void | Promise<void>;
 };
 
-export function ImageCrop({ imageSrc, aspect, onCancel, onConfirm }: ImageCropProps) {
+export function ImageCrop({ imageSrc, aspect = 1, onCancel, onConfirm }: ImageCropProps) {
   const [crop, setCrop] = React.useState({ x: 0, y: 0 });
   const [zoom, setZoom] = React.useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = React.useState<Area | null>(null);
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [hasFailed, setHasFailed] = React.useState(false);
+  const stageRef = React.useRef<HTMLDivElement>(null);
+  const cropperRef = React.useRef<Cropper>(null);
+
+  // `react-easy-crop` mesure sa scène À L'ÉCRAN (`getBoundingClientRect`) dès que l'image est
+  // décodée. Dans une modale qui s'ouvre en zoom, une image décodée pendant l'animation est donc
+  // mesurée agrandie : le cadre restait 3 % plus grand que la photo (mesuré à 390 px le 2026-10-13 :
+  // 240 px de cadre pour 232,5 px d'image), et son `ResizeObserver` ne voit pas une transformation.
+  // On refait la mesure une fois la scène revenue à sa taille de mise en page.
+  React.useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const debut = performance.now();
+    let frame = requestAnimationFrame(function surveiller() {
+      const auRepos = Math.abs(stage.getBoundingClientRect().width - stage.offsetWidth) < 0.5;
+      if (auRepos || performance.now() - debut > 1500) {
+        cropperRef.current?.computeSizes();
+        return;
+      }
+      frame = requestAnimationFrame(surveiller);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   async function handleConfirm() {
     if (!croppedAreaPixels) return;
@@ -53,8 +80,13 @@ export function ImageCrop({ imageSrc, aspect, onCancel, onConfirm }: ImageCropPr
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="relative h-80 w-full overflow-hidden rounded-md bg-black" data-testid="image-crop-stage">
+      <div
+        ref={stageRef}
+        className="relative h-80 w-full overflow-hidden rounded-md bg-black"
+        data-testid="image-crop-stage"
+      >
         <Cropper
+          ref={cropperRef}
           image={imageSrc}
           crop={crop}
           zoom={zoom}

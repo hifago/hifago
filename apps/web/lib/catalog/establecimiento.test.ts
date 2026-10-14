@@ -27,6 +27,8 @@ const fauxSupabase = vi.hoisted(() => {
     nbRegles: 0,
     erreurs: {} as Record<string, { message: string }>,
     listes: {} as Record<string, unknown[]>,
+    // Les `.eq()` posés, par table : le seul moyen de prouver qu'un filtre est demandé à la base.
+    filtres: [] as Array<[table: string, colonne: string, valeur: unknown]>,
   };
   const resultat = (cle: string, principale: boolean) => {
     const error = state.erreurs[cle] ?? null;
@@ -38,6 +40,10 @@ const fauxSupabase = vi.hoisted(() => {
   const consulta = (table: string, principale: string) => {
     const q: Record<string, unknown> = {};
     for (const m of ["select", "eq", "gte", "lte", "order", "in"]) q[m] = () => q;
+    q.eq = (colonne: string, valeur: unknown) => {
+      state.filtres.push([table, colonne, valeur]);
+      return q;
+    };
     q.maybeSingle = async () => resultat(table, table === principale);
     q.then = (ok: (v: unknown) => unknown, ko: (e: unknown) => unknown) =>
       Promise.resolve(resultat(table, false)).then(ok, ko);
@@ -74,6 +80,15 @@ describe("getEstablecimientoPorSlug — panne ≠ absence", () => {
     fauxSupabase.state.principale = ESTABLECIMIENTO;
     fauxSupabase.state.erreurs = {};
     fauxSupabase.state.listes = {};
+    fauxSupabase.state.filtres = [];
+  });
+
+  // Un LIEU (`is_place` — le village de Guatapé, qui porte les événements du municipio) n'a pas de
+  // fiche. La base ne le cache pas (son nom doit rester lisible sur ses événements) : c'est CE
+  // filtre, et lui seul, qui rend sa page absente.
+  it("ne lit jamais un lieu : la fiche exige is_place = false", async () => {
+    await getEstablecimientoPorSlug("guatape", { locale: "es" });
+    expect(fauxSupabase.state.filtres).toContainEqual(["establishments", "is_place", false]);
   });
 
   it("rend null pour un établissement absent (404 voulu)", async () => {

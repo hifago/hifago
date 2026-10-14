@@ -1,23 +1,25 @@
 ---
 id: specs-design-system-admin
-titre: "Design system admin — fond beige, coins carrés (piste Argile)"
+titre: "Design system admin — charte Hifago 2026 (remplace la piste Argile)"
 theme: specs
 public: [ia, dev, jerome]
 langue: fr
 statut: implemente
-maj: 2026-08-15
+maj: 2026-10-13
 resume: >
-  Nouveaux tokens de couleur/radius/bordure du thème admin HeroUI v3 (data-theme="admin") : fond
-  beige (piste "Argile", réf. Muji — aplats de teinte, sans filet), coins carrés à 0 partout, accent
-  terracotta remplaçant le bleu-violet froid actuel — tranché par Jérôme le 2026-08-15 après
-  comparaison visuelle de 3 pistes sur graphe/liste/formulaire.
-mots_cles: [design system, admin, theme, heroui, tokens, beige, radius, argile, couleurs]
+  Tokens du thème admin HeroUI v3 (data-theme="admin", admin + socio). Depuis le 2026-10-13 : la
+  charte Hifago 2026 (or, marine, bleus ; Poppins, Anton sur le titre de page), réglée pour la
+  lisibilité — barre latérale marine, or réservé à l'action principale et au lien actif, rayon de
+  8 px, filets bleu poudre. Remplace la piste "Argile" (fond beige, coins carrés, accent terracotta)
+  tranchée le 2026-08-15, conservée plus bas comme historique.
+mots_cles: [design system, admin, socio, theme, heroui, tokens, charte, or, marine, poppins, anton, radius, argile, couleurs]
 repond_a:
   - "Quelles valeurs de tokens CSS pour le thème admin (fond, accent, bordures, radius) ?"
-  - "Pourquoi un fond beige sans bordure et des coins carrés pour le back-office ?"
+  - "Pourquoi la barre latérale de l'admin est marine et pas or ?"
+  - "Pourquoi un fond beige sans bordure et des coins carrés pour le back-office (historique) ?"
 ---
 
-# Design system admin — fond beige, coins carrés (piste Argile)
+# Design system admin — charte Hifago 2026 (remplace la piste Argile)
 
 > **Cible stack** : hifago. Pas de numéro de feature build — changement transverse de tokens CSS,
 > pas une feature fonctionnelle.
@@ -26,7 +28,8 @@ repond_a:
 
 | # | Section | Statut |
 |---|---|---|
-| 0 | **Contrat compact** (tokens CSS, invariants, cas limites — pour coder) | validé |
+| 0 | **Contrat compact** — la charte Hifago, révision du 2026-10-13 (pour coder) | validé |
+| 0 bis | Historique — jetons, invariants et cas limites de la piste « Argile » (remplacée) | historique |
 | 1 | Contexte et problème | validé |
 | 2 | Portée | validé |
 | 3 | Décisions retenues | validé |
@@ -38,6 +41,63 @@ repond_a:
 ---
 
 ## 0. Contrat compact (pour coder — lire seul, sans le reste)
+
+### Révision du 2026-10-13 — la charte Hifago remplace la piste « Argile » (fait foi)
+
+Demande de Jérôme : « applique la charte graphique de hifago à /partner et admin, en favorisant la
+lisibilité et la facilité d'utilisation au style ». **Ce bloc prime sur tout le reste de la spec** :
+le tableau de jetons, les invariants et les cas limites qui suivent décrivent la piste « Argile »
+(2026-08-15) et ne valent plus que comme historique. Les valeurs vivent dans
+`packages/ui/src/styles/globals.css`, bloc `[data-theme="admin"]`.
+
+| Rôle | Valeur | Contraste mesuré |
+|---|---|---|
+| Page `--background` | `oklch(97% 0.01 247)` (blanc bleuté, celui de la vitrine) | — |
+| Texte `--foreground` | marine `#132f61` | 11.99:1 sur la page, 13.07:1 sur carte |
+| Texte discret `--muted` | marine adouci `oklch(47% 0.06 260.9)` | 6.28:1 / 6.84:1 |
+| Cartes, champs, overlays | blanc | — |
+| Accent `--accent` (bouton principal, lien de nav actif) | or `#ddae09`, texte marine | 6.31:1 |
+| Neutre `--default` | bleu poudre `#b6cde8`, texte marine | 8.02:1 |
+| Lien, focus, bordure de champ | bleu moyen `#2a618e` | 6.03:1 sur la page |
+| Filets `--border` | bleu poudre ; `--border-width: 1px` | décoratif |
+| Statuts | succès `oklch(45% 0.12 150)`, alerte `oklch(54% 0.16 50)`, danger `oklch(46% 0.19 15)` | 7.04 / 4.93 / 7.12:1 en texte |
+| Navigation (`data-superficie="marine"`) | fond marine, texte blanc, discret bleu poudre, focus or | 13.07 / 8.02 / 6.31:1 |
+| Rayons | `--radius: 0.5rem` ; boutons et champs 8 px (`--rayon-bouton`) ; ce qui flotte 16 px (`--radius-3xl`) | — |
+| Polices | Poppins (`--font-sans`) ; Anton sur `.titre-page` seulement, 28 px, graisse 400 | — |
+
+**Invariants (remplacent ceux de la piste Argile)**
+- L'or ne porte jamais de texte sur fond clair (2.07:1) et ne reçoit jamais de blanc : `text-accent`
+  est interdit dans `apps/admin` ; un lien prend `text-link`, un état « fait » `text-success`.
+- L'or est rare : l'action principale d'un écran et le lien de navigation actif. La barre latérale
+  et la barre mobile sont marine, pas or (une colonne or à côté d'un tableau dense fatigue, et le
+  bouton or n'y ressortirait plus).
+- Anton uniquement sur le titre de page (`<h1 className="titre-page">`), jamais sous 20 px, jamais
+  avec une classe de graisse. Tous les autres titres restent en Poppins.
+- Un seul `<h1>` visible par page : le libellé de la barre mobile est un `<p>`.
+- Sous `md`, boutons et champs font 44 px de haut au minimum.
+- Pas d'ombre sur cartes et champs ; seuls les éléments flottants en gardent une.
+- Le thème `vitrine` n'est pas touché (partie vitrine du CSS identique à l'octet, vérifié).
+
+**Ce qui est retiré** : `--radius: 0` et `--border-width: 0` (les « invariants non négociables »
+de la piste Argile), l'accent terracotta, l'interdit des teintes froides, et le recalage des
+utilitaires `.border`, `.border-t/b/l/r/x/y`, `.border-dashed` — écrit
+`border-width: var(--border-width)`, il posait la largeur sur les QUATRE côtés : indolore à 0, il
+transformait à 1 px chaque `border-t` en cadre entier. Le recalage de `.rounded`, le zébrage des
+lignes de `SimpleTable`, la règle `gmp-place-autocomplete` et le décalage du toast restent.
+
+**Fichiers** : `packages/ui/src/styles/globals.css` (bloc admin) ·
+`packages/ui/src/components/app-nav-shell.tsx` (surface marine, prop `brand`) ·
+`packages/ui/src/components/data-list.tsx` (actions qui passent à la ligne sous `md`) ·
+`apps/admin/app/layout.tsx` (Poppins, Anton) · `apps/admin/components/logo-hifago.tsx` et
+`apps/admin/public/brand/` · les 57 `<h1>` de l'app (`titre-page`) · graphiques, calendrier de
+disponibilité et assistant par étapes (couleurs).
+
+**À valider par Jérôme au rendu** : rayon de 8 px (au lieu des coins carrés), barre latérale marine
+(au lieu d'or), Anton limité au titre de page.
+
+---
+
+## 0 bis. Historique — piste « Argile » (2026-08-15, remplacée le 2026-10-13)
 
 ### Endpoints / RPC
 

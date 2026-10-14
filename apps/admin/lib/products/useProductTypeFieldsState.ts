@@ -34,11 +34,9 @@ export type ProductTypeFieldsInit = {
   lat?: number | null;
   lon?: number | null;
   tagIds?: string[];
-  // Équipements structurés stagés à la CRÉATION (migration 20260917110000) — même patron que
-  // tagIds : liste d'ids, rattachée après l'insert (product-form.tsx), jamais dans une RPC de
-  // proposition socio (les équipements restent un geste admin, cf. journal 2026-09-17). Absent de
-  // RawProductFieldsPayload/payloadToFieldsInit à dessein : aucun payload de proposition n'en porte
-  // jamais.
+  // Équipements structurés d'un logement (migration 20260917110000) — même patron que tagIds :
+  // liste d'ids, rattachée après l'insert en création admin directe (product-form.tsx), portée par
+  // le payload (`amenity_ids`) dans une proposition socio depuis la migration 20261013151206.
   amenityIds?: string[];
   priceCop?: number | null;
   priceTiers?: unknown;
@@ -84,9 +82,9 @@ export type ProductTypeFieldsInit = {
   // l'écran de modération doit pouvoir les prérremplir pour la revue admin.
   lobbyCategoryId?: number | null;
   lobbyProductId?: number | null;
-  // Evento réservable en ligne (2026-09-15) — contrairement aux autres champs evento ci-dessus,
-  // ceux-ci sont chargés ET réécrits en édition (cf. product-form.tsx) : pas le même gap
-  // "création seulement".
+  // Evento réservable en ligne (2026-09-15) — chargés ET réécrits en édition (cf. product-form.tsx).
+  // Les champs d'occurrence ci-dessus le sont aussi depuis le 2026-10-13 (eventoOccurrence.ts) :
+  // il ne reste aucun champ evento « création seulement », hors l'URL de vitrine.
   onlineBookable?: boolean;
   eventoCapacityMode?: "unlimited" | "metered" | "rsvp" | null;
   isFree?: boolean;
@@ -269,6 +267,8 @@ export type RawProductFieldsPayload = {
   lat?: number | null;
   lon?: number | null;
   tag_ids?: string[];
+  // Équipements d'un logement dans une proposition (migration 20261013151206).
+  amenity_ids?: string[];
   price_cop?: number | null;
   price_tiers?: unknown;
   min_qty?: number | null;
@@ -287,7 +287,9 @@ export type RawProductFieldsPayload = {
   program?: unknown;
   slot_rules?: unknown;
   price_label?: string | null;
-  occurrence_type?: OccurrenceType;
+  // `string`, pas `OccurrenceType` : cette forme reçoit aussi la LIGNE `products` (colonne text),
+  // et le payload d'une proposition est du jsonb libre — validé par `asOccurrenceType` plus bas.
+  occurrence_type?: string | null;
   occurrence_date?: string | null;
   recurrence_frequency_days?: number | null;
   recurrence_end_date?: string | null;
@@ -297,6 +299,15 @@ export type RawProductFieldsPayload = {
   external_booking_url?: string | null;
   lobby_category_id?: number | null;
   lobby_product_id?: number | null;
+  // Evento réservable en ligne (2026-10-13). Jamais portés par une proposition (réglage admin, les
+  // RPC les ignorent) : ils arrivent ici depuis la LIGNE `products`, pour que les écrans socio et
+  // modération sachent qu'un evento se réserve en ligne — sans quoi ils affichaient un « Precio
+  // (texto libre) » vide et reconstruisaient un payload d'evento vitrine par-dessus.
+  online_bookable?: boolean | null;
+  evento_capacity_mode?: string | null;
+  is_free?: boolean | null;
+  evento_payment_mode?: string | null;
+  evento_occupies_resource?: boolean | null;
   // Transport informatif (2026-09-16). ⚠️ OBLIGATOIRE ici, pas seulement dans les RPC : les 3
   // écrans de modération hydratent l'état par `payloadToFieldsInit` PUIS reconstruisent le payload
   // (ModerateProductCreationProposalForm, ModerateProposalForm, EditProposalForm). Une clé non
@@ -315,12 +326,27 @@ export type RawProductFieldsPayload = {
   transport_contact_phone?: string | null;
 };
 
+// Gardes de domaine, jamais des casts — même raison qu'`asLodgingKind` : une valeur hors domaine
+// venue d'un jsonb libre ne sélectionnerait AUCUNE option, sans erreur de type.
+function asOccurrenceType(value: unknown): OccurrenceType | undefined {
+  return value === "once" || value === "recurring" ? value : undefined;
+}
+
+function asEventoCapacityMode(value: unknown): "unlimited" | "metered" | "rsvp" | null {
+  return value === "unlimited" || value === "metered" || value === "rsvp" ? value : null;
+}
+
+function asEventoPaymentMode(value: unknown): "online" | "on_site" | null {
+  return value === "online" || value === "on_site" ? value : null;
+}
+
 export function payloadToFieldsInit(payload: RawProductFieldsPayload): ProductTypeFieldsInit {
   return {
     address: payload.address,
     lat: payload.lat,
     lon: payload.lon,
     tagIds: payload.tag_ids,
+    amenityIds: payload.amenity_ids,
     priceCop: payload.price_cop,
     priceTiers: payload.price_tiers,
     minQty: payload.min_qty,
@@ -341,7 +367,7 @@ export function payloadToFieldsInit(payload: RawProductFieldsPayload): ProductTy
     program: payload.program,
     slotRules: payload.slot_rules,
     priceLabel: payload.price_label,
-    occurrenceType: payload.occurrence_type,
+    occurrenceType: asOccurrenceType(payload.occurrence_type),
     occurrenceDate: payload.occurrence_date,
     recurrenceFrequencyDays: payload.recurrence_frequency_days,
     recurrenceEndDate: payload.recurrence_end_date,
@@ -351,6 +377,11 @@ export function payloadToFieldsInit(payload: RawProductFieldsPayload): ProductTy
     externalBookingUrl: payload.external_booking_url,
     lobbyCategoryId: payload.lobby_category_id,
     lobbyProductId: payload.lobby_product_id,
+    onlineBookable: payload.online_bookable ?? undefined,
+    eventoCapacityMode: asEventoCapacityMode(payload.evento_capacity_mode),
+    isFree: payload.is_free ?? undefined,
+    eventoPaymentMode: asEventoPaymentMode(payload.evento_payment_mode),
+    eventoOccupiesResource: payload.evento_occupies_resource ?? undefined,
     transportFirstDepartureTime: payload.transport_first_departure_time,
     transportLastDepartureTime: payload.transport_last_departure_time,
     transportSeatsPerDeparture: payload.transport_seats_per_departure,

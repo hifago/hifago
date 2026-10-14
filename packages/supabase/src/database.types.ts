@@ -573,6 +573,7 @@ export type Database = {
           created_at: string
           description: Json | null
           id: string
+          is_place: boolean
           lat: number | null
           lobby_api_token: string | null
           lobby_connector_active: boolean
@@ -596,6 +597,7 @@ export type Database = {
           created_at?: string
           description?: Json | null
           id?: string
+          is_place?: boolean
           lat?: number | null
           lobby_api_token?: string | null
           lobby_connector_active?: boolean
@@ -619,6 +621,7 @@ export type Database = {
           created_at?: string
           description?: Json | null
           id?: string
+          is_place?: boolean
           lat?: number | null
           lobby_api_token?: string | null
           lobby_connector_active?: boolean
@@ -2659,6 +2662,18 @@ export type Database = {
           total_count: number
         }[]
       }
+      admin_rename_establishment: {
+        Args: { p_establishment_id: string; p_name_es: string; p_note?: string }
+        Returns: Json
+      }
+      admin_rename_partner: {
+        Args: { p_display_name: string; p_note?: string; p_partner_id: string }
+        Returns: Json
+      }
+      admin_update_product_inline: {
+        Args: { p_changes: Json; p_note?: string; p_product_id: string }
+        Returns: Json
+      }
       apply_order_line_ledger_transition: {
         Args: { p_new_status: string; p_order_line_ids: string[] }
         Returns: undefined
@@ -2992,6 +3007,10 @@ export type Database = {
         Returns: undefined
       }
       html_text: { Args: { p_value: string }; Returns: string }
+      interleave_by_category: {
+        Args: { p_categories: string[] }
+        Returns: number[]
+      }
       invoke_payments_reconcile: { Args: never; Returns: undefined }
       invoke_pms_cancel_bookings: { Args: never; Returns: undefined }
       invoke_pms_nightly_contract_check: { Args: never; Returns: undefined }
@@ -3529,6 +3548,14 @@ export type Database = {
           p_entity_type: string
           p_note?: string
           p_price_cop: number
+        }
+        Returns: Json
+      }
+      set_establishment_is_place: {
+        Args: {
+          p_establishment_id: string
+          p_is_place: boolean
+          p_note?: string
         }
         Returns: Json
       }

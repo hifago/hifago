@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { safeNextPath } from "@hifago/domain";
 import { LoginForm } from "./LoginForm";
+import { LogoHifago } from "@/components/logo-hifago";
 
 // Segment non localisé par next-intl (cf. docs/journal/2026-08.md) — texte en dur en espagnol,
 // même convention que le reste d'apps/admin (Spanish, cf. AdminSidebar/NewInvitationForm) — pas
@@ -38,7 +39,8 @@ export default async function LoginPage({
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-2xl font-semibold">Iniciar sesión</h1>
+      <LogoHifago variante="clair" hauteur="h-16" />
+      <h1 className="titre-page">Iniciar sesión</h1>
       <LoginForm next={next} callbackError={callbackError} />
     </main>
   );

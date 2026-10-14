@@ -120,15 +120,22 @@ Resend, comme en préprod depuis le 2026-10-07.)
 ## 4. Ordre de déploiement
 
 Vercel déploie au merge ; le schéma doit donc être en place **avant** le code qui en dépend.
-1. `supabase db push --project-ref <ref>` (depuis la racine du dépôt), puis
-   `supabase functions deploy --project-ref <ref>` (les fonctions importent `packages/domain` :
-   toujours depuis la racine). Ne pas changer le lien local, qui reste sur la préprod.
-2. Secrets (§2, §3) posés ou mis à jour.
-3. Merge : `staging` pour la préprod ; PR `staging → main` pour la prod.
-4. Vérifications (§8).
 
-Tant que le workflow de déploiement Supabase automatique n'existe pas (plan de migration,
-phase 9 bis), l'étape 1 est manuelle, sur l'accord explicite de Jérôme pour la prod (§8.3).
+**Préprod — une commande** (depuis le 2026-10-13) : `node scripts/deploy-preprod.mjs all`
+(`/push-db` ; `code` = `/push`, `db` = `/upload-db`, `--dry-run` pour ne rien pousser). Elle vérifie
+le compte, applique les migrations, redéploie les Edge Functions modifiées, pousse `staging`,
+attend le build Vercel et contrôle les fiches (les « vérifications » de §8 qui se lisent en HTTP).
+Un `git push` nu vers `staging` qui porte une migration est refusé par le hook `pre-push`. Le clone
+n'est jamais lié à un projet distant : le script lie une copie temporaire de `supabase/`.
+
+**Prod — à la main**, sur l'accord explicite de Jérôme à chaque fois (§8.3) :
+1. Lier le projet prod dans une COPIE de `supabase/` (`supabase link --project-ref <ref>
+   --workdir <copie>`, jamais dans le clone : `unlink` vide `supabase/.temp` en entier), puis
+   `supabase db push --workdir <copie>`. Sans lien, la CLI échoue en `DbConfigIpv6Error`.
+2. `supabase functions deploy --project-ref <ref> --use-api`, depuis la racine du dépôt (les
+   fonctions importent `packages/domain`).
+3. Secrets (§2, §3) posés ou mis à jour.
+4. PR `staging → main`, puis vérifications (§8).
 
 ## 5. Relais LobbyPMS (Vultr)
 

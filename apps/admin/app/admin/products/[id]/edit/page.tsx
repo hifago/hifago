@@ -53,13 +53,12 @@ export default async function EditProductPage({
       // réécrirait rétroactivement les dates de réservations existantes.
       //
       // online_bookable/evento_capacity_mode/is_free/evento_payment_mode/evento_occupies_resource
-      // (2026-09-15) : SEULS champs evento désormais chargés ici pour l'édition — délibérément pas
-      // price_label/occurrence_*/start_time/duration_minutes, qui restent le gap préexistant
-      // "création seulement" (cf. product-form.tsx, hors périmètre Jérôme) : les ajouter ici sans
-      // les rendre écrivables dans l'update() afficherait un formulaire qui SEMBLE éditer ces
-      // valeurs puis jette silencieusement le changement au clic sur Enregistrer — pire que le
-      // formulaire vierge actuel. Ces 5 champs-ci, eux, sont réellement lus ET réécrits.
-      "id, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, category, type, establishment_id, sellable, lobby_category_id, lobby_product_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, evento_occupies_resource, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, establishment:establishments(lobby_connector_active, lobby_has_token)",
+      // (2026-09-15), puis price_label/occurrence_*/start_time/duration_minutes (2026-10-13) : tous
+      // lus ICI et réécrits par l'update() de ProductForm — les deux ensemble, jamais l'un sans
+      // l'autre. `price_label` était réécrit sans être lu depuis le 2026-09-17 (un enregistrement
+      // l'effaçait) ; les colonnes d'occurrence n'étaient ni lues ni écrites, le formulaire
+      // s'affichait vierge et jetait la saisie.
+      "id, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, category, type, establishment_id, sellable, lobby_category_id, lobby_product_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, evento_occupies_resource, price_label, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, establishment:establishments(lobby_connector_active, lobby_has_token)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -174,7 +173,7 @@ export default async function EditProductPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold">
+        <h1 className="titre-page">
           {isLodging
             ? "Editar alojamiento"
               : isTransport

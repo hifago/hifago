@@ -36,9 +36,14 @@ export function StayRatesEditor({
   value,
   onChange,
   testIdPrefix = "",
+  showDeposit = true,
 }: {
   value: DraftStayRates;
   onChange: (next: DraftStayRates) => void;
+  // Le dépôt est une option admin (demande Jérôme du 2026-10-13) : l'espace socio passe `false`.
+  // Seul le champ disparaît — `value.depositCop` reste dans l'état et repart tel quel, sinon une
+  // proposition du socio effacerait le dépôt posé par un admin.
+  showDeposit?: boolean;
   // Vide par défaut (usage alojamiento existant, zéro changement de data-testid) — non vide quand
   // plusieurs instances coexistent sur le même écran (une par chambre d'hôtel, spec 13 suite),
   // pour éviter une collision de data-testid entre chambres.
@@ -124,12 +129,14 @@ export function StayRatesEditor({
         </TextField>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-        <TextField value={value.depositCop} onChange={(next) => onChange({ ...value, depositCop: next })}>
-          <Label>Depósito (COP) — opcional</Label>
-          <Input type="number" min={0} data-testid={`${testIdPrefix}stay-rates-deposit-input`} />
-        </TextField>
-      </div>
+      {showDeposit ? (
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <TextField value={value.depositCop} onChange={(next) => onChange({ ...value, depositCop: next })}>
+            <Label>Depósito (COP) — opcional</Label>
+            <Input type="number" min={0} data-testid={`${testIdPrefix}stay-rates-deposit-input`} />
+          </TextField>
+        </div>
+      ) : null}
       <TextField value={value.extraNote} onChange={(next) => onChange({ ...value, extraNote: next })}>
         <Label>Nota adicional — opcional</Label>
         <TextArea data-testid={`${testIdPrefix}stay-rates-extra-note-input`} />

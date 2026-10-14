@@ -45,8 +45,28 @@ test("un admin ajoute (recadre), réordonne et retire des photos sur une activit
   // add_catalog_media).
   await gallery.getByTestId("media-gallery-add").locator("input[type=file]").setInputFiles(FIXTURE_PHOTO);
   await expect(page.getByTestId("image-crop-stage")).toBeVisible();
+  // Cadre CARRÉ (2026-10-13), comme les photos de la vitrine — la photo de test est en 4/3
+  // (400 × 300) : un cadre resté en 4/3 la prendrait entière. `cropper` est le testid que
+  // react-easy-crop pose lui-même sur son cadre, qui n'apparaît qu'une fois l'image décodée.
+  const cadre = page.getByTestId("image-crop-stage").getByTestId("cropper");
+  await expect
+    .poll(async () => {
+      const boite = await cadre.boundingBox();
+      return boite ? Math.abs(boite.width - boite.height) : null;
+    })
+    .toBeLessThanOrEqual(1);
   await page.getByTestId("image-crop-confirm").click();
   await expect(gallery.getByTestId("media-gallery-item")).toHaveCount(1, { timeout: 10000 });
+  // Et c'est bien un carré qui est stocké, pas seulement un cadre carré à l'écran.
+  const premiere = gallery.getByTestId("media-gallery-item").first().locator("img");
+  await expect
+    .poll(() => premiere.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0);
+  const taille = await premiere.evaluate((img: HTMLImageElement) => ({
+    largeur: img.naturalWidth,
+    hauteur: img.naturalHeight,
+  }));
+  expect(Math.abs(taille.largeur - taille.hauteur)).toBeLessThanOrEqual(1);
 
   // Deuxième photo — la première doit rester marquée "Portada" (couverture = première position).
   await gallery.getByTestId("media-gallery-add").locator("input[type=file]").setInputFiles(FIXTURE_PHOTO);

@@ -9,6 +9,8 @@ import { CapabilitiesSection } from "./CapabilitiesSection";
 import { EstablishmentsSection } from "./EstablishmentsSection";
 import { CodesSection } from "./CodesSection";
 import { PartnerLocationBlock } from "./PartnerLocationBlock";
+import { PartnerIdentitySection } from "./PartnerIdentitySection";
+import { commercialStatusLabel, resumenMetodoPago } from "@/lib/partners/crmProfile";
 
 export default async function AdminPartnerDetailPage({
   params,
@@ -19,7 +21,13 @@ export default async function AdminPartnerDetailPage({
   // Chaque lecture LÈVE sur une panne (lib/supabase/checkedRead.ts) : lue comme une absence, elle
   // répondait « introuvable », ou une fiche sans capacités, établissements ni codes.
   const { data: partner } = checkedRead(
-    await supabase.from("partners").select("id, display_name").eq("id", id).maybeSingle(),
+    await supabase
+      .from("partners")
+      .select(
+        "id, display_name, legal_name, identification_type, identification_number, partner_city, email, phone",
+      )
+      .eq("id", id)
+      .maybeSingle(),
     "partners",
   );
 
@@ -69,7 +77,11 @@ export default async function AdminPartnerDetailPage({
     // l'écriture de partner_crm_profile est RPC-only (set_partner_location), la policy
     // partner_crm_profile_select autorise déjà l'admin en lecture. maybeSingle : 31/32 partenaires
     // n'ont aujourd'hui aucune ligne (jamais géocodés), pas un cas d'erreur.
-    supabase.from("partner_crm_profile").select("address, lat, lon").eq("partner_id", id).maybeSingle(),
+    supabase
+      .from("partner_crm_profile")
+      .select("address, lat, lon, barrio, tags, commercial_status, notes, bank")
+      .eq("partner_id", id)
+      .maybeSingle(),
   ]);
   const { data: capabilities } = checkedRead(capabilitiesResult, "partner_capabilities");
   const { data: agreements } = checkedRead(agreementsResult, "role_agreements");
@@ -95,8 +107,8 @@ export default async function AdminPartnerDetailPage({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-start justify-between gap-4">
-        <h1 className="text-2xl font-semibold">{partner.display_name}</h1>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <h1 className="titre-page">{partner.display_name}</h1>
         <Link
           href={`/admin/partners/${partner.id}/offboarding`}
           className={buttonVariants({ variant: "outline", size: "sm" })}
@@ -105,6 +117,22 @@ export default async function AdminPartnerDetailPage({
           Offboarding
         </Link>
       </div>
+
+      <PartnerIdentitySection
+        identity={{
+          legalName: partner.legal_name,
+          identification:
+            [partner.identification_type, partner.identification_number].filter(Boolean).join(" ") || null,
+          city: partner.partner_city,
+          email: partner.email,
+          phone: partner.phone,
+          commercialStatus: commercialStatusLabel(crmProfile?.commercial_status),
+          barrio: crmProfile?.barrio ?? null,
+          tags: crmProfile?.tags ?? [],
+          notes: crmProfile?.notes ?? null,
+          paymentMethod: resumenMetodoPago(crmProfile?.bank),
+        }}
+      />
 
       <PartnerLocationBlock
         partnerId={partner.id}

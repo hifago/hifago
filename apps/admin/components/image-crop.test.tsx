@@ -8,11 +8,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // ce que le navigateur reçoit réellement : un JPEG qualité 0,9 au côté long plafonné, et un bouton
 // « Confirmar recorte » qui ne se réactive pas pendant l'envoi.
 
+// Proportion du cadre reçue par le recadreur à chaque rendu — la seule chose que ce fichier peut
+// en dire sans navigateur.
+let aspectsRecus: (number | undefined)[] = [];
+
 function RecadreurSimule({
+  aspect,
   onCropComplete,
 }: {
+  aspect?: number;
   onCropComplete: (area: unknown, pixels: { x: number; y: number; width: number; height: number }) => void;
 }) {
+  aspectsRecus.push(aspect);
   // Une seule fois, au montage : le vrai recadreur ne rappelle qu'après un geste, et le rappel reçu
   // est une nouvelle fonction à chaque rendu (le relancer à chaque fois bouclerait).
   useEffect(() => {
@@ -31,6 +38,7 @@ const ImageOriginale = globalThis.Image;
 
 beforeEach(() => {
   exports = [];
+  aspectsRecus = [];
   toBlobRendNull = false;
   // Image « décodée » aussitôt que sa source est posée.
   globalThis.Image = class {
@@ -69,6 +77,19 @@ function confirmer() {
 }
 
 describe("ImageCrop", () => {
+  // Les photos s'affichent au carré partout dans la vitrine : sans proportion explicite,
+  // react-easy-crop retombe sur son 4/3 et le cadre ne montre plus ce qui sera vu.
+  it("cadre carré par défaut, et une proportion passée en prop l'emporte", () => {
+    const { unmount } = render(<ImageCrop imageSrc="blob:source" onCancel={() => {}} onConfirm={() => {}} />);
+    expect(aspectsRecus.length).toBeGreaterThan(0);
+    expect(new Set(aspectsRecus)).toEqual(new Set([1]));
+    unmount();
+
+    aspectsRecus = [];
+    render(<ImageCrop imageSrc="blob:source" aspect={16 / 9} onCancel={() => {}} onConfirm={() => {}} />);
+    expect(new Set(aspectsRecus)).toEqual(new Set([16 / 9]));
+  });
+
   it("exporte un JPEG qualité 0,9, côté long plafonné à 2400 px, proportions gardées", async () => {
     const onConfirm = vi.fn();
     render(<ImageCrop imageSrc="blob:source" onCancel={() => {}} onConfirm={onConfirm} />);

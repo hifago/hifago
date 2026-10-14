@@ -3,8 +3,9 @@
 import { useMemo, useState } from "react";
 import type { Key } from "react";
 import { ComboBox, Input, Label, ListBox, Tag, TagGroup, toast } from "@hifago/ui";
-import { createClient } from "@hifago/supabase/client";
-import { slugify } from "@/lib/utils";
+import { ManageTagsDialog } from "@/components/manage-tags-dialog";
+import { createCatalogTag } from "@/lib/tags/createCatalogTag";
+import { isExistingTagName, tagMatchesQuery } from "@/lib/tags/tagSlug";
 
 export type TagOption = { id: string; label: string };
 
@@ -34,6 +35,10 @@ export function TagsMultiSelect({
   // défaut préexistant que `allowCreate` seul ne couvrait pas). Défaut inchangé pour ne rien
   // altérer côté tags.
   placeholder = "Buscar o crear un tag…",
+  // Renommer / supprimer une étiquette depuis le sélecteur (demande Jérôme, 2026-10-13). Suit
+  // `allowCreate` par défaut : même droit d'écriture sur `catalog_tags` (admin-only), donc mêmes
+  // écrans — jamais le socio, jamais les équipements (liste fermée, autre table).
+  allowManage = allowCreate,
 }: {
   availableTags: TagOption[];
   selectedTagIds: string[];
@@ -43,6 +48,7 @@ export function TagsMultiSelect({
   emptyMessage?: string;
   allowCreate?: boolean;
   placeholder?: string;
+  allowManage?: boolean;
 }) {
   const [query, setQuery] = useState("");
   // Tags créés depuis ce composant pendant sa durée de vie — le parent (Server Component) n'a pas
@@ -50,7 +56,19 @@ export function TagsMultiSelect({
   const [localTags, setLocalTags] = useState<TagOption[]>([]);
   const [isCreating, setIsCreating] = useState(false);
 
-  const allTags = useMemo(() => [...availableTags, ...localTags], [availableTags, localTags]);
+  // Renommages et suppressions faits depuis le dialogue : appliqués par-dessus `availableTags`, que
+  // le parent (Server Component) ne relit pas tant que la page n'est pas rechargée.
+  const [renamedLabels, setRenamedLabels] = useState<Record<string, string>>({});
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
+  const [isManaging, setIsManaging] = useState(false);
+
+  const allTags = useMemo(
+    () =>
+      [...availableTags, ...localTags]
+        .filter((tag) => !deletedIds.includes(tag.id))
+        .map((tag) => (tag.id in renamedLabels ? { ...tag, label: renamedLabels[tag.id] } : tag)),
+    [availableTags, localTags, renamedLabels, deletedIds],
+  );
 
   const selectedTags = useMemo(
     () =>
@@ -65,15 +83,17 @@ export function TagsMultiSelect({
     [allTags, selectedTagIds],
   );
 
-  const filtered = useMemo(() => {
-    const needle = slugify(query);
-    return needle ? selectableTags.filter((t) => slugify(t.label).includes(needle)) : selectableTags;
-  }, [selectableTags, query]);
-
   const trimmedQuery = query.trim();
-  const hasExactMatch = trimmedQuery
-    ? allTags.some((t) => slugify(t.label) === slugify(trimmedQuery))
-    : true;
+
+  const filtered = useMemo(
+    () => (trimmedQuery ? selectableTags.filter((t) => tagMatchesQuery(t.label, trimmedQuery)) : selectableTags),
+    [selectableTags, trimmedQuery],
+  );
+
+  const hasExactMatch = isExistingTagName(
+    trimmedQuery,
+    allTags.map((t) => t.label),
+  );
   const canCreate = allowCreate && trimmedQuery.length > 0 && !hasExactMatch;
 
   const listItems = canCreate
@@ -82,26 +102,15 @@ export function TagsMultiSelect({
 
   async function handleCreateTag() {
     setIsCreating(true);
-
-    const supabase = createClient();
-    const { data: newTag, error: insertError } = await supabase
-      .from("catalog_tags")
-      .insert({ label: { es: trimmedQuery }, slug: slugify(trimmedQuery) })
-      .select("id, label")
-      .single();
-
+    const result = await createCatalogTag(trimmedQuery);
     setIsCreating(false);
 
-    if (insertError || !newTag) {
-      toast.danger(
-        insertError?.code === "23505"
-          ? "Ya existe una etiqueta con ese nombre."
-          : "No se pudo crear la etiqueta.",
-      );
+    if ("error" in result) {
+      toast.danger(result.error);
       return;
     }
 
-    const created: TagOption = { id: newTag.id, label: trimmedQuery };
+    const created = result.tag;
     setLocalTags((prev) => [...prev, created]);
     onChange([...selectedTagIds, created.id]);
     setQuery("");
@@ -111,6 +120,13 @@ export function TagsMultiSelect({
   function handleRemove(keys: Set<Key>) {
     const removedIds = new Set(Array.from(keys, String));
     onChange(selectedTagIds.filter((id) => !removedIds.has(id)));
+  }
+
+  function handleDeleted(tagId: string) {
+    setDeletedIds((previous) => [...previous, tagId]);
+    // Retirée aussi de la sélection de l'hôte : un formulaire qui garderait cet identifiant
+    // tenterait d'assigner une étiquette qui n'existe plus.
+    if (selectedTagIds.includes(tagId)) onChange(selectedTagIds.filter((id) => id !== tagId));
   }
 
   return (
@@ -161,6 +177,25 @@ export function TagsMultiSelect({
             )}
           </TagGroup.List>
         </TagGroup>
+      ) : null}
+      {allowManage && allTags.length > 0 ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setIsManaging(true)}
+            data-testid={`${testId}-manage`}
+            className="self-start text-sm font-medium text-foreground hover:underline max-md:min-h-11"
+          >
+            Editar o eliminar etiquetas
+          </button>
+          <ManageTagsDialog
+            isOpen={isManaging}
+            onOpenChange={setIsManaging}
+            tags={allTags}
+            onRenamed={(tagId, label) => setRenamedLabels((previous) => ({ ...previous, [tagId]: label }))}
+            onDeleted={handleDeleted}
+          />
+        </>
       ) : null}
     </div>
   );

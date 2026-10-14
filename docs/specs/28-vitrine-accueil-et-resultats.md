@@ -107,7 +107,12 @@ erreur de sérialisation à l'exécution. Il lui faut un hôte client, que voici
 
 **Ordre des sections** : `activity`, `lodging`, `transport`, `camp`, `evento`. *(Le
 réordonnancement selon le panier part en Tranche 3 — voir §2.)*
-**Ordre dans une section** : `created_at desc` — les plus récentes d'abord.
+**Ordre dans une section** *(révisé le 2026-10-13, migration `20261013215000`)* : activités,
+logements, transports — **catégories mélangées**, jamais deux cartes de la même catégorie de suite
+tant que c'est évitable, la plus récente d'abord dans chaque catégorie ; camps — **par prochain
+départ** ; events — **alternance** ponctuel le plus proche / récurrent / ponctuel suivant /
+récurrent…, les events sans rien à venir en dernier. L'ordre est décidé par `search_catalog`
+(`rango_seccion`), avant le plafond.
 
 ### Données
 
@@ -256,7 +261,9 @@ Actées au cahier §2a et §2b.5 ou tranchées le 2026-09-07, non rouvertes ici 
   chevauchement**. La recherche n'interroge donc aucune disponibilité et **jamais LobbyPMS**.
 - Un établissement apparaît comme une seule offre **dès deux couchages vendables**.
 - **Ordre dans une section : `created_at desc`** — les nouveautés remontent, l'ordre est stable
-  d'un chargement à l'autre, et ça reste un point d'extension isolé.
+  d'un chargement à l'autre, et ça reste un point d'extension isolé. *(Étendu deux fois : les events
+  par prochaine occurrence le 2026-09-15, puis les trois règles du §« Ordre dans une section »
+  ci-dessus le 2026-10-13. `created_at desc` reste l'ordre de base qui départage.)*
 - **Texte alternatif d'une photo : `<nom de l'offre>, foto <i> de <n>`** — aucune colonne à créer,
   et chaque photo reste distinguable pour un lecteur d'écran.
 

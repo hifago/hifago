@@ -25,7 +25,7 @@ const config: StorybookConfig = {
   // asynchrone. Ce drapeau enveloppe chaque story dans un Suspense — sans effet sur les stories de
   // composants, qui ne suspendent jamais. Les données passent par les mocks de `preview.tsx`.
   features: { experimentalRSC: true },
-  // Les vraies photos du catalogue de démonstration (`hifago/mockData/`, 82 fichiers) : on ne juge
+  // Les vraies photos du catalogue (`hifago/mockData/`, 100 fichiers, celui de la préprod) : on ne juge
   // pas un design sur des rectangles gris. Servies sous `/mock/…`, référencées par les fixtures de
   // `.storybook/support/fixtures/`. (La Sugo Pro Display d'essai n'est plus servie depuis que Jérôme
   // a confirmé Anton, le 2026-10-02 : `preview-head.html`.)

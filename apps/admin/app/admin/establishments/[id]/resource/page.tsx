@@ -82,7 +82,7 @@ export default async function EstablishmentResourcePage({
         >
           ← {resolveLocalizedField(asLocalizedField(establishment.name), "es") ?? establishment.id}
         </Link>
-        <h1 className="text-2xl font-semibold">Recurso compartido del establecimiento</h1>
+        <h1 className="titre-page">Recurso compartido del establecimiento</h1>
         <p className="text-sm text-muted">
           Capacidad de la ressource compartida entre campamentos/eventos reservables de este
           establecimiento — distinta de la capacidad propia de cada actividad.

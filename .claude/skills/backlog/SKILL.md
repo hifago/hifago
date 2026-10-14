@@ -23,9 +23,13 @@ en tête font foi si ce skill diverge. Une ligne par point, jamais de récit —
 Comme sync, ciblé sur ce point : vérifier, retirer, journaliser.
 
 ## /backlog add <texte>
-Une ligne, section adaptée (Arbitrage Jérôme requis · Bloquants externes · Data/config ·
-Dette technique · Dette QA/UI), fichier concerné cité. Si le point dépend d'une action de Jérôme,
-le dire dans la ligne.
+Une ligne, fichier concerné cité. Depuis le 2026-10-12 c'est Jérôme qui pilote les sessions : tout
+nouveau point va dans « Ouvert par Jérôme depuis sa reprise », pour qu'on sache qui l'a ouvert
+(git ne le dit pas, le clone committe sous le compte `hifago`). Les autres sections (Arbitrage
+Jérôme requis · Bloquants externes) portent les points ouverts par le dev avant cette date : ne
+rien y ajouter tant que Jérôme pilote, n'en retirer que sur preuve. Dette technique, QA/UI et
+data/config : `docs/dette-technique.md`. Si le point dépend d'une action de Jérôme, le dire dans
+la ligne.
 
 ## Interdits
 Réécrire ou supprimer une édition manuelle de Jérôme · retirer une ligne sans preuve de fermeture ·

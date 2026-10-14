@@ -1,9 +1,0 @@
-{
-  "partner": "user2",
-  "establishment": "etablissement2",
-  "name": { "es": "Room 2" },
-  "price_cop": 150000,
-  "unit": "per_house",
-  "capacity": 4,
-  "lodging_kind": "private"
-}

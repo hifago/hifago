@@ -1,6 +1,7 @@
 import path from "node:path";
 import { test, expect } from "@playwright/test";
 import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
+import { filaPorNombre } from "./support/filas";
 import {
   checkboxInput,
   confirmAndContinue,
@@ -37,7 +38,7 @@ test("admin crée un alojamiento (check-in/check-out, capacidad, temporada/fin d
   await confirmAndContinue(page, "establishment-form-confirmation");
   await expect(page).toHaveURL(/\/admin\/establishments$/);
 
-  const row = page.locator("tr", { hasText: establishmentName });
+  const row = filaPorNombre(page, establishmentName);
   await row.getByRole("link", { name: "+ Actividad" }).click();
   await expect(page).toHaveURL(/\/admin\/products\/new\?establishment=/);
   // Même piège d'hydratation que ProductForm pour une activité (CLAUDE.md §11.8) — le composant

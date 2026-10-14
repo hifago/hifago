@@ -29,6 +29,7 @@
     "test:notification-real": "node tests/notification-real/send_8_real_emails.mjs",
     "db:setup": "bash scripts/db-setup.sh",
     "db:mock-data": "node supabase/scripts/seed-mock-data.mjs",
+    "db:google-admin": "node --env-file=apps/admin/.env.local supabase/scripts/local-google-admin.mjs",
     "docs:index": "node scripts/docs_index.js --build",
     "docs:check": "node scripts/docs_index.js --check",
     "check:instructions": "node scripts/check-instructions.mjs"

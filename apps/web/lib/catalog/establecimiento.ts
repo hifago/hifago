@@ -41,6 +41,10 @@ export const getEstablecimientoPorSlug = cache(
       .select(COLUMNAS_ESTABLECIMIENTO)
       .eq("slug", slug)
       .eq("status", "active")
+      // Un LIEU (le village de Guatapé, qui porte les événements du municipio) n'est pas un
+      // prestataire : il n'a pas de fiche — 404, comme un établissement absent. Son nom reste
+      // affiché sur ses événements (migration 20261013145953).
+      .eq("is_place", false)
       .maybeSingle();
 
     // Une lecture en ÉCHEC n'est jamais une absence : elle lève, la page rend 500 + noindex (même

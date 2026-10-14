@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
+import { filaPorNombre } from "./support/filas";
 import { createSignedInClient } from "@hifago/e2e-support";
 import { abrirFiltros } from "./support/filtros";
 
@@ -46,7 +47,7 @@ test("admin crée une etiqueta, l'assigne à une activité, puis la supprime dep
   await page.getByTestId("new-tag-input").fill(tagLabel);
   await page.getByTestId("create-tag-button").click();
 
-  const row = page.locator("tr", { hasText: tagLabel });
+  const row = filaPorNombre(page, tagLabel);
   await expect(row).toBeVisible();
   await expect(row).toContainText("0");
   await expect(row.getByText("Eliminar")).toHaveCount(0);
@@ -88,7 +89,7 @@ test("admin crée une etiqueta, l'assigne à une activité, puis la supprime dep
   await page.getByTestId(`confirm-delete-tag-${tag.id}`).click();
 
   await expect(page).toHaveURL(/\/admin\/tags$/);
-  await expect(page.locator("tr", { hasText: tagLabel })).toHaveCount(0);
+  await expect(filaPorNombre(page, tagLabel)).toHaveCount(0);
 
   // Preuve directe (pas seulement l'absence du tag dans la liste) : la cascade a bien retiré
   // l'assignation product_tag_assignments, pas seulement la ligne catalog_tags elle-même.
@@ -158,7 +159,8 @@ test("admin ouvre /admin/tags, presse Ver sur un tag, atterrit sur le catálogo 
 
   await expect(page).toHaveURL(new RegExp(`/admin/products\\?tag_id=${tag.id}`));
   await expect(page.locator('[data-testid^="product-row-"]')).toHaveCount(1);
-  await expect(page.getByTestId(`product-row-${product.id}`)).toContainText(
+  // Édition en ligne (2026-10-13) : le nom est la valeur d'un champ, plus un texte de la ligne.
+  await expect(page.getByTestId(`edit-name-${product.id}`)).toHaveValue(
     `Actividad Ver Catalogo ${suffix}`,
   );
 });

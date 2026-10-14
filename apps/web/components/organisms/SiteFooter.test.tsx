@@ -141,20 +141,33 @@ describe("SiteFooter", () => {
     expect(pied.getAttribute("style")).toBeNull();
   });
 
-  // Une seule image, la déclinaison explicitement prévue pour la surface marine.
+  // Une seule image hors du bandeau, la déclinaison explicitement prévue pour la surface marine.
   it("porte le logo pour fond sombre sur la surface marine", () => {
-    const images = Array.from(rendu().pied.querySelectorAll("img:not([data-testid='footer-motif'])"));
+    const images = Array.from(rendu().pied.querySelectorAll("img")).filter(
+      (image) => !image.closest('[data-testid="footer-logos"]')
+    );
     expect(images).toHaveLength(1);
     expect(images[0].getAttribute("src")).toContain("logo-header-sombre");
     expect(images[0].className).not.toMatch(/logo-(clair|sombre)/);
   });
 
-  it("rend la bande approuvée comme un décor différé, jamais comme contenu", () => {
-    const motif = rendu().pied.querySelector('[data-testid="footer-motif"]') as HTMLImageElement;
-    expect(motif.getAttribute("src")).toContain("motif-footer");
-    expect(motif.getAttribute("alt")).toBe("");
-    expect(motif.getAttribute("aria-hidden")).toBe("true");
-    expect(motif.getAttribute("loading")).toBe("lazy");
+  // RÉÉCRIT LE 2026-10-13 : la bande décorative du plan 41 (A6) a laissé sa place au bandeau
+  // déroulant de logos, à la demande de Jérôme. Ce qui se vérifie ici est le branchement — les
+  // logos sont du CONTENU, nommés, servis depuis `public/logos/` ; la mécanique du défilement est
+  // tenue par les tests de `BandeauLogos`.
+  it("ouvre le pied sur le bandeau de logos, chacun nommé une fois et différé", () => {
+    const { pied } = rendu();
+    const bandeau = pied.querySelector('[data-testid="footer-logos"]') as HTMLElement;
+    expect(bandeau).not.toBeNull();
+    expect(pied.firstElementChild).toBe(bandeau);
+    const images = Array.from(bandeau.querySelectorAll("img"));
+    const nommees = images.filter((image) => image.getAttribute("alt") !== "");
+    expect(nommees.map((image) => image.getAttribute("alt"))).toEqual([
+      "Municipio de Guatapé · Departamento de Antioquia",
+      "Guatapé · Pueblo de Zócalos y Colores",
+    ]);
+    expect(images.every((image) => image.getAttribute("loading") === "lazy")).toBe(true);
+    expect(pied.innerHTML).not.toContain("motif-footer");
   });
 
   it("fait de WhatsApp l'action du pied : plein or, glyphe compris", () => {

@@ -19,8 +19,8 @@ export function CommissionsChart({
         <YAxis tick={{ fontSize: 11 }} width={70} tickFormatter={(v) => formatCop(v)} />
         <Tooltip formatter={(value) => formatCop(Number(value))} />
         <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="referente" stackId="commission" fill="var(--accent)" name="Referente" />
-        <Bar dataKey="app" stackId="commission" fill="var(--warning)" name="App" />
+        <Bar dataKey="referente" stackId="commission" fill="var(--charte-bleu-moyen)" name="Referente" />
+        <Bar dataKey="app" stackId="commission" fill="var(--charte-or)" name="App" />
       </BarChart>
     </ChartCard>
   );

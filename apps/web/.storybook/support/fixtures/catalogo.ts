@@ -70,11 +70,11 @@ const ACTIVIDADES = {
   caminata: tarjetaDeFicha(ACTIVIDAD_CAMINATA),
   estudio: tarjetaDeFicha(ACTIVIDAD_CONSULTAR),
   yoga: tarjeta("yoga-al-amanecer", "activity", "Yoga al amanecer", monto(35000), ["/mock/activities/yoga-session/photos/1.webp"], "Casa Kayam"),
-  jetski: tarjeta("paseo-en-jetski", "activity", "Paseo en jetski", monto(180000), ["/mock/activities/jetski1/photos/2.jpeg", "/mock/activities/jetski2/photos/1.jpeg"], "Guatapé Náutica"),
-  partyboat: tarjeta("partyboat", "activity", "Partyboat por el embalse", monto(100000), ["/mock/activities/partyboat1/photos/1.jpg"], "Guatapé Náutica"),
+  jetski: tarjeta("paseo-en-jetski", "activity", "Paseo en jetski", monto(180000), ["/mock/activities/jet-ski/photos/1.webp", "/mock/activities/plan-asado-en-casa-bote/photos/6.webp"], "Guatapé Náutica"),
+  partyboat: tarjeta("partyboat", "activity", "Partyboat por el embalse", monto(100000), ["/mock/activities/tour-de-lancha-rapida/photos/1.webp"], "Guatapé Náutica"),
   guitarra: tarjeta("clase-de-guitarra", "activity", "Clase de guitarra", monto(60000), ["/mock/activities/clase-de-guitarra/photos/1.webp", "/mock/activities/clase-de-guitarra/photos/2.webp"], "Casa Kayam"),
   espanol: tarjeta("clase-de-espanol", "activity", "Clase de español (60 min)", monto(50000), ["/mock/activities/espanol-60min/photos/1.webp"], "Casa Kayam"),
-  escalada: tarjeta("escalada-en-la-piedra", "activity", "Escalada en la Piedra del Peñol", monto(150000), ["/mock/activities/climbing1/photos/2.jpeg"], "Guatapé Climbing"),
+  escalada: tarjeta("escalada-en-la-piedra", "activity", "Escalada en la Piedra del Peñol", monto(150000), ["/mock/activities/plan-asado-en-casa-bote/photos/2.webp"], "Guatapé Climbing"),
 };
 
 /** Carte GROUPÉE d'un établissement à plusieurs hébergements (« Desde », « N alojamientos »). */
@@ -94,9 +94,9 @@ const KAYAM_AGRUPADO: TarjetaOferta = {
 const ALOJAMIENTOS = {
   kayam: KAYAM_AGRUPADO,
   bania: tarjeta("casa-bania-completa", "lodging", "Casa Bania — casa entera frente al embalse", { tipo: "monto", cop: 850000 }, ["/mock/rooms/bania-casa-completa/photos/1.jpeg", "/mock/rooms/bania-casa-completa/photos/3.jpeg", "/mock/rooms/bania-casa-completa/photos/4.jpeg"], "Casa Bania"),
-  doble: tarjeta("habitacion-doble-del-pueblo", "lodging", "Habitación doble en el pueblo", monto(140000), ["/mock/rooms/room1/photos/1.jpeg"], "Hotel Zócalo"),
-  suite: tarjeta("suite-con-jacuzzi", "lodging", "Suite con jacuzzi", monto(320000), ["/mock/rooms/hiltonroom1/photos/1.jpeg"], "Hotel Zócalo"),
-  dorm: tarjeta("dormitorio-del-centro", "lodging", "Cama en dormitorio, centro", monto(45000), ["/mock/rooms/dorm1/photos/1.jpeg"], "Hostal Centro"),
+  doble: tarjeta("habitacion-doble-del-pueblo", "lodging", "Habitación doble en el pueblo", monto(140000), ["/mock/rooms/bania-casa-completa/photos/5.jpeg"], "Hotel Zócalo"),
+  suite: tarjeta("suite-con-jacuzzi", "lodging", "Suite con jacuzzi", monto(320000), ["/mock/rooms/bania-casa-completa/photos/6.jpeg"], "Hotel Zócalo"),
+  dorm: tarjeta("dormitorio-del-centro", "lodging", "Cama en dormitorio, centro", monto(45000), ["/mock/rooms/kayam-audo/photos/1.webp"], "Hostal Centro"),
 };
 
 const TRANSPORTES = {
@@ -167,7 +167,7 @@ function otras(tipo: TipoOferta, tarjetas: TarjetaOferta[]): CategoriaConTarjeta
 
 export const CATEGORIAS_POR_TIPO: Record<TipoOferta, CategoriaConTarjetas[]> = {
   activity: [
-    categoria("activity", "agua", "Agua", "Kayak, jetski y paseos en lancha por el embalse.", [ACTIVIDADES.kayak, ACTIVIDADES.jetski, ACTIVIDADES.partyboat], "/mock/tags/kayak/photos/1.jpeg"),
+    categoria("activity", "agua", "Agua", "Kayak, jetski y paseos en lancha por el embalse.", [ACTIVIDADES.kayak, ACTIVIDADES.jetski, ACTIVIDADES.partyboat], "/mock/activities/paddle-surf-trek/photos/3.webp"),
     categoria("activity", "montana", "Montaña", "Senderos, escalada y miradores alrededor de la Piedra.", [ACTIVIDADES.caminata, ACTIVIDADES.escalada]),
     categoria("activity", "musica", "Música", null, [ACTIVIDADES.guitarra, ACTIVIDADES.estudio]),
     categoria("activity", "bienestar", "Bienestar", "Yoga, movilidad y descanso.", [ACTIVIDADES.yoga]),

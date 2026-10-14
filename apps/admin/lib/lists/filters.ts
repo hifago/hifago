@@ -45,6 +45,17 @@ export const ORDERS_FILTERS: DataListFilter[] = [
 // la même convention plutôt que d'inventer une traduction non tranchée.
 export const PRODUCT_TYPES = ["lodging", "activity", "transport", "camp", "evento"] as const;
 
+// Édition en ligne (2026-10-13) — libellé d'un type, partagé par la cellule éditable « Tipo » de
+// la liste ET par son filtre : jusque-là la colonne et le filtre affichaient la valeur brute de la
+// base (« activity »), que le formulaire de fiche, lui, traduisait déjà.
+export const PRODUCT_TYPE_LABELS: Record<(typeof PRODUCT_TYPES)[number], string> = {
+  lodging: "Alojamiento",
+  activity: "Actividad",
+  transport: "Transporte",
+  camp: "Campamento",
+  evento: "Evento",
+};
+
 // Revue admin catalogo (Jérôme, 2026-08-19) — labels/couleur extraits en constantes partagées
 // (déjà utilisés en texte brut dans ProductsList.tsx: product.sellable ? "Publicado" : "Borrador")
 // pour StatusChip, même convention que ESTABLISHMENT_STATUS_CHIP_STYLE/CLIENT_STAGE_CHIP_STYLE.
@@ -85,7 +96,7 @@ export const PRODUCTS_FILTERS: DataListFilter[] = [
     name: "type",
     label: "Tipo",
     allLabel: "Todos los tipos",
-    options: PRODUCT_TYPES.map((type) => ({ value: type, label: type })),
+    options: PRODUCT_TYPES.map((type) => ({ value: type, label: PRODUCT_TYPE_LABELS[type] })),
   },
   {
     kind: "select",

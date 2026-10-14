@@ -121,7 +121,7 @@ export default async function PartnerReservationsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Mis reservas</h1>
+      <h1 className="titre-page">Mis reservas</h1>
       <ReservationsTable
         rows={rows}
         page={page}

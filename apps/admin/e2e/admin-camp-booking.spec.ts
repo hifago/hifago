@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
+import { filaPorNombre } from "./support/filas";
 import {
   confirmAndContinue,
   goToNextWizardStep,
@@ -62,7 +63,7 @@ test("admin crée un camp, configure la ressource partagée et la capacité prop
   await confirmAndContinue(page, "establishment-form-confirmation");
   await expect(page).toHaveURL(/\/admin\/establishments$/);
 
-  const establishmentRow = page.locator("tr", { hasText: establishmentName });
+  const establishmentRow = filaPorNombre(page, establishmentName);
   // Spec 17 §0 Tranche 0 : "Recurso compartido" est désormais masqué tant que l'établissement ne
   // porte aucun camp/evento (isVisible côté EstablishmentsList) — inexistant à ce stade, avant la
   // création du camp ci-dessous. establishmentId extrait du lien "+ Actividad", toujours visible.

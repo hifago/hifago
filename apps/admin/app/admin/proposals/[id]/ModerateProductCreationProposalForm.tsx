@@ -10,6 +10,7 @@ import { ProductTypeFields } from "@/components/product-type-fields";
 import type { TagOption } from "@/components/tags-multiselect";
 import { asLocalizedField } from "@hifago/domain";
 import { buildProductCreationPayload } from "@/lib/products/productCreationPayload";
+import { eventoOccurrenceError } from "@/lib/products/eventoOccurrence";
 import {
   payloadToFieldsInit,
   useProductTypeFieldsState,
@@ -52,6 +53,7 @@ export function ModerateProductCreationProposalForm({
   type,
   payload,
   availableTags,
+  availableAmenities,
   establishmentId,
   establishmentLobbyConnected,
 }: {
@@ -60,6 +62,8 @@ export function ModerateProductCreationProposalForm({
   type: ProductType;
   payload: unknown;
   availableTags: TagOption[];
+  // Équipements proposés avec un logement (migration 20261013151206), corrigibles comme les tags.
+  availableAmenities: TagOption[];
   // Refonte parcours partenaire ↔ LobbyPMS (2026-08-25) — l'établissement est déjà fixé à la
   // soumission (immuable ici, contrairement à ProductForm), donc toujours connu de la page parente.
   establishmentId: string;
@@ -95,6 +99,13 @@ export function ModerateProductCreationProposalForm({
     }
     if (decision === "reject" && !rejectionReason.trim()) {
       toast.danger("El motivo es obligatorio para rechazar.");
+      return;
+    }
+    // Même règle que les trois autres écrans (eventoOccurrence.ts) : un evento ne se crée pas sans
+    // date, même si l'admin a vidé le champ en corrigeant la proposition.
+    const occurrenceError = decision === "approve" && type === "evento" ? eventoOccurrenceError(fields) : null;
+    if (occurrenceError) {
+      toast.danger(occurrenceError);
       return;
     }
 
@@ -188,6 +199,8 @@ export function ModerateProductCreationProposalForm({
         showSlotRulesEditor
         allowCreateTags
         availableTags={availableTags}
+        showAmenities
+        availableAmenities={availableAmenities}
         establishmentId={establishmentId}
         establishmentLobbyConnected={establishmentLobbyConnected}
         allowManualLobbyEntry

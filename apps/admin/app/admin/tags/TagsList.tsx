@@ -1,13 +1,18 @@
 "use client";
 
-import { DataList, type DataListAction, type DataListColumn, type DataListSort } from "@hifago/ui";
+import { useRouter } from "next/navigation";
+import { type DataListAction, type DataListColumn, type DataListRowChange, type DataListSort } from "@hifago/ui";
+import { EditableDataList } from "@/components/editable-data-list";
 import { RenameTagButton } from "./RenameTagButton";
 import { TAGS_FILTERS } from "@/lib/lists/filters";
+import { saveInlineChanges } from "@/lib/lists/inlineEdit";
+import { renameCatalogTag } from "@/lib/tags/editCatalogTag";
 import { formatDateInBogota } from "@hifago/domain";
 
 export type TagRow = {
   id: string;
   label: string;
+  labelTranslations: Record<string, string>;
   usageCount: number;
   createdAt: string;
 };
@@ -32,6 +37,11 @@ export type TagsListProps = {
 // donc Eliminar était de facto injoignable pour Jérôme. Corrigé : action "Detalle" explicite
 // ci-dessous, seul chemin visible vers Eliminar désormais (le clic sur la ligne reste un raccourci
 // silencieux vers la même page, jamais retiré, mais plus le seul).
+//
+// Édition en ligne (demande Jérôme, 2026-10-13) : le libellé s'édite dans sa cellule. « Actividades »
+// (un comptage) et « Creada » (une date posée par la base) restent en lecture seule : ce ne sont
+// pas des champs. Même écriture que RenameTagButton (lib/tags/editCatalogTag.ts) : libellé + slug
+// recalculé, mêmes refus, seule la clé `es` change.
 export function TagsList({
   rows,
   page,
@@ -41,8 +51,15 @@ export function TagsList({
   filterValues,
   extraParams,
 }: TagsListProps) {
+  const router = useRouter();
+
   const columns: DataListColumn<TagRow>[] = [
-    { id: "label", header: "Etiqueta", sortable: true },
+    {
+      id: "label",
+      header: "Etiqueta",
+      sortable: true,
+      edit: { value: (row) => row.label, editor: { kind: "text" } },
+    },
     { id: "usageCount", header: "Actividades" },
     {
       id: "created_at",
@@ -72,8 +89,13 @@ export function TagsList({
     },
   ];
 
+  async function saveRow({ row, values }: DataListRowChange<TagRow>): Promise<string | null> {
+    const labelEs = typeof values.label === "string" ? values.label : "";
+    return renameCatalogTag(row.id, labelEs, row.labelTranslations);
+  }
+
   return (
-    <DataList
+    <EditableDataList
       rows={rows}
       getRowId={(row) => row.id}
       columns={columns}
@@ -90,6 +112,11 @@ export function TagsList({
       rowTestIdPrefix="tag"
       emptyMessage="Ninguna etiqueta todavía."
       emptyTestId="no-tags"
+      onSave={async (changes) => {
+        const result = await saveInlineChanges(changes, (row) => row.label, saveRow);
+        router.refresh();
+        return result;
+      }}
     />
   );
 }

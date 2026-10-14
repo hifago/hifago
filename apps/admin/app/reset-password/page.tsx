@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@hifago/supabase/server";
 import { ResetPasswordForm } from "./ResetPasswordForm";
+import { LogoHifago } from "@/components/logo-hifago";
 
 export const metadata: Metadata = {
   title: "Restablecer contraseña",
@@ -17,7 +18,8 @@ export default async function ResetPasswordPage() {
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-2xl font-semibold">Restablecer contraseña</h1>
+      <LogoHifago variante="clair" hauteur="h-16" />
+      <h1 className="titre-page">Restablecer contraseña</h1>
       {user ? (
         <ResetPasswordForm />
       ) : (

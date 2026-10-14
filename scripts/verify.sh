@@ -88,6 +88,9 @@ lancer "Jetons de couleur (vitrine)"                 bash scripts/check-tokens.s
 # rougit sur un fichier fautif, et le script sort en code 2 si une règle ne retrouve pas son témoin
 # synthétique (la première version passait au vert sans rien lire).
 lancer "Charte Hifago (titres, or, <main>, rayons)"  bash scripts/check-charte.sh
+# Pendant admin + socio (2026-10-13) — vérifié PAR MUTATION sur ses deux règles (un `text-accent`,
+# un `titre-page font-semibold`), et code 2 si une règle ne retrouve pas son témoin.
+lancer "Charte Hifago, admin (texte or, faux gras)"  bash scripts/check-charte-admin.sh
 lancer "Couche d'accès (pas de requête en route)"    bash scripts/check-data-layer.sh
 lancer "Panne ≠ absence (error lu, pas de loading)"  bash scripts/check-supabase-errors.sh
 lancer "Navigation localisée (@/i18n/navigation)"    bash scripts/check-i18n-links.sh
@@ -116,7 +119,7 @@ lancer "Limite de paiement (TS, Deno, SQL)"          bash scripts/check-payment-
 # ⚠️ N'EST PAS redondant avec le job `functions` de la CI : `deno check` résout à la TypeScript et
 # passe au vert sur un import relatif sans extension, alors que le worker Edge, lui, ne boote pas
 # du tout (mesuré le 2026-09-17, BOOT_ERROR). Seul un boot réel — ou ce script — le révèle.
-lancer "Imports Deno (extension obligatoire)"        bash scripts/check-deno-imports.sh
+lancer "Imports Deno (extension, version exacte)"   bash scripts/check-deno-imports.sh
 
 # Depuis P6 (2026-10) — vérifié PAR MUTATION (rouge sur un nom de heartbeat différent du cron, un
 # Deno.serve direct, verify_jwt = false ou absent, une section orpheline, le garde retiré du

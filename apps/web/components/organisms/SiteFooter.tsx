@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { LinkButton } from "@/components/atoms/LinkButton";
+import { BandeauLogos, type LogoBandeau } from "@/components/molecules/BandeauLogos";
 import { GlypheWhatsApp } from "@/components/atoms/GlypheWhatsApp";
 import { LogoHifago } from "@/components/atoms/LogoHifago";
 import { COLUMNA_PORTADA } from "@/components/atoms/PageShell";
@@ -53,6 +53,28 @@ const LIENS_INSTITUTIONNELS: readonly { href: string; cle: string }[] = [];
 // Supabase, donc l'importer ici ne rapatrie rien dans le bundle.
 const WHATSAPP_URL = URL_WHATSAPP_HIFAGO;
 
+// Les logos du bandeau déroulant (Jérôme, 2026-10-13). LE SEUL endroit à changer pour en ajouter
+// un : déposer le fichier dans `public/logos/` (WebP, fond transparent, rogné à son dessin),
+// ajouter une ligne avec ses dimensions réelles — sa taille à l'écran, le nombre de répétitions et
+// la vitesse se règlent seuls (`BandeauLogos`).
+//
+// ⚠️ Le pied est MARINE : un logo doit s'y lire. Celui de la mairie est en lettres blanches, il
+// serait invisible sur une surface claire. `alt` = le nom propre de l'institution, jamais traduit.
+const LOGOS_DU_PIED: readonly LogoBandeau[] = [
+  {
+    src: "/logos/municipio-guatape.webp",
+    alt: "Municipio de Guatapé · Departamento de Antioquia",
+    width: 443,
+    height: 116,
+  },
+  {
+    src: "/logos/guatape-pueblo-de-zocalos.webp",
+    alt: "Guatapé · Pueblo de Zócalos y Colores",
+    width: 805,
+    height: 574,
+  },
+];
+
 export type SiteFooterProps = {
   testId?: string;
 };
@@ -77,20 +99,10 @@ export function SiteFooter({ testId }: SiteFooterProps) {
     // rendrait son texte sombre sur un fond sombre, le panneau du LanguageSwitcher garde son
     // `--surface` » — est levée par les surfaces : c'est exactement ce qu'elles règlent.
     <footer data-superficie="marine" data-testid={testId}>
-      {/* Plan 41, A6 — bande approuvée par Jérôme le 2026-10-03 après comparaison à 390 et
-          1 280 px. Une image unique, jamais un motif répété : les bords de la source ne se
-          raccordent pas. Décorative, différée et bornée pour ne jamais devenir le LCP. */}
-      <Image
-        src="/brand/motif-footer.webp"
-        alt=""
-        width={1600}
-        height={120}
-        sizes="100vw"
-        loading="lazy"
-        aria-hidden="true"
-        className="block h-[clamp(48px,7.5vw,120px)] w-full object-cover object-center"
-        data-testid={testId ? `${testId}-motif` : undefined}
-      />
+      {/* Le bandeau déroulant de logos (Jérôme, 2026-10-13). Il prend la place de la bande
+          décorative du plan 41 (A6, posée le 2026-10-03) : même bord haut du pied, mais du contenu
+          — chaque logo est nommé — au lieu d'un décor. */}
+      <BandeauLogos logos={LOGOS_DU_PIED} testId={testId ? `${testId}-logos` : undefined} />
       {/* La colonne de l'accueil, comme le header (C1) et le contenu (F7). 32 px en haut et 24 en
           bas sur mobile, 40 et 32 à partir de `md`. */}
       <div className={`${COLUMNA_PORTADA} flex flex-col gap-6 pt-8 pb-6 md:pt-10 md:pb-8`}>

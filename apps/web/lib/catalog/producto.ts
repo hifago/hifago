@@ -58,7 +58,7 @@ function recortarHora(hora: string | null): string | null {
 //
 // `establishment(...)` ne demande JAMAIS `photo_urls` : la colonne est hors du GRANT SELECT public
 // (20260819110000), et la demander ferait échouer la requête ENTIÈRE — pas seulement ce champ.
-const COLUMNAS_PRODUCTO = `id, slug, name, description, price_cop, price_tiers, min_qty, max_qty, unit, capacity, unit_count, lodging_kind, type, price_label, external_booking_url, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, duration_days, program, group_discount_threshold_qty, group_discount_pct, lobby_category_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, establishment:establishments(id, slug, name, description, address, lobby_last_synced_at, lobby_connector_active, lobby_has_token)`;
+const COLUMNAS_PRODUCTO = `id, slug, name, description, price_cop, price_tiers, min_qty, max_qty, unit, capacity, unit_count, lodging_kind, type, price_label, external_booking_url, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, duration_days, program, group_discount_threshold_qty, group_discount_pct, lobby_category_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, establishment:establishments(id, slug, is_place, name, description, address, lobby_last_synced_at, lobby_connector_active, lobby_has_token)`;
 
 /**
  * ⚠️ Mémoïsé par `cache` de React, et ce n'est pas une optimisation : `generateMetadata` et le
@@ -435,7 +435,11 @@ export const getProductoPorSlug = cache(
       establecimiento: establecimiento
         ? {
             id: establecimiento.id,
-            slug: establecimiento.slug,
+            // ⚠️ `null` pour un LIEU (`is_place`, le village qui porte les événements du
+            // municipio) : il n'a pas de fiche. Rendre le slug nul ICI éteint d'un coup les cinq
+            // endroits de la fiche qui en font un lien (« ofrecido por », bloc établissement, fil
+            // d'Ariane…) — tous testent déjà `slug` — sans qu'aucun ait à connaître la règle.
+            slug: establecimiento.is_place ? null : establecimiento.slug,
             nombre:
               resolveLocalizedField(asLocalizedField(establecimiento.name), locale) ?? "",
             descripcion: resolveLocalizedField(

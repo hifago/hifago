@@ -7,14 +7,14 @@ const RESERVATIONS_HREF = "/partner/reservations";
 
 const ALL_NAV_ITEMS = [
   { href: "/partner", label: "Inicio" },
-  { href: ESTABLISHMENT_HREF, label: "Mi establecimiento y actividades" },
+  { href: ESTABLISHMENT_HREF, label: "Mi establecimiento y servicios" },
   { href: RESERVATIONS_HREF, label: "Mis reservas" },
   { href: "/partner/commissions", label: "Mis comisiones" },
   { href: "/partner/tools", label: "Mi enlace y QR" },
   { href: "/partner/account", label: "Mi cuenta" },
 ] as const;
 
-// Refonte vue référent (2026-08-20) : "Mi establecimiento y actividades" et "Mis reservas" n'ont
+// Refonte vue référent (2026-08-20) : "Mi establecimiento y servicios" et "Mis reservas" n'ont
 // rien à montrer à un référent pur (aucune capacité operator) — fermeture complète décidée par
 // Jérôme, jamais un simple masquage v1-style qui garderait un CTA d'auto-évolution vers
 // prestataire (cf. docs/specs/22-vue-referent-restreinte.md). `hasOperatorCapability` vient de
@@ -31,4 +31,4 @@ export function getNavItems(hasOperatorCapability: boolean) {
 // /partner/establishment — jamais un lien de nav à part entière. Sans cette entrée,
 // resolveActiveNavTitle (AppNavShell, titre de la barre mobile) retomberait sur le titre par
 // défaut générique sur ces 6 routes ; ne sert QU'à la résolution du titre, jamais rendu comme lien.
-export const EXTRA_TITLE_ROUTES = [{ href: "/partner/products", label: "Mi establecimiento y actividades" }];
+export const EXTRA_TITLE_ROUTES = [{ href: "/partner/products", label: "Mi establecimiento y servicios" }];

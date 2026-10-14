@@ -25,7 +25,10 @@ test("admin ouvre /admin/products, filtre par nom et par tipo, voit Ver/Editar (
 
   const row = page.getByTestId(`product-row-${PRODUCT_ID}`);
   await expect(row).toBeVisible();
-  await expect(row).toContainText("Tour en lancha por el Embalse de Guatapé");
+  // Édition en ligne (2026-10-13) : le nom est la valeur d'un champ, plus un texte de la ligne.
+  await expect(page.getByTestId(`edit-name-${PRODUCT_ID}`)).toHaveValue(
+    "Tour en lancha por el Embalse de Guatapé"
+  );
 
   // Ver/Editar — liens vers la bonne fiche, sans naviguer. Pas d'Eliminar sur la liste (décision
   // Jérôme : action destructive réservée à la fiche détail, /admin/products/[id]).
@@ -42,14 +45,17 @@ test("admin ouvre /admin/products, filtre par nom et par tipo, voit Ver/Editar (
   // Le filtre "Tipo" préserve le filtre texte déjà actif (form GET unique, ServerFilters).
   await abrirFiltros(page);
   await page.getByTestId("filter-type").click();
-  await page.getByRole("option", { name: "activity" }).click();
+  // Libellé du type, plus sa valeur brute (PRODUCT_TYPE_LABELS, partagé avec la cellule « Tipo »).
+  await page.getByRole("option", { name: "Actividad" }).click();
   await page.getByTestId("server-filters-submit").click();
   await expect(row).toBeVisible();
   await expect(page.getByTestId("filter-q")).toHaveValue("Tour en lancha");
 
   // Revue admin catalogo (Jérôme, 2026-08-19) — état en tag coloré (pas de texte brut) : ce
   // produit est sellable=true dans le seed.
-  await expect(page.getByTestId(`product-sellable-${PRODUCT_ID}`)).toContainText("Publicado");
+  // Depuis l'édition en ligne, l'état est un `select` : son déclencheur porte le libellé courant
+  // (jamais le composant entier, dont le <select> natif caché contient toutes les options).
+  await expect(page.getByTestId(`edit-sellable-${PRODUCT_ID}`)).toContainText("Publicado");
 });
 
 test("catalogo: filtre par establecimiento retrouve le produit rattaché", async ({ page }) => {
@@ -163,4 +169,57 @@ test("catalogo: filtre par etiqueta retrouve uniquement les productos taggés", 
 
   await expect(page.getByTestId(`product-row-${taggedProduct.id}`)).toBeVisible();
   await expect(page.getByTestId(`product-row-${untaggedProduct.id}`)).toHaveCount(0);
+});
+
+test("catalogo: crear una etiqueta desde la celda « Etiquetas » la asigna a la ficha al guardar", async ({
+  page,
+}) => {
+  // Demande Jérôme (2026-10-13) : partout où une étiquette se choisit, elle doit pouvoir se créer.
+  // La cellule de la liste était le seul endroit de l'admin à ne proposer que les étiquettes
+  // existantes. Le libellé porte l'horodatage : son slug en dérive, c'est ce que purge cleanup.ts.
+  const suffix = Date.now();
+  const tagLabel = `Etiqueta Celda ${suffix}`;
+
+  const adminClient = await createSignedInClient(SEEDED_ACCOUNTS.admin, SEEDED_PASSWORD);
+  const { data: product, error: productError } = await adminClient
+    .from("products")
+    .insert({
+      partner_id: "b0000000-0000-4000-8000-000000000003",
+      establishment_id: "b0000000-0000-4000-8000-000000000004",
+      type: "activity",
+      name: { es: `Actividad Celda ${suffix}` },
+      price_cop: 50000,
+      sellable: false,
+      slug: `tags-celda-${suffix}`,
+    })
+    .select("id")
+    .single();
+  if (productError || !product) {
+    throw new Error(`e2e setup: création du produit a échoué : ${productError?.message}`);
+  }
+
+  await loginAs(page.context(), SEEDED_ACCOUNTS.admin, SEEDED_PASSWORD);
+  await page.goto(`/admin/products?q=${suffix}`);
+  await page.waitForLoadState("networkidle");
+
+  const cell = page.getByTestId(`edit-tags-${product.id}`);
+  await cell.click();
+  await page.getByTestId(`edit-tags-${product.id}-search`).fill(tagLabel);
+  await page.getByTestId(`edit-tags-${product.id}-create`).click();
+  await expect(cell.locator('[data-slot="autocomplete-value"]')).toHaveText(tagLabel);
+
+  // L'étiquette existe déjà (création immédiate) ; son affectation à la fiche attend « Guardar ».
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("edit-bar-status")).toHaveText("1 cambio sin guardar");
+  await page.getByTestId("save-changes-button").click();
+
+  await expect
+    .poll(async () => {
+      const { data } = await adminClient
+        .from("catalog_tags")
+        .select("label, product_tag_assignments!inner(product_id)")
+        .eq("product_tag_assignments.product_id", product.id);
+      return (data ?? []).map((tag) => tag.label.es);
+    })
+    .toEqual([tagLabel]);
 });

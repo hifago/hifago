@@ -8,7 +8,8 @@ import { SiteFooter } from "./SiteFooter";
 // ⚠️ La story qui compte est `SousUnePage` : isolé, un footer ne dit rien — c'est sa relation au
 // contenu qui se juge (le pied colle-t-il au contenu quand la page est courte ?). À regarder aux
 // deux gabarits et dans les deux langues. Depuis le plan 41 (item C2), le pied est la surface
-// MARINE de la charte : ouvrir aussi le menu de langue, dont le panneau doit rester blanc.
+// MARINE de la charte : ouvrir aussi le menu de langue, dont le panneau doit rester blanc. Son bord
+// haut porte le bandeau déroulant de logos (2026-10-13), montré seul dans `Affichage/BandeauLogos`.
 const meta = {
   title: "Coquille/SiteFooter",
   component: SiteFooter,

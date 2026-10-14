@@ -29,8 +29,8 @@ export default async function PartnerProductSlotAvailabilityPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h1 className="titre-page">
           Cupos por horario —{" "}
           {resolveLocalizedField(asLocalizedField(data.productName), "es") ?? id}
         </h1>

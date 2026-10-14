@@ -42,4 +42,5 @@ en vérifie une partie. Règle d'échappement : au-delà de 100 lignes, découpe
 
 Ce qui est normal : une fiche absente du sitemap parce qu'elle n'a de contenu natif dans aucune
 locale routée (elle est `noindex` partout) ; `robots.txt` qui interdit tout tant que la production
-n'est pas déclarée ; une page établissement sans nœud `geo`.
+n'est pas déclarée ; une page établissement sans nœud `geo` ; un établissement `is_place` (un lieu,
+ex. le village de Guatapé) sans fiche (404), sans entrée au sitemap et sans lien vers lui.

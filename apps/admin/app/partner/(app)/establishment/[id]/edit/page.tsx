@@ -4,6 +4,7 @@ import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { EditEstablishmentProposalForm } from "./EditEstablishmentProposalForm";
 import { PhotosSocioBlock } from "@/components/photos-socio-block";
 import { ownerScope } from "@/lib/partnerOwnership";
+import { toTagOptions } from "@/lib/tags/proposedTags";
 import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 
 export default async function EditEstablishmentProposalPage({
@@ -88,9 +89,30 @@ export default async function EditEstablishmentProposalPage({
     .filter((path): path is string => Boolean(path))
     .map((path) => supabase.storage.from("catalog-media").getPublicUrl(path).data.publicUrl);
 
+  // Étiquettes (migration 20261013144848) : le catalogue et celles déjà posées sur
+  // l'établissement. Le socio en propose le changement avec le reste ; il ne les écrit jamais
+  // lui-même (RLS admin-only sur establishment_tag_assignments).
+  const { data: tags, error: tagsError } = await supabase
+    .from("catalog_tags")
+    .select("id, label")
+    .order("slug");
+  if (tagsError) {
+    throw new Error(`Lecture de la fiche impossible (catalog_tags) : ${tagsError.message}`);
+  }
+
+  const { data: tagAssignments, error: tagAssignmentsError } = await supabase
+    .from("establishment_tag_assignments")
+    .select("tag_id")
+    .eq("establishment_id", id);
+  if (tagAssignmentsError) {
+    throw new Error(
+      `Lecture de la fiche impossible (establishment_tag_assignments) : ${tagAssignmentsError.message}`,
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">
+      <h1 className="titre-page">
         Proponer edición —{" "}
         {resolveLocalizedField(asLocalizedField(establishment.name), "es") ?? establishment.id}
       </h1>
@@ -114,6 +136,8 @@ export default async function EditEstablishmentProposalPage({
         initialLat={establishment.lat !== null ? String(establishment.lat) : ""}
         initialLon={establishment.lon !== null ? String(establishment.lon) : ""}
         pendingProposal={pendingProposal}
+        availableTags={toTagOptions(tags)}
+        currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
       />
     </div>
   );

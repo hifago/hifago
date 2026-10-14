@@ -8,7 +8,12 @@ import { asLocalizedField, resolveLocalizedField, formatCop } from "@hifago/doma
 import { Button, Label, TextArea, TextField, toast } from "@hifago/ui";
 import { LocalizedTextField, type LocalizedValue } from "@/components/localized-text-field";
 import { ProductTypeFields } from "@/components/product-type-fields";
+import type { TagOption } from "@/components/tags-multiselect";
 import { buildProductEditPayload } from "@/lib/products/productEditPayload";
+import { eventoOccurrenceError } from "@/lib/products/eventoOccurrence";
+import { withCurrentValuesForAbsentKeys } from "@/lib/products/proposalFallback";
+import { proposedTagIds, tagLabels } from "@/lib/tags/proposedTags";
+import { proposedAmenityIds } from "@/lib/amenities/proposedAmenities";
 import { lodgingKindLabel } from "@/lib/products/lodgingKindLabels";
 import { lodgingUnitLabel } from "@/lib/products/lodgingUnitLabels";
 import {
@@ -42,38 +47,53 @@ export function ModerateProposalForm({
   type,
   currentPayload,
   proposedPayload,
+  availableTags,
+  currentTagIds,
+  availableAmenities,
+  currentAmenityIds,
 }: {
   proposalId: string;
   expectedVersion: number;
   type: ProductType;
   currentPayload: ProductFieldsPayload;
   proposedPayload: ProductFieldsPayload;
+  availableTags: TagOption[];
+  currentTagIds: string[];
+  availableAmenities: TagOption[];
+  currentAmenityIds: string[];
 }) {
   const router = useRouter();
   const [name, setName] = useState<LocalizedValue>(() => ({ ...(asLocalizedField(proposedPayload.name) ?? {}) }));
   const [description, setDescription] = useState<LocalizedValue>(() => ({
     ...(asLocalizedField(proposedPayload.description) ?? {}),
   }));
-  // ⚠️ Le programme (spec 37) est hydraté depuis la proposition SI ELLE PORTE LA CLÉ, sinon depuis
-  // le produit actuel. Sans cette distinction, une proposition déposée AVANT la migration
-  // 20260916140000 (payload sans la clé) partirait d'un éditeur vide, et comme ce formulaire
-  // reconstruit TOUT le payload à l'approbation (buildProductEditPayload), il émettrait
-  // `program: null` et EFFACERAIT le programme du camp. C'est la même distinction absent/null que
-  // la garde `v_final_payload ? 'program'` exprime côté SQL — ici il faut la tenir côté client,
-  // parce que c'est ce formulaire qui décide du payload final.
+  // ⚠️ Chaque champ est hydraté depuis la proposition SI ELLE PORTE LA CLÉ, sinon depuis le produit
+  // actuel. Sans cette distinction, une clé absente (proposition déposée avant la migration qui l'a
+  // whitelistée, ou réglage jamais proposable) partirait d'un champ vide, et comme ce formulaire
+  // reconstruit TOUT le payload à l'approbation (buildProductEditPayload), il émettrait `null` et
+  // EFFACERAIT la valeur en place. C'est la même distinction absent/null que les gardes
+  // `v_final_payload ? '…'` expriment côté SQL — ici il faut la tenir côté client, parce que c'est
+  // ce formulaire qui décide du payload final. D'abord écrit pour `program` seul (spec 37),
+  // généralisé le 2026-10-13 : lib/products/proposalFallback.ts.
   const fields = useProductTypeFieldsState(
-    payloadToFieldsInit(
-      "program" in proposedPayload
-        ? proposedPayload
-        : { ...proposedPayload, program: currentPayload.program },
-    ),
+    payloadToFieldsInit(withCurrentValuesForAbsentKeys(proposedPayload, currentPayload)),
   );
   const [rejectionReason, setRejectionReason] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { hasLocationAndTags, hasPriceQtyFields, hasCheckInOut, isLodging, isEvento, isCamp } =
-    productTypeGating(type);
+  // Étiquettes (migration 20261013144848). Une proposition ne porte `tag_ids` QUE si le socio a
+  // changé la sélection : le champ n'est monté, et la clé renvoyée, que dans ce cas. La renvoyer
+  // toujours ferait de chaque approbation un écrasement des étiquettes en place — même distinction
+  // absent/présent que le programme ci-dessus, tenue ici parce que ce formulaire reconstruit le
+  // payload final.
+  const proposesTags = proposedTagIds(proposedPayload) !== null;
+  // Équipements d'un logement (migration 20261013151206) : même distinction absent/présent.
+  const proposesAmenities = proposedAmenityIds(proposedPayload) !== null;
+
+  const {
+    hasLocationAndTags, hasPriceQtyFields, hasCheckInOut, hasDefaultCapacity, isLodging, isEvento, isCamp,
+  } = productTypeGating(type);
   const needsOwnPrice = !isEvento;
 
   async function handleDecision(decision: "approve" | "reject") {
@@ -85,12 +105,23 @@ export function ModerateProposalForm({
       toast.danger("El motivo es obligatorio para rechazar.");
       return;
     }
+    const occurrenceError = decision === "approve" && isEvento ? eventoOccurrenceError(fields) : null;
+    if (occurrenceError) {
+      toast.danger(occurrenceError);
+      return;
+    }
 
     setIsSubmitting(true);
 
     const supabase = createClient();
     const correctedPayload =
-      decision === "approve" ? buildProductEditPayload(type, name, description, fields) : null;
+      decision === "approve"
+        ? {
+            ...buildProductEditPayload(type, name, description, fields),
+            ...(proposesTags ? { tag_ids: fields.selectedTagIds } : {}),
+            ...(proposesAmenities ? { amenity_ids: fields.selectedAmenityIds } : {}),
+          }
+        : null;
     const { data, error: rpcError } = await supabase.rpc("moderate_product_proposal", {
       p_proposal_id: proposalId,
       p_decision: decision,
@@ -108,6 +139,14 @@ export function ModerateProposalForm({
       if (result?.reason === "already_handled") {
         toast.danger(
           `Esta propuesta ya fue procesada${result.reviewed_by_email ? ` por ${result.reviewed_by_email}` : ""} (estado: ${result.status}).`
+        );
+        return;
+      }
+      // Trigger products_capacity_flags_frozen (migration 20261013212500) : un evento qui porte des
+      // réservations en cours ne change ni de date ni de récurrence.
+      if (rpcError?.message.includes("capacity_flags_frozen_while_reserved")) {
+        toast.danger(
+          "Este evento tiene reservas en curso: su fecha y su recurrencia no pueden cambiar hasta que se realicen o se cancelen.",
         );
         return;
       }
@@ -129,6 +168,16 @@ export function ModerateProposalForm({
       ? formatCop(currentPayload.price_cop)
       : "—"
     : "— (sin precio propio)";
+  const currentRecurrence =
+    currentPayload.occurrence_type === "recurring"
+      ? ` — recurrente, cada ${currentPayload.recurrence_frequency_days ?? "?"} días${
+          currentPayload.recurrence_end_date
+            ? `, hasta ${currentPayload.recurrence_end_date}`
+            : currentPayload.recurrence_end_count != null
+              ? `, ${currentPayload.recurrence_end_count} repeticiones`
+              : ""
+        }`
+      : "";
 
   return (
     <div className="flex flex-col gap-6">
@@ -158,6 +207,54 @@ export function ModerateProposalForm({
                 : ""}
             </dd>
           </div>
+          {/* Evento (2026-10-13) : la date et l'heure en place, à comparer au formulaire ci-dessous —
+              elles voyagent désormais dans la proposition. Chaînes affichées telles quelles, jamais
+              un objet Date (pas de fuseau à réinterpréter). */}
+          {isEvento ? (
+            <>
+              <div data-testid="current-price-label">
+                <dt className="inline font-medium text-foreground">Precio (texto libre): </dt>
+                <dd className="inline">{currentPayload.price_label || "—"}</dd>
+              </div>
+              <div data-testid="current-occurrence-date">
+                <dt className="inline font-medium text-foreground">Fecha: </dt>
+                <dd className="inline">
+                  {currentPayload.occurrence_date || "—"}
+                  {currentRecurrence}
+                </dd>
+              </div>
+              <div data-testid="current-start-time">
+                <dt className="inline font-medium text-foreground">Hora de inicio: </dt>
+                <dd className="inline">{currentPayload.start_time?.slice(0, 5) || "—"}</dd>
+              </div>
+              <div>
+                <dt className="inline font-medium text-foreground">Duración (minutos): </dt>
+                <dd className="inline">{currentPayload.duration_minutes ?? "—"}</dd>
+              </div>
+            </>
+          ) : null}
+          {hasDefaultCapacity ? (
+            <div data-testid="current-default-capacity">
+              <dt className="inline font-medium text-foreground">Cupo diario por defecto: </dt>
+              <dd className="inline">{currentPayload.default_capacity ?? "—"}</dd>
+            </div>
+          ) : null}
+          <div data-testid="current-tags">
+            <dt className="inline font-medium text-foreground">Etiquetas: </dt>
+            <dd className="inline">
+              {tagLabels(currentTagIds, availableTags)}
+              {proposesTags ? "" : " (sin cambios propuestos)"}
+            </dd>
+          </div>
+          {isLodging ? (
+            <div data-testid="current-amenities">
+              <dt className="inline font-medium text-foreground">Equipamiento: </dt>
+              <dd className="inline">
+                {tagLabels(currentAmenityIds, availableAmenities)}
+                {proposesAmenities ? "" : " (sin cambios propuestos)"}
+              </dd>
+            </div>
+          ) : null}
           {hasPriceQtyFields ? (
             <div>
               <dt className="inline font-medium text-foreground">Cantidad mín/máx: </dt>
@@ -234,7 +331,15 @@ export function ModerateProposalForm({
           fieldTestId="description-textarea"
         />
 
-        <ProductTypeFields type={type} state={fields} />
+        <ProductTypeFields
+          type={type}
+          state={fields}
+          showTags={proposesTags}
+          allowCreateTags
+          availableTags={availableTags}
+          showAmenities={proposesAmenities}
+          availableAmenities={availableAmenities}
+        />
 
         <TextField value={rejectionReason} onChange={setRejectionReason}>
           <Label>Motivo de rechazo — obligatorio para rechazar</Label>

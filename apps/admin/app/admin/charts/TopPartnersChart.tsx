@@ -14,7 +14,7 @@ export function TopPartnersChart({ data }: { data: Array<{ name: string; total: 
         <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => formatCop(v)} />
         <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} />
         <Tooltip formatter={(value) => formatCop(Number(value))} />
-        <Bar dataKey="total" fill="var(--default)" />
+        <Bar dataKey="total" fill="var(--charte-bleu-moyen)" />
       </BarChart>
     </ChartCard>
   );

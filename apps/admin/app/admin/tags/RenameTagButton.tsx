@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@hifago/supabase/client";
 import { Button, Input, Label, Modal, TextField, toast } from "@hifago/ui";
-import { slugify } from "@/lib/utils";
+import { renameCatalogTag } from "@/lib/tags/editCatalogTag";
 
 export function RenameTagButton({ tagId, currentLabel }: { tagId: string; currentLabel: string }) {
   const router = useRouter();
@@ -13,31 +12,12 @@ export function RenameTagButton({ tagId, currentLabel }: { tagId: string; curren
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleRename() {
-    if (!labelEs.trim()) {
-      toast.danger("El nombre de la etiqueta es obligatorio.");
-      return;
-    }
-
     setIsSubmitting(true);
-    const supabase = createClient();
-    const { error: updateError } = await supabase
-      .from("catalog_tags")
-      .update({ label: { es: labelEs.trim() }, slug: slugify(labelEs) })
-      .eq("id", tagId);
-
+    const error = await renameCatalogTag(tagId, labelEs);
     setIsSubmitting(false);
 
-    if (updateError) {
-      toast.danger(
-        updateError.code === "23505"
-          ? "Ya existe una etiqueta con ese nombre."
-          : updateError.code === "23514"
-            ? // ⚠️ Renommer RECALCULE le slug (`slugify`) : cette contrainte est donc atteignable
-              // ici comme à la création. `otras` est réservé à la page des activités qu'aucune
-              // catégorie ne classe (spec 29 §6a).
-              "«\u00a0Otras\u00a0» está reservado para la página de actividades sin categoría. Usa otro nombre."
-            : "No se pudo renombrar la etiqueta.",
-      );
+    if (error) {
+      toast.danger(error);
       return;
     }
 

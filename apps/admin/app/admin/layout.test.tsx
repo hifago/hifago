@@ -22,6 +22,9 @@ vi.mock("next/navigation", () => ({
   redirect: (url: string) => {
     throw new Redirection(url);
   },
+  // Le layout monte le garde-fou « cambios sin guardar » (components/unsaved-changes.tsx), qui
+  // prend le routeur pour mener à la destination une fois la sortie confirmée.
+  useRouter: () => ({ push: () => {} }),
 }));
 
 vi.mock("@hifago/supabase/server", () => ({

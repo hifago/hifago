@@ -17,20 +17,20 @@ const DESCRIPTION = { es: "Descripción", en: "Description" };
 //
 // Deux allowlists distinctes par type, parce que la divergence a un SENS : une clé "creation-only"
 // est déléguée à la création (photos/tag_ids/slot_rules) ou un gap connu jamais rouvert en édition
-// (occurrence_*/duration_days) ; une clé "edit-only" existe seulement côté édition.
+// (duration_days) ; une clé "edit-only" existe seulement côté édition.
 const CREATION_ONLY: Record<ProductType, string[]> = {
   activity: ["photos", "tag_ids", "slot_rules"],
-  // external_booking_url + les 7 champs d'occurrence : dette-technique.md — "Un evento reste le
-  // seul type dont l'URL de vitrine n'est pas modifiable" / champs "création seulement", jamais
-  // réécrits par aucun des deux update() historiques (admin-direct ni proposition).
-  evento: [
-    "photos", "tag_ids", "external_booking_url", "occurrence_type", "occurrence_date",
-    "recurrence_frequency_days", "recurrence_end_date", "recurrence_end_count", "start_time",
-    "duration_minutes",
-  ],
+  // external_booking_url : dette-technique.md — "Un evento reste le seul type dont l'URL de vitrine
+  // n'est pas modifiable". Les 7 champs d'occurrence figuraient ici jusqu'au 2026-10-13 comme
+  // « création seulement » : c'était la perte constatée par Jérôme (date et heure d'un evento
+  // disparues entre la proposition du partenaire et la modération). Ils sont désormais émis des
+  // deux côtés par toEventoOccurrenceColumns — les remettre dans cette liste rouvrirait la panne.
+  evento: ["photos", "tag_ids", "external_booking_url"],
   // duration_days : productCreationPayload.ts, "gap préexistant, jamais éditable aujourd'hui".
   camp: ["photos", "tag_ids", "duration_days"],
-  lodging: ["photos", "tag_ids"],
+  // amenity_ids : comme tag_ids, ajouté à une proposition d'édition par le formulaire lui-même et
+  // seulement si la sélection change (lib/amenities/proposedAmenities.ts).
+  lodging: ["photos", "tag_ids", "amenity_ids"],
   transport: ["photos", "tag_ids"],
 };
 

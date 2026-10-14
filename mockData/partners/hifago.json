@@ -1,7 +1,9 @@
 {
-  "email": "hifago-platform@mock.hifago.test",
+  "email": "hifagotest@gmail.com",
   "display_name": "Hifago",
-  "roles": ["operator"],
+  "roles": [
+    "operator"
+  ],
   "legal_name": null,
   "identification_type": null,
   "identification_number": null,

@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({
   products: [] as unknown[],
   establishments: [] as unknown[],
+  // Les `.eq()` posés, par table.
+  filtres: [] as Array<[table: string, colonne: string, valeur: unknown]>,
   // Erreur PAR TABLE : une erreur commune aux deux masquerait l'absence de garde sur l'une d'elles.
   erreurs: {} as Record<string, { message: string }>,
   // Catégories rendues par `buscarCategorias`, par type — le sitemap CONSOMME son contrat
@@ -22,7 +24,10 @@ vi.mock("@/lib/supabase/publicClient", () => ({
       const builder: Record<string, unknown> = {};
       Object.assign(builder, {
         select: () => builder,
-        eq: () => builder,
+        eq: (colonne: string, valeur: unknown) => {
+          state.filtres.push([table, colonne, valeur]);
+          return builder;
+        },
         then: (resolve: (value: unknown) => unknown) =>
           Promise.resolve({
             data: table === "products" ? state.products : state.establishments,
@@ -50,6 +55,7 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_WEB_APP_URL = "https://hifago.co";
   state.products = [];
   state.establishments = [];
+  state.filtres = [];
   state.erreurs = {};
   state.categorias = {};
   state.appelsCategorias = [];
@@ -134,6 +140,13 @@ describe("sitemap — établissements et métadonnées d'entrée", () => {
       { slug: "casa-kayam", name: { es: "Casa Kayam", en: "Casa Kayam" }, updated_at: "2026-08-29T08:00:00Z" },
     ];
     expect(urls(await sitemap())).toContain("https://hifago.co/es/establecimientos/casa-kayam");
+  });
+
+  // Un lieu (`is_place`) n'a pas de fiche : sa page rend 404, et une URL en 404 n'entre jamais
+  // au sitemap. La RLS ne le cache pas — c'est ce filtre qui l'écarte.
+  it("n'interroge que les établissements qui ne sont pas des lieux", async () => {
+    await sitemap();
+    expect(state.filtres).toContainEqual(["establishments", "is_place", false]);
   });
 
   it("reporte updated_at en lastModified", async () => {

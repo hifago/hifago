@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildProductEditPayload } from "./productEditPayload";
 import { buildFields, FIXTURE_INIT } from "./productPayloadFixtures";
+import { payloadToFieldsInit } from "./useProductTypeFieldsState";
 
 const NAME = { es: "Nombre de prueba", en: "Test name" };
 const DESCRIPTION = { es: "Descripción", en: "Description" };
@@ -51,6 +52,8 @@ describe("buildProductEditPayload", () => {
     for (const key of [
       "price_cop", "price_tiers", "online_bookable", "evento_capacity_mode", "is_free",
       "evento_payment_mode", "evento_occupies_resource", "default_capacity", "price_label",
+      "occurrence_type", "occurrence_date", "recurrence_frequency_days", "recurrence_end_date",
+      "recurrence_end_count", "start_time", "duration_minutes",
     ]) {
       expect(payload).toHaveProperty(key);
     }
@@ -65,6 +68,58 @@ describe("buildProductEditPayload", () => {
     ]) {
       expect(payload).not.toHaveProperty(key);
     }
+  });
+
+  // La panne du 2026-10-13 (« Exposición Mirarte ») : le formulaire d'édition du socio est hydraté
+  // depuis la LIGNE `products`, puis reconstruit le payload. La date et l'heure en place doivent
+  // en ressortir — elles n'y étaient pas, la proposition arrivait à la modération sans elles.
+  it("evento : la date et l'heure de la fiche repartent dans le payload d'édition", () => {
+    const fichaEnBase = {
+      price_label: "Entrada libre",
+      occurrence_type: "once",
+      occurrence_date: "2026-10-15",
+      start_time: "16:00:00",
+      duration_minutes: 120,
+      online_bookable: false,
+    };
+    const payload = buildProductEditPayload(
+      "evento", NAME, DESCRIPTION, buildFields(payloadToFieldsInit(fichaEnBase)),
+    );
+    expect(payload).toMatchObject({
+      occurrence_type: "once",
+      occurrence_date: "2026-10-15",
+      start_time: "16:00",
+      duration_minutes: 120,
+      recurrence_frequency_days: null,
+      recurrence_end_date: null,
+      recurrence_end_count: null,
+      price_label: "Entrada libre",
+    });
+  });
+
+  it("evento réservable en ligne : relu depuis la fiche, il ne repart pas en evento vitrine", () => {
+    const fichaEnBase = {
+      price_cop: 50000,
+      default_capacity: 40,
+      online_bookable: true,
+      evento_capacity_mode: "metered",
+      is_free: false,
+      evento_payment_mode: "online",
+      evento_occupies_resource: true,
+      occurrence_type: "once",
+      occurrence_date: "2026-12-01",
+    };
+    const payload = buildProductEditPayload(
+      "evento", NAME, DESCRIPTION, buildFields(payloadToFieldsInit(fichaEnBase)),
+    );
+    expect(payload).toMatchObject({
+      online_bookable: true,
+      evento_capacity_mode: "metered",
+      evento_payment_mode: "online",
+      default_capacity: 40,
+      price_cop: 50000,
+      price_label: null,
+    });
   });
 
   it("camp : programme + remise de groupe réécrits (parité avec la création), jamais lieu/lobby/logement/evento", () => {

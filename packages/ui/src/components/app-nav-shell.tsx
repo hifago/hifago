@@ -25,6 +25,12 @@ import { cn } from "../lib/utils";
  * sheet avec titre de marque statique) par UN seul composant testé une fois. Sidebar desktop et
  * barre+panneau mobile rendus depuis le MÊME tableau `navItems`, split CSS only (`hidden md:flex`
  * / `md:hidden`) — jamais de useMediaQuery, jamais de flash d'hydratation.
+ *
+ * Charte Hifago (2026-10-13) : la barre latérale et la barre mobile sont une SURFACE MARINE
+ * (`data-superficie="marine"`, thème admin de `styles/globals.css`) — c'est elle qui donne aux
+ * jetons lus ici (`text-muted`, `border-border`, `hover:bg-surface-secondary`) leur valeur lisible
+ * sur le marine. Le lien actif est le seul aplat or : « où je suis » se lit d'un coup d'œil. Le
+ * panneau mobile, lui, est une modale rendue au bout du <body> : il reste clair.
  */
 
 export type AppNavItem = { href: string; label: string; badge?: number; badgeTestId?: string };
@@ -45,6 +51,9 @@ export type AppNavShellProps = {
   ariaLabel: string;
   fallbackTitle: string;
   testIds: AppNavShellTestIds;
+  /** Logo, en tête de la barre latérale et à gauche de la barre mobile. Rendu sur le marine :
+   *  passer la déclinaison « sombre » du logo. */
+  brand?: React.ReactNode;
   desktopFooter?: React.ReactNode;
   mobileFooter?: React.ReactNode;
 };
@@ -102,6 +111,7 @@ export function AppNavShell({
   ariaLabel,
   fallbackTitle,
   testIds,
+  brand,
   desktopFooter,
   mobileFooter,
 }: AppNavShellProps) {
@@ -144,10 +154,18 @@ export function AppNavShell({
   return (
     <>
       {/* Barre mobile : titre en haut à gauche, bouton en haut à droite qui déplie un panneau plein écran */}
-      <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-[var(--sidebar-background)] p-4 md:hidden">
-        <h1 className="truncate text-base font-semibold" data-testid={testIds.mobileTitle}>
-          {mobileTitle}
-        </h1>
+      <div
+        data-superficie="marine"
+        className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border px-4 py-2 md:hidden"
+      >
+        {/* Un <p>, pas un <h1> : chaque page porte déjà le sien, et la barre en affichait un
+            second sur mobile. Le libellé de section reste lu, sans doubler le titre de la page. */}
+        <div className="flex min-w-0 items-center gap-3">
+          {brand}
+          <p className="truncate text-base font-semibold" data-testid={testIds.mobileTitle}>
+            {mobileTitle}
+          </p>
+        </div>
         <Button
           type="button"
           isIconOnly
@@ -179,14 +197,17 @@ export function AppNavShell({
                         aria-current={active ? "page" : undefined}
                         onClick={() => setOpen(false)}
                         className={cn(
-                          "flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-surface-secondary",
-                          active ? "bg-surface-secondary text-foreground" : "text-muted"
+                          "flex min-h-11 items-center justify-between rounded-md px-3 py-2 text-base font-medium transition-colors",
+                          active
+                            ? "bg-accent font-semibold text-accent-foreground"
+                            : "text-foreground hover:bg-surface-secondary"
                         )}
                       >
                         <span>{item.label}</span>
                         {item.badge ? (
                           <NavBadgePill
                             count={item.badge}
+                            inverted={active}
                             testId={item.badgeTestId ? `${item.badgeTestId}-mobile` : undefined}
                           />
                         ) : null}
@@ -205,8 +226,10 @@ export function AppNavShell({
       <nav
         aria-label={ariaLabel}
         data-testid={testIds.desktopNav}
-        className="hidden w-56 shrink-0 flex-col gap-1 border-r border-border bg-[var(--sidebar-background)] p-4 md:sticky md:top-0 md:flex md:h-screen md:overflow-y-auto"
+        data-superficie="marine"
+        className="hidden w-56 shrink-0 flex-col gap-1 p-4 md:sticky md:top-0 md:flex md:h-screen md:overflow-y-auto"
       >
+        {brand ? <div className="mb-4 px-3 pt-1">{brand}</div> : null}
         {navItems.map((item) => {
           const active = activeHrefs.has(item.href);
           return (
@@ -216,8 +239,10 @@ export function AppNavShell({
               data-testid={`${testIds.desktopLinkPrefix}-${item.href.replace(/\//g, "-")}`}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-surface-secondary",
-                active ? "bg-accent text-accent-foreground" : "text-muted"
+                "flex min-h-10 items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                active
+                  ? "bg-accent font-semibold text-accent-foreground"
+                  : "text-muted hover:bg-surface-secondary hover:text-foreground"
               )}
             >
               <span>{item.label}</span>

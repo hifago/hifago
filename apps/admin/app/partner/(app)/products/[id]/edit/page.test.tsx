@@ -69,6 +69,10 @@ describe("/partner/products/[id]/edit", () => {
       "product_proposals#1": { data: null, error: null },
       "product_proposals#2": { data: null, error: null },
       product_media: { data: [], error: null },
+      catalog_tags: { data: [], error: null },
+      product_tag_assignments: { data: [], error: null },
+      catalog_amenities: { data: [], error: null },
+      product_amenity_assignments: { data: [], error: null },
     };
   });
 
@@ -88,7 +92,16 @@ describe("/partner/products/[id]/edit", () => {
     await expect(ouvrir()).rejects.toBeInstanceOf(Introuvable);
   });
 
-  it.each([["products"], ["product_proposals#1"], ["product_proposals#2"], ["product_media"]])(
+  it.each([
+    ["products"],
+    ["product_proposals#1"],
+    ["product_proposals#2"],
+    ["product_media"],
+    ["catalog_tags"],
+    ["product_tag_assignments"],
+    ["catalog_amenities"],
+    ["product_amenity_assignments"],
+  ])(
     "lecture %s en panne : la page lève, jamais introuvable ni vide",
     async (cle) => {
       reponses[cle] = PANNE;

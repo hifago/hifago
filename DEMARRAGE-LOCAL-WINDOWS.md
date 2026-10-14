@@ -15,90 +15,108 @@ Tout tourne sur ta machine. Aucune ressource cloud (Supabase, Vercel) n'est touc
 **Durée :** compter environ 1 h la première fois, surtout du téléchargement. Ensuite, le
 démarrage prend environ 1 minute.
 
-> **Le principe :** le projet est entièrement outillé en bash (scripts, hooks git, CLI Supabase).
-> Sous Windows, on le fait donc tourner dans **WSL 2** (un vrai Ubuntu intégré à Windows), avec
-> **Docker Desktop** pour la base de données. Le navigateur et VS Code restent côté Windows.
-> On ne lance jamais une commande du projet dans PowerShell ni dans cmd.
+> **Le principe :** tout tourne directement sous Windows. **Docker Desktop** fait tourner la base
+> de données, **Node.js** les deux apps, et **Git Bash** (installé avec Git) les quelques scripts
+> du projet écrits en bash. Pas d'Ubuntu ni de WSL à installer ou à utiliser.
 
 ---
 
 ## A — Installer les outils (une seule fois)
 
-### A1. WSL 2 + Ubuntu
+### A1. Git pour Windows (fournit Git Bash)
 
-Ouvre **PowerShell en administrateur** (clic droit sur le menu Démarrer → « Terminal
-(administrateur) »), puis lance :
+Si Git est déjà installé sur le PC, passe à A2. Sinon, télécharge et installe
+<https://git-scm.com/download/win> en gardant les options proposées.
 
-```powershell
-wsl --install
-```
+✅ **Vérifier :** ouvre l'application **Git Bash** depuis le menu Démarrer, puis tape
+`git --version` : un numéro de version s'affiche.
 
-Redémarre le PC. Ouvre ensuite l'application **Ubuntu** depuis le menu Démarrer : elle te demande
-de choisir un nom d'utilisateur et un mot de passe Linux (garde ce mot de passe, `sudo` le
-demandera).
-
-✅ **Vérifier :** dans le terminal Ubuntu, `lsb_release -d` affiche « Ubuntu … ».
-
-À partir d'ici, **toutes les commandes se tapent dans le terminal Ubuntu**, sauf mention contraire.
+À partir d'ici, **toutes les commandes se tapent dans Git Bash** (l'application, ou le terminal de
+VS Code une fois réglé en A5), sauf mention contraire.
 
 ### A2. Docker Desktop
 
 1. Télécharge et installe Docker Desktop : <https://www.docker.com/products/docker-desktop/>.
-   Garde l'option « Use WSL 2 instead of Hyper-V » cochée.
-2. Lance Docker Desktop, puis ouvre **Settings → Resources → WSL integration** et active le
-   curseur **Ubuntu**. Termine par **Apply & restart**.
+   S'il demande d'installer ou de mettre à jour WSL, accepte : c'est son moteur interne, tu n'auras
+   jamais à t'en servir. Redémarre le PC si on te le demande.
+2. Lance Docker Desktop et attends que l'icône de baleine, dans la barre des tâches, cesse de
+   s'animer.
 
-✅ **Vérifier :** dans Ubuntu, `docker run --rm hello-world` affiche « Hello from Docker! ».
+✅ **Vérifier :** `docker run --rm hello-world` affiche « Hello from Docker! ».
 
-### A3. Outils Linux (git, client PostgreSQL)
+### A3. Node.js 22
 
-```bash
-sudo apt update && sudo apt install -y git curl postgresql-client
-```
-
-✅ **Vérifier :** `psql --version` affiche un numéro de version.
-
-### A4. Node.js 22 (via nvm)
-
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
-```
-
-**Ferme puis rouvre** le terminal Ubuntu, puis :
-
-```bash
-nvm install 22
-```
+Télécharge et installe la version **22** de Node.js pour Windows depuis <https://nodejs.org>.
+C'est la version qu'utilise la CI. Ferme puis rouvre Git Bash après l'installation.
 
 ✅ **Vérifier :** `node -v` affiche `v22.…`.
 
+### A4. Client PostgreSQL (`psql`)
+
+`npm run db:setup` (C2) en a besoin pour charger les données de démo.
+
+1. Télécharge l'installeur Windows : <https://www.enterprisedb.com/downloads/postgres-postgresql-downloads>.
+2. À l'écran **Select Components**, ne garde que **Command Line Tools** (décoche PostgreSQL
+   Server, pgAdmin et Stack Builder).
+3. Ajoute `psql` au chemin de Windows. Dans **PowerShell** (pas besoin du mode administrateur) :
+
+   ```powershell
+   $bin = (Resolve-Path 'C:\Program Files\PostgreSQL\*\bin' | Select-Object -Last 1).Path
+   [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ";$bin", 'User')
+   ```
+
+4. Ferme toutes les fenêtres Git Bash et VS Code, puis rouvre-les.
+
+✅ **Vérifier :** `psql --version` affiche un numéro de version.
+
 ### A5. VS Code et Claude Code
 
-1. Installe VS Code **côté Windows** (<https://code.visualstudio.com>), puis l'extension
-   **WSL** (éditeur Microsoft).
-2. Claude Code doit tourner **dans WSL**, pas dans Windows : dans une fenêtre VS Code connectée à
-   WSL (voir B4), installe l'extension Claude Code. VS Code propose alors « Install in WSL:
-   Ubuntu » : accepte. Pour la version terminal, lance dans Ubuntu :
-   `curl -fsSL https://claude.ai/install.sh | bash`.
+1. Installe VS Code : <https://code.visualstudio.com>.
+2. Règle son terminal sur Git Bash : `Ctrl+Shift+P`, tape « Terminal: Select Default Profile »,
+   puis choisis **Git Bash**.
+3. Installe l'extension **Claude Code**. Sous Windows, Claude Code passe lui aussi par Git Bash
+   pour lancer ses commandes : A1 suffit.
+
+### A6. Faire lancer les scripts npm par Git Bash
+
+```bash
+npm config set script-shell 'C:\Program Files\Git\bin\bash.exe'
+```
+
+Sous Windows, npm lance par défaut ses scripts avec `cmd`, qui ne comprend pas ceux du projet : dès
+`npm ci`, le script `prepare` échouerait. Si Git est installé ailleurs, `where.exe git` affiche
+`…\Git\cmd\git.exe`, et le bon chemin est alors `…\Git\bin\bash.exe`.
+
+✅ **Vérifier :** `npm config get script-shell` affiche `C:\Program Files\Git\bin\bash.exe`.
 
 ---
 
 ## B — Récupérer le projet (une seule fois)
 
-### B1. Cloner dans le dossier personnel Linux
+### B1. Cloner
 
 ```bash
-cd ~
-git clone https://github.com/hifago/hifago.git
+mkdir -p ~/dev && cd ~/dev
+git clone -c core.autocrlf=false https://github.com/hifago/hifago.git
 cd hifago
 git switch staging
 ```
 
-⚠️ **Clone toujours sous `~` (le disque Linux), jamais dans `C:\…` ni `/mnt/c/…`.** Sur le disque
-Windows, le projet est très lent, le rechargement à chaud ne détecte plus les modifications, et les
-fins de ligne Windows cassent les scripts bash.
+Le projet est alors dans `C:\Users\<toi>\dev\hifago`.
+
+⚠️ **L'option `-c core.autocrlf=false` est indispensable.** Sans elle, Git pour Windows convertit
+les fins de ligne, et les scripts bash du projet plantent (`$'\r': command not found`).
+
+⚠️ **Évite un dossier synchronisé par OneDrive**, ce qui est souvent le cas de Documents et du
+Bureau. La synchronisation de dizaines de milliers de fichiers ralentit tout et peut abîmer
+`node_modules`.
 
 `staging` est la branche de travail, la plus à jour. `main` est la prod.
+
+**Tu as déjà le projet sur ce PC ?** Garde **une seule** copie, celle que tu ouvres dans VS Code.
+Si une ancienne copie existe dans Ubuntu/WSL (ancienne version de ce guide), ne t'en sers plus. Pour
+une copie Windows clonée sans l'option ci-dessus, demande à Claude d'appliquer la règle H.2 plutôt
+que de recloner.
 
 ### B2. Installer les dépendances
 
@@ -127,8 +145,10 @@ chat ni dans un commit, et remplace ces deux lignes.
 code .
 ```
 
-VS Code s'ouvre côté Windows, connecté à WSL (« WSL: Ubuntu » en bas à gauche). Le terminal
-intégré de VS Code est alors un terminal Ubuntu : tu peux y taper toutes les commandes suivantes.
+Tu peux aussi passer par **Fichier → Ouvrir le dossier** sur `C:\Users\<toi>\dev\hifago`.
+
+✅ **Vérifier :** le terminal de VS Code (`Ctrl+ù`) affiche un en-tête `MINGW64 ~/dev/hifago` :
+c'est bien Git Bash, dans le bon dossier. Tu peux y taper toutes les commandes suivantes.
 
 ---
 
@@ -215,7 +235,7 @@ npm run dev
 ✅ **Vérifier :** deux lignes « Ready » apparaissent, une préfixée `[web]` et une préfixée
 `[admin]`.
 
-| Quoi | Adresse (dans le navigateur Windows) |
+| Quoi | Adresse (dans le navigateur) |
 |---|---|
 | Vitrine publique | <http://localhost:3100> |
 | Admin + espace socio | <http://localhost:3101> |
@@ -242,6 +262,17 @@ redirections de connexion peuvent te déconnecter.
 
 Sur la vitrine, la réservation se fait sans compte. Pour tester l'inscription client, crée un
 compte depuis la vitrine : l'email de confirmation arrive dans la boîte mail locale (port 54324).
+
+**Se connecter à l'admin par Google** (il faut les vrais identifiants Google dans `.env`, étape
+B3) : un Gmail inconnu de la base locale est refusé, son compte doit exister avant. Crée-le avec
+sa capacité admin, à refaire après chaque `npm run db:setup` :
+
+```bash
+npm run db:google-admin -- ton.adresse@gmail.com
+```
+
+À la première connexion Google, l'admin demande d'enrôler un 2FA (QR code à scanner avec une
+application d'authentification).
 
 Si un écran de code 2FA apparaît pour l'admin (cas rare), génère le code du moment avec :
 
@@ -277,11 +308,10 @@ node --experimental-strip-types --no-warnings -e "import('./packages/e2e-support
 
 **Démarrer**, dans cet ordre :
 1. Lance Docker Desktop.
-2. Ouvre le terminal Ubuntu (ou VS Code via `code ~/hifago`).
+2. Ouvre le projet dans VS Code (**Fichier → Ouvrir récent**), puis son terminal (`Ctrl+ù`).
 3. Lance :
 
 ```bash
-cd ~/hifago
 npx supabase start
 npm run dev
 ```
@@ -306,15 +336,16 @@ refaits.
 
 | Symptôme | Solution |
 |---|---|
-| `docker: command not found` dans Ubuntu | Docker Desktop n'est pas lancé, ou l'intégration WSL n'est pas activée (A2) |
+| `npm ci` échoue sur `prepare` avec « 'true' n'est pas reconnu… » (« 'true' is not recognized… ») ou « Le chemin d'accès spécifié est introuvable » | npm lance ses scripts avec `cmd` : refaire A6, puis relancer `npm ci` |
+| `$'\r': command not found`, `pipefail\r` ou `bash\r: No such file or directory` | Fins de ligne Windows dans les scripts : demander à Claude d'appliquer la règle H.2 |
+| `docker info` échoue (« error during connect », « cannot find the file specified ») | Docker Desktop n'est pas lancé : le lancer et attendre que la baleine cesse de s'animer |
 | `supabase start` : « Missing required field … auth.external.google.client_id » | Le fichier `.env` racine manque ou a des valeurs Google vides : refaire B3 |
 | `supabase start` : « Ports are not available … 5432x … forbidden by its access permissions » | Windows réserve parfois cette plage de ports. Dans PowerShell **administrateur** : `net stop winnat`, puis `net start winnat`, puis relancer `npx supabase start` |
 | `supabase start` : un conteneur est « unhealthy » ou ne démarre pas | `npx supabase stop`, puis `npx supabase start`. Si le problème persiste, redémarrer Docker Desktop |
-| `npm run db:setup` : « psql introuvable » | Refaire A3 |
-| `bash\r: No such file or directory` ou `$'\r': command not found` | Le dépôt a été cloné depuis Windows : le supprimer et recloner dans Ubuntu sous `~` (B1) |
-| Le site ne se met pas à jour quand on modifie un fichier, ou il est très lent | Le projet est sous `/mnt/c/…` : recloner sous `~` (B1) |
-| Port 3100 ou 3101 déjà utilisé | Une ancienne instance tourne encore. `ss -ltnp \| grep 3100` affiche son `pid=…`, puis `kill <pid>` |
-| PC qui rame, ou erreur de mémoire | Fermer d'autres applications. Si le PC a 8 Go de RAM, c'est juste : créer `C:\Users\<toi>\.wslconfig` avec `[wsl2]` puis `memory=6GB` sur la ligne suivante, puis lancer `wsl --shutdown` dans PowerShell |
+| `npm run db:setup` : « psql introuvable » | Refaire A4, puis fermer et rouvrir VS Code |
+| Port 3100 ou 3101 déjà utilisé | Une ancienne instance tourne encore. `netstat -ano \| grep ':3100 '` : le dernier nombre de la ligne `LISTENING` est son PID. Puis `taskkill //F //PID <pid>` (la double barre est obligatoire dans Git Bash) |
+| Tout est très lent (`npm ci`, démarrage, rechargement) | L'antivirus de Windows analyse chaque fichier de `node_modules` : Sécurité Windows → Protection contre les virus et menaces → Gérer les paramètres → Exclusions → ajouter le dossier du projet. Vérifier aussi qu'il n'est pas dans OneDrive (B1) |
+| PC qui rame, ou erreur de mémoire | Fermer d'autres applications. Si le PC a 8 Go de RAM, c'est juste : créer `C:\Users\<toi>\.wslconfig` avec `[wsl2]` puis `memory=6GB` sur la ligne suivante (c'est là que Docker Desktop lit sa limite de mémoire), puis redémarrer le PC |
 | Connexion qui boucle ou déconnexion après redirection | Utiliser `localhost` partout (pas `127.0.0.1`) pour les apps |
 | La page reste vide ou affiche une erreur Supabase | Supabase est arrêté : `npx supabase status`. Si besoin, `npx supabase start` |
 
@@ -325,28 +356,38 @@ refaits.
 Les règles du projet sont dans `CLAUDE.md`, que tu lis de toute façon. Celles-ci y ajoutent ce qui
 est propre à une machine Windows :
 
-1. **Toutes les commandes s'exécutent dans le bash de WSL (Ubuntu)**, à la racine du clone sous
-   `~/hifago`. Jamais PowerShell, jamais cmd, jamais un chemin `/mnt/c/…`. Seules exceptions,
-   données ici comme consignes pour Jérôme et jamais à lancer toi-même : `wsl --install`,
-   `net stop/start winnat` et `wsl --shutdown`, qui se tapent dans PowerShell administrateur.
-2. **Les skills du projet sont valables telles quelles sous WSL** (`/hifago-dev`, `/hifago-seed`,
-   `/hifago-mock-data`, `/hifago-test`), car tout y est écrit en bash. Seules les commandes
-   d'installation écrites pour macOS se transposent : `brew install libpq` devient
-   `sudo apt install postgresql-client`.
-3. **Local uniquement** (`CLAUDE.md` §8). Aucune commande contre un projet Supabase ou Vercel
+1. **Pas de WSL.** Le projet tourne directement sous Windows, dans la copie ouverte dans VS Code,
+   et c'est la seule. Tes commandes passent par Git Bash : syntaxe bash, jamais cmd ni PowerShell.
+   N'utilise jamais `wsl …` ni un chemin `\\wsl$\…`, même si une ancienne copie du projet existe
+   dans WSL : n'y écris rien et n'y lance rien. Seules exceptions, données comme consignes pour
+   Jérôme et jamais à lancer toi-même : `net stop/start winnat` (PowerShell administrateur) et la
+   commande d'ajout au Path de A4 (PowerShell).
+2. **Fins de ligne : à vérifier avant le premier script bash.** `git config core.autocrlf` doit
+   afficher `false`, et `git ls-files --eol scripts/db-setup.sh` doit contenir `w/lf`. Sinon :
+   - si `git status --porcelain` est vide, lance
+     `git config core.autocrlf false && git rm -rq --cached . && git reset -q --hard` ;
+   - sinon, demande d'abord à Jérôme de commiter son travail en cours, car cette commande réécrit
+     tous les fichiers suivis.
+3. **npm doit lancer ses scripts avec Git Bash :** `npm config get script-shell` doit pointer vers
+   `…\Git\bin\bash.exe`. Sinon, applique A6.
+4. **Les skills du projet sont valables telles quelles** (`/hifago-dev`, `/hifago-seed`,
+   `/hifago-mock-data`, `/hifago-test`), car tout y est écrit en bash. Deux transpositions :
+   `brew install libpq` devient l'étape A4 ; une option Windows qui commence par `/` se double dans
+   Git Bash (`taskkill //F //PID 1234`), sinon Git Bash la transforme en chemin.
+5. **Local uniquement** (`CLAUDE.md` §8). Aucune commande contre un projet Supabase ou Vercel
    cloud sans une confirmation explicite de Jérôme à chaque fois. Ce guide n'en contient aucune.
-4. **`npm run db:setup` efface la base locale.** Préviens Jérôme et obtiens son accord avant de le
+6. **`npm run db:setup` efface la base locale.** Préviens Jérôme et obtiens son accord avant de le
    lancer : il peut avoir des données de test en cours.
-5. **Quand Jérôme dit « lance le projet »**, applique dans l'ordre :
+7. **Quand Jérôme dit « lance le projet »**, applique dans l'ordre :
    1. lance `docker info`. En cas d'échec, demande-lui de démarrer Docker Desktop et arrête-toi là ;
    2. lance `npx supabase start` ;
    3. vérifie que la base est remplie :
       `psql "$(npx supabase status -o env | grep '^DB_URL=' | cut -d'"' -f2)" -Atc "select count(*) from establishments"`.
-      Si le résultat vaut `0`, lance C2 puis C3, après accord (règle 4) ;
+      Si le résultat vaut `0`, lance C2 puis C3, après accord (règle 6) ;
    4. si `apps/web/.env.local` ou `apps/admin/.env.local` manque, lance le bloc C4 ;
    5. lance `npm run dev` en arrière-plan, attends les deux « Ready », puis donne les adresses de
       la partie D.
-6. Si un symptôme figure dans le tableau G, applique la solution indiquée avant de chercher
+8. Si un symptôme figure dans le tableau G, applique la solution indiquée avant de chercher
    ailleurs.
-7. N'écris jamais de secret cloud dans un `.env`, un `.env.local` ou un fichier du dépôt
+9. N'écris jamais de secret cloud dans un `.env`, un `.env.local` ou un fichier du dépôt
    (`CLAUDE.md` §8.2). Les clés de Supabase local de C4 n'en sont pas.

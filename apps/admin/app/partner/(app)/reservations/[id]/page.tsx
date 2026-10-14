@@ -66,8 +66,8 @@ export default async function PartnerReservationDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Reserva</h1>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h1 className="titre-page">Reserva</h1>
         <Chip variant="soft" color={STATUS_CHIP_COLOR[line.status] ?? "default"} data-testid="reservation-detail-status">
           {STATUS_LABELS[line.status] ?? line.status}
         </Chip>

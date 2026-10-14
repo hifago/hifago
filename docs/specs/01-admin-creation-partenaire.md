@@ -138,7 +138,8 @@ Ne pas rouvrir :
    au lieu d'en fabriquer un nouveau à la consommation. C'est une réutilisation de l'infrastructure
    d'invitation déjà éprouvée (token haché, TTL, usage unique) — pas un nouveau mécanisme de mot
    de passe posé par l'admin (cf. §10).
-6. Le partenaire reçoit le lien (même canal manuel qu'aujourd'hui — WhatsApp), clique, se
+6. Le partenaire reçoit le lien (même canal manuel qu'aujourd'hui — WhatsApp ; **révisé le
+   2026-10-13** : il part aussi par e-mail quand l'admin saisit l'e-mail du socio, voir §10), clique, se
    connecte (email+password ou Google) : son compte se rattache au `partner_id` déjà créé par
    l'admin, `role_agreements` s'enregistre à ce moment comme aujourd'hui.
 
@@ -273,6 +274,10 @@ bloquer le développement direct :
   `establishments.payout_method` n'existe pas dans le schéma (absent de
   `20260813210000_establishments_core_table.sql`, vérifié) — à marquer clairement dans l'UI pour
   ne pas laisser croire qu'un virement s'appuiera dessus.
+- **Invitation par e-mail (Gabriel, 2026-10-13, recette de prod)** : quand l'invitation est
+  demandée ET qu'un e-mail est saisi, `create_partner_direct` enfile aussi l'e-mail
+  `partner_invitation` (`20261014024303`), avec le mécanisme et l'isolation de
+  `create_partner_invitation` ; le lien reste affiché à l'écran. Sans e-mail : lien seul, comme avant.
 
 ## 11. Annexe — traçabilité code→règle
 

@@ -3,7 +3,7 @@ import { Image } from "./Image";
 
 // Une vraie photo de `mockData/`, servie par Storybook sous `/mock` : pas d'URL distante et le
 // pipeline matriciel de `next/image` reste visible dans la story.
-const SRC = "/mock/activities/kayak1/photos/1.jpeg";
+const SRC = "/mock/activities/paddle-surf-trek/photos/1.webp";
 
 // La valeur de `sizes` reprise de la production (CatalogBrowser.tsx:98) plutôt qu'inventée : c'est
 // celle d'une grille à une colonne sous 640 px, deux au-delà.

@@ -70,6 +70,17 @@ comme dans Next : Anton est confirmé, aucune Sugo d'essai n'est servie.
 Storybook rend toujours la charte adoptée, en mode clair. La planche `Playground/Charte` sert de
 référence visuelle ; `Playground/Palette → Contrastes` mesure les couples de production.
 
+### Thème admin — la même charte, réglée pour l'outil (2026-10-13)
+
+Contrat : `docs/specs/09-design-system-admin.md` §0, « Révision du 2026-10-13 » (remplace la piste
+beige/terracotta). Lisibilité avant style : fond clair, texte marine, **or réservé à l'action
+principale et au lien de navigation actif** — jamais `text-accent` (2.07:1). Barre latérale et barre
+mobile en surface marine (`data-superficie="marine"`, posée par `AppNavShell`). Anton sur le seul
+titre de page (`<h1 className="titre-page">`, sans classe de graisse) ; tout le reste en Poppins.
+Rayon 8 px pour boutons, champs et panneaux (`rounded-lg`), 16 px pour ce qui flotte ; 44 px de haut
+sous `md`. Une rangée « titre + action » ou d'actions de carte passe à la ligne (`flex-wrap`) :
+Poppins est plus large que la pile système. Vérifié par `scripts/check-charte-admin.sh`.
+
 ## Composants de la vitrine (`apps/web/components/`)
 
 `atoms/` (ne traduit rien) · `molecules/` · `organisms/` · `seo/` · `playground/` · `parcours/`. Un composant lié

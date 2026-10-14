@@ -32,7 +32,7 @@
 - [Choix de stack et architecture cible](04-architecture-cible.md) 78K
 - [Référence technique — patterns validés et extensions requises](05-reference-technique.md) 9K
 - [Emails transactionnels — les 13 envois possibles, leur déclencheur…](06-emails-transactionnels.md) 15K
-- [Runbook des environnements — préprod et prod, variable par variable](runbook-environnements.md) 13K
+- [Runbook des environnements — préprod et prod, variable par variable](runbook-environnements.md) 14K
 
 ## Specs — une feature chacune
 - [Admin crée un partenaire](specs/01-admin-creation-partenaire.md) 21K ✓ · sans §0
@@ -43,7 +43,7 @@
 - [Gestion d'un établissement — admin édite, partenaire propose…](specs/06-gestion-etablissement.md) 51K ✓ · §0 offset 57 limit 60
 - [Connexion/inscription complète : Google, email+mot de passe,…](specs/07-connexion-inscription-complete.md) 36K ✓ · sans §0
 - [Admin gère une activité (tags, paliers de prix, bornes de quantité,…](specs/08-admin-gestion-activite.md) 25K ✓ · sans §0
-- [Design system admin — fond beige, coins carrés (piste Argile)](specs/09-design-system-admin.md) 17K ✓ · §0 offset 40 limit 97
+- [Design system admin — charte Hifago 2026 (remplace la piste Argile)](specs/09-design-system-admin.md) 21K ✓ · §0 offset 43 limit 54
 - [Listes admin/socio standardisées — pagination, tri, filtres,…](specs/10-listes-standardisees-admin-socio.md) 51K ✓ · §0 offset 53 limit 108
 - [Admin : parcours unifié création/édition d'une activité — i18n…](specs/11-admin-activite-parcours-unifie-creneaux.md) 17K ✓ · §0 offset 51 limit 63
 - [Admin : active products.type='lodging' (« house ») dans le parcours…](specs/12-admin-alojamiento-house.md) 18K ✓ · §0 offset 56 limit 75
@@ -62,7 +62,7 @@
 - [Propagation d'une annulation hifago vers LobbyPMS (C2)](specs/25-propagation-annulation-lobbypms.md) 11K ✓ · sans §0
 - [Référencement de la vitrine : Google et moteurs de réponse IA](specs/26-referencement-seo-et-moteurs-ia.md) 32K ✓ · §0 offset 47 limit 83
 - [Architecture de la vitrine : routes, zones, coquilles et couche…](specs/27-architecture-vitrine-et-routage.md) 32K ✓ · §0 offset 52 limit 116
-- [Vitrine : l'accueil, qui est aussi l'écran de résultats de recherche](specs/28-vitrine-accueil-et-resultats.md) 47K ✓ · §0 offset 57 limit 153
+- [Vitrine : l'accueil, qui est aussi l'écran de résultats de recherche](specs/28-vitrine-accueil-et-resultats.md) 48K ✓ · §0 offset 57 limit 158
 - [Vitrine : les pages de listing et l'index de catégories](specs/29-vitrine-listings-et-index-de-categories.md) 71K ✓ · §0 offset 67 limit 196
 - [Vitrine : les fiches produit et établissement](specs/30-vitrine-fiches-produit-et-etablissement.md) 82K ✓ · §0 offset 68 limit 218
 - [Identité anonyme de l'invité](specs/31-identite-anonyme.md) 21K ◐ · §0 offset 45 limit 137 · reste : Les 4 tranches sont livrées (2026-09-10). Reste le point de vérification de la Tranche 4…
@@ -75,15 +75,15 @@
 - [Remise en route de la suite E2E Playwright](specs/38-remise-en-route-suite-e2e.md) 10K ○ · sans §0
 - [Garantir la confirmation d'un paiement quand le client ne revient pas](specs/39-garantie-confirmation-paiement.md) 30K ◐ · §0 offset 144 limit 57 · reste : Lot A + B1 + B2 livrés et vérifiés en local le 2026-09-22 (§C). Restent : validation par…
 - [Assistant par étapes — création/édition produit et établissement,…](specs/40-admin-produit-etablissement-assistant-par-etapes.md) 11K ✓ · §0 offset 41 limit 44
-- [Charte Hifago sur toute la vitrine : analyse de l'accueil, règles du…](specs/41-charte-hifago-toute-la-vitrine.md) 194K ○ · §0 offset 69 limit 112
+- [Charte Hifago sur toute la vitrine : analyse de l'accueil, règles du…](specs/41-charte-hifago-toute-la-vitrine.md) 199K ○ · §0 offset 69 limit 112
 - [Specs — fonctionnalités prêtes à coder, une par une](specs/README.md) 3K
 - [Gabarit de spec de feature (à copier, ne décrit aucune feature réelle)](specs/_modele.md) 7K
 - [Avant d'écrire une spec — poser les bonnes questions](specs/avant-la-spec.md) 8K
 
 ## Suivi — backlog, dette, pièges, journal
-- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 16K
-- [Dette technique et QA/UI connue — hifago](dette-technique.md) 35K
+- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 14K
+- [Dette technique et QA/UI connue — hifago](dette-technique.md) 37K
 - [Journal hifago — août 2026](journal/2026-08.md) 660K · jamais en entier (voir 5.)
 - [Journal hifago — septembre 2026](journal/2026-09.md) 678K · jamais en entier (voir 5.)
-- [Journal hifago — octobre 2026](journal/2026-10.md) 126K · jamais en entier (voir 5.)
+- [Journal hifago — octobre 2026](journal/2026-10.md) 205K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K

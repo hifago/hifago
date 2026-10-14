@@ -5,6 +5,7 @@ import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { EditProposalForm } from "./EditProposalForm";
 import { PhotosSocioBlock } from "@/components/photos-socio-block";
 import { ownerScope } from "@/lib/partnerOwnership";
+import { toTagOptions } from "@/lib/tags/proposedTags";
 import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 
 export default async function EditProductProposalPage({
@@ -25,11 +26,18 @@ export default async function EditProductProposalPage({
   // Colonnes étendues (spec 15 bis, 2026-08-17) : parité de champs avec ProductForm en mode
   // édition — address/lat/lon/price_tiers/min_qty/max_qty/check_in_time/check_out_time/capacity/
   // stay_rates, plus `type` pour le gating (ProductTypeFields).
+  // external_booking_url/price_label (2026-10-13) : le formulaire les renvoie dans chaque
+  // proposition, et depuis qu'ils ne sont plus affichés pour un logement, rien ne signalerait leur
+  // absence — non lus, ils partiraient à null et l'approbation effacerait le lien posé par un admin.
+  // occurrence_*/start_time/duration_minutes (2026-10-13) : même règle pour un evento. Non lus, le
+  // formulaire affichait « Fecha » et « Hora de inicio » vides sur un evento qui en avait.
+  // online_bookable et ses quatre voisins ne sont jamais proposables (réglage admin) : lus pour
+  // que le formulaire sache qu'un evento se réserve en ligne et n'affiche pas un prix libre vide.
   const scope = await ownerScope(supabase);
   let productQuery = supabase
     .from("products")
     .select(
-      "id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, establishment_id, lobby_category_id, lobby_product_id, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, establishment:establishments!inner(partner_id, lobby_connector_active, lobby_has_token)"
+      "id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, establishment_id, lobby_category_id, lobby_product_id, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, external_booking_url, price_label, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, evento_occupies_resource, establishment:establishments!inner(partner_id, lobby_connector_active, lobby_has_token)"
     )
     .eq("id", id);
   if (scope.kind === "partner") {
@@ -44,43 +52,63 @@ export default async function EditProductProposalPage({
     notFound();
   }
 
-  // 3 lectures indépendantes (aucune ne dépend du résultat d'une autre, seulement de `id` déjà
+  // 7 lectures indépendantes (aucune ne dépend du résultat d'une autre, seulement de `id` déjà
   // connu) — lancées en parallèle plutôt qu'en séquence, même raisonnement documenté dans le
   // admin/products/[id]/edit/page.tsx voisin (5 lectures indépendantes, Promise.all).
   //
   // `.limit(1)` sur les propositions : rien en base n'empêche deux propositions en attente pour le
   // même produit, et `maybeSingle()` sur deux lignes est une ERREUR — qui, lue maintenant, ferait
   // échouer la page. On affiche la plus récente, ce que le tri voulait déjà dire.
-  const [pendingResult, mediaResult, pendingPhotosResult] =
-    await Promise.all([
-      supabase
-        .from("product_proposals")
-        .select("id, payload, created_at")
-        .eq("product_id", id)
-        .eq("status", "pending")
-        .eq("kind", "content")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("product_media")
-        .select("id, storage_path")
-        .eq("product_id", id)
-        .order("sort", { ascending: true }),
-      supabase
-        .from("product_proposals")
-        .select("payload")
-        .eq("product_id", id)
-        .eq("status", "pending")
-        .eq("kind", "photos")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
+  //
+  // Étiquettes (migration 20261013144848) : le catalogue et celles déjà posées sur la fiche. Le
+  // socio en propose le changement dans le même envoi que le reste ; il ne les écrit jamais
+  // lui-même (RLS admin-only sur product_tag_assignments). Même chose pour les équipements d'un
+  // logement (migration 20261013151206, product_amenity_assignments).
+  const [
+    pendingResult,
+    mediaResult,
+    pendingPhotosResult,
+    tagsResult,
+    tagAssignmentsResult,
+    amenitiesResult,
+    amenityAssignmentsResult,
+  ] = await Promise.all([
+    supabase
+      .from("product_proposals")
+      .select("id, payload, created_at")
+      .eq("product_id", id)
+      .eq("status", "pending")
+      .eq("kind", "content")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("product_media")
+      .select("id, storage_path")
+      .eq("product_id", id)
+      .order("sort", { ascending: true }),
+    supabase
+      .from("product_proposals")
+      .select("payload")
+      .eq("product_id", id)
+      .eq("status", "pending")
+      .eq("kind", "photos")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from("catalog_tags").select("id, label").order("slug"),
+    supabase.from("product_tag_assignments").select("tag_id").eq("product_id", id),
+    supabase.from("catalog_amenities").select("id, label").order("category_key").order("sort_order"),
+    supabase.from("product_amenity_assignments").select("amenity_id").eq("product_id", id),
+  ]);
   for (const [table, result] of [
     ["product_proposals", pendingResult],
     ["product_media", mediaResult],
     ["product_proposals", pendingPhotosResult],
+    ["catalog_tags", tagsResult],
+    ["product_tag_assignments", tagAssignmentsResult],
+    ["catalog_amenities", amenitiesResult],
+    ["product_amenity_assignments", amenityAssignmentsResult],
   ] as const) {
     if (result.error) {
       throw new Error(`Lecture de la fiche impossible (${table}) : ${result.error.message}`);
@@ -89,6 +117,8 @@ export default async function EditProductProposalPage({
   const pendingProposal = pendingResult.data;
   const media = mediaResult.data;
   const pendingPhotosProposal = pendingPhotosResult.data;
+  const tagAssignments = tagAssignmentsResult.data;
+  const amenityAssignments = amenityAssignmentsResult.data;
 
   const photos = (media ?? []).map((m) => ({
     id: m.id,
@@ -107,7 +137,7 @@ export default async function EditProductProposalPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">
+      <h1 className="titre-page">
         Proponer edición — {resolveLocalizedField(asLocalizedField(product.name), "es") ?? product.id}
       </h1>
 
@@ -126,6 +156,10 @@ export default async function EditProductProposalPage({
         type={product.type as ProductType}
         currentPayload={product}
         pendingProposal={pendingProposal}
+        availableTags={toTagOptions(tagsResult.data)}
+        currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
+        availableAmenities={toTagOptions(amenitiesResult.data)}
+        currentAmenityIds={(amenityAssignments ?? []).map((row) => row.amenity_id)}
         establishmentId={product.establishment_id}
         establishmentLobbyConnected={Boolean(
           product.establishment?.lobby_connector_active && product.establishment?.lobby_has_token

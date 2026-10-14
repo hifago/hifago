@@ -9,7 +9,7 @@ export default function NotFoundAdmin() {
       className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center gap-4 p-6 text-center sm:p-8"
       data-testid="not-found-admin"
     >
-      <h1 className="text-2xl font-semibold">Página no encontrada</h1>
+      <h1 className="titre-page">Página no encontrada</h1>
       <p className="max-w-prose text-muted">
         Esta página no existe o ya no está disponible.
       </p>

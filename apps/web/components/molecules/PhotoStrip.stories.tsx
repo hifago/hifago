@@ -6,8 +6,8 @@ import { PhotoStrip, type PhotoStripPhoto } from "./PhotoStrip";
 // Vraies photos de `mockData/`, servies par Storybook sous `/mock` : les stories restent locales et
 // exercent aussi le pipeline matriciel de `next/image`.
 const VISUELS = [
-  "/mock/activities/kayak1/photos/1.jpeg",
-  "/mock/activities/partyboat1/photos/1.jpg",
+  "/mock/activities/paddle-surf-trek/photos/1.webp",
+  "/mock/activities/tour-de-lancha-rapida/photos/1.webp",
   "/mock/activities/yoga-session/photos/1.webp",
   "/mock/establishments/bania/photos/1.jpeg",
 ];

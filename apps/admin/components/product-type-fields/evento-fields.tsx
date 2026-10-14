@@ -44,10 +44,10 @@ export function EventoFields({
   // qu'une défense en profondeur côté écran, pas le vrai rempart.
   allowOnlineBookableConfig?: boolean;
 }) {
-  // Le vrai discriminant des champs evento : configurable ICI (admin) ET effectivement basculé.
-  // Nommé une fois plutôt que réécrit deux fois — dont une NIÉE plus bas pour le libellé de prix
-  // vitrine, où la négation d'une conjonction recopiée est la façon la plus discrète de faire
-  // apparaître les deux blocs à la fois.
+  // Le discriminant du bloc de CONFIGURATION : configurable ICI (admin) ET effectivement basculé.
+  // Le libellé de prix vitrine, lui, ne dépend que de `state.onlineBookable` (2026-10-13) : un
+  // evento réservable n'en a jamais, que l'écran sache le configurer ou non — nier cette
+  // conjonction-ci l'affichait à tort sur les écrans socio et modération.
   const eventoReservableEnLinea = allowOnlineBookableConfig && state.onlineBookable;
   const showDetails = !section || section === "details";
   const showPricing = !section || section === "pricing";
@@ -186,7 +186,17 @@ export function EventoFields({
         </>
       ) : null}
 
-      {showPricing && !eventoReservableEnLinea ? (
+      {/* Evento réservable en ligne vu depuis un écran qui ne le configure pas (socio, modération) :
+          on le DIT, au lieu d'afficher un « Precio (texto libre) » vide. Ce champ-là n'a pas de sens
+          ici — `price_cop` fait foi — et ce qu'on y saisissait était écarté à l'approbation. */}
+      {showPricing && state.onlineBookable && !allowOnlineBookableConfig ? (
+        <p className="text-sm text-muted" data-testid="evento-online-bookable-note">
+          Evento reservable en línea: el precio, el aforo y el modo de pago los gestiona el equipo
+          de Hifago.
+        </p>
+      ) : null}
+
+      {showPricing && !state.onlineBookable ? (
         <TextField
           fullWidth
           name="price-label"
