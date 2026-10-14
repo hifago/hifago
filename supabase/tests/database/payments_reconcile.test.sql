@@ -10,7 +10,7 @@ $$;
 create function test_logout() returns void language sql as $$
   reset request.jwt.claims;
 $$;
-select plan(148);
+select plan(153);
 
 -- Fixtures ------------------------------------------------------------------------------------
 insert into partners (id, display_name) values
@@ -167,7 +167,9 @@ select is((select reconcile_order('88980000-0000-4000-8000-0000000000aa',
 -- 2 h 10 : au-delà du plafond D2 (2 h) mais sous la borne d'expiration forcée (2 h 30) — c'est la
 -- fenêtre où l'annulation MP est tentée et où l'expiration attend son résultat.
 select test_make_order('88980000-0000-4000-8000-0000000000ab', '88980000-0000-4000-8000-0000000000bb', 'pending', interval '2 hours 10 minutes', 'reserved', '2028-11-03');
-insert into payments (id, order_id, status, amount_cop, created_at) values ('88980000-0000-4000-8000-0000000000cb', '88980000-0000-4000-8000-0000000000ab', 'pending', 17000, now() - interval '2 hours 10 minutes');
+-- Le paiement porte son compte (le même que le jeton) : ce cas ne porte pas sur le contrôle d'identité
+-- (couvert par L1-L5), et la décision n'a alors aucun marqueur.
+insert into payments (id, order_id, status, amount_cop, created_at, mp_collector_id) values ('88980000-0000-4000-8000-0000000000cb', '88980000-0000-4000-8000-0000000000ab', 'pending', 17000, now() - interval '2 hours 10 minutes', 'coll-1');
 select is((select reconcile_order('88980000-0000-4000-8000-0000000000ab',
   jsonb_build_array(test_mp('88980000-0000-4000-8000-0000000000cb', 'mp-b5', 'pending', 17000, '2026-09-21T07:00:00Z')), now(), 'coll-1')),
   jsonb_build_object('action', 'cancel_at_mp', 'mp_cancel_ids', jsonb_build_array('mp-b5')),
@@ -223,7 +225,8 @@ select is((select failure_reason from payment_reconciliation_entries where mp_pa
 select is((select status from payments where id = '88980000-0000-4000-8000-0000000000c5'), 'cancelled', 'B9d : le paiement local est fermé (plus jamais réclamé)');
 select is((select payment_status from orders where id = '88980000-0000-4000-8000-0000000000a5'), 'unpaid', 'B9e : orders.payment_status unpaid — plus jamais « estamos confirmando »');
 select test_make_order('88980000-0000-4000-8000-0000000000af', '88980000-0000-4000-8000-0000000000bf', 'pending', interval '5 minutes', 'cancelled_by_client');
-insert into payments (id, order_id, status, amount_cop) values ('88980000-0000-4000-8000-0000000000cf', '88980000-0000-4000-8000-0000000000af', 'pending', 17000);
+-- Compte du paiement = celui du jeton : même raison que B5a.
+insert into payments (id, order_id, status, amount_cop, mp_collector_id) values ('88980000-0000-4000-8000-0000000000cf', '88980000-0000-4000-8000-0000000000af', 'pending', 17000, 'coll-1');
 select is((select reconcile_order('88980000-0000-4000-8000-0000000000af',
   jsonb_build_array(test_mp('88980000-0000-4000-8000-0000000000cf', 'mp-b10', 'pending', 17000)), now(), 'coll-1')),
   jsonb_build_object('action', 'closed', 'refund_flagged', false, 'mp_cancel_ids', jsonb_build_array('mp-b10')),
@@ -563,6 +566,37 @@ create temp table k7 as
   select apply_payment_webhook_checked('mp-k7', '88980000-0000-4000-8000-00000000d5c3', 'approved', null, jsonb_build_object('mp_payment_id', 'mp-k7')) as r;
 select is((select reason_code from payment_reconciliation_entries where mp_payment_id = 'mp-k7'), 'double_payment',
   'K7 : second paiement MP sans montant sur un paiement approuvé → double_payment, jamais amount_mismatch');
+
+-- L1-L5 (migration 20261014030249) : la décision dit si la garde d'identité a pu jouer. Commandes
+-- récentes, rien chez MP : `kept`, aucun autre effet. Sans compte enregistré → identity_checked =
+-- false ; compte enregistré et identique → la clé est absente.
+select test_make_order('88980000-0000-4000-8000-0000000c0de1', '88980000-0000-4000-8000-0000000c0de2', 'pending', interval '10 minutes');
+insert into payments (id, order_id, status, amount_cop) values
+  ('88980000-0000-4000-8000-0000000c0de3', '88980000-0000-4000-8000-0000000c0de1', 'pending', 17000);
+select test_make_order('88980000-0000-4000-8000-0000000c0de4', '88980000-0000-4000-8000-0000000c0de5', 'pending', interval '10 minutes');
+insert into payments (id, order_id, status, amount_cop, mp_collector_id) values
+  ('88980000-0000-4000-8000-0000000c0de6', '88980000-0000-4000-8000-0000000c0de4', 'pending', 17000, 'coll-1');
+create temp table i_results as
+  select 'reconcile_sans_compte' as k, reconcile_order('88980000-0000-4000-8000-0000000c0de1', '[]'::jsonb, now(), 'coll-1') as r
+  union all
+  select 'reconcile_compte', reconcile_order('88980000-0000-4000-8000-0000000c0de4', '[]'::jsonb, now(), 'coll-1')
+  union all
+  select 'reconcile_sans_jeton', reconcile_order('88980000-0000-4000-8000-0000000c0de4', '[]'::jsonb, now(), null)
+  union all
+  select 'surveillance_sans_compte', record_mp_payment_status('88980000-0000-4000-8000-0000000c0de3', '[]'::jsonb, now(), 'coll-1')
+  union all
+  select 'surveillance_compte', record_mp_payment_status('88980000-0000-4000-8000-0000000c0de6', '[]'::jsonb, now(), 'coll-1');
+select is((select r from i_results where k = 'reconcile_sans_compte'),
+  jsonb_build_object('action', 'kept', 'identity_checked', false),
+  'L1 : reconcile_order, paiement sans compte enregistré → la décision est prise, identity_checked = false');
+select is((select r from i_results where k = 'reconcile_compte'), jsonb_build_object('action', 'kept'),
+  'L2 : reconcile_order, compte enregistré et identique → aucun marqueur');
+select is((select r ->> 'identity_checked' from i_results where k = 'reconcile_sans_jeton'), 'false',
+  'L3 : reconcile_order sans compte du jeton (p_collector_id null) → identity_checked = false');
+select is((select r ->> 'identity_checked' from i_results where k = 'surveillance_sans_compte'), 'false',
+  'L4 : record_mp_payment_status, paiement sans compte enregistré → identity_checked = false');
+select ok(not ((select r from i_results where k = 'surveillance_compte') ? 'identity_checked'),
+  'L5 : record_mp_payment_status, compte enregistré et identique → aucun marqueur');
 
 select * from finish();
 rollback;

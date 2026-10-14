@@ -10,6 +10,7 @@ import {
   toggleCheckbox,
   webProductUrl,
 } from "@hifago/e2e-support";
+import { formatCop } from "@hifago/domain";
 import { slugify } from "../lib/utils";
 
 // Spec 11 — fusionne l'ancien admin-product-create.spec.ts (chemin heureux de création) et
@@ -172,11 +173,8 @@ test("admin crée une actividad avec tous les champs (i18n, lieu, foto, tramos, 
   await confirmAndContinue(page, "product-form-confirmation");
   await expect(page).toHaveURL(/\/admin\/establishments\/[0-9a-f-]{36}$/);
 
-  const formattedPrice = new Intl.NumberFormat("es", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(newPrice);
+  // Le format de l'écran (formatCop), jamais recopié ici.
+  const formattedPrice = formatCop(newPrice);
   await expect(page.getByText(formattedPrice)).toBeVisible();
 
   // Modifie une règle de créneau depuis le bloc édition dédié (spec 11, ProductSlotRulesBlock) —

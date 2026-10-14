@@ -20,7 +20,7 @@
 -- Le nom de produit de create_order (« recurso bloqueado ») est couvert par create_order.test.sql,
 -- cas 24k.
 begin;
-select plan(21);
+select plan(23);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -195,15 +195,31 @@ select ok(strpos((select body_html from notification_emails where event_type = '
                  'Último error: &lt;h1&gt;err&lt;/h1&gt; &amp; &#39;e&#39;.') > 0,
   'D1 : alerte du watchdog — dernier message d''erreur échappé');
 
+-- ── set_establishment_pms_connector : reprise puis coupure, au prestataire (20261014030722) ──
+set local role authenticated;
+select test_login('9a5c0000-0000-4000-8000-000000000001');
+select set_establishment_pms_connector('9a5c0000-0000-4000-8000-000000000012'::uuid, 'esc-token', true, 'reprise');
+select set_establishment_pms_connector('9a5c0000-0000-4000-8000-000000000012'::uuid, null, false, 'coupure');
+reset role;
+select ok(strpos((select body_html from notification_emails where event_type = 'partner_pms_connector_reactivated'
+                   and recipient_account_id = '9a5c0000-0000-4000-8000-000000000002'),
+                 '&lt;q&gt;Sitio&lt;/q&gt; &amp; co') > 0,
+  'C1 : reprise de la réservation en ligne — nom de l''établissement échappé');
+select ok(strpos((select body_html from notification_emails where event_type = 'partner_pms_connector_deactivated'
+                   and recipient_account_id = '9a5c0000-0000-4000-8000-000000000002'),
+                 '&lt;q&gt;Sitio&lt;/q&gt; &amp; co') > 0,
+  'C2 : coupure de la réservation en ligne — nom de l''établissement échappé');
+
 -- ── Méta-test du catalogue ───────────────────────────────────────────────
 -- Les commentaires -- sont retirés avant tout contrôle (un commentaire ne doit ni satisfaire ni
 -- déclencher une règle ; les /* */ ne le sont pas, voir l'en-tête). « Émet un e-mail HTML » = une balise littérale, OU un appel à
 -- enqueue_notification_email / notify_all_admins (attrape un corps construit sans balise
 -- littérale : format, chr, modèle lu en table). Liste blanche : fonctions qui n'interpolent AUCUNE
 -- valeur venue des données dans leur HTML (à justifier ici, une par une) :
---   - create_partner_invitation : URL du secret Vault et jeton généré (encode(gen_random_bytes)).
+--   - create_partner_invitation : URL du secret Vault et jeton généré (encode(gen_random_bytes)) ;
+--   - create_partner_direct : même corps, mêmes deux valeurs (20261014024303).
 create temp table liste_blanche_html (proname text primary key);
-insert into liste_blanche_html values ('create_partner_invitation');
+insert into liste_blanche_html values ('create_partner_invitation'), ('create_partner_direct');
 
 create temp view emetteurs_html as
   select p.proname::text as proname, p.prosecdef, d.def

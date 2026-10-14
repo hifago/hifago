@@ -91,8 +91,10 @@ export async function restoreHeartbeat(client, job, before) {
   await client.query("delete from job_heartbeats where job_name = $1", [job]);
   if (before) {
     await client.query(
-      "insert into job_heartbeats (job_name, last_run_at, last_ok_at, last_error, stats, alerted_at, created_at) values ($1, $2, $3, $4, $5, $6, $7)",
-      [before.job_name, before.last_run_at, before.last_ok_at, before.last_error, before.stats, before.alerted_at, before.created_at]
+      `insert into job_heartbeats (job_name, last_run_at, last_ok_at, last_error, stats, alerted_at, created_at, last_warning, last_warning_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [before.job_name, before.last_run_at, before.last_ok_at, before.last_error, before.stats, before.alerted_at, before.created_at,
+        before.last_warning ?? null, before.last_warning_at ?? null]
     );
   }
 }
