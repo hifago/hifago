@@ -167,7 +167,9 @@ select is((select reconcile_order('88980000-0000-4000-8000-0000000000aa',
 -- 2 h 10 : au-delà du plafond D2 (2 h) mais sous la borne d'expiration forcée (2 h 30) — c'est la
 -- fenêtre où l'annulation MP est tentée et où l'expiration attend son résultat.
 select test_make_order('88980000-0000-4000-8000-0000000000ab', '88980000-0000-4000-8000-0000000000bb', 'pending', interval '2 hours 10 minutes', 'reserved', '2028-11-03');
-insert into payments (id, order_id, status, amount_cop, created_at) values ('88980000-0000-4000-8000-0000000000cb', '88980000-0000-4000-8000-0000000000ab', 'pending', 17000, now() - interval '2 hours 10 minutes');
+-- Le paiement porte son compte (le même que le jeton) : ce cas ne porte pas sur le contrôle d'identité
+-- (couvert par L1-L5), et la décision n'a alors aucun marqueur.
+insert into payments (id, order_id, status, amount_cop, created_at, mp_collector_id) values ('88980000-0000-4000-8000-0000000000cb', '88980000-0000-4000-8000-0000000000ab', 'pending', 17000, now() - interval '2 hours 10 minutes', 'coll-1');
 select is((select reconcile_order('88980000-0000-4000-8000-0000000000ab',
   jsonb_build_array(test_mp('88980000-0000-4000-8000-0000000000cb', 'mp-b5', 'pending', 17000, '2026-09-21T07:00:00Z')), now(), 'coll-1')),
   jsonb_build_object('action', 'cancel_at_mp', 'mp_cancel_ids', jsonb_build_array('mp-b5')),
@@ -223,7 +225,8 @@ select is((select failure_reason from payment_reconciliation_entries where mp_pa
 select is((select status from payments where id = '88980000-0000-4000-8000-0000000000c5'), 'cancelled', 'B9d : le paiement local est fermé (plus jamais réclamé)');
 select is((select payment_status from orders where id = '88980000-0000-4000-8000-0000000000a5'), 'unpaid', 'B9e : orders.payment_status unpaid — plus jamais « estamos confirmando »');
 select test_make_order('88980000-0000-4000-8000-0000000000af', '88980000-0000-4000-8000-0000000000bf', 'pending', interval '5 minutes', 'cancelled_by_client');
-insert into payments (id, order_id, status, amount_cop) values ('88980000-0000-4000-8000-0000000000cf', '88980000-0000-4000-8000-0000000000af', 'pending', 17000);
+-- Compte du paiement = celui du jeton : même raison que B5a.
+insert into payments (id, order_id, status, amount_cop, mp_collector_id) values ('88980000-0000-4000-8000-0000000000cf', '88980000-0000-4000-8000-0000000000af', 'pending', 17000, 'coll-1');
 select is((select reconcile_order('88980000-0000-4000-8000-0000000000af',
   jsonb_build_array(test_mp('88980000-0000-4000-8000-0000000000cf', 'mp-b10', 'pending', 17000)), now(), 'coll-1')),
   jsonb_build_object('action', 'closed', 'refund_flagged', false, 'mp_cancel_ids', jsonb_build_array('mp-b10')),
