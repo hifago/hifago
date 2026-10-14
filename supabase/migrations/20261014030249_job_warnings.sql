@@ -21,6 +21,8 @@ alter table public.job_heartbeats
   add column last_warning_at timestamptz;
 comment on column public.job_heartbeats.last_warning is
   'Avertissement du dernier passage (ce qui s''est déroulé mais mérite d''être vu) ; effacé au premier passage sans avertissement.';
+comment on column public.job_heartbeats.last_warning_at is
+  'Instant du passage qui a posé last_warning ; effacé avec lui.';
 
 drop function public.heartbeat_job(text, boolean, jsonb, text);
 CREATE FUNCTION public.heartbeat_job(p_job text, p_ok boolean, p_stats jsonb DEFAULT '{}'::jsonb, p_error text DEFAULT NULL::text, p_warning text DEFAULT NULL::text)

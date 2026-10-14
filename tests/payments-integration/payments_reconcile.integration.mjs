@@ -349,10 +349,10 @@ async function main() {
         `stats : 2 appliquées, 2 expirées, 1 identité étrangère, 1 lue sans application (S10), remboursements 1/1, 0 erreur (${JSON.stringify(summary)})`],
       [summary?.ok === false && hb?.last_error === "identity_mismatch: MERCADOPAGO_ACCESS_TOKEN n'appartient pas au compte MP qui a créé les préférences (piège 19)",
         `ok=false, motif exact (${hb?.last_error})`],
-      // Une décision par commande réclamée, plus une par paiement surveillé ; S1 (compte identique) et
-      // S5 (compte étranger, refusé avant toute décision) ne sont pas comptées.
-      [summary?.identity_unchecked > 0 && summary?.identity_unchecked === summary?.claimed - 2 + summary?.watched,
-        `identity_unchecked = réclamées − 2 + surveillées (${summary?.identity_unchecked} = ${summary?.claimed} − 2 + ${summary?.watched})`],
+      // Réclamées : S1-S5, S9, S10 (7) ; surveillé : le paiement de S6 (1). S1 (compte identique) et
+      // S5 (compte étranger, refusé avant toute décision) ne sont pas comptées : 5 + 1 = 6.
+      [summary?.claimed === 7 && summary?.watched === 1 && summary?.identity_unchecked === 6,
+        `6 décisions sans compte encaisseur (réclamées ${summary?.claimed}, surveillées ${summary?.watched}, comptées ${summary?.identity_unchecked})`],
       [hb?.last_warning === `${summary?.identity_unchecked} décision(s) prise(s) sans contrôle d'identité Mercado Pago : compte encaisseur non enregistré à la création du paiement` &&
         summary?.warning === hb?.last_warning && hb?.last_warning_at !== null,
         `avertissement au heartbeat et dans la réponse, daté (${hb?.last_warning})`],
