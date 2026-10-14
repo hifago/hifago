@@ -119,7 +119,7 @@ lancer "Limite de paiement (TS, Deno, SQL)"          bash scripts/check-payment-
 # ⚠️ N'EST PAS redondant avec le job `functions` de la CI : `deno check` résout à la TypeScript et
 # passe au vert sur un import relatif sans extension, alors que le worker Edge, lui, ne boote pas
 # du tout (mesuré le 2026-09-17, BOOT_ERROR). Seul un boot réel — ou ce script — le révèle.
-lancer "Imports Deno (extension obligatoire)"        bash scripts/check-deno-imports.sh
+lancer "Imports Deno (extension, version exacte)"   bash scripts/check-deno-imports.sh
 
 # Depuis P6 (2026-10) — vérifié PAR MUTATION (rouge sur un nom de heartbeat différent du cron, un
 # Deno.serve direct, verify_jwt = false ou absent, une section orpheline, le garde retiré du

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Garde-fou automatique — tout module atteignable depuis une Edge Function importe AVEC extension.
+# Garde-fou automatique — tout module atteignable depuis une Edge Function importe AVEC extension,
+# et tout spécifieur `npm:` / `jsr:` de ce graphe porte une version EXACTE (x.y.z).
 #
 #   ./scripts/check-deno-imports.sh   (depuis hifago/)   — exit 1 si une faute est trouvée.
 #
@@ -23,8 +24,18 @@
 # serait désactivé dans la semaine. Un module devient surveillé le jour où une Edge Function
 # l'atteint — donc exactement quand ça compte.
 #
-# HORS PÉRIMÈTRE : `npm:`, `node:`, `jsr:`, `https:` et les bare specifiers (pas d'extension par
-# définition).
+# VERSION EXACTE (ajout du 2026-10-13). Le 07/10, le job CI `integration-edge` a rougi :
+# `send-notification-emails` en 503 `BOOT_ERROR`, quatre minutes après la publication de
+# `@supabase/supabase-js` 2.117.3 — la relance est passée au vert (propagation du registre, pas une
+# version cassée). Mais `npm:@supabase/supabase-js@2` est résolu au moment du `functions deploy` :
+# une version publiée cassée partirait en préprod ou en prod au déploiement suivant, sans qu'aucun
+# fichier du dépôt ait changé. Une version exacte rend le déploiement reproductible ; la monter
+# devient un commit, relu et passé en CI. Une plage (`@2`, `@^2.117.3`, `@~2.117`) ou un spécifieur
+# sans version est une faute, dans tout fichier du graphe ci-dessus.
+#
+# HORS PÉRIMÈTRE : l'extension des `npm:`, `node:`, `jsr:`, `https:` et des bare specifiers (pas
+# d'extension par définition) ; la version des `node:` (livrés avec le runtime) et des `https:`
+# (aucun dans le graphe à ce jour).
 set -uo pipefail
 
 racine="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -46,6 +57,7 @@ normaliser() {
 }
 
 fautes=()
+versions=()
 vus=" "
 file=()
 while IFS= read -r entree; do file+=("$entree"); done < <(ls supabase/functions/*/index.ts 2>/dev/null)
@@ -71,6 +83,16 @@ while [ ${#file[@]} -gt 0 ]; do
     esac
   done < <(grep -oE '(from|import)[[:space:]]+"\.\.?/[^"]*"' "$fichier" 2>/dev/null \
              | sed -E 's/.*"(.*)"/\1/')
+
+  # `from "npm:…"`, `import "npm:…"`, `import("npm:…")` — guillemets doubles ou simples.
+  while IFS= read -r specifieur; do
+    [ -n "$specifieur" ] || continue
+    if ! printf '%s' "$specifieur" \
+         | grep -qE '^(npm|jsr):(@[^/@]+/)?[^/@]+@[0-9]+\.[0-9]+\.[0-9]+(/.*)?$'; then
+      versions+=("$fichier → \"$specifieur\"")
+    fi
+  done < <(grep -oE "(from|import)[[:space:]]*\(?[[:space:]]*[\"'](npm|jsr):[^\"']*[\"']" "$fichier" 2>/dev/null \
+             | sed -E "s/.*[\"']((npm|jsr):[^\"']*)[\"']/\1/")
 done
 
 if [ ${#fautes[@]} -gt 0 ]; then
@@ -81,7 +103,18 @@ if [ ${#fautes[@]} -gt 0 ]; then
   echo
   echo '  Ajouter l extension : "./x" devient "./x.ts".'
   echo '  `deno check` ne voit PAS ce defaut (il resout a la TypeScript) — cf. l en-tete du script.'
-  exit 1
 fi
 
-echo "✓ Tous les modules atteignables depuis supabase/functions/ importent avec extension."
+if [ ${#versions[@]} -gt 0 ]; then
+  [ ${#fautes[@]} -gt 0 ] && echo
+  echo "✗ Spécifieurs npm:/jsr: SANS version exacte, atteignables depuis une Edge Function."
+  echo "  Une plage se résout au déploiement : une version publiée entre-temps partirait en prod."
+  echo
+  printf '  %s\n' "${versions[@]}"
+  echo
+  echo '  Épingler : "npm:paquet@2" devient "npm:paquet@2.117.3" (la version que la CI fait tourner).'
+fi
+
+[ ${#fautes[@]} -gt 0 ] || [ ${#versions[@]} -gt 0 ] && exit 1
+
+echo "✓ Modules atteignables depuis supabase/functions/ : imports avec extension, npm:/jsr: en version exacte."
