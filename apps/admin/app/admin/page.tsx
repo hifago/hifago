@@ -132,6 +132,9 @@ export default async function AdminHomePage({
         alertedAt: (job.alerted_at as string | null) ?? null,
         state: job.state,
         alertActive: job.alert_active === true,
+        // Colonnes ajoutées en fin par 20261014030249 : absentes d'une base antérieure → null.
+        lastWarning: (job.last_warning as string | null | undefined) ?? null,
+        lastWarningAt: (job.last_warning_at as string | null | undefined) ?? null,
       })),
       checkedAt: jobs[0]?.checked_at ?? null,
     };
