@@ -80,8 +80,10 @@ export function JoinForm({
     return ERROR_MESSAGES[reason ?? ""];
   }
 
+  // Reste sur l'invitation, sans le motif d'erreur de l'URL : la page se relit sans session.
   async function changerDeCompte() {
     await createClient().auth.signOut();
+    router.replace(`/partner/join?token=${encodeURIComponent(token ?? "")}`);
     router.refresh();
   }
 
@@ -185,7 +187,7 @@ export function JoinForm({
           </p>
         ) : null}
         {initialUser && invitedEmail ? (
-          <p className="text-sm text-muted" data-testid="join-invited-email">
+          <p className="text-sm text-muted" data-testid="join-invited-email-session">
             Esta invitación fue enviada a <span className="font-medium">{invitedEmail}</span>.
           </p>
         ) : null}

@@ -8,6 +8,7 @@ import { act, fireEvent, render } from "@testing-library/react";
 
 const state = vi.hoisted(() => ({
   push: vi.fn(),
+  replace: vi.fn(),
   refresh: vi.fn(),
   rpc: vi.fn(),
   signOut: vi.fn(async () => ({ error: null })),
@@ -18,7 +19,9 @@ const state = vi.hoisted(() => ({
 vi.mock("@hifago/supabase/client", () => ({
   createClient: () => ({ rpc: state.rpc, auth: { signOut: state.signOut } }),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: state.push, refresh: state.refresh }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: state.push, replace: state.replace, refresh: state.refresh }),
+}));
 vi.mock("@/components/GoogleButton", () => ({ OAuthSection: () => null }));
 vi.mock("./PartnerTermsModal", () => ({ PartnerTermsModal: () => null }));
 vi.mock("@hifago/ui", async (importOriginal) => ({
@@ -150,6 +153,7 @@ describe("JoinForm — invitation liée à son e-mail", () => {
     fetchMock.mockClear();
     state.push.mockClear();
     state.refresh.mockClear();
+    state.replace.mockClear();
     state.signOut.mockClear();
     state.rpc.mockReset();
     state.rpc.mockResolvedValue({ data: { ok: true }, error: null });
@@ -210,13 +214,14 @@ describe("JoinForm — invitation liée à son e-mail", () => {
     const { getByTestId } = render(
       <JoinForm token="jeton" initialUser={{ email: "otra@gmail.com", fullName: "Ana" }} invitedEmail={INVITEE} />
     );
-    expect(getByTestId("join-invited-email").textContent).toBe(`Esta invitación fue enviada a ${INVITEE}.`);
+    expect(getByTestId("join-invited-email-session").textContent).toBe(`Esta invitación fue enviada a ${INVITEE}.`);
     expect(getByTestId("join-wrong-account").getAttribute("role")).toBe("alert");
     await act(async () => {
       fireEvent.click(getByTestId("join-switch-account"));
     });
     expect(state.signOut).toHaveBeenCalledTimes(1);
-    expect(state.refresh).toHaveBeenCalledTimes(1);
+    // Reste sur l'invitation, sans le motif d'erreur.
+    expect(state.replace).toHaveBeenCalledWith("/partner/join?token=jeton");
     expect(state.push).not.toHaveBeenCalled();
   });
 

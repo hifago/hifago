@@ -136,6 +136,21 @@ describe("POST /api/auth/invitation-signup", () => {
 
   // Invitation envoyée par e-mail : la base refuse un compte à une autre adresse. Le compte créé
   // est défait comme pour tout refus après création — jamais un compte sans rôle.
+  it("adresse différente de l'invitation : 409 email_mismatch AVANT toute création de compte", async () => {
+    reponseCheck = { data: { ok: true, invited_email: "autre@ejemplo.co" }, error: null };
+    expect(await inscrire()).toEqual({ statut: 409, corps: { ok: false, reason: "email_mismatch" } });
+    expect(creations).toEqual([]);
+  });
+
+  it.each([
+    ["même adresse, casse et espaces différents", " Socio@Test.Local "],
+    ["simple lien (null)", null],
+  ])("invited_email %s : l'inscription continue", async (_cas, invited) => {
+    reponseCheck = { data: { ok: true, invited_email: invited }, error: null };
+    expect((await inscrire()).statut).toBe(200);
+    expect(creations).toHaveLength(1);
+  });
+
   it("refus email_mismatch de la consommation : 409, compte supprimé, session fermée", async () => {
     reponseConsume = { data: { ok: false, reason: "email_mismatch" }, error: null };
     expect(await inscrire()).toEqual({ statut: 409, corps: { ok: false, reason: "email_mismatch" } });
