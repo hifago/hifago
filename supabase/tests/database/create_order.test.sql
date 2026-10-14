@@ -1304,11 +1304,17 @@ select is(
 -- type dont la contrainte products_price_cop_required_unless_evento autorise un price_cop null.
 -- C'est donc le seul fixture capable d'atteindre le garde price_missing de Phase 3 — tout autre
 -- type serait refusé par la contrainte à l'insertion, avant même d'appeler create_order.
+-- Depuis la migration 20261014031656, un evento non réservable en ligne est refusé dès la Phase 1
+-- (not_sellable, ce que la vitrine ne vend pas en ligne) : le fixture est un evento RÉSERVABLE en
+-- ligne, sans prix, dont l'occurrence tombe le jour de la ligne.
 reset role;
-insert into products (id, partner_id, establishment_id, type, name, price_cop, sellable, slug) values
+insert into products (id, partner_id, establishment_id, type, name, price_cop, sellable, slug,
+                      online_bookable, evento_capacity_mode, evento_payment_mode, default_capacity,
+                      occurrence_type, occurrence_date) values
   ('88880000-0000-4000-8000-000000000046', '88880000-0000-4000-8000-000000000001',
    '88880000-0000-4000-8000-000000000011', 'evento',
-   jsonb_build_object('es', 'Evento Sin Precio'), null, true, 'order-test-evento-no-price');
+   jsonb_build_object('es', 'Evento Sin Precio'), null, true, 'order-test-evento-no-price',
+   true, 'metered', 'online', 5, 'once', '2028-12-25');
 insert into product_availability (product_id, date, capacity, booked) values
   ('88880000-0000-4000-8000-000000000046', '2028-12-25', 5, 0);
 set local role authenticated;
