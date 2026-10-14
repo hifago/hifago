@@ -15,10 +15,9 @@ import {
 } from "@hifago/ui";
 
 // Spec 17 §0 Tranche 1 (suite Tranche 2) — modify_order_line est admin-only et raise exception sur
-// chaque garde (même style que set_order_line_status, jamais un refus jsonb souple : un seul
-// appelant prévisible, cf. commentaire de tête de la migration). rpcError porte donc le message à
-// afficher pour CHAQUE cas, y compris la capacité insuffisante — pas de mapping de raisons ici,
-// contrairement à ChangeStatusDialog (dont la RPC, elle, renvoie un {ok:false, reason} structuré).
+// la plupart de ses gardes (même style que set_order_line_status) : rpcError porte alors le message,
+// y compris la capacité insuffisante. Trois refus métier arrivent pourtant en {ok:false, reason}
+// (20261006204938, 20261014211700) : MODIFY_FAILURE_MESSAGES, en bas de ce fichier, les traduit.
 //
 // initialEndDate non null ⇒ ligne à plage (alojamiento — la RPC ne distingue que par end_date pour
 // ce garde, cf. migration 20260817220400) : deux champs

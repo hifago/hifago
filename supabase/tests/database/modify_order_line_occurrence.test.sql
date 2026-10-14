@@ -29,12 +29,13 @@ select pid(n), pid('01'), pid('11'), 'evento', jsonb_build_object('es', 'Evento 
        case when n in ('21', '24') then 10 end, false, 'recurring', '2029-06-04', 7
   from unnest(array['21', '22', '23', '24']) n;
 insert into product_availability (product_id, date, capacity, booked) values
-  (pid('21'), '2029-06-04', 10, 1), (pid('24'), '2029-06-04', 10, 1);
+  (pid('21'), '2029-06-04', 10, 1), (pid('24'), '2029-06-04', 10, 1), (pid('24'), '2029-06-05', 10, 1);
 
 insert into orders (id, account_id, holder_name, holder_email) values
   (pid('41'), pid('32'), 'Holder Occurrence', 'modify-occurrence-buyer@test.local');
 -- 51 : vendue en ligne, evento en ligne. 52 : présence manuelle, evento informatif.
 -- 53 : vendue en ligne quand 23 l'était (il ne l'est plus). 54 : ligne manuelle, evento en ligne.
+-- 55 : vendue en ligne, déjà HORS date (le 5), comme laissée avant ce contrôle.
 insert into order_lines (
   id, order_id, account_id, product_id, date, qty, status, holder_name,
   price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
@@ -43,7 +44,8 @@ insert into order_lines (
   (pid('51'), pid('41'), pid('32'), pid('21'), '2029-06-04', 1, 'reserved', 'Holder', 30000, 30000, 'direct', 0, 0, 0, 0, 0, 0),
   (pid('52'), pid('41'), pid('32'), pid('22'), '2029-06-05', 1, 'reserved', 'Holder', 30000, 30000, 'operator_manual', 0, 0, 0, 0, 0, 0),
   (pid('53'), pid('41'), pid('32'), pid('23'), '2029-06-04', 1, 'reserved', 'Holder', 30000, 30000, 'direct', 0, 0, 0, 0, 0, 0),
-  (pid('54'), pid('41'), pid('32'), pid('24'), '2029-06-04', 1, 'reserved', 'Holder', 30000, 30000, 'operator_manual', 0, 0, 0, 0, 0, 0);
+  (pid('54'), pid('41'), pid('32'), pid('24'), '2029-06-04', 1, 'reserved', 'Holder', 30000, 30000, 'operator_manual', 0, 0, 0, 0, 0, 0),
+  (pid('55'), pid('41'), pid('32'), pid('24'), '2029-06-05', 1, 'reserved', 'Holder', 30000, 30000, 'direct', 0, 0, 0, 0, 0, 0);
 
 create temp table r (k text primary key, res jsonb);
 grant select, insert on r to authenticated;
@@ -66,7 +68,7 @@ select is(
 set local role authenticated;
 -- Un appel par instruction : chacun voit les écritures du précédent.
 insert into r values ('occurrence', modify_order_line(pid('51'), '2029-06-11', 1, 'Motivo'));
-insert into r values ('meme_date', modify_order_line((select (res->>'order_line_id')::uuid from r where k = 'occurrence'), '2029-06-11', 2, 'Motivo'));
+insert into r values ('meme_date', modify_order_line(pid('55'), '2029-06-05', 2, 'Motivo'));
 insert into r values ('informatif_manuelle', modify_order_line(pid('52'), '2029-06-06', 1, 'Motivo'));
 insert into r values ('informatif_vendue', modify_order_line(pid('53'), '2029-06-06', 1, 'Motivo'));
 insert into r values ('en_ligne_manuelle', modify_order_line(pid('54'), '2029-06-06', 1, 'Motivo'));
@@ -76,7 +78,8 @@ select is((select res->>'ok' from r where k = 'occurrence'), 'true', 'vers une o
 select is(
   (select date from order_lines where id = (select (res->>'order_line_id')::uuid from r where k = 'occurrence')),
   '2029-06-11'::date, 'la ligne de remplacement est au 11');
-select is((select res->>'ok' from r where k = 'meme_date'), 'true', 'même date, autre quantité : pas de contrôle d''occurrence');
+select is((select res->>'ok' from r where k = 'meme_date'), 'true',
+  'ligne tenue déjà hors date : changer sa seule quantité, à la même date, reste permis [mutation : contrôle sans « date changée »]');
 select is((select res->>'ok' from r where k = 'informatif_manuelle'), 'true',
   'evento informatif : une présence manuelle se déplace librement');
 select is((select res->>'reason' from r where k = 'informatif_vendue'), 'invalid_occurrence_date',
@@ -84,7 +87,8 @@ select is((select res->>'reason' from r where k = 'informatif_vendue'), 'invalid
 select is((select res->>'reason' from r where k = 'en_ligne_manuelle'), 'invalid_occurrence_date',
   'evento en ligne : une ligne manuelle est tenue aussi [mutation : sans « evento en ligne »]');
 select ok(
-  (select prosrc ~ 'for share' from pg_proc where proname = 'modify_order_line' and pronamespace = 'public'::regnamespace),
+  (select prosrc ~ 'select online_bookable into v_online_bookable\s+from public\.products where id = v_old_line\.product_id for share'
+     from pg_proc where proname = 'modify_order_line' and pronamespace = 'public'::regnamespace),
   'modify_order_line lit les occurrences sous verrou partagé de l''evento');
 
 select * from finish();
