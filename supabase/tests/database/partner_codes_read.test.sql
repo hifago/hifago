@@ -48,8 +48,8 @@ reset role;
 
 -- Contrat de la fonction : un booléen, jamais un ensemble ; DEFINER, STABLE, search_path vide ----
 select is(
-  (select prorettype::regtype::text || '|' || proretset || '|' || pg_get_function_identity_arguments(oid)
-          || '|' || prosecdef || '|' || provolatile || '|' || coalesce(array_to_string(proconfig, ','), '')
+  (select prorettype::regtype::text || '|' || proretset::text || '|' || pg_get_function_identity_arguments(oid)
+          || '|' || prosecdef::text || '|' || provolatile::text || '|' || coalesce(array_to_string(proconfig, ','), '')
      from pg_proc where oid = 'public.partner_code_is_active(text)'::regprocedure),
   'boolean|false|p_code text|true|s|search_path=""',
   'partner_code_is_active rend un booléen (jamais une liste), SECURITY DEFINER, STABLE, search_path vide'
