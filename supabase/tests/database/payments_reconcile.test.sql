@@ -10,7 +10,7 @@ $$;
 create function test_logout() returns void language sql as $$
   reset request.jwt.claims;
 $$;
-select plan(148);
+select plan(153);
 
 -- Fixtures ------------------------------------------------------------------------------------
 insert into partners (id, display_name) values
@@ -563,6 +563,37 @@ create temp table k7 as
   select apply_payment_webhook_checked('mp-k7', '88980000-0000-4000-8000-00000000d5c3', 'approved', null, jsonb_build_object('mp_payment_id', 'mp-k7')) as r;
 select is((select reason_code from payment_reconciliation_entries where mp_payment_id = 'mp-k7'), 'double_payment',
   'K7 : second paiement MP sans montant sur un paiement approuvé → double_payment, jamais amount_mismatch');
+
+-- I1-I5 (migration 20261014030249) : la décision dit si la garde d'identité a pu jouer. Commandes
+-- récentes, rien chez MP : `kept`, aucun autre effet. Sans compte enregistré → identity_checked =
+-- false ; compte enregistré et identique → la clé est absente.
+select test_make_order('88980000-0000-4000-8000-0000000c0de1', '88980000-0000-4000-8000-0000000c0de2', 'pending', interval '10 minutes');
+insert into payments (id, order_id, status, amount_cop) values
+  ('88980000-0000-4000-8000-0000000c0de3', '88980000-0000-4000-8000-0000000c0de1', 'pending', 17000);
+select test_make_order('88980000-0000-4000-8000-0000000c0de4', '88980000-0000-4000-8000-0000000c0de5', 'pending', interval '10 minutes');
+insert into payments (id, order_id, status, amount_cop, mp_collector_id) values
+  ('88980000-0000-4000-8000-0000000c0de6', '88980000-0000-4000-8000-0000000c0de4', 'pending', 17000, 'coll-1');
+create temp table i_results as
+  select 'reconcile_sans_compte' as k, reconcile_order('88980000-0000-4000-8000-0000000c0de1', '[]'::jsonb, now(), 'coll-1') as r
+  union all
+  select 'reconcile_compte', reconcile_order('88980000-0000-4000-8000-0000000c0de4', '[]'::jsonb, now(), 'coll-1')
+  union all
+  select 'reconcile_sans_jeton', reconcile_order('88980000-0000-4000-8000-0000000c0de4', '[]'::jsonb, now(), null)
+  union all
+  select 'surveillance_sans_compte', record_mp_payment_status('88980000-0000-4000-8000-0000000c0de3', '[]'::jsonb, now(), 'coll-1')
+  union all
+  select 'surveillance_compte', record_mp_payment_status('88980000-0000-4000-8000-0000000c0de6', '[]'::jsonb, now(), 'coll-1');
+select is((select r from i_results where k = 'reconcile_sans_compte'),
+  jsonb_build_object('action', 'kept', 'identity_checked', false),
+  'I1 : reconcile_order, paiement sans compte enregistré → la décision est prise, identity_checked = false');
+select is((select r from i_results where k = 'reconcile_compte'), jsonb_build_object('action', 'kept'),
+  'I2 : reconcile_order, compte enregistré et identique → aucun marqueur');
+select is((select r ->> 'identity_checked' from i_results where k = 'reconcile_sans_jeton'), 'false',
+  'I3 : reconcile_order sans compte du jeton (p_collector_id null) → identity_checked = false');
+select is((select r ->> 'identity_checked' from i_results where k = 'surveillance_sans_compte'), 'false',
+  'I4 : record_mp_payment_status, paiement sans compte enregistré → identity_checked = false');
+select ok(not ((select r from i_results where k = 'surveillance_compte') ? 'identity_checked'),
+  'I5 : record_mp_payment_status, compte enregistré et identique → aucun marqueur');
 
 select * from finish();
 rollback;
