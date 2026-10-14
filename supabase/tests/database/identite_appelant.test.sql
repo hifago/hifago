@@ -1,7 +1,8 @@
--- Fonctions d'identité lues sur l'appelant, sans paramètre (20261014204210, étape 1).
+-- Fonctions d'identité lues sur l'appelant, sans paramètre (20261014204210, puis 20261014204647 :
+-- versions à paramètre réservées aux fonctions SECURITY DEFINER).
 --
--- STRUCTUREL (garde de l'étape 2, qui retirera l'EXECUTE des versions à paramètre pour anon et
--- authenticated — un appel encore exécuté sous ces rôles casserait alors) : aucune policy de public
+-- STRUCTUREL (l'EXECUTE des versions à paramètre est retiré à anon et authenticated : un appel
+-- encore exécuté sous ces rôles casserait) : aucune policy de public
 -- ou de storage, aucune vue ne dépend d'une version à paramètre (pg_depend), et aucune fonction
 -- SECURITY INVOKER de public n'en appelle une. Les fonctions SECURITY DEFINER peuvent continuer :
 -- elles s'exécutent en propriétaire.
@@ -10,7 +11,7 @@
 -- en appelant, sous un compte X, la forme à paramètre pour un compte Y et la forme sans paramètre :
 -- elles répondent différemment, donc Postgres a bien choisi deux fonctions distinctes.
 begin;
-select plan(11);
+select plan(15);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -97,8 +98,23 @@ select is(
   jsonb_build_object('admin', false, 'partenaire', null, 'operator', false),
   'compte sans organisation : rien'
 );
--- Résolution : sous le compte sans organisation, la forme À PARAMÈTRE pour l'opérateur répond
--- « vrai », la forme sans paramètre « faux » — deux fonctions distinctes ont été choisies.
+-- Les versions à paramètre ne sont plus exécutables sous un rôle d'API.
+select throws_ok(
+  $$ select is_admin('ab000000-0000-4000-8000-000000000021'::uuid) $$,
+  '42501'::char(5), null,
+  'authenticated n''exécute plus is_admin(uuid)'
+);
+select throws_ok(
+  $$ select has_capability('ab000000-0000-4000-8000-000000000022'::uuid, 'operator') $$,
+  '42501'::char(5), null,
+  'authenticated n''exécute plus has_capability(uuid, text, uuid)'
+);
+
+-- Résolution, en propriétaire (seul rôle qui exécute encore les versions à paramètre), avec
+-- l'identité du compte sans organisation : la forme À PARAMÈTRE pour l'opérateur répond « vrai »,
+-- la forme sans paramètre « faux » — deux fonctions distinctes ont été choisies.
+reset role;
+select test_login('ab000000-0000-4000-8000-000000000023');
 select is(
   array[
     has_capability('ab000000-0000-4000-8000-000000000022'::uuid, 'operator', 'ab000000-0000-4000-8000-000000000011'::uuid),
@@ -114,7 +130,6 @@ select is(
   'résolution : is_admin(uuid) et is_admin() sont deux fonctions distinctes'
 );
 
-reset role;
 set local role anon;
 select set_config('request.jwt.claims', '', true);
 select is(
@@ -122,6 +137,11 @@ select is(
                      'referrer', has_capability('referrer'::text)),
   jsonb_build_object('admin', false, 'admin_cap', false, 'partenaire', null, 'referrer', false),
   'anon : les surcharges ne parlent que de lui (rien)'
+);
+select throws_ok(
+  $$ select partner_id_for_account('ab000000-0000-4000-8000-000000000022'::uuid) $$,
+  '42501'::char(5), null,
+  'anon n''exécute plus partner_id_for_account(uuid)'
 );
 reset role;
 
@@ -144,6 +164,19 @@ select is(
       and a.grantee = 0),
   0,
   'les quatre surcharges : rien pour PUBLIC'
+);
+
+select is(
+  (select count(*)::int
+     from pg_proc p
+    where p.oid in ('public.is_admin(uuid)'::regprocedure, 'public.has_admin_capability(uuid)'::regprocedure,
+                    'public.partner_id_for_account(uuid)'::regprocedure,
+                    'public.has_capability(uuid, text, uuid)'::regprocedure)
+      and (has_function_privilege('anon', p.oid, 'execute')
+           or has_function_privilege('authenticated', p.oid, 'execute')
+           or exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0))),
+  0,
+  'les quatre versions à paramètre : rien pour anon, authenticated ni PUBLIC'
 );
 
 select * from finish();
