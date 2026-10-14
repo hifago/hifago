@@ -13,9 +13,11 @@ type RpcError = { code?: string; message?: string; details?: string | null } | n
 export function eventoChangeRefusal(error: RpcError): string | null {
   if (!error) return null;
   if (error.code === "HF002" || error.message?.includes("occurrence_change_orphans_reservations")) {
-    return error.details
-      ? `No se puede guardar el cambio de fecha — ${error.details}.`
-      : "No se puede guardar el cambio de fecha: algunas reservas en curso quedarían fuera de las nuevas fechas.";
+    if (!error.details) {
+      return "No se puede guardar el cambio de fecha: algunas reservas en curso quedarían fuera de las nuevas fechas.";
+    }
+    // Plus de dix dates : la base termine la liste par « … », sans point derrière.
+    return `No se puede guardar el cambio de fecha — ${error.details}${error.details.endsWith("…") ? "" : "."}`;
   }
   if (error.message?.includes("capacity_flags_frozen_while_reserved")) {
     return "Este producto tiene reservas en curso: su conexión con LobbyPMS, su modo de cupo y su ocupación del recurso compartido no pueden cambiar hasta que se realicen o se cancelen.";

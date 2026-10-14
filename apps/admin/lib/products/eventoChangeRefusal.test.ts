@@ -14,6 +14,16 @@ describe("eventoChangeRefusal", () => {
     );
   });
 
+  it("HF002, liste tronquée par la base : pas de point après « … »", () => {
+    expect(
+      eventoChangeRefusal({
+        code: "HF002",
+        message: "occurrence_change_orphans_reservations",
+        details: "11 reservas en curso quedarían fuera de las nuevas fechas: 05/11/2026, …",
+      })
+    ).toBe("No se puede guardar el cambio de fecha — 11 reservas en curso quedarían fuera de las nuevas fechas: 05/11/2026, …");
+  });
+
   it("HF002 sans détail : une phrase complète quand même", () => {
     expect(eventoChangeRefusal({ code: "HF002", message: "occurrence_change_orphans_reservations" })).toBe(
       "No se puede guardar el cambio de fecha: algunas reservas en curso quedarían fuera de las nuevas fechas."
