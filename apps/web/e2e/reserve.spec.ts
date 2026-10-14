@@ -79,28 +79,32 @@ test("capacité épuisée entre l'ajout au panier et la validation → erreur cl
   await page.getByTestId("add-to-cart-button").click();
   await esperarRetornoTrasAgregar(page);
 
-  // Simule un autre acheteur qui prend les places restantes pendant que CE client remplit son
-  // formulaire de checkout. La vraie barrière anti-survente est désormais exclusivement
-  // create_order (au clic "Validar pedido") — l'ajout au panier lui-même est purement local
-  // (cf. lib/cart/CartContext.tsx) et ne fait plus aucun aller-retour réseau. Reproduire "tenter
-  // de dépasser la capacité restante" en ciblant directement une date déjà pleine dans le
-  // calendrier n'est plus possible : le bouton "Añadir al carrito" est désactivé dès que le
-  // cupo restant affiché est à 0 (rien à cliquer). Cette manipulation base directe est donc la
-  // façon réaliste de reproduire un dépassement de capacité découvert seulement au moment de la
-  // validation finale.
-  await setBooked(PRODUCT_ID, DATE, 2);
-
   await page.goto("/es/pago");
   await page.locator('input[name="holder-name"]').fill("Cliente E2E Reserve Full");
   await page.locator('input[name="holder-phone"]').fill("+57 300 111 3333");
   await page.locator('input[name="holder-email"]').fill("cliente.reserve.full@example.com");
+
+  // Simule un autre acheteur qui prend les places restantes pendant que CE client remplit son
+  // formulaire de checkout. La vraie barrière anti-survente est exclusivement create_order (au
+  // clic "Validar pedido"). Reproduire "tenter de dépasser la capacité restante" en ciblant
+  // directement une date déjà pleine dans le calendrier n'est pas possible : le bouton "Añadir al
+  // carrito" est désactivé dès que le cupo restant affiché est à 0 (rien à cliquer). Cette
+  // manipulation base directe est donc la façon réaliste de reproduire un dépassement de capacité
+  // découvert seulement au moment de la validation finale. Elle vient APRÈS l'affichage de /pago :
+  // avant, la page signalerait déjà la ligne (cart_lines_availability) et l'envoi serait fermé.
+  await setBooked(PRODUCT_ID, DATE, 2);
   await page.getByTestId("submit-order-button").click();
 
   // Message ciblé sur la VRAIE raison (« esta fecha ya está completa ») — même assertion que
-  // cart-multi-establishment.spec.ts. ⚠️ L'ancien marquage de la ligne fautive (`data-failed`) a
-  // disparu avec la spec 32 : régression CONNUE, arbitrée par Jérôme le 2026-09-15
-  // (docs/dette-technique.md) — ce test ne l'exige donc plus.
+  // cart-multi-establishment.spec.ts.
   await expect(page.getByTestId("checkout-error")).toContainText("completa");
+  // Le panier est relu après le refus : la ligne porte la même raison, et l'envoi reste fermé tant
+  // qu'elle y est (migration 20261014211217).
+  const ligneSignalee = page.locator('[data-testid^="cart-line-"][data-availability="unavailable"]');
+  await expect(ligneSignalee).toHaveCount(1);
+  await expect(ligneSignalee).toContainText("completa");
+  await expect(page.getByTestId("unavailable-lines-notice")).toBeVisible();
+  await expect(page.getByTestId("submit-order-button")).toBeDisabled();
   // Spec 33 — l'équivalent de l'ancien « pas d'écran de succès » : une commande refusée ne fait
   // PAS quitter le tunnel. Assertion plus forte que la précédente, qui se contentait de constater
   // l'absence d'un testid (et serait restée verte même si celui-ci disparaissait pour une autre
