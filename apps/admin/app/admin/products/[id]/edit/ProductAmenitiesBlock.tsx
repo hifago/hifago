@@ -1,6 +1,7 @@
 "use client";
 
 import { TagsMultiSelect, type TagOption } from "@/components/tags-multiselect";
+import { AMENITY_EDITOR } from "@/lib/amenities/editCatalogAmenity";
 import { useAssignmentToggle } from "@/components/use-assignment-toggle";
 
 // Bloc séparé du formulaire d'édition — même patron que ProductTagsBlock.tsx/ProductStatusBlock.tsx :
@@ -41,6 +42,9 @@ export function ProductAmenitiesBlock({
         selectedTagIds={selectedIds}
         onChange={handleChange}
         allowCreate={false}
+        // Liste fermée : jamais de création, mais renommer et supprimer, oui (admin seulement).
+        allowManage
+        manageEditor={AMENITY_EDITOR}
         label="Equipamiento"
         placeholder="Buscar equipamiento…"
         emptyMessage="Ningún equipamiento disponible."
