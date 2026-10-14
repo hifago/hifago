@@ -187,6 +187,15 @@ select is(
     where p.proname = 'create_order' and p.pronamespace = 'public'::regnamespace),
   'mêmes raisons ligne que create_order — une raison ajoutée là-bas sans copie ici fait rougir ce test');
 
+-- Cupos et créneaux des produits de ce fichier, relevés juste avant les seules lectures mesurées
+-- ci-dessous : les fixtures en portent déjà (créneau entamé, nuits), seul l'ÉCART compte. Rien
+-- d'autre n'écrit ces tables d'ici là.
+create function test_materialized() returns int language sql as $$
+  select (select count(*)::int from product_availability where product_id::text like 'b1c70000-%')
+       + (select count(*)::int from product_slot_availability where product_id::text like 'b1c70000-%');
+$$;
+create temp table test_mat as select test_materialized() as before;
+
 set local role authenticated;
 select test_login('b1c70000-0000-4000-8000-000000000031');
 
@@ -201,11 +210,8 @@ select is(
   (select count(*)::int from cart_lines_availability()), 2,
   'seulement les lignes de l''appelant (un autre compte a une ligne au même produit)');
 reset role;
-select is(
-  (select count(*)::int from product_availability where product_id = 'b1c70000-0000-4000-8000-000000000021')
-    + (select count(*)::int from product_slot_availability where product_id = 'b1c70000-0000-4000-8000-000000000028'),
-  0,
-  'rien de matérialisé : ni cupo ni créneau écrit');
+select is(test_materialized() - (select before from test_mat), 0,
+  'rien de matérialisé : aucun cupo ni créneau écrit par ces deux lectures (écart mesuré autour d''elles seules)');
 set local role authenticated;
 select set_config('request.jwt.claims', '{}', true);
 select is((select count(*)::int from cart_lines_availability()), 0, 'sans identité : aucune ligne');
