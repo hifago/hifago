@@ -1,12 +1,12 @@
 -- Codes partenaires : un code se vérifie à l'unité, la lecture des lignes est limitée à leur
--- propriétaire et à l'admin (20261014025905, étape additive).
+-- propriétaire et à l'admin (20261014025905 puis 20261014073414).
 --
 -- La fonction partner_code_is_active ne rend qu'un booléen « existe et actif » : jamais une ligne,
--- une liste ni un partenaire. Les deux policies de lecture (propriétaire, admin) sont posées ici ;
--- leur comportement isolé se prouve à l'étape 2, une fois la lecture publique retirée (tant qu'elle
--- existe, les policies se cumulent et tout le monde lit tout).
+-- une liste ni un partenaire. Les lignes de partner_codes ne se lisent plus que par leur
+-- propriétaire (son organisation) et par l'admin ; anon n'a plus aucun accès à la table. Les comptes
+-- sont SCOPÉS aux codes de ce fichier (préfixe CODLECT-), jamais en absolu.
 begin;
-select plan(8);
+select plan(15);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -20,9 +20,16 @@ insert into partner_codes (code, partner_id, active) values
   ('CODLECT-A-OFF', 'a6000000-0000-4000-8000-000000000001', false),
   ('CODLECT-B', 'a6000000-0000-4000-8000-000000000002', true);
 insert into auth.users (id, email) values
-  ('a6000000-0000-4000-8000-000000000021', 'codes-lectura-a@test.local');
+  ('a6000000-0000-4000-8000-000000000021', 'codes-lectura-a@test.local'),
+  ('a6000000-0000-4000-8000-000000000022', 'codes-lectura-b@test.local'),
+  ('a6000000-0000-4000-8000-000000000023', 'codes-lectura-admin@test.local'),
+  ('a6000000-0000-4000-8000-000000000024', 'codes-lectura-cliente@test.local');
 update partner_accounts set partner_id = 'a6000000-0000-4000-8000-000000000001'
  where id = 'a6000000-0000-4000-8000-000000000021';
+update partner_accounts set partner_id = 'a6000000-0000-4000-8000-000000000002'
+ where id = 'a6000000-0000-4000-8000-000000000022';
+insert into partner_capabilities (account_id, role, source, status) values
+  ('a6000000-0000-4000-8000-000000000023', 'admin', 'migration', 'active');
 
 -- Vérification à l'unité, sans compte ------------------------------------------------------------
 set local role anon;
@@ -79,6 +86,59 @@ select ok(
       and policyname in ('partner_codes_select_admin', 'partner_codes_select_own')),
   'propriétaire : partner_id = son organisation ; admin : is_admin — prédicats enveloppés en ( SELECT … )'
 );
+
+-- Lecture des lignes : aucune pour anon, son organisation pour un partenaire, tout pour l'admin ---
+select is(
+  array[
+    has_table_privilege('anon', 'public.partner_codes', 'select'),
+    has_table_privilege('authenticated', 'public.partner_codes', 'select')
+  ],
+  array[false, true],
+  'partner_codes : aucun SELECT pour anon ; authenticated filtré par les policies'
+);
+select is(
+  (select string_agg(policyname, ', ' order by policyname)
+     from pg_policies
+    where schemaname = 'public' and tablename = 'partner_codes' and cmd in ('SELECT', 'ALL')),
+  'partner_codes_select_admin, partner_codes_select_own',
+  'les seules policies de lecture de partner_codes sont celles du propriétaire et de l''admin (plus de lecture publique)'
+);
+
+set local role anon;
+select set_config('request.jwt.claims', '', true);
+select throws_ok(
+  $$ select code from partner_codes where code like 'CODLECT-%' $$,
+  '42501'::char(5), null,
+  'anon ne lit aucune ligne de partner_codes (permission refusée)'
+);
+reset role;
+
+set local role authenticated;
+select test_login('a6000000-0000-4000-8000-000000000021');
+select is(
+  (select array_agg(code order by code) from partner_codes where code like 'CODLECT-%'),
+  array['CODLECT-A', 'CODLECT-A-OFF'],
+  'le partenaire A lit ses codes (actifs ou non) et jamais ceux de B'
+);
+select test_login('a6000000-0000-4000-8000-000000000022');
+select is(
+  (select array_agg(code order by code) from partner_codes where code like 'CODLECT-%'),
+  array['CODLECT-B'],
+  'le partenaire B ne lit que le sien'
+);
+select test_login('a6000000-0000-4000-8000-000000000024');
+select is(
+  (select count(*)::int from partner_codes where code like 'CODLECT-%'),
+  0,
+  'un compte sans organisation (client) ne lit aucun code'
+);
+select test_login('a6000000-0000-4000-8000-000000000023');
+select is(
+  (select array_agg(code order by code) from partner_codes where code like 'CODLECT-%'),
+  array['CODLECT-A', 'CODLECT-A-OFF', 'CODLECT-B'],
+  'l''admin lit tous les codes'
+);
+reset role;
 
 select * from finish();
 rollback;

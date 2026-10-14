@@ -40,13 +40,15 @@ select is(
   (select count(*) from partner_invitations where promo_code = 'TEST-NONADMIN')::int, 0,
   'aucune invitation créée par un appel refusé'
 );
+-- Compté sous l'admin : depuis 20261014073414, un non-admin ne lit plus aucun code — un comptage
+-- sous son identité vaudrait 0 même si l'appel refusé en avait créé un.
+select test_login('33330000-0000-4000-8000-000000000001');
 select is(
   (select count(*) from partner_codes where code = 'TEST-NONADMIN')::int, 0,
   'aucun code créé non plus par un appel refusé'
 );
 
 -- onboarding_path invalide (même en admin) → exception, rien créé -----------------------------
-select test_login('33330000-0000-4000-8000-000000000001');
 select throws_ok(
   $$ select create_partner_invitation('TEST-BADPATH', 'bogus') $$,
   null, 'onboarding_path invalide : bogus',
