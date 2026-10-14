@@ -198,6 +198,8 @@ run vire au rouge sans faute réelle.
 - `check-deno-imports.sh` — seul script à utiliser des tableaux bash sous `set -u` : deux idiomes y sont fatals en bash 3.2 (le `/bin/bash` de macOS) et légaux depuis 4.4. Inoffensif sur la forme actuelle du dépôt, et ne pourrait casser qu'en LOCAL, jamais en CI (Ubuntu a bash 5.x).
 - `check-i18n-links.sh` / `check-tokens.sh` / `check-data-layer.sh` — parcourent l'arbre 3, 2 et 2 fois respectivement (une passe par règle), soit ~2 700 `fork` de `perl`+`grep`. Factoriser en une seule traversée rendrait `npm run verify` sensiblement plus rapide.
 
+- `db-row-counts.sh --compare` (job `concurrence`) — **s'est déclenché le 2026-10-09** (PR #77) : `job_heartbeats` 1 → 6, écrit par les crons de la pile locale de la CI (toutes les 2/5/10/15 min, réunis à 00:00 UTC), pas par les tests. Faux rouge lié à l'heure ; une relance passe. Correctif à décider : exclure `job_heartbeats` du comptage, ou couper les crons pendant le job.
+
 ## Faits déplacés du backlog le 2026-09-20
 Même motif que les déplacements précédents : `docs/backlog.md` à 59/60 lignes. Un fait à ne pas
 re-découvrir, pas un arbitrage.
