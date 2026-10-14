@@ -16,9 +16,9 @@ import {
   toast,
 } from "@hifago/ui";
 import { mountAddressAutocomplete } from "@/components/address-autocomplete";
+import { COMMERCIAL_STATUS_LABELS, type CommercialStatus } from "@/lib/partners/crmProfile";
 
 type BankMethod = "none" | "bancolombia" | "nequi";
-type CommercialStatus = "prospecto" | "activo" | "inactivo" | "pausa";
 // Miroir local du type Json généré par Supabase (packages/supabase/src/database.types.ts) — pas
 // réexporté par client.ts/server.ts, redéfini ici plutôt que d'élargir le barrel pour un seul
 // usage.
@@ -29,13 +29,7 @@ type CreatePartnerResult = {
   partner_id?: string;
   invitation_id?: string;
   invitation_token?: string;
-};
-
-const COMMERCIAL_STATUS_LABELS: Record<CommercialStatus, string> = {
-  prospecto: "Prospecto",
-  activo: "Activo",
-  inactivo: "Inactivo",
-  pausa: "En pausa",
+  invitation_email_enqueued?: boolean;
 };
 
 export function NewPartnerForm() {
@@ -77,6 +71,8 @@ export function NewPartnerForm() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [invitationLink, setInvitationLink] = useState<string | null>(null);
+  // Adresse à qui l'invitation est partie par e-mail (20261014024303) ; null = lien à transmettre à la main.
+  const [invitationEmailedTo, setInvitationEmailedTo] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const addressSearchRef = useRef<HTMLDivElement | null>(null);
@@ -196,6 +192,7 @@ export function NewPartnerForm() {
     toast.success("Partner creado.");
 
     if (result.invitation_token) {
+      setInvitationEmailedTo(result.invitation_email_enqueued ? email.trim() : null);
       setInvitationLink(`${window.location.origin}/partner/join?token=${result.invitation_token}`);
       return;
     }
@@ -214,6 +211,11 @@ export function NewPartnerForm() {
     return (
       <div className="flex max-w-md flex-col gap-4">
         <p className="text-sm text-success">Partner creado correctamente.</p>
+        <p className="text-sm" data-testid="invitation-email-status">
+          {invitationEmailedTo
+            ? `La invitación sale por email a ${invitationEmailedTo} en los próximos minutos.`
+            : "Sin email: comparte este enlace con el socio (por WhatsApp, por ejemplo)."}
+        </p>
         <p className="text-sm text-muted">
           Este enlace solo se muestra una vez — cópialo ahora, no podrás recuperarlo después (solo
           su hash queda guardado).
@@ -501,7 +503,8 @@ export function NewPartnerForm() {
             <Checkbox.Control>
               <Checkbox.Indicator />
             </Checkbox.Control>
-            Enviar invitación de conexión (requiere un código de atribución)
+            Enviar invitación de conexión — por email si indicas uno, el enlace se muestra siempre
+            (requiere un código de atribución)
           </Checkbox.Content>
         </Checkbox>
       </fieldset>
