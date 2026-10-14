@@ -673,6 +673,8 @@ export type Database = {
           last_error: string | null
           last_ok_at: string | null
           last_run_at: string | null
+          last_warning: string | null
+          last_warning_at: string | null
           stats: Json
         }
         Insert: {
@@ -682,6 +684,8 @@ export type Database = {
           last_error?: string | null
           last_ok_at?: string | null
           last_run_at?: string | null
+          last_warning?: string | null
+          last_warning_at?: string | null
           stats?: Json
         }
         Update: {
@@ -691,6 +695,8 @@ export type Database = {
           last_error?: string | null
           last_ok_at?: string | null
           last_run_at?: string | null
+          last_warning?: string | null
+          last_warning_at?: string | null
           stats?: Json
         }
         Relationships: []
@@ -2580,6 +2586,8 @@ export type Database = {
           last_error: string
           last_ok_at: string
           last_run_at: string
+          last_warning: string
+          last_warning_at: string
           stale_after_minutes: number
           state: string
         }[]
@@ -3003,7 +3011,13 @@ export type Database = {
         Returns: number
       }
       heartbeat_job: {
-        Args: { p_error?: string; p_job: string; p_ok: boolean; p_stats?: Json }
+        Args: {
+          p_error?: string
+          p_job: string
+          p_ok: boolean
+          p_stats?: Json
+          p_warning?: string
+        }
         Returns: undefined
       }
       html_text: { Args: { p_value: string }; Returns: string }

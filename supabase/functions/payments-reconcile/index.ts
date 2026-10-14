@@ -80,6 +80,9 @@ interface MpItem {
 interface Decision {
   action: string;
   mp_cancel_ids?: string[];
+  /** Faux quand la garde d'identité n'a pas pu jouer (paiement sans compte enregistré) — la décision
+   *  est prise quand même (arbitrage du 2026-10-14), le passage le signale. */
+  identity_checked?: boolean;
 }
 interface ClaimedRefund {
   refund_id: string;
@@ -122,6 +125,8 @@ serveJob("payments-reconcile", async (ctx): Promise<JobOutcome> => {
     closed: 0,
     cancel_attempts: 0,
     identity_mismatch: 0,
+    /** Décisions prises sans contrôle d'identité (paiement sans mp_collector_id) : avertissement. */
+    identity_unchecked: 0,
     watched: 0,
     refunds_claimed: 0,
     refunds_approved: 0,
@@ -199,6 +204,8 @@ serveJob("payments-reconcile", async (ctx): Promise<JobOutcome> => {
   }
 
   let identityMismatch = false;
+  // Les décisions prises sans contrôle d'identité, nommées par leurs id (jamais le payeur).
+  const unchecked: string[] = [];
 
   // ---- 1. Commandes candidates -------------------------------------------------------------
   const { data: batch, error: claimError } = await supabase.rpc("claim_orders_to_reconcile", { p_limit: limit });
@@ -235,6 +242,10 @@ serveJob("payments-reconcile", async (ctx): Promise<JobOutcome> => {
       });
       if (rpcError) throw rpcError;
       const decision = (data ?? { action: "kept" }) as Decision;
+      if (decision.identity_checked === false) {
+        stats.identity_unchecked++;
+        unchecked.push(`commande ${order.order_id}`);
+      }
 
       switch (decision.action) {
         case "applied":
@@ -363,6 +374,10 @@ serveJob("payments-reconcile", async (ctx): Promise<JobOutcome> => {
           p_collector_id: collectorId,
         });
         if (recError) throw recError;
+        if ((watchData as Decision | null)?.identity_checked === false) {
+          stats.identity_unchecked++;
+          unchecked.push(`paiement ${w.payment_id}`);
+        }
         if ((watchData as Decision | null)?.action === "identity_mismatch") {
           stats.identity_mismatch++;
           identityMismatch = true;
@@ -448,8 +463,18 @@ serveJob("payments-reconcile", async (ctx): Promise<JobOutcome> => {
     }
   }
 
+  if (unchecked.length > 0) {
+    console.warn(
+      `payments-reconcile : ${unchecked.length} décision(s) sans contrôle d'identité Mercado Pago (compte non enregistré à la création) — ${unchecked.join(", ")}`
+    );
+  }
+
   return {
     ok: !identityMismatch && stats.errors === 0,
+    warning:
+      unchecked.length > 0
+        ? `${unchecked.length} décision(s) prise(s) sans contrôle d'identité Mercado Pago : compte encaisseur non enregistré à la création du paiement`
+        : null,
     error: identityMismatch
       ? "identity_mismatch: MERCADOPAGO_ACCESS_TOKEN n'appartient pas au compte MP qui a créé les préférences (piège 19)"
       : stats.errors > 0
