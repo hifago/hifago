@@ -8,6 +8,15 @@ export function buildWhatsAppLink(digitsOrRaw: string, message: string): string 
   return `https://wa.me/${digitsOrRaw}?text=${encodeURIComponent(message)}`;
 }
 
+// Messages pré-remplis du support de l'espace socio. Ils ne nomment personne (arbitrage de Gabriel,
+// au nom de Jérôme) : le numéro est celui de l'équipe, pas d'une personne.
+export const SUPPORT_ACCOUNT_MESSAGE =
+  "Hola equipo Hifago, tengo un problema con mi cuenta de socio. ¿Me pueden ayudar?";
+
+export function supportReferralCodeMessage(code: string): string {
+  return `Hola equipo Hifago, soy "${code}", tengo un problema con mi enlace/QR de venta. ¿Me pueden ayudar?`;
+}
+
 // Normalisation heuristique d'un numéro CLIENT (order_lines.holder_phone, texte libre saisi au
 // checkout, jamais validé/formaté en base) — retourne null si rien d'exploitable après nettoyage,
 // pour ne jamais rendre un bouton mort plutôt que de générer un lien wa.me cassé. Best-effort : un
