@@ -150,7 +150,13 @@ select is(
         -- conviennent pas ici (le premier REFUSE l'anonyme, l'inverse du besoin voulu). Ne renvoie
         -- que id/reference/access_token/statuts d'un compte, filtrés sur account_id = auth.uid() :
         -- même garantie qu'accepter un visiteur anonyme est le comportement voulu que create_order.
-        'list_pending_orders_for_viewer'
+        'list_pending_orders_for_viewer',
+        -- Ajoutée le 2026-10-14 (migration 20261014211217) : le panier d'un invité en session
+        -- anonyme est légitime (spec 31/32), cart_lines_availability doit donc lui répondre. Lit
+        -- uniquement les lignes cart_items de auth.uid() et rend, pour chacune, la raison que
+        -- create_order — lui-même dans cette liste — rendrait : aucune donnée d'autrui, aucune
+        -- écriture, aucun verrou.
+        'cart_lines_availability'
         -- ⚠️ 'cancel_order' RETIRÉE le 2026-09-11 (spec 34 décision ⑩) : la fonction est droppée
         -- (20260911120000), et sa remplaçante `cancel_order_line` n'a besoin d'aucune entrée ici
         -- — elle appelle `is_anonymous_session()`, donc elle se défend elle-même et le filtre

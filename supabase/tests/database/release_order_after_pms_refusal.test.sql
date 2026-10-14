@@ -7,13 +7,15 @@
 --   - les bookings Lobby déjà créés dans la même commande partent en file d'annulation, via le
 --     trigger existant — la chaîne de compensation ne doit pas avoir été cassée ;
 --   - un second appel ne rend pas les places une seconde fois ;
---   - la fonction n'est PAS exécutable par un client (elle rend des places : monnayable).
+--   - la fonction n'est PAS exécutable par un client (elle rend des places : monnayable) ;
+--   - migration 20261014211217 : les lignes relâchées reviennent dans le panier du client, sans doublon,
+--     avec l'attribution du panier d'origine (jamais 'account') ; jamais pour une commande payée.
 --
 -- ⚠️ Ce fichier ne teste PAS la concurrence (pgTAP tourne dans une transaction annulée, cf.
 -- hifago/CLAUDE.md §6.3) : le verrou `for update` sur orders, partagé avec
 -- expire_stale_payment_orders, relève de tests/concurrency/.
 begin;
-select plan(18);
+select plan(25);
 
 -- Fixtures dédiées, jamais un enregistrement seedé partagé (AGENTS-PARALLELES point 5).
 insert into partners (id, display_name) values
@@ -131,6 +133,28 @@ select is(
   'toutes les lignes passent en cancelled_by_provider'
 );
 
+-- Migration 20261014211217 : create_order avait vidé le panier ; le refus le rend, ligne pour ligne.
+select is(
+  (select jsonb_agg(jsonb_build_array(product_id, date, end_date, qty) order by product_id)
+     from cart_items where account_id = '9a930000-0000-4000-8000-000000000021'),
+  jsonb_build_array(
+    jsonb_build_array('9a930000-0000-4000-8000-000000000031', '2028-09-01', '2028-09-03', 2),
+    jsonb_build_array('9a930000-0000-4000-8000-000000000032', '2028-09-01', '2028-09-03', 1),
+    jsonb_build_array('9a930000-0000-4000-8000-000000000033', '2028-09-01', null, 3)),
+  'le panier revient : les trois lignes relâchées, mêmes dates, mêmes quantités'
+);
+select is(
+  (select jsonb_build_object('code', attribution_code, 'source', attribution_source)
+     from carts where account_id = '9a930000-0000-4000-8000-000000000021'),
+  jsonb_build_object('code', null, 'source', null),
+  'le panier est recréé (commande sans attribution : aucune)'
+);
+select is(
+  (select count(distinct created_at)::int from cart_items where account_id = '9a930000-0000-4000-8000-000000000021'),
+  3,
+  'chaque ligne rendue a son propre created_at : l''ordre du panier reste déterminé'
+);
+
 -- La chaîne de compensation existante ne doit pas avoir été cassée : le trigger
 -- order_lines_enqueue_pms_cancellation met en file le booking qui ne porte plus aucune ligne vivante.
 select is(
@@ -144,6 +168,11 @@ select is(
   (select (public.release_order_after_pms_refusal((select id from orders where holder_email = 'release@test.local'), 'rejeu'))->>'released_lines')::int,
   0,
   'un second appel ne relâche rien et ne rend donc rien deux fois'
+);
+select is(
+  (select count(*)::int from cart_items where account_id = '9a930000-0000-4000-8000-000000000021'),
+  3,
+  'rejeu : le panier n''est pas rempli une seconde fois'
 );
 
 
@@ -206,6 +235,15 @@ select is(
   jsonb_build_object('commande', 'unpaid', 'paiement', 'cancelled', 'place', 0),
   'commande pending relâchée : unpaid, paiement cancelled, place rendue'
 );
+select is(
+  (select jsonb_build_object(
+     'payée', (select count(*)::int from cart_items
+                where account_id = '9a930000-0000-4000-8000-000000000021' and product_id = '9a930000-0000-4000-8000-000000000033' and date = '2028-09-20'),
+     'pending', (select count(*)::int from cart_items
+                  where account_id = '9a930000-0000-4000-8000-000000000021' and product_id = '9a930000-0000-4000-8000-000000000033' and date = '2028-09-21'))),
+  jsonb_build_object('payée', 0, 'pending', 1),
+  'panier : rien pour la commande payée (intacte), la ligne de la commande pending revient'
+);
 
 -- Revue adversariale : connecteur coupé ENTRE le claim et le relâchement — le booking déjà créé
 -- chez Lobby doit partir en file quand même. Jusqu'à la migration 20261003223900, le trigger
@@ -228,6 +266,12 @@ insert into order_lines (
    '9a930000-0000-4000-8000-000000000032', '2028-10-05', '2028-10-06', 1, 'reserved', null, 'Holder Refunded',
    100000, 100000, 'direct', 0.17, 0, 0.17, 17000, 0, 17000);
 update establishments set lobby_connector_active = false where id = '9a930000-0000-4000-8000-000000000011';
+-- Le client a déjà remis cette nuit dans son panier, rouvert avec sa propre attribution.
+insert into partner_codes (code) values ('REL-QR'), ('REL-LINK'), ('REL-ACC');
+update orders set attribution_code = 'REL-LINK', attribution_source = 'link' where id = '9a930000-0000-4000-8000-000000000073';
+update carts set attribution_code = 'REL-QR', attribution_source = 'qr' where account_id = '9a930000-0000-4000-8000-000000000021';
+insert into cart_items (account_id, product_id, date, end_date, qty) values
+  ('9a930000-0000-4000-8000-000000000021', '9a930000-0000-4000-8000-000000000032', '2028-10-01', '2028-10-03', 1);
 set local role service_role;
 select is(
   (select (public.release_order_after_pms_refusal('9a930000-0000-4000-8000-000000000073', 'refus, connecteur coupé'))->>'released_lines')::int,
@@ -240,9 +284,51 @@ select is(
   'connecteur coupé : le booking de la ligne relâchée part QUAND MÊME en file d''annulation'
 );
 select is(
+  (select jsonb_build_object(
+     'lignes', (select count(*)::int from cart_items
+                 where account_id = '9a930000-0000-4000-8000-000000000021' and product_id = '9a930000-0000-4000-8000-000000000032' and date = '2028-10-01'),
+     'attribution', (select attribution_code from carts where account_id = '9a930000-0000-4000-8000-000000000021'))),
+  jsonb_build_object('lignes', 1, 'attribution', 'REL-QR'),
+  'ligne identique déjà dans le panier : pas de doublon ; panier rouvert : il garde son attribution'
+);
+select is(
   (select public.release_order_after_pms_refusal('9a930000-0000-4000-8000-000000000074', 'refus après remboursement')->>'reason'),
   'order_paid',
   'commande remboursée → order_paid, rien n''est défait (I3)'
+);
+
+-- Attribution : celle du panier d'origine revient (qr, link) ; 'account' jamais — create_order la
+-- relit sur partner_accounts. Deux clients sans panier ouvert.
+reset role;
+insert into auth.users (id, email) values
+  ('9a930000-0000-4000-8000-000000000022', 'release-link@test.local'),
+  ('9a930000-0000-4000-8000-000000000023', 'release-account@test.local');
+update product_availability set booked = 2
+ where product_id = '9a930000-0000-4000-8000-000000000033' and date = '2028-09-21';
+insert into orders (id, account_id, holder_name, holder_email, payment_status, attribution_code, attribution_source) values
+  ('9a930000-0000-4000-8000-000000000075', '9a930000-0000-4000-8000-000000000022', 'Holder Link', 'release-link@test.local', 'unpaid', 'REL-LINK', 'link'),
+  ('9a930000-0000-4000-8000-000000000076', '9a930000-0000-4000-8000-000000000023', 'Holder Account', 'release-account@test.local', 'unpaid', 'REL-ACC', 'account');
+insert into order_lines (
+  id, order_id, account_id, product_id, date, qty, status, holder_name,
+  price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
+  acompte_cop, referrer_commission_cop, app_commission_cop
+) values
+  ('9a930000-0000-4000-8000-000000000085', '9a930000-0000-4000-8000-000000000075', '9a930000-0000-4000-8000-000000000022',
+   '9a930000-0000-4000-8000-000000000033', '2028-09-21', 1, 'reserved', 'Holder Link',
+   50000, 50000, 'direct', 0.17, 0, 0.17, 8500, 0, 8500),
+  ('9a930000-0000-4000-8000-000000000086', '9a930000-0000-4000-8000-000000000076', '9a930000-0000-4000-8000-000000000023',
+   '9a930000-0000-4000-8000-000000000033', '2028-09-21', 1, 'reserved', 'Holder Account',
+   50000, 50000, 'direct', 0.17, 0, 0.17, 8500, 0, 8500);
+set local role service_role;
+select public.release_order_after_pms_refusal('9a930000-0000-4000-8000-000000000075', 'refus, attribution link');
+select public.release_order_after_pms_refusal('9a930000-0000-4000-8000-000000000076', 'refus, attribution account');
+select is(
+  (select jsonb_object_agg(account_id::text, jsonb_build_array(attribution_code, attribution_source))
+     from carts where account_id in ('9a930000-0000-4000-8000-000000000022', '9a930000-0000-4000-8000-000000000023')),
+  jsonb_build_object(
+    '9a930000-0000-4000-8000-000000000022', jsonb_build_array('REL-LINK', 'link'),
+    '9a930000-0000-4000-8000-000000000023', jsonb_build_array(null, null)),
+  'panier recréé : attribution link recopiée, attribution account jamais'
 );
 
 select * from finish();
