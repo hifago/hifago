@@ -3,10 +3,8 @@
 import { AppNavShell } from "@hifago/ui";
 import { LogoHifago } from "@/components/logo-hifago";
 import { LogoutButton } from "@/components/LogoutButton";
-import { buildWhatsAppLink, SUPPORT_WHATSAPP_NUMBER } from "@/lib/whatsapp";
+import { buildWhatsAppLink, SUPPORT_ACCOUNT_MESSAGE, SUPPORT_WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { EXTRA_TITLE_ROUTES, getNavItems } from "./nav-items";
-
-const SUPPORT_WHATSAPP_MESSAGE = "Hola Jérome, tengo un problema con mi cuenta de socio. Me puedes ayudar porfa?";
 
 // Wrapper local autour d'AppNavShell (packages/ui) — jamais importer "@hifago/ui" directement
 // depuis layout.tsx (Server Component) : constaté à la compilation (`next build`) que ça fait
@@ -14,7 +12,7 @@ const SUPPORT_WHATSAPP_MESSAGE = "Hola Jérome, tengo un problema con mi cuenta 
 // function") ; même patron que l'ancien PartnerNav.tsx/PartnerMobileNav.tsx, qui n'étaient jamais
 // importés que via un fichier local "use client".
 export function PartnerAppNav({ hasOperatorCapability }: { hasOperatorCapability: boolean }) {
-  const whatsappHref = buildWhatsAppLink(SUPPORT_WHATSAPP_NUMBER, SUPPORT_WHATSAPP_MESSAGE);
+  const whatsappHref = buildWhatsAppLink(SUPPORT_WHATSAPP_NUMBER, SUPPORT_ACCOUNT_MESSAGE);
 
   return (
     <AppNavShell
