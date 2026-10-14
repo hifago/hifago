@@ -134,6 +134,15 @@ describe("POST /api/auth/invitation-signup", () => {
     }
   );
 
+  // Invitation envoyée par e-mail : la base refuse un compte à une autre adresse. Le compte créé
+  // est défait comme pour tout refus après création — jamais un compte sans rôle.
+  it("refus email_mismatch de la consommation : 409, compte supprimé, session fermée", async () => {
+    reponseConsume = { data: { ok: false, reason: "email_mismatch" }, error: null };
+    expect(await inscrire()).toEqual({ statut: 409, corps: { ok: false, reason: "email_mismatch" } });
+    expect(suppressions).toEqual([NOUVEL_ID]);
+    expect(deconnexions).toBe(1);
+  });
+
   it("ne crée aucun compte pour un jeton déjà invalide", async () => {
     reponseCheck = { data: { ok: false, reason: "already_consumed" }, error: null };
     expect((await inscrire()).statut).toBe(404);
