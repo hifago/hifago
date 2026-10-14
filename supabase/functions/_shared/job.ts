@@ -40,6 +40,11 @@ export interface JobOutcome {
   error?: string | null;
   /** Compteurs du passage (heartbeat et réponse). */
   stats: Record<string, number | boolean>;
+  /**
+   * Ce qui s'est déroulé mais mérite d'être vu (heartbeat `last_warning`, bandeau des admins) — jamais
+   * une panne : `ok` n'en dépend pas. Effacé au premier passage qui n'en porte pas. Masqué comme `error`.
+   */
+  warning?: string | null;
   /** Statut HTTP de la réponse (200 par défaut ; 500 quand le claim lui-même a échoué). */
   status?: number;
   /** Ce que la réponse porte en plus des compteurs — chaque chaîne y est masquée par serveJob. */
@@ -119,17 +124,19 @@ export function serveJob(name: string, run: (ctx: JobContext) => Promise<JobOutc
     }
 
     const error = outcome.ok ? null : ctx.redact(outcome.error || "échec sans motif");
+    const warning = outcome.warning ? ctx.redact(outcome.warning) : null;
     const { error: heartbeatError } = await supabase.rpc("heartbeat_job", {
       p_job: name,
       p_ok: outcome.ok,
       p_stats: outcome.stats,
       p_error: error,
+      p_warning: warning,
     });
     if (heartbeatError) console.error(`${name} : heartbeat_job a échoué — ${ctx.describe(heartbeatError)}`);
 
     // Le résumé est journalisé ET rendu : net._http_response et les journaux de la fonction sont, avec
     // le heartbeat, les seuls témoins d'un passage.
-    const summary = { ok: outcome.ok, ...outcome.stats, ...(error ? { error } : {}) };
+    const summary = { ok: outcome.ok, ...outcome.stats, ...(error ? { error } : {}), ...(warning ? { warning } : {}) };
     console.info(name, JSON.stringify(summary));
     const extra = redactDeep(outcome.extra ?? {}, ctx.redactLong) as Record<string, unknown>;
     return json({ ...summary, ...extra }, outcome.status ?? 200);
