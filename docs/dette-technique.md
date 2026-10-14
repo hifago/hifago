@@ -87,8 +87,14 @@ fraîche) — aucune n'est une régression de ce lot, toutes hors de son périm�
   `lib/reservas/reservationRange.ts` — même fonctions que `LodgingReservationForm.tsx`, jamais une
   formule recopiée. `reserve-lodging-range.spec.ts:62` passe désormais au vert. A révélé un écart
   côté serveur, voir plus bas.
-- **`reserve.spec.ts` (« capacité épuisée ») : une ligne de panier refusée par `create_order` ne
-  porte pas `data-failed="true"`** comme l'écran de checkout est censé le marquer.
+- ~~**`reserve.spec.ts` (« capacité épuisée ») : une ligne de panier refusée par `create_order` ne
+  porte pas `data-failed="true"`** comme l'écran de checkout est censé le marquer.~~ Caduc le
+  2026-10-14 (#103, #105) : la ligne indisponible est signalée avec sa raison sur le panier et à
+  `/pago` avant l'envoi ; le spec vérifie désormais ce signalement.
+- **`delete_product` supprime le cupo puis le produit sans verrou préalable** : face à une commande
+  qui tient le produit en partage (`FOR SHARE`, 2026-10-14) puis attend ce cupo, interblocage détecté
+  par Postgres, une transaction annulée, sans corruption ; course quasi impossible (un produit
+  commandé ne se supprime pas). Piste : `products FOR UPDATE` en tête de `delete_product`.
 - **`cart-multi-establishment.spec.ts` (test 1) : `countOrdersByPhone` compare une chaîne exacte**,
   alors que `PhoneField` (2026-09-10) normalise en E.164 compact — un numéro de test écrit avec des
   espaces ne retrouve jamais sa commande. Aucune commande n'est perdue en réalité (vérifié en base),
