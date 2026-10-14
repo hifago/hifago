@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, mocked } from "storybook/test";
-import { getCartLines } from "@/lib/cart/getCartLines";
+import { getCartLines, type CartLineAvailability } from "@/lib/cart/getCartLines";
 import { getPendingOrdersForViewer } from "@/lib/orders/getPendingOrdersForViewer";
 import { historiaDePagina } from "@/.storybook/support/pagina";
 import { lineasDelCarritoSimulado } from "@/.storybook/support/datos";
@@ -39,13 +39,23 @@ export const Viaje: StoryObj = { ...conCarrito(CARRITO_VIAJE), name: "Voyage : p
 
 export const ViajeDeUnDia: StoryObj = { ...conCarrito(CARRITO_UN_DIA), name: "Voyage d'un seul jour" };
 
-export const LineaNoDisponible: StoryObj = {
-  ...conCarrito(CARRITO_VIAJE, () =>
-    mocked(getCartLines).mockImplementation(async () =>
-      lineasDelCarritoSimulado().map((linea, indice) => (indice === 1 ? { ...linea, unavailable: true } : linea))
+/** Le panier simulé, la disponibilité d'une ligne (ou de toutes) remplacée. */
+const conDisponibilidad = (availability: CartLineAvailability, soloIndice?: number) => () =>
+  mocked(getCartLines).mockImplementation(async () =>
+    lineasDelCarritoSimulado().map((linea, indice) =>
+      soloIndice === undefined || indice === soloIndice ? { ...linea, availability } : linea
     )
-  ),
+  );
+
+// Le texte est celui de la raison rendue par `cart_lines_availability` (`CheckoutPage.errors`).
+export const LineaNoDisponible: StoryObj = {
+  ...conCarrito(CARRITO_VIAJE, conDisponibilidad({ status: "unavailable", reason: "full" }, 1)),
   name: "Une offre n'est plus disponible",
+};
+
+export const DisponibilidadDesconocida: StoryObj = {
+  ...conCarrito(CARRITO_VIAJE, conDisponibilidad({ status: "unknown" })),
+  name: "Disponibilité illisible (panne)",
 };
 
 export const CampSinAlojamiento: StoryObj = {

@@ -19,7 +19,7 @@ function ligne(partial: Partial<CartLineForDisplay> & { id: string }): CartLineF
     slotStartTime: null,
     qty: 1,
     priceCop: 100000,
-    unavailable: false,
+    availability: { status: "available" },
     durationDays: null,
     priceTiers: null,
     ...partial,

@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, mocked, waitFor } from "storybook/test";
 import { getPartnerAccountProfileFields } from "@/lib/account/getMyProfile";
+import { getCartLines } from "@/lib/cart/getCartLines";
 import { getPendingOrdersForViewer } from "@/lib/orders/getPendingOrdersForViewer";
 import { historiaDePagina } from "@/.storybook/support/pagina";
+import { lineasDelCarritoSimulado } from "@/.storybook/support/datos";
 import { esperar, escribir, pulsar } from "@/.storybook/support/interacciones";
 import {
   simularCarrito,
@@ -124,6 +126,42 @@ export const MotivoLineaNoTarifada: StoryObj = {
     await expect(await esperar(canvasElement, '[data-testid="checkout-error"]')).toHaveTextContent(
       "No hay tarifa para la cantidad elegida"
     );
+  },
+};
+
+// Une ligne signalée par `cart_lines_availability` : son motif dans le récapitulatif, l'envoi
+// fermé, et le chemin vers /mi-viaje pour la retirer.
+export const LineaNoDisponible: StoryObj = {
+  ...pagina(
+    invitado(() =>
+      mocked(getCartLines).mockImplementation(async () =>
+        lineasDelCarritoSimulado().map((linea, indice) =>
+          indice === 0 ? { ...linea, availability: { status: "unavailable", reason: "date_in_past" } } : linea
+        )
+      )
+    )
+  ),
+  name: "Une offre n'est plus disponible (envoi fermé)",
+  play: async ({ canvasElement }) => {
+    await expect(await esperar(canvasElement, '[data-testid="unavailable-lines-notice"]')).toBeVisible();
+    await expect(await esperar(canvasElement, '[data-testid="submit-order-button"]')).toBeDisabled();
+  },
+};
+
+// Disponibilité illisible (panne) : un avis, mais l'envoi reste ouvert — create_order tranchera.
+export const DisponibilidadDesconocida: StoryObj = {
+  ...pagina(
+    invitado(() =>
+      mocked(getCartLines).mockImplementation(async () =>
+        lineasDelCarritoSimulado().map((linea) => ({ ...linea, availability: { status: "unknown" } }))
+      )
+    )
+  ),
+  name: "Disponibilité illisible (envoi ouvert)",
+  play: async ({ canvasElement }) => {
+    await expect(await esperar(canvasElement, '[data-testid="availability-unknown"]')).toBeVisible();
+    await expect(await esperar(canvasElement, '[data-testid="submit-order-button"]')).toBeEnabled();
+    await expect(canvasElement.querySelector('[data-testid="unavailable-lines-notice"]')).toBeNull();
   },
 };
 

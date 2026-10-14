@@ -9,62 +9,19 @@ import { useCart } from "@/lib/cart/CartContext";
 import { Checkbox, Input, Label, TextField } from "@hifago/ui";
 import { Button } from "@/components/atoms/Button";
 import { Card } from "@/components/atoms/Card";
+import { LinkButton } from "@/components/atoms/LinkButton";
 import { PhoneField } from "@/components/atoms/PhoneField";
 import { Aviso } from "@/components/molecules/Aviso";
-
-// Raisons qui renvoient `line` (product_id/date de LA ligne fautive) — toujours un sous-ensemble
-// de KNOWN_REASONS ci-dessous (composé à partir de celui-ci, jamais recopié à la main : chaque
-// littéral n'existe qu'à un seul endroit du fichier). Spec 17 §0 Tranche 2 (alojamiento par
-// plage) : invalid_date_range/unsupported_date_range, jamais censées surgir via l'écran réel, mais
-// mappées en défense en profondeur si la RPC est appelée directement avec un panier malformé.
-// Spec 18 §0 Tranche 1 (produit à créneaux horaires) : slot_required/unsupported_slot_combination,
-// même traitement — défense en profondeur, l'écran réel (SlotReservationForm) empêche déjà
-// l'absence de slot_start_time ou une combinaison incohérente.
-//
-// room_type_required/room_type_mismatch/room_type_not_found/end_date_required ont disparu avec
-// l'étage hôtel (T3 étape 2, 20260827220000) : create_order ne les produit plus. Les garder ici
-// aurait promis une traduction pour une réponse impossible.
-// camp_missing_lodging (2026-09-15) : un camp sans hébergement compatible dans le panier —
-// l'écran réel (ReservationForm.tsx) guide déjà vers /alojamientos après l'ajout d'un camp, mais
-// cette raison reste atteignable si le client revient au checkout sans avoir ajouté d'hébergement,
-// ou via un appel direct à la RPC.
-// Migration 20260929112240 : qty_cap_exceeded vise une ligne (create_order renvoie `line`) et
-// rejoint cette liste ; date_range_required (logement sans date de départ, défense en profondeur :
-// LodgingReservationForm envoie toujours endDate) ; pms_unavailable (logement PMS dont le
-// connecteur de l'établissement est coupé, CLAUDE.md §4.4).
-const LINE_SCOPED_REASONS = [
-  "product_not_found",
-  "not_sellable",
-  "date_closed",
-  "slot_not_found",
-  "full",
-  "resource_unavailable",
-  "camp_missing_lodging",
-  "invalid_date_range",
-  "unsupported_date_range",
-  "slot_required",
-  "unsupported_slot_combination",
-  "qty_below_minimum",
-  "qty_cap_exceeded",
-  "date_range_required",
-  "pms_unavailable",
-  // Migration 20260929112240, renvoyées avec la ligne fautive comme les autres : date qui n'est pas
-  // une représentation d'un evento réservable, quantité hors des paliers de prix, produit sans prix.
-  "invalid_occurrence_date",
-  "no_matching_tier",
-  "price_missing",
-  // Migration 20261014031656 : une ligne dont la date est passée (heure de Colombie).
-  "date_in_past",
-] as const;
+import { LINE_SCOPED_REASONS } from "@/lib/cart/lineReasons";
 
 // Raisons de create_order qui ne visent PAS une ligne précise (visibles seulement au niveau de la
-// commande entière) — jamais dans LINE_SCOPED_REASONS ci-dessus, sans quoi une raison order-scopée
-// pointerait à tort sur une ligne du panier. not_authenticated n'est pas mappée : create_order la
-// renvoie encore sans session (migration 20260929112240), mais le panier qui fait afficher ce
-// formulaire en suppose une (anonyme au besoin, ouverte par CartContext au premier ajout) — seule
-// une session perdue entre l'affichage et l'envoi y mène, et retombe sur "unknown".
-// resource_unavailable (feature 20, ligne-scopée) reste dans
-// LINE_SCOPED_REASONS ci-dessus, pas ici. Cahier des charges client §3e, révisé 2026-08-17 :
+// commande entière) — jamais dans LINE_SCOPED_REASONS (`lib/cart/lineReasons.ts`), sans quoi une
+// raison order-scopée pointerait à tort sur une ligne du panier. not_authenticated n'est pas
+// mappée : create_order la renvoie encore sans session (migration 20260929112240), mais le panier
+// qui fait afficher ce formulaire en suppose une (anonyme au besoin, ouverte par CartContext au
+// premier ajout) — seule une session perdue entre l'affichage et l'envoi y mène, et retombe sur
+// "unknown". resource_unavailable (feature 20, ligne-scopée) reste dans
+// LINE_SCOPED_REASONS, pas ici. Cahier des charges client §3e, révisé 2026-08-17 :
 // email_required/email_invalid — le champ HTML `isRequired` bloque déjà la soumission vide côté
 // front, ces deux raisons restent le filet côté serveur (RPC appelée directement, format invalide
 // échappé au front).
@@ -128,6 +85,7 @@ export function CheckoutForm({
   initialHolderName = "",
   initialHolderPhone = "",
   initialHolderEmail = "",
+  hasUnavailableLines = false,
 }: {
   isAuthenticated: boolean;
   // Feature 32 — pré-remplissage pour un client connecté (page.tsx, depuis auth.users.email et sa
@@ -136,6 +94,10 @@ export function CheckoutForm({
   initialHolderName?: string;
   initialHolderPhone?: string;
   initialHolderEmail?: string;
+  // Une ligne du panier est signalée indisponible (`cart_lines_availability`, lue par `page.tsx`) :
+  // l'envoi reste fermé tant que le client ne l'a pas retirée ou changée depuis /mi-viaje. Un
+  // confort, pas la décision — create_order rejuge tout à l'envoi.
+  hasUnavailableLines?: boolean;
 }) {
   const t = useTranslations("CheckoutPage");
   const tCommon = useTranslations("Common");
@@ -144,8 +106,8 @@ export function CheckoutForm({
   const router = useRouter();
   // Spec 32 (panier en base) : ce formulaire ne porte plus la liste du panier (CartSummary,
   // rendu en lecture seule par pago/page.tsx, juste au-dessus) — `refresh()` sert uniquement à
-  // resynchroniser la pastille du header une fois la commande créée (cart_items déjà vidée côté
-  // serveur par create_order à ce moment-là, cf. son contrat).
+  // resynchroniser la pastille du header quand le panier change côté serveur : vidé par
+  // create_order, rendu par un refus de Lobby.
   const { refresh } = useCart();
 
   const [holderName, setHolderName] = useState(initialHolderName);
@@ -156,9 +118,10 @@ export function CheckoutForm({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Vrai dès que create_order a réussi : il a vidé le panier, donc un nouvel envoi depuis ce
-  // formulaire ne peut plus rien donner qu'« empty_cart ». Le bouton reste éteint, quoi qu'il arrive
-  // ensuite ; le message dit la suite, et une commande encore vivante se retrouve par l'avis de
-  // commande en attente de /pago et /mi-viaje (`PendingOrdersNotice`).
+  // formulaire ne peut plus rien donner qu'« empty_cart ». Le bouton reste éteint tant que la
+  // commande vit ; le message dit la suite, et elle se retrouve par l'avis de commande en attente
+  // de /pago et /mi-viaje (`PendingOrdersNotice`). Seule une commande DÉFAITE après un refus de
+  // Lobby le rallume : son panier est revenu (voir plus bas).
   const [isOrderPlaced, setIsOrderPlaced] = useState(false);
   // La commande est encore vivante (ni payée ni défaite) : le lien vers /mi-viaje y mène, et
   // OrderResult sait reprendre la confirmation chez Lobby avant le paiement.
@@ -178,6 +141,8 @@ export function CheckoutForm({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    // Le bouton est déjà éteint : ceci ferme aussi la touche Entrée et tout envoi programmatique.
+    if (hasUnavailableLines) return;
     setError(null);
     setCanResumeOrder(false);
 
@@ -223,6 +188,9 @@ export function CheckoutForm({
     if (rpcError || !result?.ok) {
       const reason = resolveKnownReason(result?.reason);
       fail(t(`errors.${reason}`));
+      // Le panier est intact (la transaction de create_order est annulée) : le relire signale la
+      // ligne fautive dans le récapitulatif, et éteint le bouton tant qu'elle y est.
+      router.refresh();
       return;
     }
 
@@ -270,16 +238,19 @@ export function CheckoutForm({
       const pmsResult = (await pmsResponse.json().catch(() => null)) as
         | { reason?: string; released?: boolean }
         | null;
-      // ⚠️ RÉGRESSION CONNUE depuis spec 32 (panier en base), signalée pas corrigée ici — hors
-      // périmètre de cette tranche. Avant : le panier restait en mémoire React tout du long, donc
-      // intact ici même après un refus PMS (« le client peut changer de dates sans tout
-      // ressaisir »). Depuis que create_order vide cart_items DANS SA PROPRE transaction dès qu'il
-      // réussit (spec 32 §0, atomique avec la création de la commande), le panier est déjà VIDE à
-      // cet instant — release_order_after_pms_refusal défait la commande mais ne recrée aucune
-      // ligne cart_items, ce n'est pas son rôle. Le client devra ressaisir sa sélection.
       const key = reserveNightsErrorKey(pmsResult);
       fail(t(`errors.${key}`));
       setCanResumeOrder(key === "pms_unconfirmed_pending" || key === "pms_claim_in_progress");
+      // Commande DÉFAITE (`released`) : release_order_after_pms_refusal a remis ses lignes dans le
+      // panier (migration 20261014211217) — create_order l'avait vidé en la créant. On le relit :
+      // le récapitulatif le montre de nouveau, avec la disponibilité de chaque ligne, la pastille
+      // suit, et le bouton se rallume pour un nouvel essai (autres dates depuis /mi-viaje, ou le
+      // même panier plus tard). Commande NON défaite : le panier reste vide, rien à relire.
+      if (pmsResult?.released === true) {
+        setIsOrderPlaced(false);
+        void refresh();
+        router.refresh();
+      }
       return;
     }
 
@@ -362,16 +333,40 @@ export function CheckoutForm({
           {tCommon("cancellationPolicy")}
         </Aviso>
 
+        {/* Juste au-dessus du bouton qu'il éteint : le client lit pourquoi, et où le régler — le
+            récapitulatif de /pago est en lecture seule, le retrait se fait sur /mi-viaje. */}
+        {hasUnavailableLines ? (
+          <Aviso
+            tono="alerta"
+            compacto
+            testId="unavailable-lines-notice"
+            accion={
+              <LinkButton
+                href="/mi-viaje"
+                variant="outline"
+                color="neutral"
+                width="full"
+                testId="unavailable-lines-link"
+              >
+                {t("unavailableLinesLink")}
+              </LinkButton>
+            }
+          >
+            {t("unavailableLines")}
+          </Aviso>
+        ) : null}
+
         {/* `isPending` plutôt que `isDisabled` pendant l'envoi : le focus reste sur le bouton et
             react-aria neutralise la soumission (atoms/Button.tsx). `isOrderPlaced` garde, lui, le
-            bouton réellement éteint après une commande créée. */}
+            bouton réellement éteint après une commande créée, et `hasUnavailableLines` tant qu'une
+            ligne est signalée. */}
         <Button
           type="submit"
           size="lg"
           width="full"
           isPending={isSubmitting}
           pendingLabel={t("submitting")}
-          isDisabled={isOrderPlaced}
+          isDisabled={isOrderPlaced || hasUnavailableLines}
           testId="submit-order-button"
         >
           {t("submit")}
