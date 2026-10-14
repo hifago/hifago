@@ -463,7 +463,9 @@ begin
   -- Lobby la défait, le client retrouve donc ses lignes au lieu d'un panier vide — chaque ligne
   -- relâchée, jamais en double d'une ligne identique déjà revenue dans son panier. L'attribution
   -- du panier d'origine (qr, link) revient avec lui ; 'account' n'y est jamais recopiée,
-  -- create_order la relit sur partner_accounts. Un panier déjà rouvert garde la sienne. Rien au
+  -- create_order la relit sur partner_accounts. Un panier déjà rouvert garde la sienne, et une
+  -- ligne qu'il porte déjà (même produit, mêmes dates, même créneau) garde sa quantité. created_at
+  -- étagé : create_order lit le panier dans cet ordre, une égalité le rendrait arbitraire. Rien au
   -- rejeu : il ne relâche aucune ligne et sort plus haut.
   insert into public.carts (account_id, attribution_code, attribution_source)
   select o.account_id,
@@ -473,8 +475,9 @@ begin
    where o.id = p_order_id
   on conflict (account_id) do nothing;
 
-  insert into public.cart_items (account_id, product_id, date, end_date, slot_start_time, qty)
-  select o.account_id, ol.product_id, ol.date, ol.end_date, ol.slot_start_time, ol.qty
+  insert into public.cart_items (account_id, product_id, date, end_date, slot_start_time, qty, created_at)
+  select o.account_id, ol.product_id, ol.date, ol.end_date, ol.slot_start_time, ol.qty,
+         now() + row_number() over (order by ol.date, ol.slot_start_time, ol.id) * interval '1 microsecond'
     from public.order_lines ol
     join public.orders o on o.id = ol.order_id
    where ol.id = any(v_released_ids)

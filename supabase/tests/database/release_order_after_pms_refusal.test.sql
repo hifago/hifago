@@ -15,7 +15,7 @@
 -- hifago/CLAUDE.md §6.3) : le verrou `for update` sur orders, partagé avec
 -- expire_stale_payment_orders, relève de tests/concurrency/.
 begin;
-select plan(24);
+select plan(25);
 
 -- Fixtures dédiées, jamais un enregistrement seedé partagé (AGENTS-PARALLELES point 5).
 insert into partners (id, display_name) values
@@ -148,6 +148,11 @@ select is(
      from carts where account_id = '9a930000-0000-4000-8000-000000000021'),
   jsonb_build_object('code', null, 'source', null),
   'le panier est recréé (commande sans attribution : aucune)'
+);
+select is(
+  (select count(distinct created_at)::int from cart_items where account_id = '9a930000-0000-4000-8000-000000000021'),
+  3,
+  'chaque ligne rendue a son propre created_at : l''ordre du panier reste déterminé'
 );
 
 -- La chaîne de compensation existante ne doit pas avoir été cassée : le trigger

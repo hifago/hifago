@@ -7,11 +7,14 @@
 --     et chaque raison de create_order a son cas ici — sauf product_not_found, inatteignable depuis
 --     un panier (cart_items.product_id est une clé étrangère). Une raison ajoutée à create_order
 --     sans copie ni cas fait rougir ce fichier ;
+--   - BRANCHES qu'une raison seule ne couvre pas : evento rsvp ou gratuit, logement Lobby au
+--     connecteur actif, ressource sommée sur deux lignes, créneau déjà entamé, camp couvert par un
+--     séjour, panier aux raisons mêlées ;
 --   - lecture seule : rien de matérialisé (product_availability, product_slot_availability) ;
 --   - le panier de l'appelant seulement ; sans identité, rien ; jamais exécutable par anon.
 -- Dates relatives à today_in_bogota(), jamais current_date.
 begin;
-select plan(35);
+select plan(42);
 
 create temp table test_r (k text primary key, avail text[], ordered text);
 grant all on test_r to authenticated;
@@ -57,10 +60,12 @@ $$;
 
 insert into partners (id, display_name) values ('b1c70000-0000-4000-8000-000000000001', 'Cart Availability');
 insert into establishments (id, partner_id, name, lobby_connector_active, lobby_api_token) values
-  -- 11 : connecteur actif ; 12 : connecteur coupé ; 13 : aucune ressource partagée ouverte.
+  -- 11 : connecteur actif ; 12 : connecteur coupé ; 13 : aucune ressource partagée ouverte ;
+  -- 14 : une seule place de ressource partagée à J+3.
   ('b1c70000-0000-4000-8000-000000000011', 'b1c70000-0000-4000-8000-000000000001', jsonb_build_object('es', 'Cart A'), true, 'fake-token'),
   ('b1c70000-0000-4000-8000-000000000012', 'b1c70000-0000-4000-8000-000000000001', jsonb_build_object('es', 'Cart B'), false, null),
-  ('b1c70000-0000-4000-8000-000000000013', 'b1c70000-0000-4000-8000-000000000001', jsonb_build_object('es', 'Cart C'), false, null);
+  ('b1c70000-0000-4000-8000-000000000013', 'b1c70000-0000-4000-8000-000000000001', jsonb_build_object('es', 'Cart C'), false, null),
+  ('b1c70000-0000-4000-8000-000000000014', 'b1c70000-0000-4000-8000-000000000001', jsonb_build_object('es', 'Cart D'), false, null);
 insert into auth.users (id, email) values
   ('b1c70000-0000-4000-8000-000000000031', 'cart-availability@test.local'),
   ('b1c70000-0000-4000-8000-000000000032', 'cart-availability-other@test.local');
@@ -107,7 +112,13 @@ insert into products (id, partner_id, establishment_id, type, name, slug, sellab
    'activity', jsonb_build_object('es', 'Senderismo'), 'cla-33', true, 30000, null, null, null, null, null, true, null, null),
   -- 34 : activité fermée par défaut.
   ('b1c70000-0000-4000-8000-000000000034', 'b1c70000-0000-4000-8000-000000000001', 'b1c70000-0000-4000-8000-000000000011',
-   'activity', jsonb_build_object('es', 'Cerrado'), 'cla-34', true, 30000, null, 10, null, null, null, false, null, null);
+   'activity', jsonb_build_object('es', 'Cerrado'), 'cla-34', true, 30000, null, 10, null, null, null, false, null, null),
+  -- 37 : logement PMS-backed, connecteur ACTIF : aucune nuit contrôlée localement.
+  ('b1c70000-0000-4000-8000-000000000037', 'b1c70000-0000-4000-8000-000000000001', 'b1c70000-0000-4000-8000-000000000011',
+   'lodging', jsonb_build_object('es', 'Hotel Lobby activo'), 'cla-37', true, 100000, null, null, null, null, null, true, 36573, null),
+  -- 38 : camp d'un jour sur la ressource de l'établissement 14.
+  ('b1c70000-0000-4000-8000-000000000038', 'b1c70000-0000-4000-8000-000000000001', 'b1c70000-0000-4000-8000-000000000014',
+   'camp', jsonb_build_object('es', 'Campamento recurso'), 'cla-38', true, 90000, null, 10, null, null, null, true, null, 1);
 
 insert into products (id, partner_id, establishment_id, type, name, slug, sellable, price_cop, online_bookable,
                       evento_capacity_mode, evento_payment_mode, default_capacity, evento_occupies_resource,
@@ -119,7 +130,22 @@ insert into products (id, partner_id, establishment_id, type, name, slug, sellab
   -- 32 : evento en ligne payant SANS prix, une date à J+5.
   ('b1c70000-0000-4000-8000-000000000032', 'b1c70000-0000-4000-8000-000000000001', 'b1c70000-0000-4000-8000-000000000011',
    'evento', jsonb_build_object('es', 'Concierto'), 'cla-32', true, null, true, 'metered', 'online', 10, false,
-   'once', public.today_in_bogota() + 5, null);
+   'once', public.today_in_bogota() + 5, null),
+  -- 35 : evento en ligne `rsvp` (aucun compteur), 2 places annoncées, à J+5.
+  ('b1c70000-0000-4000-8000-000000000035', 'b1c70000-0000-4000-8000-000000000001', 'b1c70000-0000-4000-8000-000000000011',
+   'evento', jsonb_build_object('es', 'Charla rsvp'), 'cla-35', true, 20000, true, 'rsvp', 'online', 2, false,
+   'once', public.today_in_bogota() + 5, null),
+  -- 39 : evento en ligne qui OCCUPE la ressource de l'établissement 14, à J+3.
+  ('b1c70000-0000-4000-8000-000000000039', 'b1c70000-0000-4000-8000-000000000001', 'b1c70000-0000-4000-8000-000000000014',
+   'evento', jsonb_build_object('es', 'Fogata'), 'cla-39', true, 20000, true, 'metered', 'online', 10, true,
+   'once', public.today_in_bogota() + 3, null);
+-- 36 : evento en ligne GRATUIT et illimité : ni prix, ni compteur.
+insert into products (id, partner_id, establishment_id, type, name, slug, sellable, price_cop, is_free, online_bookable,
+                      evento_capacity_mode, evento_payment_mode, default_capacity, evento_occupies_resource,
+                      occurrence_type, occurrence_date) values
+  ('b1c70000-0000-4000-8000-000000000036', 'b1c70000-0000-4000-8000-000000000001', 'b1c70000-0000-4000-8000-000000000011',
+   'evento', jsonb_build_object('es', 'Concierto libre'), 'cla-36', true, null, true, true, 'unlimited', null, null, false,
+   'once', public.today_in_bogota() + 5);
 
 insert into product_slot_rules (product_id, weekdays, start_time, end_time, slot_duration_minutes, capacity) values
   ('b1c70000-0000-4000-8000-000000000028', array[1, 2, 3, 4, 5, 6, 7]::smallint[], '09:00', '11:00', 60, 2);
@@ -127,7 +153,18 @@ insert into product_availability (product_id, date, capacity, booked) values
   ('b1c70000-0000-4000-8000-000000000025', public.today_in_bogota() + 10, 1, 0),
   ('b1c70000-0000-4000-8000-000000000025', public.today_in_bogota() + 11, 1, 1),
   ('b1c70000-0000-4000-8000-000000000025', public.today_in_bogota() + 20, 1, 0),
-  ('b1c70000-0000-4000-8000-000000000025', public.today_in_bogota() + 21, 1, 0);
+  ('b1c70000-0000-4000-8000-000000000025', public.today_in_bogota() + 21, 1, 0),
+  ('b1c70000-0000-4000-8000-000000000025', public.today_in_bogota() + 3, 1, 0),
+  ('b1c70000-0000-4000-8000-000000000025', public.today_in_bogota() + 4, 1, 0),
+  ('b1c70000-0000-4000-8000-000000000025', public.today_in_bogota() + 5, 1, 0);
+-- Un créneau de 9 h déjà matérialisé à J+6, une place prise.
+insert into product_slot_availability (product_id, slot_date, slot_start_time, slot_duration_minutes, capacity, booked) values
+  ('b1c70000-0000-4000-8000-000000000028', public.today_in_bogota() + 6, '09:00', 60, 2, 1);
+-- Ressource partagée : 5 places de J+3 à J+5 chez 11 (camp de 3 jours), une seule à J+3 chez 14.
+insert into provider_resource_calendar (establishment_id, slot_date, capacity, booked)
+select 'b1c70000-0000-4000-8000-000000000011', public.today_in_bogota() + d, 5, 0 from generate_series(3, 5) d
+union all
+select 'b1c70000-0000-4000-8000-000000000014', public.today_in_bogota() + 3, 1, 0;
 insert into product_calendar (product_id, date, open) values
   ('b1c70000-0000-4000-8000-000000000025', public.today_in_bogota() + 20, false);
 -- Une ligne dans le panier d'un AUTRE compte.
@@ -227,6 +264,24 @@ select test_parity('full créneau', '[{"p":"28","d":3,"s":"09:00","q":3}]');
 select is(test_case('full créneau'), array['full', 'full'], 'full (créneau de 2 places)');
 select test_parity('resource_unavailable', '[{"p":"31","d":3}]');
 select is(test_case('resource_unavailable'), array['resource_unavailable', 'resource_unavailable'], 'resource_unavailable');
+
+-- ── Branches que les raisons seules ne couvrent pas (revue adversariale) ────
+select test_parity('rsvp', '[{"p":"35","d":5,"q":3}]');
+select is(test_case('rsvp'), array['ok', 'ok'], 'evento rsvp : aucun compteur, 3 inscrits pour 2 places annoncées → disponible');
+select test_parity('gratuit', '[{"p":"36","d":5}]');
+select is(test_case('gratuit'), array['ok', 'ok'], 'evento gratuit et illimité : ni prix ni cupo exigés → disponible');
+select test_parity('lobby actif', '[{"p":"37","d":10,"e":12}]');
+select is(test_case('lobby actif'), array['ok', 'ok'], 'logement PMS-backed au connecteur actif : aucune nuit contrôlée localement → disponible');
+select test_parity('ressource à deux lignes', '[{"p":"38","d":3},{"p":"39","d":3}]');
+select is(test_case('ressource à deux lignes'), array['resource_unavailable', 'resource_unavailable', 'resource_unavailable'],
+  'camp + evento occupant le même jour, une place : la ressource se somme sur le panier');
+select test_parity('créneau entamé', '[{"p":"28","d":6,"s":"09:00","q":2}]');
+select is(test_case('créneau entamé'), array['full', 'full'], 'créneau déjà matérialisé, une place prise : sa ligne prime sur la règle');
+select test_parity('raisons mêlées', '[{"p":"21","d":3},{"p":"23","d":3},{"p":"25","d":10,"e":12}]');
+select is(test_case('raisons mêlées'), array['ok', 'not_sellable', 'full', 'not_sellable'],
+  'chaque ligne sa raison ; create_order rend la première dans l''ordre de ses phases');
+select test_parity('camp couvert', '[{"p":"25","d":3,"e":6},{"p":"30","d":3}]');
+select is(test_case('camp couvert'), array['ok', 'ok', 'ok'], 'camp de 3 jours couvert par un séjour : disponible, la commande passe');
 
 -- ── Couverture, puis le panier qui passe (create_order l'écrit : en dernier) ─
 select is(
