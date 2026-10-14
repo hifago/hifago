@@ -23,25 +23,22 @@ export async function GET(request: NextRequest, context: RouteContext<"/[locale]
   // inconnue retombe sur l'espagnol — jamais un 404 pour un QR déjà imprimé.
   const locale = hasLocale(routing.locales, params.locale) ? params.locale : routing.defaultLocale;
 
-  // partner_codes_select_public (Tranche 1, `using (true)`) : lecture publique déjà ouverte, un
-  // code doit être vérifiable avant inscription — même policy réutilisée ici, aucune nouvelle
-  // policy ni RPC. Code inconnu/inactif → même redirection, SANS ?ref= : jamais de page d'erreur
-  // pour un QR déjà imprimé, cohérent avec "un code invalide n'empêche jamais la réservation".
+  // Le code est vérifié À L'UNITÉ par partner_code_is_active (20261014025905) — un booléen, rien
+  // d'autre : la lecture des lignes de partner_codes est réservée à leur propriétaire et à l'admin.
+  // Même règle que create_order (`code = … and active`). Code inconnu/inactif → même redirection,
+  // SANS ?ref= : jamais de page d'erreur pour un QR déjà imprimé, cohérent avec "un code invalide
+  // n'empêche jamais la réservation".
   //
-  // Lecture EN PANNE : on ne sait pas si le code est actif, et l'écarter perdrait l'attribution
-  // d'un QR imprimé valide. On garde donc ?ref= : create_order revérifie le code (actif, existant)
-  // au moment de la commande, et ignore un code invalide — le doute coûte au plus un paramètre inutile.
+  // Vérification EN PANNE : on ne sait pas si le code est actif, et l'écarter perdrait
+  // l'attribution d'un QR imprimé valide. On garde donc ?ref= : create_order revérifie le code
+  // (actif, existant) au moment de la commande, et ignore un code invalide — le doute coûte au plus
+  // un paramètre inutile.
   const supabase = await createClient();
-  const { data: partnerCode, error } = await supabase
-    .from("partner_codes")
-    .select("code")
-    .eq("code", code)
-    .eq("active", true)
-    .maybeSingle();
-  if (error) console.error("r/[code] : lecture de partner_codes impossible, ?ref= conservé", error.message);
+  const { data: isActive, error } = await supabase.rpc("partner_code_is_active", { p_code: code });
+  if (error) console.error("r/[code] : vérification du code impossible, ?ref= conservé", error.message);
 
   const target =
-    partnerCode || error
+    isActive === true || error
       ? new URL(`/${locale}?ref=${encodeURIComponent(code)}`, request.url)
       : new URL(`/${locale}`, request.url);
 

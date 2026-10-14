@@ -35,9 +35,7 @@ export default async function PartnerAppLayout({ children }: LayoutProps<"/partn
   // lui, il ne passe jamais par la nav socio en pratique.
   // Échec fermé (2026-10-01) : une panne lève (app/error.tsx propose de réessayer) — lue comme
   // « aucune organisation », elle rendait une nav amputée de tous les écrans d'operator.
-  const { data: partnerId, error: partnerIdError } = await supabase.rpc("partner_id_for_account", {
-    uid: user.id,
-  });
+  const { data: partnerId, error: partnerIdError } = await supabase.rpc("partner_id_for_account");
   if (partnerIdError) {
     throw new Error(`Lecture de l'organisation impossible (partner_id_for_account) : ${partnerIdError.message}`);
   }

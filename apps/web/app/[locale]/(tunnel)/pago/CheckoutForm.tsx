@@ -53,6 +53,8 @@ const LINE_SCOPED_REASONS = [
   "invalid_occurrence_date",
   "no_matching_tier",
   "price_missing",
+  // Migration 20261014031656 : une ligne dont la date est passée (heure de Colombie).
+  "date_in_past",
 ] as const;
 
 // Raisons de create_order qui ne visent PAS une ligne précise (visibles seulement au niveau de la

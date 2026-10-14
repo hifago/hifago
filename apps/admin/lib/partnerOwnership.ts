@@ -25,7 +25,7 @@ export async function ownerScope(supabase: SupabaseClient): Promise<OwnerScope> 
   } = await supabase.auth.getUser();
   if (!user) notFound();
 
-  const { partnerId, isAdmin } = await requirePartnerOrAdmin(supabase, user.id);
+  const { partnerId, isAdmin } = await requirePartnerOrAdmin(supabase);
   if (isAdmin) return { kind: "admin" };
   if (!partnerId) notFound();
   return { kind: "partner", partnerId };

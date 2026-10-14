@@ -178,8 +178,11 @@ describe("/admin — bloc « Procesos »", () => {
           state: "ok",
           alert_active: false,
           checked_at: "2026-10-06T20:00:00Z",
+          last_warning: "2 décisions prises sans contrôle d'identité",
+          last_warning_at: "2026-10-06T19:58:00Z",
         },
         {
+          // Sans les colonnes d'avertissement : une base antérieure à 20261014030249.
           job_name: "pms-nightly-contract-check",
           stale_after_minutes: 2160,
           last_run_at: null,
@@ -206,6 +209,8 @@ describe("/admin — bloc « Procesos »", () => {
             alertedAt: null,
             state: "ok",
             alertActive: false,
+            lastWarning: "2 décisions prises sans contrôle d'identité",
+            lastWarningAt: "2026-10-06T19:58:00Z",
           },
           {
             jobName: "pms-nightly-contract-check",
@@ -215,6 +220,8 @@ describe("/admin — bloc « Procesos »", () => {
             alertedAt: null,
             state: "never",
             alertActive: false,
+            lastWarning: null,
+            lastWarningAt: null,
           },
         ],
         checkedAt: "2026-10-06T20:00:00Z",

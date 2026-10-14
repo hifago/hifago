@@ -6,6 +6,8 @@
 //   node scripts/deploy-preprod.mjs db         base seule, aucun `git push`            (/upload-db)
 //   … --dry-run     ne pousse rien : dit ce qui partirait, puis contrôle la préprod
 //   … --no-wait     n'attend pas la fin du build Vercel
+//   … --contenu-envoye   le contenu saisi en local depuis le dernier envoi est porté par une
+//                        migration de ce lot, ou ne doit pas partir (essai) — voir l'étape 3
 //
 // POURQUOI CE SCRIPT EXISTE (panne du 2026-10-13). Vercel déploie `staging` dès le `git push` ; le
 // schéma, lui, attendait un `supabase db push` lancé à la main. Du code lisant
@@ -17,9 +19,15 @@
 //   1. git : branche `staging`, pas en retard sur `origin`, rien de non commité côté base ;
 //   2. compte : la CLI Supabase voit bien `hifago-preprod` dans l'organisation Hifago
 //      (`/hifago-verify-compte` rendu mécanique — jamais supposé) ;
-//   3. `npm run verify` s'il y a des commits à pousser (les contrôles du hook pre-push, lancés
-//      AVANT de toucher à la base plutôt qu'après) ;
-//   4. migrations en attente → `supabase db push` ;
+//   3. contenu saisi dans la base LOCALE (admin, socio) depuis le dernier envoi réussi : listé, et
+//      arrêt tant qu'aucune migration ne le porte (`--contenu-envoye` une fois écrite) — le
+//      2026-10-14, « Exposición Mirarte », créée dans l'admin local, manquait à la préprod après un
+//      `/push-db` tout vert : ce script n'envoie que des migrations, et rien ne le disait ;
+//      puis `npm run verify` s'il y a des commits à pousser (les contrôles du hook pre-push,
+//      lancés AVANT de toucher à la base plutôt qu'après) ;
+//   4. photos du bucket `catalog-media` citées par une migration en attente et absentes de la
+//      préprod → envoyées depuis la pile locale (une migration ne transporte pas de fichier),
+//      puis migrations en attente → `supabase db push` ;
 //   5. Edge Functions → `supabase functions deploy`, seulement si leurs sources ont changé ;
 //   6. `git push origin staging`, puis attente du build Vercel des deux apps ;
 //   7. contrôle au rendu réel : accueil, une liste, une fiche produit, une fiche établissement,
@@ -36,12 +44,14 @@
 //   - les DONNÉES : ni `seed.sql` ni `mockData/`. La préprod porte les partenaires réels de la v1
 //     et tous ceux de `mockData/` ont une adresse `@mock.hifago.test` : le script de mock-data,
 //     dont la clé d'idempotence est l'e-mail, y recréerait chaque partenaire en double. Une
-//     donnée qui doit exister partout s'écrit en migration idempotente — elle part alors toute seule ;
+//     donnée qui doit exister partout s'écrit en migration idempotente — elle part alors toute seule,
+//     avec les photos qu'elle cite par leur chemin (`products/<uuid>.webp`, étape 4) ;
 //   - les secrets, le Vault, la configuration de l'Auth (runbook §2 et §3) ;
 //   - committer : il pousse ce qui est commité, rien d'autre.
 //
 // Codes de retour : 0 tout est vert · 1 une étape a échoué · 2 précondition (branche, retard,
-// CLI non connectée, mauvais compte) · 3 fichiers de base non commités.
+// CLI non connectée, mauvais compte) · 3 fichiers de base non commités · 4 contenu saisi en local
+// qu'aucune migration ne porte.
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -69,10 +79,22 @@ const PREPROD = {
 const SOURCES_FONCTIONS = ["supabase/functions", "packages/domain", "supabase/config.toml"];
 const CHEMINS_BASE = ["supabase/migrations", ...SOURCES_FONCTIONS];
 
+// Photos du catalogue : bucket public des deux côtés. La pile locale sert ses fichiers sur le port
+// de l'API de `config.toml` ([api] port, 54321 par défaut).
+const PHOTOS = {
+  bucket: "catalog-media",
+  locale: "http://127.0.0.1:54321/storage/v1/object/public/catalog-media",
+  preprod: `https://${PREPROD.ref}.supabase.co/storage/v1/object/public/catalog-media`,
+  // Un chemin cité entre apostrophes dans une migration, tel que `product_media.storage_path`.
+  motif: /'((?:products|establishments)\/[0-9a-f-]{36}\.(webp|jpe?g|png|avif))'/g,
+  types: { webp: "image/webp", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", avif: "image/avif" },
+};
+
 const args = process.argv.slice(2);
 const mode = args.find((a) => !a.startsWith("--"));
 const aBlanc = args.includes("--dry-run");
 const sansAttente = args.includes("--no-wait");
+const contenuEnvoye = args.includes("--contenu-envoye");
 
 class Arret extends Error {
   constructor(message, code = 1) {
@@ -104,9 +126,9 @@ function git(...parametres) {
 // `npx supabase`, jamais un binaire supposé installé : c'est la forme que tout le dépôt emploie.
 // `shell: true` parce que `npx` est un `.cmd` sous Windows ; les arguments sont tous des constantes
 // de ce fichier ou un chemin temporaire, mis entre guillemets.
-function supabase(ligne, { tolereEchec = false } = {}) {
+function supabase(ligne, { tolereEchec = false, dossier = RACINE } = {}) {
   const r = spawnSync(`npx supabase ${ligne}`, {
-    cwd: RACINE,
+    cwd: dossier,
     shell: true,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -198,6 +220,93 @@ function controlerCompte() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// 3. Contenu saisi dans la base LOCALE — ce que ce script n'emporte pas
+// ---------------------------------------------------------------------------------------------
+// Ce qu'on saisit dans l'admin ou l'espace socio LOCAL (une fiche, une étiquette, une photo) vit
+// dans la base locale seulement. Le relevé part du dernier envoi réussi de CE clone (repère gardé
+// dans `.git/`, posé avec l'heure de la base, jamais celle du poste). Sources : `audit_log` des
+// tables du catalogue, et les `created_at`/`updated_at` de ce que l'audit ne trace pas (création
+// d'une étiquette, rattachement à un établissement). Une migration appliquée en local apparaît
+// aussi : le relevé est une liste à trier, pas un verdict.
+const RELEVE_CONTENU = `
+select to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS.USOF');
+select distinct on (quoi) to_char(quand at time zone 'America/Bogota', 'DD/MM HH24:MI'), quoi from (
+  select a.created_at, a.action || coalesce(' — ' || coalesce(p.slug, e.slug, pa.display_name), '')
+    from public.audit_log a
+    left join public.products p on a.entity_table = 'products' and p.id = a.entity_id
+    left join public.establishments e on a.entity_table = 'establishments' and e.id = a.entity_id
+    left join public.partners pa on a.entity_table = 'partners' and pa.id = a.entity_id
+   where a.created_at > :'depuis'
+     and a.entity_table in ('products', 'establishments', 'partners', 'product_media', 'establishment_media', 'catalog_tags')
+  union all
+  select created_at, 'étiquette créée — ' || slug from public.catalog_tags where created_at > :'depuis'
+  union all
+  select a.created_at, 'étiquette « ' || t.slug || ' » posée — ' || e.slug
+    from public.establishment_tag_assignments a
+    join public.establishments e on e.id = a.establishment_id join public.catalog_tags t on t.id = a.tag_id
+   where a.created_at > :'depuis'
+  union all
+  select a.created_at, 'étiquette « ' || t.slug || ' » posée — ' || p.slug
+    from public.product_tag_assignments a
+    join public.products p on p.id = a.product_id join public.catalog_tags t on t.id = a.tag_id
+   where a.created_at > :'depuis'
+  union all
+  select updated_at, 'fiche modifiée — ' || slug from public.products where updated_at > :'depuis'
+  union all
+  select updated_at, 'fiche modifiée — ' || slug from public.establishments where updated_at > :'depuis'
+) as releve (quand, quoi)
+order by quoi, quand;
+`;
+
+function conteneurBaseLocale() {
+  const config = fs.readFileSync(path.join(RACINE, "supabase/config.toml"), "utf8");
+  return `supabase_db_${config.match(/^project_id\s*=\s*"([^"]+)"/m)?.[1] ?? "hifago"}`;
+}
+
+function controlerContenuLocal() {
+  etape("Contenu saisi en local");
+  const depuis = lireEtat().contenu;
+  const r = spawnSync(
+    "docker",
+    ["exec", "-i", conteneurBaseLocale(), "psql", "-U", "postgres", "-At", "-F", "\t",
+      "-v", "ON_ERROR_STOP=1", "-v", `depuis=${depuis ?? "infinity"}`],
+    { cwd: RACINE, input: RELEVE_CONTENU, encoding: "utf8" }
+  );
+  if (r.status !== 0) {
+    alerte("base locale injoignable (Docker arrêté ?) : contenu saisi en local NON vérifié.");
+    return { repere: null, bilan: "⚠ contenu local : non vérifié (base locale injoignable)" };
+  }
+  const [repere, ...lignes] = r.stdout.trim().split("\n");
+  if (!depuis) {
+    ok(`premier passage sur ce clone : repère posé (${repere.slice(0, 16)}), rien n'est comparé`);
+    return { repere, bilan: "contenu local : repère posé" };
+  }
+  if (!lignes.length) {
+    ok(`rien de saisi depuis le dernier envoi (${depuis.slice(0, 16)})`);
+    return { repere, bilan: "contenu local : rien de nouveau" };
+  }
+  const liste = lignes.map((l) => `      ${l.replace("\t", "  ")}`).join("\n");
+  const message =
+    `${lignes.length} changement(s) saisi(s) dans la base locale depuis le dernier envoi (${depuis.slice(0, 16)}) — ` +
+    `ce script n'envoie que des migrations, ils ne partiraient pas :\n${liste}`;
+  if (contenuEnvoye) {
+    alerte(message);
+    ok("--contenu-envoye : porté par une migration de ce lot, ou volontairement laissé en local");
+    return { repere, bilan: `contenu local : ${lignes.length} changement(s), déclaré(s) envoyé(s)` };
+  }
+  if (aBlanc) {
+    alerte(message);
+    return { repere: null, bilan: `⚠ contenu local : ${lignes.length} changement(s) qu'aucune migration ne porte` };
+  }
+  throw new Arret(
+    `${message}\n    Ce qui doit exister en préprod s'écrit en migration idempotente (clés : slugs ; une photo ` +
+      "citée par son chemin `products/<uuid>.webp` est envoyée par ce script). Puis relancer avec " +
+      "--contenu-envoye — même option pour ce qui ne doit pas partir. Rien n'a été poussé.",
+    4
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
 // 4. Migrations — depuis une copie temporaire, jamais depuis le clone
 // ---------------------------------------------------------------------------------------------
 function preparerCopie() {
@@ -231,6 +340,68 @@ function migrationsEnAttente(dossier) {
   throw new Arret(`essai à blanc illisible :\n${masquer(sortie).trim().slice(-600)}`);
 }
 
+// Une migration de données rattache une photo par son chemin, mais ne transporte pas le fichier :
+// sans lui, elle la rattache à vide (ou, si elle est écrite comme 20261014160938, ne la rattache
+// pas). Chaque chemin cité qui manque à la préprod part donc de la pile locale AVANT le `db push`.
+// Échec fermé : une photo introuvable des deux côtés arrête tout, rien n'est appliqué.
+async function envoyerPhotos(copie, enAttente) {
+  const chemins = [
+    ...new Set(
+      enAttente.flatMap((m) =>
+        [...fs.readFileSync(path.join(RACINE, "supabase/migrations", m), "utf8").matchAll(PHOTOS.motif)].map((x) => x[1])
+      )
+    ),
+  ];
+  if (!chemins.length) return null;
+  etape("Photos citées par les migrations");
+  const manquantes = [];
+  for (const chemin of chemins) {
+    const reponse = await lire(`${PHOTOS.preprod}/${chemin}`, { tentatives: 2, delai: 20_000 });
+    if (reponse.ok) ok(`${chemin} : déjà en préprod`);
+    else manquantes.push(chemin);
+  }
+  if (!manquantes.length) return `photos : ${chemins.length} déjà en préprod`;
+  if (aBlanc) {
+    for (const chemin of manquantes) info(`${chemin} : serait envoyée depuis la pile locale`);
+    return `photos : ${manquantes.length} à envoyer (non envoyées, essai à blanc)`;
+  }
+
+  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), "hifago-photos-"));
+  try {
+    for (const chemin of manquantes) {
+      let reponse;
+      try {
+        reponse = await lire(`${PHOTOS.locale}/${chemin}`, { tentatives: 1, delai: 20_000 });
+      } catch (erreur) {
+        reponse = { ok: false, status: erreur.message };
+      }
+      if (!reponse.ok) {
+        throw new Arret(
+          `${chemin} manque à la préprod et la pile locale ne la sert pas (${reponse.status}) : la migration ` +
+            "qui la cite la rattacherait à vide. Démarrer la pile locale (/hifago-dev), puis relancer — rien n'a été appliqué."
+        );
+      }
+      const nom = path.basename(chemin);
+      fs.writeFileSync(path.join(dossier, nom), Buffer.from(await reponse.arrayBuffer()));
+      const type = PHOTOS.types[chemin.split(".").pop()];
+      // Source en chemin RELATIF, lancé depuis son dossier : un chemin Windows absolu (`C:\…`) est
+      // lu comme une URL par la CLI, qui refuse en `StorageUnsupportedOperationError` (2026-10-14).
+      supabase(
+        `storage cp "${nom}" "ss:///${PHOTOS.bucket}/${chemin}" --content-type ${type} --linked --experimental --workdir "${copie}"`,
+        { dossier }
+      );
+      const verification = await lire(`${PHOTOS.preprod}/${chemin}`, { tentatives: 2, delai: 20_000 });
+      if (!verification.ok) {
+        throw new Arret(`${chemin} envoyée, mais la préprod ne la sert pas (HTTP ${verification.status}) — rien n'a été appliqué.`);
+      }
+      ok(`${chemin} envoyée`);
+    }
+  } finally {
+    fs.rmSync(dossier, { recursive: true, force: true });
+  }
+  return `photos : ${manquantes.length} envoyée(s)`;
+}
+
 // ---------------------------------------------------------------------------------------------
 // 5. Edge Functions — redéployées seulement si leurs sources ont bougé
 // ---------------------------------------------------------------------------------------------
@@ -250,6 +421,11 @@ function lireEtat() {
   } catch {
     return {};
   }
+}
+
+// Deux clés, écrites à deux moments : `fonctions` (empreinte) et `contenu` (repère du relevé).
+function ecrireEtat(modification) {
+  fs.writeFileSync(fichierEtat(), JSON.stringify({ ...lireEtat(), ...modification }, null, 2));
 }
 
 function deployerFonctions(sha) {
@@ -273,7 +449,7 @@ function deployerFonctions(sha) {
   }
   // Pas d'horodatage ici : la date de modification du fichier le donne, et `check-timezone.sh`
   // refuse tout `new Date()` nu dans `scripts/`.
-  fs.writeFileSync(fichierEtat(), JSON.stringify({ fonctions: empreinte, sha }, null, 2));
+  ecrireEtat({ fonctions: empreinte, sha });
   ok("redéployées");
   return "redéployées";
 }
@@ -422,13 +598,15 @@ async function controlerPreprod() {
 // ---------------------------------------------------------------------------------------------
 async function main() {
   if (!["all", "code", "db"].includes(mode)) {
-    throw new Arret("Usage : node scripts/deploy-preprod.mjs <all|code|db> [--dry-run] [--no-wait]", 2);
+    throw new Arret("Usage : node scripts/deploy-preprod.mjs <all|code|db> [--dry-run] [--no-wait] [--contenu-envoye]", 2);
   }
   console.log(`Préprod Hifago — mode ${mode}${aBlanc ? " (essai à blanc : rien ne sera poussé)" : ""}`);
   const bilan = [];
 
   const { sha, avance, mockDataTouche } = controlerGit();
   controlerCompte();
+  const contenu = controlerContenuLocal();
+  bilan.push(contenu.bilan);
 
   const pousseCode = mode !== "db" && avance > 0;
   if (pousseCode && !aBlanc) {
@@ -447,6 +625,8 @@ async function main() {
     } else {
       for (const m of enAttente) info(m);
       if (mode === "code") info("le code à pousser dépend de ces migrations : elles partent d'abord.");
+      const photos = await envoyerPhotos(copie, enAttente);
+      if (photos) bilan.push(photos);
       if (aBlanc) {
         bilan.push(`migrations : ${enAttente.length} en attente (non appliquées, essai à blanc)`);
       } else {
@@ -479,6 +659,8 @@ async function main() {
 
   const pages = await controlerPreprod();
   bilan.push(`contrôle : ${pages} pages en 200`);
+  // Le repère n'avance qu'après un envoi complet : un échec plus haut laisse le relevé intact.
+  if (!aBlanc && contenu.repere) ecrireEtat({ contenu: contenu.repere });
   if (mockDataTouche) {
     bilan.push(
       `⚠ mockData/ : ${mockDataTouche} fichier(s) modifié(s) dans ce lot — ils ne partent PAS en préprod ` +
@@ -492,7 +674,7 @@ async function main() {
 
 // Exportées pour être essayées une à une sans rien pousser (attente du build sur un commit déjà
 // en ligne, lecture d'un essai à blanc) : importer ce fichier ne lance rien.
-export { attendreVercel, controlerPreprod, masquer };
+export { attendreVercel, controlerContenuLocal, controlerPreprod, masquer };
 
 const lanceDirectement =
   process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href.toLowerCase() === import.meta.url.toLowerCase();

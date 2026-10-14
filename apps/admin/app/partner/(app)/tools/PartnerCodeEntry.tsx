@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { Button, buttonVariants, Card, cn, Input, Label } from "@hifago/ui";
-import { buildWhatsAppLink, SUPPORT_WHATSAPP_NUMBER } from "@/lib/whatsapp";
+import { SUPPORT_WHATSAPP_NUMBER, buildWhatsAppLink, supportReferralCodeMessage } from "@/lib/whatsapp";
 
 export function PartnerCodeEntry({ code, link }: { code: string; link: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -70,8 +70,7 @@ export function PartnerCodeEntry({ code, link }: { code: string; link: string })
     triggerDownload(canvas.toDataURL("image/png"), `hifago-${code}.png`);
   }
 
-  const whatsappMessage = `Hola Jérome, soy "${code}", tengo un problema con mi enlace/QR de venta. Me puedes ayudar porfa?`;
-  const whatsappHref = buildWhatsAppLink(SUPPORT_WHATSAPP_NUMBER, whatsappMessage);
+  const whatsappHref = buildWhatsAppLink(SUPPORT_WHATSAPP_NUMBER, supportReferralCodeMessage(code));
 
   return (
     <Card data-testid="partner-code-entry" className="w-full overflow-hidden">

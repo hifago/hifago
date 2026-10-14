@@ -18,6 +18,9 @@
 //   S3 PSE en attente > 2 h, MP accepte l'annulation → expirée ;
 //   S4 PSE en attente > 2 h, MP REFUSE l'annulation et le re-GET dit approuvé → payée, jamais expirée ;
 //   S5 paiement dont le collector_id ≠ /users/me → rien ne bouge, heartbeat ok=false ;
+//   (20261014030249) toute décision sur un paiement SANS compte enregistré est comptée
+//      (identity_unchecked) et signalée par l'avertissement du heartbeat ; S1, dont le compte est
+//      enregistré et identique, ne l'est pas ;
 //   S6 paiement annulé d'une commande déjà expirée, MP dit approuvé → refund_required (surveillance) ;
 //   S7 remboursement demandé par l'admin → POST /refunds (X-Idempotency-Key) → approuvé, entrée résolue ;
 //   S8 remboursement refusé par MP (4xx métier) → rejected, entrée rouverte, corps conservé ;
@@ -217,7 +220,7 @@ async function seed(client) {
   // est déjà rendue), on part donc de 7.
   await client.query("insert into product_availability (product_id, date, capacity, booked) values ($1, '2028-11-01', 10, 7)", [PRODUCT_ID]);
   await client.query("insert into auth.users (id, email) values ($1, $2) on conflict (id) do nothing", [ACCOUNT_ID, "reconcile-integration@hifago.test"]);
-  await makeOrder(client, 1, { age: "5 minutes" });
+  await makeOrder(client, 1, { age: "5 minutes", collector: String(COLLECTOR_ID) });
   await makeOrder(client, 2, { age: "35 minutes" });
   await makeOrder(client, 3, { age: "2 hours 10 minutes" });
   await makeOrder(client, 4, { age: "2 hours 10 minutes" });
@@ -304,7 +307,9 @@ async function main() {
       `select id, raw_last_event from payments where order_id::text like '${P}%' and raw_last_event is not null`
     );
     const eventOf = (n) => events.find((e) => e.id === pay(n))?.raw_last_event ?? null;
-    const { rows: [hb] } = await client.query("select last_ok_at, last_error, stats from job_heartbeats where job_name = 'payments-reconcile'");
+    const { rows: [hb] } = await client.query(
+      "select last_ok_at, last_error, stats, last_warning, last_warning_at from job_heartbeats where job_name = 'payments-reconcile'"
+    );
     const { rows: refunds } = await client.query(
       `select r.mp_payment_id, r.status, r.mp_refund_id, r.last_error, r.raw_response, e.status as entry_status
          from payment_refunds r join payment_reconciliation_entries e on e.id = r.entry_id
@@ -344,6 +349,13 @@ async function main() {
         `stats : 2 appliquées, 2 expirées, 1 identité étrangère, 1 lue sans application (S10), remboursements 1/1, 0 erreur (${JSON.stringify(summary)})`],
       [summary?.ok === false && hb?.last_error === "identity_mismatch: MERCADOPAGO_ACCESS_TOKEN n'appartient pas au compte MP qui a créé les préférences (piège 19)",
         `ok=false, motif exact (${hb?.last_error})`],
+      // Réclamées : S1-S5, S9, S10 (7) ; surveillé : le paiement de S6 (1). S1 (compte identique) et
+      // S5 (compte étranger, refusé avant toute décision) ne sont pas comptées : 5 + 1 = 6.
+      [summary?.claimed === 7 && summary?.watched === 1 && summary?.identity_unchecked === 6,
+        `6 décisions sans compte encaisseur (réclamées ${summary?.claimed}, surveillées ${summary?.watched}, comptées ${summary?.identity_unchecked})`],
+      [hb?.last_warning === `${summary?.identity_unchecked} decisiones tomadas sin control de identidad de Mercado Pago: la cuenta receptora no estaba registrada al crear los pagos` &&
+        summary?.warning === hb?.last_warning && hb?.last_warning_at !== null,
+        `avertissement au heartbeat et dans la réponse, daté (${hb?.last_warning})`],
       [!JSON.stringify(hb ?? {}).includes(MP_TOKEN) && !JSON.stringify(summary ?? {}).includes(MP_TOKEN) &&
         !(process.env.FUNCTION_LOG && readFileSync(process.env.FUNCTION_LOG, "utf8").includes(MP_TOKEN)),
         "le jeton Mercado Pago n'apparaît ni dans le heartbeat, ni dans la réponse, ni dans les journaux"],

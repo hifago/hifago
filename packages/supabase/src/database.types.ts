@@ -673,6 +673,8 @@ export type Database = {
           last_error: string | null
           last_ok_at: string | null
           last_run_at: string | null
+          last_warning: string | null
+          last_warning_at: string | null
           stats: Json
         }
         Insert: {
@@ -682,6 +684,8 @@ export type Database = {
           last_error?: string | null
           last_ok_at?: string | null
           last_run_at?: string | null
+          last_warning?: string | null
+          last_warning_at?: string | null
           stats?: Json
         }
         Update: {
@@ -691,6 +695,8 @@ export type Database = {
           last_error?: string | null
           last_ok_at?: string | null
           last_run_at?: string | null
+          last_warning?: string | null
+          last_warning_at?: string | null
           stats?: Json
         }
         Relationships: []
@@ -2570,6 +2576,7 @@ export type Database = {
           revenue_cop: number
         }[]
       }
+      admin_delete_catalog_amenity: { Args: { p_amenity_id: string }; Returns: Json }
       admin_jobs_status: {
         Args: never
         Returns: {
@@ -2580,6 +2587,8 @@ export type Database = {
           last_error: string
           last_ok_at: string
           last_run_at: string
+          last_warning: string
+          last_warning_at: string
           stale_after_minutes: number
           state: string
         }[]
@@ -2661,6 +2670,10 @@ export type Database = {
           total_cop: number
           total_count: number
         }[]
+      }
+      admin_rename_catalog_amenity: {
+        Args: { p_amenity_id: string; p_label_en: string; p_label_es: string }
+        Returns: Json
       }
       admin_rename_establishment: {
         Args: { p_establishment_id: string; p_name_es: string; p_note?: string }
@@ -2993,17 +3006,30 @@ export type Database = {
         }
         Returns: Json
       }
-      has_admin_capability: { Args: { uid: string }; Returns: boolean }
-      has_capability: {
-        Args: { p_establishment_id?: string; p_role: string; uid: string }
-        Returns: boolean
-      }
+      has_admin_capability:
+        | { Args: never; Returns: boolean }
+        | { Args: { uid: string }; Returns: boolean }
+      has_capability:
+        | {
+            Args: { p_establishment_id?: string; p_role: string }
+            Returns: boolean
+          }
+        | {
+            Args: { p_establishment_id?: string; p_role: string; uid: string }
+            Returns: boolean
+          }
       haversine_km: {
         Args: { p_lat1: number; p_lat2: number; p_lon1: number; p_lon2: number }
         Returns: number
       }
       heartbeat_job: {
-        Args: { p_error?: string; p_job: string; p_ok: boolean; p_stats?: Json }
+        Args: {
+          p_error?: string
+          p_job: string
+          p_ok: boolean
+          p_stats?: Json
+          p_warning?: string
+        }
         Returns: undefined
       }
       html_text: { Args: { p_value: string }; Returns: string }
@@ -3017,7 +3043,9 @@ export type Database = {
       invoke_pms_poll_bookings: { Args: never; Returns: undefined }
       invoke_pms_sync_availability: { Args: never; Returns: undefined }
       invoke_send_notification_emails: { Args: never; Returns: undefined }
-      is_admin: { Args: { uid: string }; Returns: boolean }
+      is_admin:
+        | { Args: never; Returns: boolean }
+        | { Args: { uid: string }; Returns: boolean }
       is_anonymous_session: { Args: never; Returns: boolean }
       job_watchdog: {
         Args: { p_job: string; p_stale: string }
@@ -3277,6 +3305,7 @@ export type Database = {
           status: string
         }[]
       }
+      partner_code_is_active: { Args: { p_code: string }; Returns: boolean }
       partner_commissions_list: {
         Args: {
           p_date_from?: string
@@ -3301,7 +3330,9 @@ export type Database = {
           total_count: number
         }[]
       }
-      partner_id_for_account: { Args: { uid: string }; Returns: string }
+      partner_id_for_account:
+        | { Args: never; Returns: string }
+        | { Args: { uid: string }; Returns: string }
       partner_reservation_detail: {
         Args: { p_order_line_id: string }
         Returns: {

@@ -40,7 +40,7 @@ export default async function PartnerEstablishmentLayout({
     redirect("/login?next=/partner/establishment");
   }
 
-  const { partnerId, isAdmin } = await requirePartnerOrAdmin(supabase, user.id);
+  const { partnerId, isAdmin } = await requirePartnerOrAdmin(supabase);
 
   // Refonte vue référent (2026-08-20, docs/specs/22-vue-referent-restreinte.md §3d du cahier des
   // charges socio) : garde serveur réelle, pas un simple masquage du lien de nav — un référent pur

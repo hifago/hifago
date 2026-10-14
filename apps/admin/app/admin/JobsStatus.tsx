@@ -17,6 +17,9 @@ import { statusChip, type ChipStyle } from "@/components/status-chip";
 //   éxito todavía », en alerte.
 // - Un retard SANS alerte en cours (« Sin alerta por correo ») : le canal e-mail est sans doute
 //   tombé aussi.
+// - Un AVERTISSEMENT (`last_warning`, 20261014030249) n'est pas une panne : il s'affiche sur la
+//   ligne du job, avec son heure, sans toucher ni l'état, ni la pastille, ni le résumé. La base
+//   l'efface au premier passage sans avertissement.
 
 export type JobStatusRow = {
   jobName: string;
@@ -26,6 +29,9 @@ export type JobStatusRow = {
   alertedAt: string | null;
   state: string;
   alertActive: boolean;
+  /** Avertissement du dernier passage (pas une panne) ; null : aucun, ou base sans la colonne. */
+  lastWarning: string | null;
+  lastWarningAt: string | null;
 };
 
 export type JobsStatusProps = { unavailable: true } | { jobs: JobStatusRow[]; checkedAt: string | null };
@@ -96,6 +102,12 @@ function JobRow({ job, checkedAt }: { job: JobStatusRow; checkedAt: string | nul
         {job.lastError ? (
           <span data-testid={`job-error-${job.jobName}`} className="text-xs text-muted break-all">
             Último error: {job.lastError}
+          </span>
+        ) : null}
+        {job.lastWarning ? (
+          <span data-testid={`job-warning-${job.jobName}`} className="text-xs text-warning break-words">
+            Aviso{job.lastWarningAt ? ` (${formatDateTimeInBogota(job.lastWarningAt, "es")})` : ""}:{" "}
+            {job.lastWarning}
           </span>
         ) : null}
         {job.state === "stale" ? (

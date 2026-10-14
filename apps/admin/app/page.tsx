@@ -28,7 +28,7 @@ export default async function RootPage() {
   // Échec fermé (2026-10-01) : chaque lecture de rôle en panne LÈVE (app/error.tsx propose de
   // réessayer). Lue comme « pas ce rôle », elle aiguillait ailleurs : un admin en panne de base
   // atterrissait sur /partner, devant « Aún no tienes ningún rol asignado ».
-  const { data: isAdmin, error: isAdminError } = await supabase.rpc("is_admin", { uid: user.id });
+  const { data: isAdmin, error: isAdminError } = await supabase.rpc("is_admin");
   if (isAdminError) {
     throw new Error(`Aiguillage impossible (is_admin) : ${isAdminError.message}`);
   }
@@ -37,7 +37,6 @@ export default async function RootPage() {
   }
 
   const { data: isOperator, error: isOperatorError } = await supabase.rpc("has_capability", {
-    uid: user.id,
     p_role: "operator",
   });
   if (isOperatorError) {
@@ -51,7 +50,6 @@ export default async function RootPage() {
   }
 
   const { data: isReferrer, error: isReferrerError } = await supabase.rpc("has_capability", {
-    uid: user.id,
     p_role: "referrer",
   });
   if (isReferrerError) {

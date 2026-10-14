@@ -11,6 +11,8 @@
 --     watchdog alerte ;
 --   - heartbeat_job date le passage à l'instant réel (clock_timestamp), un seul instant pour
 --     last_run_at et last_ok_at ;
+--   - l'avertissement (20261014030249) : distinct de l'erreur, sans effet sur `state`, daté du
+--     passage, effacé au premier passage qui n'en porte pas ;
 --   - le seuil est LU dans la table : le changer fait bouger jobs_watchdog ET la RPC, et
 --     payments_reconcile_watchdog (sujet de l'e-mail inchangé à 15 min) ;
 --   - alert_active suit le réarmement (alerte partie → vrai ; un succès → faux) ;
@@ -19,7 +21,7 @@
 --     aucun droit pour anon/authenticated, seuil strictement positif.
 -- ⚠️ `now()` est constant dans la transaction : on vieillit la DONNÉE, jamais l'horloge.
 begin;
-select plan(26);
+select plan(28);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -126,6 +128,18 @@ select is(
 select heartbeat_job('pms-sync-availability', false, '{}'::jsonb, 'timeout');
 select is((select state from admin_jobs_status() where job_name = 'pms-sync-availability'), 'ok',
   'S14e : un échec après un succès, sous le seuil → ok (le prédicat des watchdogs, inchangé)');
+select heartbeat_job('pms-sync-availability', true, '{}'::jsonb, null, 'attention : 2 décisions');
+select is(
+  (select jsonb_build_object('state', state, 'erreur', last_error, 'avertissement', last_warning, 'date', last_warning_at = last_run_at)
+     from admin_jobs_status() where job_name = 'pms-sync-availability'),
+  jsonb_build_object('state', 'ok', 'erreur', null, 'avertissement', 'attention : 2 décisions', 'date', true),
+  'S14f : un passage réussi avec avertissement → ok, aucune erreur, l''avertissement daté du passage');
+select heartbeat_job('pms-sync-availability', true, '{}'::jsonb, null);
+select is(
+  (select jsonb_build_object('avertissement', last_warning, 'date', last_warning_at)
+     from admin_jobs_status() where job_name = 'pms-sync-availability'),
+  jsonb_build_object('avertissement', null, 'date', null),
+  'S14g : le passage suivant sans avertissement l''efface (arbitrage du 2026-10-14)');
 -- Une ligne existante s'ancre sur SON created_at (premier heartbeat en échec, ou ligne pré-créée),
 -- jamais sur la déclaration de l'attente — et la RPC le dit au même instant que le watchdog.
 update job_heartbeats set created_at = now() - interval '41 minutes' where job_name = 'pms-cancel-bookings';

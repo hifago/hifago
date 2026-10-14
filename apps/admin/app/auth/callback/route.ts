@@ -41,16 +41,32 @@ function wasJustCreated(user: { created_at: string; last_sign_in_at?: string | n
 // l'URL, donc de quiconque a construit le lien. Le compte fraîchement créé n'est gardé que si `next`
 // (déjà filtré par safeNextPath) mène exactement à /partner/join avec un jeton que
 // check_partner_invitation déclare encore valide — une erreur de vérification vaut refus.
-async function arrivesWithValidInvitation(
+//
+// Invitation envoyée PAR E-MAIL (`invited_email`) : seul un compte qui porte cette adresse pourra la
+// consommer (consume_partner_invitation refuse sinon : `email_mismatch`). Un compte Google tout neuf
+// à une autre adresse ne serait donc jamais rattaché — gardé, il resterait sans rôle. Il est
+// supprimé, et l'invité revient sur l'invitation avec le motif.
+type InvitationContext = { kind: "valid" } | { kind: "invalid" } | { kind: "email_mismatch"; token: string };
+
+const memeAdresse = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+async function invitationContext(
   supabase: Awaited<ReturnType<typeof createClient>>,
   next: string,
-  origin: string
-) {
+  origin: string,
+  accountEmail: string | undefined
+): Promise<InvitationContext> {
   const target = new URL(next, origin);
   const token = target.pathname === "/partner/join" ? target.searchParams.get("token") : null;
-  if (!token) return false;
+  if (!token) return { kind: "invalid" };
   const { data, error } = await supabase.rpc("check_partner_invitation", { p_token: token });
-  return !error && (data as { ok?: boolean } | null)?.ok === true;
+  const check = data as { ok?: boolean; invited_email?: unknown } | null;
+  if (error || check?.ok !== true) return { kind: "invalid" };
+  const invitedEmail = typeof check.invited_email === "string" ? check.invited_email : "";
+  if (invitedEmail.trim() !== "" && !memeAdresse(accountEmail ?? "", invitedEmail)) {
+    return { kind: "email_mismatch", token };
+  }
+  return { kind: "valid" };
 }
 
 // Feature 31 (docs/specs/07-connexion-inscription-complete.md §5) — point d'atterrissage unique
@@ -88,10 +104,17 @@ export async function GET(request: Request) {
   // Nettoyage a posteriori (voir commentaire de fonction ci-dessus) — avant toute autre logique
   // (2FA compris), un compte fantôme ne doit jamais atteindre /mfa/* ni la destination finale.
   if (user && isFreshAccountCreation(type, Boolean(code)) && wasJustCreated(user)) {
-    if (!(await arrivesWithValidInvitation(supabase, next, url.origin))) {
+    const invitation = await invitationContext(supabase, next, url.origin, user.email);
+    if (invitation.kind !== "valid") {
       const service = createServiceRoleClient();
       await service.auth.admin.deleteUser(user.id);
       await supabase.auth.signOut();
+      if (invitation.kind === "email_mismatch") {
+        const retour = new URL("/partner/join", url.origin);
+        retour.searchParams.set("token", invitation.token);
+        retour.searchParams.set("error", "email_mismatch");
+        return NextResponse.redirect(retour);
+      }
       return NextResponse.redirect(new URL("/login?error=google_signup_blocked", url.origin));
     }
   }
@@ -99,7 +122,7 @@ export async function GET(request: Request) {
   // 2FA admin déclenchée à la connexion elle-même (§8) — un compte admin qui vient de confirmer
   // son email ou de se connecter via Google n'échappe pas à l'AAL2.
   if (user) {
-    const mfa = await checkMfaGuard(supabase, user.id);
+    const mfa = await checkMfaGuard(supabase);
     if (mfa.action === "enroll") {
       return NextResponse.redirect(
         new URL(`/mfa/enroll?next=${encodeURIComponent(next)}`, url.origin)

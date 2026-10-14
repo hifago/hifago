@@ -31,14 +31,23 @@ déciderait seule de lancer le script. Le compte est vérifié par le script lui
    parte. `git status --short`, puis un commit par sujet (le journal du jour dit ce qui est
    terminé). Ce qu'une autre session est visiblement en train d'écrire (aucune entrée de journal,
    fichier modifié à l'instant) reste dehors — le nommer en une ligne dans le compte rendu.
-2. **Données.** Le script n'envoie que du schéma. Si le lot contient une donnée qui doit exister
-   en préprod — fichier `mockData/` ajouté ou modifié, `UPDATE` passé à la main sur la base
-   locale — l'écrire en **migration idempotente** (clé métier : slug, jamais un uuid local) AVANT
-   de pousser. Si cela demande un choix de produit, poser UNE question à Jérôme, puis finir.
+2. **Données.** Le script n'envoie que des migrations. Ce que Jérôme saisit dans l'admin ou le
+   socio LOCAL (fiche, étiquette, photo) vit dans la base locale seulement — « Exposición
+   Mirarte » a manqué à la préprod après un `/push-db` vert (2026-10-14). Le script relève ce
+   contenu depuis le dernier envoi et s'arrête en code `4` avec la liste. Tout ce qui doit
+   exister en préprod — cette liste, un fichier `mockData/` modifié, un `UPDATE` à la main —
+   s'écrit en **migration idempotente** AVANT de pousser : clés métier (slugs, jamais un uuid
+   local), sans effet là où la fiche n'existe pas (prod, CI), rejouée en transaction annulée sur
+   l'état local ET sur l'état préprod reconstitué. Modèle : `20261014160938_contenu_admin_local_du_13.sql`.
+   Une photo s'y cite par son chemin `'products/<uuid>.webp'`, rattachée seulement si l'objet est
+   dans `storage.objects` : le script l'envoie de la pile locale avant le `db push`. Puis relancer
+   avec `--contenu-envoye` (même option pour un essai à laisser en local — le nommer dans le
+   compte rendu). Choix de produit nécessaire → UNE question à Jérôme, puis finir.
 3. **Lancer le script**, délai d'au moins 15 min (contrôles, puis build Vercel).
 4. **Selon le code de retour** — corriger et relancer, jamais s'arrêter sur un « reste à faire » :
    - `0` : tout est vert ;
    - `3` : fichiers de base non commités → étape 1, relancer ;
+   - `4` : contenu saisi en local qu'aucune migration ne porte → étape 2, relancer ;
    - `2` : précondition. En retard sur `origin` → `git pull --rebase origin staging` ; CLI non
      connectée → seul Jérôme peut : `npx.cmd supabase login` (PowerShell refuse `npx` sur son poste) ;
    - `1` : lire l'étape en échec. `verify` rouge ou build Vercel en échec → corriger le code,

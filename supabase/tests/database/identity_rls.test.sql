@@ -1,7 +1,7 @@
 -- Tranche 1 (identité composable) — RLS : écriture directe refusée sur les tables RPC-only,
 -- token d'invitation jamais exposé à un non-admin, lecture propre organisation + miroir admin.
 begin;
-select plan(14);
+select plan(15);
 
 -- Helper local à cette transaction (jamais persisté, rollback en fin de fichier) : simule un
 -- compte authentifié sans répéter le json_build_object à chaque changement de rôle.
@@ -81,13 +81,20 @@ select ok(
   'l''admin voit les invitations'
 );
 
--- lecture publique de partner_codes ------------------------------------------
+-- partner_codes : aucune lecture pour anon, un code se vérifie à l'unité ------
+-- Lecture publique retirée (20261014025905 puis 20261014073414) : seuls le propriétaire et l'admin
+-- lisent les lignes ; un visiteur vérifie UN code par partner_code_is_active.
 reset role;
 set local role anon;
 select set_config('request.jwt.claims', '', true);
+select throws_ok(
+  $$ select count(*) from partner_codes where code = 'TESTCODE' $$,
+  '42501'::char(5), null,
+  'anon ne lit plus partner_codes (permission refusée)'
+);
 select is(
-  (select count(*) from partner_codes where code = 'TESTCODE')::int, 1,
-  'anon peut lire partner_codes (lecture publique)'
+  partner_code_is_active('TESTCODE'), true,
+  'anon vérifie un code actif à l''unité (partner_code_is_active)'
 );
 
 -- partners / partner_accounts / role_agreements : propre organisation + miroir admin --

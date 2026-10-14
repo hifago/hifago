@@ -8,6 +8,7 @@ import Link from "next/link";
 import { SearchableCombobox } from "@/components/searchable-combobox";
 import { useAddressAutocomplete } from "@/components/use-address-autocomplete";
 import { TagsMultiSelect, type TagOption } from "@/components/tags-multiselect";
+import { AMENITY_EDITOR } from "@/lib/amenities/editCatalogAmenity";
 import { useEstablishmentFieldsState } from "@/lib/establishments/useEstablishmentFieldsState";
 import { buildEstablishmentRpcParams } from "@/lib/establishments/establishmentPayload";
 import { uploadCatalogBlob } from "@/lib/media/uploadCatalogBlob";
@@ -427,6 +428,9 @@ export function NewEstablishmentForm({
               selectedTagIds={fields.selectedAmenityIds}
               onChange={fields.setSelectedAmenityIds}
               allowCreate={false}
+              // Liste fermée : jamais de création, mais renommer et supprimer, oui (admin seulement).
+              allowManage
+              manageEditor={AMENITY_EDITOR}
               label="Equipamiento"
               placeholder="Buscar equipamiento…"
               emptyMessage="Ningún equipamiento disponible."

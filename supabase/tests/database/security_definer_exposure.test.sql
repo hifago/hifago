@@ -90,7 +90,12 @@ select is(
         -- elle n'expose qu'un AGRÉGAT (sum(qty) groupé par date) — jamais une ligne individuelle,
         -- jamais de PII. Publique par conception : le compteur RSVP doit être visible sur la fiche
         -- evento par n'importe quel visiteur, pas seulement un compte connecté.
-        'get_evento_rsvp_counts'
+        'get_evento_rsvp_counts',
+        -- Même famille que check_partner_invitation (20261014025905) : vérifie UN code
+        -- d'attribution pour la route publique des liens et QR imprimés (/[locale]/r/[code]),
+        -- forcément sans compte. Ne rend qu'un booléen « existe et actif » — jamais une ligne, une
+        -- liste ni un partenaire. partner_codes_read.test.sql vérifie ce contrat (type de retour).
+        'partner_code_is_active'
       )
   ),
   '',
@@ -122,6 +127,15 @@ select is(
         -- appelante, ce n'est pas un garde d'AUTORISATION — même rôle que is_admin/has_capability
         -- ci-dessus pour le cas 1, prédicat lu par les policies/RPC, pas soumis à ce contrôle.
         'is_anonymous_session',
+        -- Fonctions d'identité SANS paramètre (20261014204210) : is_admin(), has_admin_capability(),
+        -- partner_id_for_account(), has_capability(p_role, p_establishment_id). Elles lisent
+        -- auth.uid() pour répondre sur l'APPELANT et sur lui seul — un visiteur anonyme n'y apprend
+        -- que « je ne suis ni admin ni partenaire » ; ce ne sont pas des gardes d'autorisation mais
+        -- les prédicats que lisent les policies et les RPC, même rôle qu'is_anonymous_session.
+        'is_admin',
+        'has_admin_capability',
+        'partner_id_for_account',
+        'has_capability',
         -- LISTE BLANCHE (invariant 5, spec 31) : ces RPC acceptent DÉLIBÉRÉMENT un visiteur
         -- anonyme — c'est le parcours client lui-même (panier, paiement, annulation). Ne pas
         -- ajouter search_catalog/search_catalog_categorias/get_product_slots/expand_product_slots/
