@@ -3,7 +3,7 @@ id: refonte-emails-transactionnels
 titre: "Emails transactionnels — les 13 envois possibles, leur déclencheur et leur destinataire"
 theme: cadrage
 statut: "vérifié en envoi RÉEL le 2026-08-31 — les 8 emails sont partis chez Resend depuis la stack locale et reçus en boîte ; secrets Resend posés en préprod, aucun envoi réel en préprod à ce jour"
-maj: 2026-10-07
+maj: 2026-10-14
 resume: >
   Table de référence des 13 seuls emails que hifago peut envoyer (liste fermée par la contrainte
   check sur notification_emails.event_type) : ce qui les déclenche, à qui ils partent, leur objet
@@ -64,8 +64,10 @@ branche `approved`. Un paiement confirmé peut donc générer plusieurs emails d
 | 12-13 | `notify_order_line_cancelled`, appelée par `close_order_line_locked` (`cancel_order_line`, `set_order_line_status`) | `supabase/migrations/20261006192424_order_line_cancellations.sql` (redéfinie par `20261006235357_pms_booking_identity.sql`) |
 
 Tous passent par `enqueue_notification_email` (ou `notify_all_admins` pour les e-mails admin),
-qui empile dans `notification_emails`. L'envoi physique est fait plus tard par l'Edge Function
-`send-notification-emails`, appelée toutes les 5 minutes par pg_cron.
+qui empile dans `notification_emails`. L'envoi physique est fait par l'Edge Function
+`send-notification-emails`, appelée AUSSITÔT par le trigger `notification_emails_dispatch_now`
+(depuis le 2026-10-14, `20261014123021` : une fois par transaction, après le commit, par `pg_net`),
+et toutes les 5 minutes par pg_cron en filet (appel en panne, reprise d'un échec).
 
 ## Contenu exact de chaque email
 
