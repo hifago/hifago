@@ -368,7 +368,8 @@ select is(
   40, 'evento à cupo compté : la nouvelle date reçoit sa ligne de disponibilité à l''approbation');
 
 -- ═══════════════════════════════════════════════════════════════════════════════════════════════
--- I. Evento qui porte une réservation EN COURS — sa date est gelée, son heure reste libre
+-- I. Evento qui porte une réservation EN COURS — sa date ne bouge pas si la réservation en
+--    sortait (migration 20261014204354 : HF002), son heure reste libre
 -- ═══════════════════════════════════════════════════════════════════════════════════════════════
 select test_login('7c880000-0000-4000-8000-000000000021');
 create temp table tmp_i as
@@ -381,8 +382,8 @@ create temp table tmp_i as
 select test_login('7c880000-0000-4000-8000-000000000024');
 select throws_ok(
   $$select moderate_product_proposal((select id from tmp_i), 'approve', 1)$$,
-  'P0001', 'capacity_flags_frozen_while_reserved',
-  'evento réservé : l''approbation d''un changement de date est refusée');
+  'HF002', 'occurrence_change_orphans_reservations',
+  'evento réservé : l''approbation d''un changement de date qui laisserait la réservation hors date est refusée');
 
 select is((select status from product_proposals where id = (select id from tmp_i)), 'pending',
   'evento réservé : la proposition refusée reste en attente, rien n''est écrit à moitié');
