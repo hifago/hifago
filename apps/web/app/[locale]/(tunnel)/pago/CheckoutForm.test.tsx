@@ -7,17 +7,20 @@ import { CheckoutForm, reserveNightsErrorKey } from "./CheckoutForm";
 // `@/i18n/navigation` tire next-intl/navigation → next/navigation, irrésolu sous Vitest (même
 // bouchon que BuscadorInicio.test.tsx).
 const pushMock = vi.fn();
+// `router.refresh()` relit le panier côté serveur (`pago/page.tsx`) : récapitulatif et verdicts.
+const routerRefreshMock = vi.fn();
 vi.mock("@/i18n/navigation", () => ({
   Link: ({ href, children, ...props }: React.ComponentProps<"a">) => (
     <a href={String(href)} {...props}>
       {children}
     </a>
   ),
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, refresh: routerRefreshMock }),
 }));
 
-// Le panier n'est pas le sujet : seul `refresh` (pastille du header) est appelé par le formulaire.
-vi.mock("@/lib/cart/CartContext", () => ({ useCart: () => ({ refresh: vi.fn() }) }));
+// Seul `refresh` (pastille du header) est appelé par le formulaire.
+const cartRefreshMock = vi.fn();
+vi.mock("@/lib/cart/CartContext", () => ({ useCart: () => ({ refresh: cartRefreshMock }) }));
 
 const createOrderMock = vi.fn();
 let lectureJeton: { data: { access_token: string } | null; error: unknown } = {
@@ -84,6 +87,8 @@ describe("CheckoutForm — le bouton reste tenu jusqu'à la fin de reserve-night
 
   beforeEach(() => {
     pushMock.mockClear();
+    routerRefreshMock.mockClear();
+    cartRefreshMock.mockClear();
     lectureJeton = { data: { access_token: "jeton-1" }, error: null };
     createOrderMock.mockReset();
     createOrderMock.mockResolvedValue({ data: { ok: true, order_id: "commande-1" }, error: null });
@@ -101,7 +106,7 @@ describe("CheckoutForm — le bouton reste tenu jusqu'à la fin de reserve-night
     vi.unstubAllGlobals();
   });
 
-  function rendre() {
+  function rendre({ hasUnavailableLines = false } = {}) {
     const { container } = render(
       <NextIntlClientProvider locale="es" messages={loadMessages("es")}>
         <CheckoutForm
@@ -109,6 +114,7 @@ describe("CheckoutForm — le bouton reste tenu jusqu'à la fin de reserve-night
           initialHolderName="Ana Pérez"
           initialHolderPhone="+573001234567"
           initialHolderEmail="ana@test.local"
+          hasUnavailableLines={hasUnavailableLines}
         />
       </NextIntlClientProvider>
     );
@@ -140,24 +146,46 @@ describe("CheckoutForm — le bouton reste tenu jusqu'à la fin de reserve-night
     expect(bouton.disabled).toBe(true); // la page part : rien à rendre
   });
 
-  // create_order a vidé le panier : rendre le bouton n'offrirait qu'« empty_cart » au clic suivant.
-  it("reste éteint après un échec de Lobby, avec le message du motif", async () => {
+  // Commande défaite par un refus de Lobby : release_order_after_pms_refusal a remis ses lignes
+  // dans le panier (migration 20261014211217). Le formulaire le relit et se rallume.
+  it("commande défaite par Lobby : le panier revient, il est relu, le bouton se rallume", async () => {
     const { container, form, bouton } = rendre();
     await act(async () => {
       fireEvent.submit(form);
     });
+    expect(routerRefreshMock).not.toHaveBeenCalled();
     await act(async () => {
       repondreLobby(
         new Response(JSON.stringify({ ok: false, reason: "pms_refused", released: true }), { status: 409 })
       );
     });
-    expect(bouton.disabled).toBe(true);
+    expect(bouton.disabled).toBe(false);
     expect(bouton.textContent).toBe(loadMessages("es").CheckoutPage.submit);
     expect(container.querySelector('[data-testid="checkout-error"]')?.textContent).toBe(
       loadMessages("es").CheckoutPage.errors.pms_refused
     );
+    expect(routerRefreshMock).toHaveBeenCalledTimes(1);
+    // Une fois vidé par create_order, une fois rendu par le refus : la pastille suit les deux.
+    expect(cartRefreshMock).toHaveBeenCalledTimes(2);
     // Commande défaite : rien à reprendre.
     expect(container.querySelector('[data-testid="resume-order-link"]')).toBeNull();
+  });
+
+  // create_order a vidé le panier et la commande vit encore : rendre le bouton n'offrirait
+  // qu'« empty_cart » au clic suivant, et il n'y a aucun panier à relire.
+  it("commande NON défaite : panier vide, rien à relire, le bouton reste éteint", async () => {
+    const { form, bouton } = rendre();
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+    await act(async () => {
+      repondreLobby(
+        new Response(JSON.stringify({ ok: false, reason: "pms_refused", released: false }), { status: 409 })
+      );
+    });
+    expect(bouton.disabled).toBe(true);
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+    expect(cartRefreshMock).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -217,6 +245,38 @@ describe("CheckoutForm — le bouton reste tenu jusqu'à la fin de reserve-night
     });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(bouton.disabled).toBe(false);
+  });
+
+  // Le panier est intact après un refus : le relire signale la ligne fautive dans le récapitulatif
+  // (et éteint le bouton par `hasUnavailableLines` tant qu'elle y est).
+  it("refus de create_order : le panier est relu", async () => {
+    createOrderMock.mockResolvedValue({ data: { ok: false, reason: "full", line: { qty: 2 } }, error: null });
+    const { form } = rendre();
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+    expect(routerRefreshMock).toHaveBeenCalledTimes(1);
+    expect(cartRefreshMock).not.toHaveBeenCalled();
+  });
+
+  it("une ligne signalée : bouton éteint, la raison et le chemin vers /mi-viaje, aucun envoi", async () => {
+    const { container, form, bouton } = rendre({ hasUnavailableLines: true });
+    expect(bouton.disabled).toBe(true);
+    expect(container.querySelector('[data-testid="unavailable-lines-notice"]')?.textContent).toContain(
+      loadMessages("es").CheckoutPage.unavailableLines
+    );
+    expect(container.querySelector('[data-testid="unavailable-lines-link"]')?.getAttribute("href")).toBe("/mi-viaje");
+    // La touche Entrée (ou tout envoi programmatique) ne passe pas non plus.
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+    expect(createOrderMock).not.toHaveBeenCalled();
+  });
+
+  it("aucune ligne signalée : ni avis ni bouton éteint", () => {
+    const { container, bouton } = rendre();
+    expect(bouton.disabled).toBe(false);
+    expect(container.querySelector('[data-testid="unavailable-lines-notice"]')).toBeNull();
   });
 
   // Trois raisons que create_order renvoie avec la ligne fautive (migration 20260929112240) et qui

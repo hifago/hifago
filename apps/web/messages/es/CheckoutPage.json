@@ -14,6 +14,8 @@
   "submit": "Confirmar reserva",
   "submitting": "Procesando…",
   "resumeOrder": "Tu pedido sigue registrado: puedes retomarlo desde Mi viaje.",
+  "unavailableLines": "Hay servicios de tu viaje que ya no están disponibles. Quítalos o cámbialos para poder confirmar tu reserva.",
+  "unavailableLinesLink": "Ir a Mi viaje",
   "loginLink": "Inicia sesión para encontrar tus reservas",
   "pendingOrdersTitle": "Tienes reservas pendientes de pago:",
   "pendingOrderLink": "Reserva {reference}",
