@@ -119,15 +119,22 @@ describe("ModerateProposalForm — evento", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("dit pourquoi un evento réservé ne change pas de date", async () => {
-    rpc.mockResolvedValue({ data: null, error: { message: "capacity_flags_frozen_while_reserved" } });
-    rendre({ name: { es: "Exposición Mirarte" }, occurrence_type: "once", occurrence_date: "2026-10-22" });
+  it("dit pourquoi un evento réservé ne change pas de date : le détail de la base, tel quel", async () => {
+    rpc.mockResolvedValue({
+      data: null,
+      error: {
+        code: "HF002",
+        message: "occurrence_change_orphans_reservations",
+        details: "1 reserva en curso quedaría fuera de las nuevas fechas: 22/10/2026",
+      },
+    });
+    rendre({ name: { es: "Exposición Mirarte" }, occurrence_type: "once", occurrence_date: "2026-10-29" });
 
     fireEvent.click(screen.getByTestId("approve-button"));
 
     await waitFor(() =>
       expect(toast.danger).toHaveBeenCalledWith(
-        "Este evento tiene reservas en curso: su fecha y su recurrencia no pueden cambiar hasta que se realicen o se cancelen.",
+        "No se puede guardar el cambio de fecha — 1 reserva en curso quedaría fuera de las nuevas fechas: 22/10/2026.",
       ),
     );
   });

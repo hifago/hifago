@@ -22,6 +22,7 @@ import {
 import { toSlotRuleRows } from "@/lib/products/slotRules";
 import { buildProductCreationPayload } from "@/lib/products/productCreationPayload";
 import { buildProductEditPayload } from "@/lib/products/productEditPayload";
+import { eventoChangeRefusal } from "@/lib/products/eventoChangeRefusal";
 import { mergeLobbyRoom } from "@/lib/products/lobbyRoomImport";
 import { asLodgingKind, asLodgingUnit } from "@hifago/domain";
 import {
@@ -448,13 +449,9 @@ export function ProductForm({
         .eq("id", product.id);
 
       if (updateError) {
-        // Le trigger products_capacity_flags_frozen refuse de déplacer un evento qui porte des
-        // réservations en cours (migration 20261013212500) : le dire, plutôt qu'un échec muet.
-        toast.danger(
-          updateError.message.includes("capacity_flags_frozen_while_reserved")
-            ? "Este producto tiene reservas en curso: su fecha, su recurrencia y su modo de cupo no pueden cambiar hasta que se realicen o se cancelen."
-            : "No se pudo guardar la actividad.",
-        );
+        // Un produit qui porte des réservations en cours : nouvelle date d'evento qui les laisserait
+        // hors de ses dates (HF002), ou drapeau de capacité gelé — le dire, plutôt qu'un échec muet.
+        toast.danger(eventoChangeRefusal(updateError) ?? "No se pudo guardar la actividad.");
         setIsSubmitting(false);
         return;
       }
