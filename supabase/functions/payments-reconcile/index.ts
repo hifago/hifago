@@ -25,6 +25,7 @@ import {
   type MercadoPagoPaymentFields,
   toPaymentEvent,
 } from "../../../packages/domain/src/mercadopago/paymentEvent.ts";
+import { identityUncheckedWarning } from "../../../packages/domain/src/jobs/identityWarning.ts";
 
 const MP_DEFAULT_BASE_URL = "https://api.mercadopago.com";
 /** Appels MP par run, toutes routes confondues : au-delà, le reste attend le tick suivant (2 min). */
@@ -471,10 +472,8 @@ serveJob("payments-reconcile", async (ctx): Promise<JobOutcome> => {
 
   return {
     ok: !identityMismatch && stats.errors === 0,
-    warning:
-      unchecked.length > 0
-        ? `${unchecked.length} décision(s) prise(s) sans contrôle d'identité Mercado Pago : compte encaisseur non enregistré à la création du paiement`
-        : null,
+    // Affiché tel quel dans l'admin (espagnol) — identityWarning.ts, testé au singulier et au pluriel.
+    warning: identityUncheckedWarning(unchecked.length),
     error: identityMismatch
       ? "identity_mismatch: MERCADOPAGO_ACCESS_TOKEN n'appartient pas au compte MP qui a créé les préférences (piège 19)"
       : stats.errors > 0

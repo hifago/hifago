@@ -353,7 +353,7 @@ async function main() {
       // S5 (compte étranger, refusé avant toute décision) ne sont pas comptées : 5 + 1 = 6.
       [summary?.claimed === 7 && summary?.watched === 1 && summary?.identity_unchecked === 6,
         `6 décisions sans compte encaisseur (réclamées ${summary?.claimed}, surveillées ${summary?.watched}, comptées ${summary?.identity_unchecked})`],
-      [hb?.last_warning === `${summary?.identity_unchecked} décision(s) prise(s) sans contrôle d'identité Mercado Pago : compte encaisseur non enregistré à la création du paiement` &&
+      [hb?.last_warning === `${summary?.identity_unchecked} decisiones tomadas sin control de identidad de Mercado Pago: la cuenta receptora no estaba registrada al crear los pagos` &&
         summary?.warning === hb?.last_warning && hb?.last_warning_at !== null,
         `avertissement au heartbeat et dans la réponse, daté (${hb?.last_warning})`],
       [!JSON.stringify(hb ?? {}).includes(MP_TOKEN) && !JSON.stringify(summary ?? {}).includes(MP_TOKEN) &&
