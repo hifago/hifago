@@ -31,6 +31,9 @@ insert into auth.users (id, email) values
 update partner_accounts set partner_id = '5107a000-0000-4000-8000-000000000001'
  where id = '5107a000-0000-4000-8000-000000000021';
 
+-- Une capacité operator exige une capacité referrer préalable (enforce_operator_implies_referrer).
+insert into partner_capabilities (partner_id, role, source, status) values
+  ('5107a000-0000-4000-8000-000000000001', 'referrer', 'migration', 'active');
 insert into partner_capabilities (partner_id, role, source, status, establishment_id) values
   ('5107a000-0000-4000-8000-000000000001', 'operator', 'migration', 'active',
    '5107a000-0000-4000-8000-000000000011');
