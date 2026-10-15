@@ -11,7 +11,7 @@ revise:
   - "docs/01-cahier-des-charges-client.md#3e"
   - "docs/02-cahier-des-charges-socio.md#3d"
   - "docs/03-cahier-des-charges-admin.md#3g"
-maj: 2026-08-18
+maj: 2026-10-14
 resume: >
   Rend product_slot_rules (définition de créneaux horaires par activité, posée par la spec 11)
   réellement réservable côté client avec anti-survente — c'est la « Tranche 3 » déjà nommée mais
@@ -147,7 +147,10 @@ reprise ».
   `slot_duration_minutes`, `capacity` — une règle par plage récurrente, plusieurs règles possibles
   par produit. RLS-directe (écriture admin seule), écrite par `ProductSlotRulesBlock.tsx` (remplace
   tout le jeu de règles à chaque sauvegarde) et par le pipeline de proposition socio à la création
-  uniquement — un socio ne peut jamais éditer les créneaux d'un produit déjà publié. Noms de
+  uniquement — un socio ne peut jamais éditer les créneaux d'un produit déjà publié. *(Révisé le
+  2026-10-14 : le socio les propose aussi en édition, modérés comme le reste — migration
+  `20261015011812_proposal_edit_slot_rules.sql`, écrits à l'approbation par
+  `replace_product_slot_rules`. La table est RPC-only en écriture depuis `20261001235031`.)* Noms de
   colonnes délibérément pré-alignés sur une future table de capacité vivante (même commentaire de
   tête) : c'est très exactement le signal de conception que cette spec vient honorer.
 - `products.schedule` existe encore (`CHECK IN ('slot','date','none')`, défaut `'date'`) mais sa
