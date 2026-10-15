@@ -56,7 +56,9 @@ export default async function EditProductProposalPage({
   // Étiquettes (migration 20261013144848) : le catalogue et celles déjà posées sur la fiche. Le
   // socio en propose le changement dans le même envoi que le reste ; il ne les écrit jamais
   // lui-même (RLS admin-only sur product_tag_assignments). Même chose pour les équipements d'un
-  // logement (migration 20261013151206, product_amenity_assignments).
+  // logement (migration 20261013151206, product_amenity_assignments), et pour les horaires d'une
+  // activité (migration 20261015011812, product_slot_rules) — lus pour tous les types, la liste
+  // est simplement vide hors activité.
   const [
     pendingResult,
     mediaResult,
@@ -65,6 +67,7 @@ export default async function EditProductProposalPage({
     tagAssignmentsResult,
     amenitiesResult,
     amenityAssignmentsResult,
+    slotRulesResult,
   ] = await Promise.all([
     supabase
       .from("product_proposals")
@@ -93,6 +96,11 @@ export default async function EditProductProposalPage({
     supabase.from("product_tag_assignments").select("tag_id").eq("product_id", id),
     supabase.from("catalog_amenities").select("id, label").order("category_key").order("sort_order"),
     supabase.from("product_amenity_assignments").select("amenity_id").eq("product_id", id),
+    supabase
+      .from("product_slot_rules")
+      .select("weekdays, start_time, end_time, slot_duration_minutes, capacity")
+      .eq("product_id", id)
+      .order("start_time"),
   ]);
   for (const [table, result] of [
     ["product_proposals", pendingResult],
@@ -102,6 +110,7 @@ export default async function EditProductProposalPage({
     ["product_tag_assignments", tagAssignmentsResult],
     ["catalog_amenities", amenitiesResult],
     ["product_amenity_assignments", amenityAssignmentsResult],
+    ["product_slot_rules", slotRulesResult],
   ] as const) {
     if (result.error) {
       throw new Error(`Lecture de la fiche impossible (${table}) : ${result.error.message}`);
@@ -112,6 +121,7 @@ export default async function EditProductProposalPage({
   const pendingPhotosProposal = pendingPhotosResult.data;
   const tagAssignments = tagAssignmentsResult.data;
   const amenityAssignments = amenityAssignmentsResult.data;
+  const slotRules = slotRulesResult.data;
 
   const photos = (media ?? []).map((m) => ({
     id: m.id,
@@ -153,6 +163,7 @@ export default async function EditProductProposalPage({
         currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
         availableAmenities={toTagOptions(amenitiesResult.data)}
         currentAmenityIds={(amenityAssignments ?? []).map((row) => row.amenity_id)}
+        currentSlotRules={slotRules ?? []}
         establishmentId={product.establishment_id}
         establishmentLobbyConnected={Boolean(
           product.establishment?.lobby_connector_active && product.establishment?.lobby_has_token

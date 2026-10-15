@@ -140,6 +140,15 @@ export default async function AdminProposalDetailPage({
       .eq("product_id", proposal.product.id),
     "product_amenity_assignments",
   );
+  // Horaires d'une activité (migration 20261015011812) — même comparaison en place / proposé.
+  const { data: slotRules } = checkedRead(
+    await supabase
+      .from("product_slot_rules")
+      .select("weekdays, start_time, end_time, slot_duration_minutes, capacity")
+      .eq("product_id", proposal.product.id)
+      .order("start_time"),
+    "product_slot_rules",
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -177,6 +186,7 @@ export default async function AdminProposalDetailPage({
           currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
           availableAmenities={toTagOptions(amenitiesRaw)}
           currentAmenityIds={(amenityAssignments ?? []).map((row) => row.amenity_id)}
+          currentSlotRules={slotRules ?? []}
         />
       )}
     </div>

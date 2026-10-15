@@ -100,6 +100,21 @@ export function slotRulesFromColumn(value: unknown): DraftSlotRule[] {
     }));
 }
 
+/**
+ * Horaires d'une proposition d'ÉDITION (migration 20261015011812) : la clé `slot_rules` n'entre que
+ * si les règles diffèrent de celles en place — comparées sous leur forme de colonne, une fois les
+ * "HH:MM:SS" de la base ramenés au "HH:MM" du formulaire.
+ *
+ * ⚠️ Ce n'est pas une optimisation. Une clé présente REMPLACE tous les horaires à l'approbation
+ * (replace_product_slot_rules) ; l'envoyer à chaque fois écraserait un horaire posé par un admin
+ * entre le dépôt et l'approbation.
+ */
+export function slotRulesIfChanged(current: unknown, draft: DraftSlotRule[]): { slot_rules?: ParsedSlotRule[] } {
+  const enPlace = JSON.stringify(toSlotRuleRows(slotRulesFromColumn(current)));
+  const proposees = toSlotRuleRows(draft);
+  return JSON.stringify(proposees) === enPlace ? {} : { slot_rules: proposees };
+}
+
 const PREVIEW_LIMIT = 8;
 
 // Prévisualisation purement client-side — aucune écriture, aucune logique de réservation/capacité

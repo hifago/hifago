@@ -15,6 +15,7 @@ import { eventoChangeRefusal } from "@/lib/products/eventoChangeRefusal";
 import { withCurrentValuesForAbsentKeys } from "@/lib/products/proposalFallback";
 import { proposedTagIds, tagLabels } from "@/lib/tags/proposedTags";
 import { proposedAmenityIds } from "@/lib/amenities/proposedAmenities";
+import { formatSlotPreviewSummary, slotRulesFromColumn, toSlotRuleRows, validateSlotRules } from "@/lib/products/slotRules";
 import { lodgingKindLabel } from "@/lib/products/lodgingKindLabels";
 import { lodgingUnitLabel } from "@/lib/products/lodgingUnitLabels";
 import {
@@ -52,6 +53,7 @@ export function ModerateProposalForm({
   currentTagIds,
   availableAmenities,
   currentAmenityIds,
+  currentSlotRules,
 }: {
   proposalId: string;
   expectedVersion: number;
@@ -62,6 +64,8 @@ export function ModerateProposalForm({
   currentTagIds: string[];
   availableAmenities: TagOption[];
   currentAmenityIds: string[];
+  // Lignes product_slot_rules en place — comparées aux horaires proposés (migration 20261015011812).
+  currentSlotRules: unknown[];
 }) {
   const router = useRouter();
   const [name, setName] = useState<LocalizedValue>(() => ({ ...(asLocalizedField(proposedPayload.name) ?? {}) }));
@@ -91,6 +95,10 @@ export function ModerateProposalForm({
   const proposesTags = proposedTagIds(proposedPayload) !== null;
   // Équipements d'un logement (migration 20261013151206) : même distinction absent/présent.
   const proposesAmenities = proposedAmenityIds(proposedPayload) !== null;
+  // Horaires d'une activité (migration 20261015011812) : même distinction absent/présent. La
+  // correction de l'admin REMPLACE toute la proposition côté SQL — d'où la clé renvoyée ici dès que
+  // la proposition la porte, sans quoi l'approbation perdrait les horaires proposés.
+  const proposesSlotRules = Array.isArray(proposedPayload.slot_rules);
 
   const {
     hasLocationAndTags, hasPriceQtyFields, hasCheckInOut, hasDefaultCapacity, isLodging, isEvento, isCamp,
@@ -111,6 +119,11 @@ export function ModerateProposalForm({
       toast.danger(occurrenceError);
       return;
     }
+    const slotRulesError = decision === "approve" && proposesSlotRules ? validateSlotRules(fields.slotRules) : null;
+    if (slotRulesError) {
+      toast.danger(slotRulesError);
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -121,6 +134,7 @@ export function ModerateProposalForm({
             ...buildProductEditPayload(type, name, description, fields),
             ...(proposesTags ? { tag_ids: fields.selectedTagIds } : {}),
             ...(proposesAmenities ? { amenity_ids: fields.selectedAmenityIds } : {}),
+            ...(proposesSlotRules ? { slot_rules: toSlotRuleRows(fields.slotRules) } : {}),
           }
         : null;
     const { data, error: rpcError } = await supabase.rpc("moderate_product_proposal", {
@@ -255,6 +269,17 @@ export function ModerateProposalForm({
               </dd>
             </div>
           ) : null}
+          {type === "activity" ? (
+            <div data-testid="current-slot-rules">
+              <dt className="inline font-medium text-foreground">Horarios: </dt>
+              <dd className="inline">
+                {currentSlotRules.length > 0
+                  ? slotRulesFromColumn(currentSlotRules).map(formatSlotPreviewSummary).join(" · ")
+                  : "—"}
+                {proposesSlotRules ? "" : " (sin cambios propuestos)"}
+              </dd>
+            </div>
+          ) : null}
           {hasPriceQtyFields ? (
             <div>
               <dt className="inline font-medium text-foreground">Cantidad mín/máx: </dt>
@@ -339,6 +364,7 @@ export function ModerateProposalForm({
           availableTags={availableTags}
           showAmenities={proposesAmenities}
           availableAmenities={availableAmenities}
+          showSlotRulesEditor={proposesSlotRules}
         />
 
         <TextField value={rejectionReason} onChange={setRejectionReason}>

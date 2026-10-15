@@ -45,6 +45,7 @@ function rendre(proposedPayload: Record<string, unknown>) {
       currentTagIds={[]}
       availableAmenities={[]}
       currentAmenityIds={[]}
+      currentSlotRules={[]}
     />,
   );
 }
@@ -137,5 +138,60 @@ describe("ModerateProposalForm — evento", () => {
         "No se puede guardar el cambio de fecha — 1 reserva en curso quedaría fuera de las nuevas fechas: 22/10/2026.",
       ),
     );
+  });
+});
+
+// Horaires d'une activité proposables en édition (migration 20261015011812). La correction de
+// l'admin REMPLACE la proposition côté SQL : ce formulaire doit renvoyer les horaires proposés,
+// et ne rien envoyer quand la proposition n'y touche pas.
+describe("ModerateProposalForm — horaires d'une activité", () => {
+  const HORARIO_EN_BASE = {
+    weekdays: [1],
+    start_time: "08:00:00",
+    end_time: "10:00:00",
+    slot_duration_minutes: 60,
+    capacity: 6,
+  };
+
+  function rendreActividad(proposedPayload: Record<string, unknown>) {
+    render(
+      <ModerateProposalForm
+        proposalId="propuesta-2"
+        expectedVersion={1}
+        type="activity"
+        currentPayload={{ name: { es: "Caminata" }, description: null, price_cop: 50000 }}
+        proposedPayload={proposedPayload}
+        availableTags={[]}
+        currentTagIds={[]}
+        availableAmenities={[]}
+        currentAmenityIds={[]}
+        currentSlotRules={[HORARIO_EN_BASE]}
+      />,
+    );
+  }
+
+  beforeEach(() => {
+    rpc.mockReset();
+    rpc.mockResolvedValue({ data: { ok: true }, error: null });
+  });
+
+  it("horaires proposés : affichés à côté de ceux en place, renvoyés à l'approbation", async () => {
+    rendreActividad({
+      name: { es: "Caminata" },
+      price_cop: 50000,
+      slot_rules: [{ weekdays: [6, 7], start_time: "14:00", end_time: "16:00", slot_duration_minutes: 30, capacity: 4 }],
+    });
+
+    expect(screen.getByTestId("current-slot-rules").textContent).not.toContain("sin cambios");
+    expect((await aprobar()).slot_rules).toEqual([
+      { weekdays: [6, 7], start_time: "14:00", end_time: "16:00", slot_duration_minutes: 30, capacity: 4 },
+    ]);
+  });
+
+  it("proposition sans horaires : aucun horaire renvoyé, ceux en place ne bougent pas", async () => {
+    rendreActividad({ name: { es: "Caminata" }, price_cop: 50000 });
+
+    expect(screen.getByTestId("current-slot-rules").textContent).toContain("sin cambios");
+    expect(await aprobar()).not.toHaveProperty("slot_rules");
   });
 });

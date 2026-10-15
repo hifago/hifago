@@ -73,6 +73,7 @@ describe("/partner/products/[id]/edit", () => {
       product_tag_assignments: { data: [], error: null },
       catalog_amenities: { data: [], error: null },
       product_amenity_assignments: { data: [], error: null },
+      product_slot_rules: { data: [], error: null },
     };
   });
 
@@ -101,6 +102,7 @@ describe("/partner/products/[id]/edit", () => {
     ["product_tag_assignments"],
     ["catalog_amenities"],
     ["product_amenity_assignments"],
+    ["product_slot_rules"],
   ])(
     "lecture %s en panne : la page lève, jamais introuvable ni vide",
     async (cle) => {
