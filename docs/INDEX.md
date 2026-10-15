@@ -85,5 +85,5 @@
 - [Dette technique et QA/UI connue — hifago](dette-technique.md) 38K
 - [Journal hifago — août 2026](journal/2026-08.md) 660K · jamais en entier (voir 5.)
 - [Journal hifago — septembre 2026](journal/2026-09.md) 678K · jamais en entier (voir 5.)
-- [Journal hifago — octobre 2026](journal/2026-10.md) 226K · jamais en entier (voir 5.)
+- [Journal hifago — octobre 2026](journal/2026-10.md) 227K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K
