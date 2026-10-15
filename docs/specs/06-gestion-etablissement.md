@@ -8,7 +8,7 @@ statut: implemente
 revise:
   - "docs/02-cahier-des-charges-socio.md#3b"
   - "docs/02-cahier-des-charges-socio.md#3e"
-maj: 2026-08-15
+maj: 2026-10-14
 resume: >
   Comble le gap admin (présentation d'établissement éditable après création, décision §3c déjà
   validée mais jamais construite) et l'absence totale côté socio : un partenaire peut désormais
@@ -53,6 +53,22 @@ repond_a:
 | 12 | Documents liés | implémenté |
 
 ---
+
+> **Révision du 2026-10-14 — le partenaire propose toute la fiche** (Gabriel : « ce n'est pas à un
+> admin de remplir la fiche d'un partenaire, il faut tout »). Le payload proposable de §0 s'étend,
+> en création comme en édition, à tout ce que l'admin édite sur `/admin/establishments/[id]` :
+> séjour (`check_in_time`, `check_out_time`, `mode` — toujours ensemble), contact WhatsApp public
+> (`contact_phone`, E.164), étiquettes (`tag_ids`, déjà en édition depuis le 2026-10-13) et
+> équipements (`amenity_ids`). Toujours une **proposition modérée** (décision 2 ci-dessous,
+> inchangée) ; restent admin : publication, `operated_directly`, `is_place`, activation du
+> connecteur Lobby. Une seule validation au dépôt ET à l'approbation
+> (`establishment_proposal_details`), une seule écriture (`apply_establishment_proposal_details`,
+> par `update_establishment_stay_details` / `update_establishment_contact`, jamais
+> `update_establishment`) ; forme gardée partout (clé absente = valeur en place intacte). Les
+> formulaires partenaire reprennent les sections et les champs des blocs admin
+> (`components/establishment-fields/`). Migration `20261015004421_proposal_establishment_parity.sql`,
+> prouvée par `proposal_establishment_parity.test.sql`. Cette révision prime sur §2 « Out » pour
+> les horaires et les équipements, qu'elle rouvre.
 
 ## 0. Contrat compact (pour coder — lire seul, sans le reste)
 

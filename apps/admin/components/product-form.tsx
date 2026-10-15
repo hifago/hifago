@@ -24,8 +24,8 @@ import { buildProductCreationPayload } from "@/lib/products/productCreationPaylo
 import { buildProductEditPayload } from "@/lib/products/productEditPayload";
 import { eventoChangeRefusal } from "@/lib/products/eventoChangeRefusal";
 import { mergeLobbyRoom } from "@/lib/products/lobbyRoomImport";
-import { asLodgingKind, asLodgingUnit } from "@hifago/domain";
 import {
+  payloadToFieldsInit,
   productTypeGating,
   useProductTypeFieldsState,
   type ProductType,
@@ -104,6 +104,11 @@ export type EditableProduct = {
   transport_arrival_lat: number | null;
   transport_arrival_lon: number | null;
   transport_contact_phone: string | null;
+  // Vitrine d'un non-evento et remise de groupe d'un camp (2026-10-14) — réécrites par l'update()
+  // depuis le 2026-09-09 et le 2026-09-16 sans être lues : chaque enregistrement les effaçait.
+  external_booking_url: string | null;
+  group_discount_threshold_qty: number | null;
+  group_discount_pct: number | null;
 };
 
 // Spec 15 — variant "socio-proposal" : un socio ne peut jamais écrire products directement (RLS
@@ -189,52 +194,14 @@ export function ProductForm({
     ...(asLocalizedField(product?.description) ?? {}),
   }));
 
+  // La ligne `products` passe par `payloadToFieldsInit`, LE MÊME traducteur colonnes → état que
+  // l'édition socio (EditProposalForm) et les deux écrans de modération. Cet écran tenait jusqu'au
+  // 2026-10-14 sa propre copie à la main de ce mapping, et elle avait divergé : external_booking_url
+  // et group_discount_* n'y figuraient pas, si bien que l'update() les effaçait à chaque
+  // enregistrement. `duration_days` est retiré exactement comme côté socio — il n'alimente que
+  // `campDurationDays` (cf. le select de admin/products/[id]/edit/page.tsx).
   const fields = useProductTypeFieldsState(
-    product
-      ? {
-          address: product.address,
-          lat: product.lat,
-          lon: product.lon,
-          priceCop: product.price_cop,
-          priceTiers: product.price_tiers,
-          minQty: product.min_qty,
-          maxQty: product.max_qty,
-          checkInTime: product.check_in_time,
-          checkOutTime: product.check_out_time,
-          capacity: product.capacity,
-          unitCount: product.unit_count,
-          lodgingKind: asLodgingKind(product.lodging_kind),
-          unit: asLodgingUnit(product.unit),
-          defaultCapacity: product.default_capacity,
-          stayRates: product.stay_rates,
-          program: product.program,
-          lobbyCategoryId: product.lobby_category_id,
-          lobbyProductId: product.lobby_product_id,
-          onlineBookable: product.online_bookable,
-          eventoCapacityMode: product.evento_capacity_mode as "unlimited" | "metered" | "rsvp" | null,
-          isFree: product.is_free,
-          eventoPaymentMode: product.evento_payment_mode as "online" | "on_site" | null,
-          eventoOccupiesResource: product.evento_occupies_resource,
-          priceLabel: product.price_label,
-          occurrenceType: product.occurrence_type === "recurring" ? "recurring" : "once",
-          occurrenceDate: product.occurrence_date,
-          recurrenceFrequencyDays: product.recurrence_frequency_days,
-          recurrenceEndDate: product.recurrence_end_date,
-          recurrenceEndCount: product.recurrence_end_count,
-          startTime: product.start_time,
-          durationMinutes: product.duration_minutes,
-          transportFirstDepartureTime: product.transport_first_departure_time,
-          transportLastDepartureTime: product.transport_last_departure_time,
-          transportSeatsPerDeparture: product.transport_seats_per_departure,
-          transportDepartureAddress: product.transport_departure_address,
-          transportDepartureLat: product.transport_departure_lat,
-          transportDepartureLon: product.transport_departure_lon,
-          transportArrivalAddress: product.transport_arrival_address,
-          transportArrivalLat: product.transport_arrival_lat,
-          transportArrivalLon: product.transport_arrival_lon,
-          transportContactPhone: product.transport_contact_phone,
-        }
-      : undefined,
+    product ? payloadToFieldsInit({ ...product, duration_days: null }) : undefined,
   );
   const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>([]);
 

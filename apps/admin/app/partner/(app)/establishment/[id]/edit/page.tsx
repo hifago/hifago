@@ -5,6 +5,7 @@ import { EditEstablishmentProposalForm } from "./EditEstablishmentProposalForm";
 import { PhotosSocioBlock } from "@/components/photos-socio-block";
 import { ownerScope } from "@/lib/partnerOwnership";
 import { toTagOptions } from "@/lib/tags/proposedTags";
+import { stayFromColumns } from "@/lib/establishments/stayFields";
 import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 
 export default async function EditEstablishmentProposalPage({
@@ -23,7 +24,10 @@ export default async function EditEstablishmentProposalPage({
   const scope = await ownerScope(supabase);
   let establishmentQuery = supabase
     .from("establishments")
-    .select("id, name, description, address, lat, lon")
+    // Séjour, contact public et is_place (2026-10-14, migration 20261015004421) : le partenaire
+    // propose désormais toute la fiche que l'admin édite. Chacun est accordé en lecture colonne par
+    // colonne à `authenticated` (establishments n'a pas de grant SELECT global).
+    .select("id, name, description, address, lat, lon, check_in_time, check_out_time, mode, contact_phone, is_place")
     .eq("id", id);
   if (scope.kind === "partner") {
     establishmentQuery = establishmentQuery.eq("partner_id", scope.partnerId);
@@ -110,6 +114,28 @@ export default async function EditEstablishmentProposalPage({
     );
   }
 
+  // Équipements (migration 20261015004421) : même patron que les étiquettes ci-dessus — le
+  // référentiel fermé et ceux déjà posés. Le socio en propose le changement, il ne les écrit jamais
+  // (RLS admin-only sur establishment_amenity_assignments).
+  const { data: amenities, error: amenitiesError } = await supabase
+    .from("catalog_amenities")
+    .select("id, label")
+    .order("category_key")
+    .order("sort_order");
+  if (amenitiesError) {
+    throw new Error(`Lecture de la fiche impossible (catalog_amenities) : ${amenitiesError.message}`);
+  }
+
+  const { data: amenityAssignments, error: amenityAssignmentsError } = await supabase
+    .from("establishment_amenity_assignments")
+    .select("amenity_id")
+    .eq("establishment_id", id);
+  if (amenityAssignmentsError) {
+    throw new Error(
+      `Lecture de la fiche impossible (establishment_amenity_assignments) : ${amenityAssignmentsError.message}`,
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="titre-page">
@@ -135,9 +161,14 @@ export default async function EditEstablishmentProposalPage({
         initialAddress={establishment.address ?? ""}
         initialLat={establishment.lat !== null ? String(establishment.lat) : ""}
         initialLon={establishment.lon !== null ? String(establishment.lon) : ""}
+        initialStay={stayFromColumns(establishment)}
+        initialContactPhone={establishment.contact_phone ?? ""}
+        isPlace={establishment.is_place}
         pendingProposal={pendingProposal}
         availableTags={toTagOptions(tags)}
         currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
+        availableAmenities={toTagOptions(amenities)}
+        currentAmenityIds={(amenityAssignments ?? []).map((row) => row.amenity_id)}
       />
     </div>
   );

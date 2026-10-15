@@ -1,38 +1,52 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@hifago/supabase/client";
-import { Button, Input, Label, TextArea, TextField, cn, toast } from "@hifago/ui";
-import { mountAddressAutocomplete } from "@/components/address-autocomplete";
+import type { Json } from "@hifago/supabase/database.types";
+import { Button, Input, Label, TextField, toast } from "@hifago/ui";
 import { StagedEstablishmentPhotos, type StagedPhoto } from "@/components/establishment-photos-staged";
 import { ActionConfirmation } from "@/components/action-confirmation";
-
-type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
-type DescriptionLang = "es" | "en";
+import { TagsMultiSelect, type TagOption } from "@/components/tags-multiselect";
+import { FormSection } from "@/components/establishment-fields/form-section";
+import { PresentationFields } from "@/components/establishment-fields/presentation-fields";
+import { StayFields } from "@/components/establishment-fields/stay-fields";
+import { ContactPhoneField } from "@/components/establishment-fields/contact-phone-field";
+import { useEstablishmentFieldsState } from "@/lib/establishments/useEstablishmentFieldsState";
+import { buildEstablishmentProposalFields } from "@/lib/establishments/establishmentPayload";
+import { stayIfFilled } from "@/lib/establishments/stayFields";
+import { contactPhoneIfFilled, isContactPhoneInvalid } from "@/lib/establishments/contactPhone";
+import { ESTABLISHMENT_PROPOSAL_ERRORS } from "@/lib/establishments/proposalErrors";
 
 // pending_creation_exists retiré (2026-08-19, migration
 // 20260819220000_establishment_creation_no_pending_cap.sql) : la RPC ne renvoie plus jamais cette
 // raison, plusieurs propositions de création peuvent désormais coexister en attente.
 const SUBMIT_ERRORS: Record<string, string> = {
-  not_authenticated: "No se pudo verificar tu sesión. Vuelve a intentarlo.",
+  ...ESTABLISHMENT_PROPOSAL_ERRORS,
   not_a_partner: "Tu cuenta no está asociada a ningún partner.",
-  name_required: "El nombre es obligatorio.",
+  gallery_cap_exceeded: "Puedes proponer hasta 6 fotos.",
 };
 
 // docs/specs/06-gestion-etablissement.md §5.2 — jamais operated_directly (classification métier/
-// plateforme, filtrée aussi côté RPC) : ce formulaire n'expose que les champs de présentation, même
-// sous-ensemble que NewEstablishmentForm.tsx (admin) moins ce seul champ.
-export function NewEstablishmentProposalForm() {
+// plateforme, filtrée aussi côté RPC). Les sections sont celles de l'édition
+// (EditEstablishmentProposalForm.tsx), photos en plus.
+//
+// Séjour, contact public, étiquettes et équipements proposables dès la création (2026-10-14,
+// migration 20261015004421) : sans eux, le partenaire ne pouvait les ajouter qu'une fois sa
+// capacité operator activée par un admin — c'est-à-dire que l'admin finissait par remplir sa fiche.
+// Pas d'assistant par étapes comme NewEstablishmentForm.tsx (admin) : sa première étape,
+// « Propietario y gestión », ne porte que des champs réservés à l'admin.
+export function NewEstablishmentProposalForm({
+  availableTags,
+  availableAmenities,
+}: {
+  availableTags: TagOption[];
+  availableAmenities: TagOption[];
+}) {
   const router = useRouter();
 
   const [nombre, setNombre] = useState("");
-  const [descriptionEs, setDescriptionEs] = useState("");
-  const [descriptionEn, setDescriptionEn] = useState("");
-  const [descriptionLang, setDescriptionLang] = useState<DescriptionLang>("es");
-  const [address, setAddress] = useState("");
-  const [lat, setLat] = useState("");
-  const [lon, setLon] = useState("");
+  const fields = useEstablishmentFieldsState();
   const [lobbyApiToken, setLobbyApiToken] = useState("");
   const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>([]);
 
@@ -41,29 +55,7 @@ export function NewEstablishmentProposalForm() {
   // formulaire n'est jamais atteint par un admin.
   const [showConfirmation, setShowConfirmation] = useState(false);
 
-  const addressSearchRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const container = addressSearchRef.current;
-    if (!container) return;
-    return mountAddressAutocomplete(container, (place) => {
-      setAddress(place.address);
-      if (place.lat !== null && place.lon !== null) {
-        setLat(String(place.lat));
-        setLon(String(place.lon));
-      }
-    });
-  }, []);
-
-  function buildDescription(): Json | undefined {
-    const es = descriptionEs.trim();
-    const en = descriptionEn.trim();
-    if (!es && !en) return undefined;
-    const value: { [key: string]: Json } = {};
-    if (es) value.es = es;
-    if (en) value.en = en;
-    return value;
-  }
+  const contactInvalide = isContactPhoneInvalid(fields.contactPhone);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -72,25 +64,29 @@ export function NewEstablishmentProposalForm() {
       toast.danger("El nombre es obligatorio.");
       return;
     }
+    if (contactInvalide) {
+      toast.danger(ESTABLISHMENT_PROPOSAL_ERRORS.invalid_phone);
+      return;
+    }
 
     setIsSubmitting(true);
 
     const payload = {
-      name: { es: nombre.trim() } as Json,
-      description: buildDescription() ?? null,
-      address: address.trim() || null,
-      lat: lat.trim() ? Number(lat) : null,
-      lon: lon.trim() ? Number(lon) : null,
-      photos: stagedPhotos.map((photo) => ({ storage_path: photo.path })) as Json,
+      ...buildEstablishmentProposalFields(nombre, fields),
+      photos: stagedPhotos.map((photo) => ({ storage_path: photo.path })),
       // Refonte parcours partenaire ↔ LobbyPMS (2026-08-25) — optionnel, filtré côté RPC si vide ;
       // reste en clair uniquement tant que la proposition est "pending" (l'admin doit le lire pour
       // le tester), rédigé dès qu'elle est tranchée (cf. moderate_establishment_proposal).
       ...(lobbyApiToken.trim() ? { lobby_api_token: lobbyApiToken.trim() } : {}),
+      ...stayIfFilled(fields.stay),
+      ...contactPhoneIfFilled(fields.contactPhone),
+      ...(fields.selectedTagIds.length > 0 ? { tag_ids: fields.selectedTagIds } : {}),
+      ...(fields.selectedAmenityIds.length > 0 ? { amenity_ids: fields.selectedAmenityIds } : {}),
     };
 
     const supabase = createClient();
     const { data, error: rpcError } = await supabase.rpc("submit_establishment_creation_proposal", {
-      p_payload: payload,
+      p_payload: payload as Json,
     });
 
     setIsSubmitting(false);
@@ -123,100 +119,60 @@ export function NewEstablishmentProposalForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex w-full max-w-3xl flex-col gap-4 self-center">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="proposal-nombre">Nombre</Label>
-        <Input
-          id="proposal-nombre"
-          name="proposal-nombre"
-          required
-          value={nombre}
-          onChange={(event) => setNombre(event.target.value)}
-        />
-      </div>
+    <form onSubmit={handleSubmit} noValidate className="flex w-full max-w-3xl flex-col gap-6 self-center">
+      <FormSection title="Información general" testId="proposal-general-section">
+        <PresentationFields idPrefix="proposal-" nombre={nombre} onNombreChange={setNombre} fields={fields} />
+      </FormSection>
 
-      <TextField
-        fullWidth
-        value={descriptionLang === "es" ? descriptionEs : descriptionEn}
-        onChange={(value) =>
-          descriptionLang === "es" ? setDescriptionEs(value) : setDescriptionEn(value)
-        }
-      >
-        <div className="flex items-center justify-between">
-          <Label>Descripción — opcional</Label>
-          <div className="flex gap-1" role="group" aria-label="Idioma de la descripción">
-            {(["es", "en"] as const).map((lang) => (
-              <button
-                key={lang}
-                type="button"
-                data-testid={`proposal-description-lang-${lang}`}
-                onClick={() => setDescriptionLang(lang)}
-                className={cn(
-                  "rounded px-2 py-0.5 text-xs font-medium uppercase",
-                  descriptionLang === lang
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted hover:bg-muted/50",
-                )}
-              >
-                {lang}
-              </button>
-            ))}
-          </div>
-        </div>
-        <TextArea data-testid="proposal-description-textarea" />
-      </TextField>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="proposal-address-search">Buscar dirección (Google)</Label>
-        <div id="proposal-address-search" ref={addressSearchRef} data-testid="proposal-address-search" />
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="proposal-address">Dirección</Label>
-        <Input
-          id="proposal-address"
-          value={address}
-          onChange={(event) => setAddress(event.target.value)}
-          data-testid="proposal-address-input"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="proposal-lat">Latitud</Label>
-          <Input
-            id="proposal-lat"
-            value={lat}
-            onChange={(event) => setLat(event.target.value)}
-            data-testid="proposal-lat-input"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="proposal-lon">Longitud</Label>
-          <Input
-            id="proposal-lon"
-            value={lon}
-            onChange={(event) => setLon(event.target.value)}
-            data-testid="proposal-lon-input"
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <Label>Fotos — opcional</Label>
+      <FormSection title="Fotos — opcional" testId="proposal-photos-section">
         <StagedEstablishmentPhotos photos={stagedPhotos} onChange={setStagedPhotos} />
-      </div>
+      </FormSection>
 
-      <TextField fullWidth value={lobbyApiToken} onChange={setLobbyApiToken}>
-        <Label>Token LobbyPMS — opcional</Label>
-        <Input type="password" autoComplete="off" data-testid="proposal-lobby-token-input" />
-      </TextField>
-      <p className="text-xs text-muted">
-        Si ya usas LobbyPMS, pega aquí tu token de acceso — el equipo lo verificará antes de
-        aprobar tu establecimiento. Puedes dejarlo en blanco y añadirlo más adelante.
-      </p>
+      <FormSection title="Alojamiento" testId="proposal-stay-section">
+        <StayFields value={fields.stay} onChange={fields.setStay} />
+      </FormSection>
 
-      <Button type="submit" isDisabled={isSubmitting} data-testid="submit-establishment-proposal-button">
+      <FormSection title="Contacto público" testId="proposal-contact-section">
+        <ContactPhoneField value={fields.contactPhone} onChange={fields.setContactPhone} />
+      </FormSection>
+
+      <FormSection title="Etiquetas y equipamiento" testId="proposal-catalog-section">
+        <TagsMultiSelect
+          availableTags={availableTags}
+          selectedTagIds={fields.selectedTagIds}
+          onChange={fields.setSelectedTagIds}
+          allowCreate={false}
+          placeholder="Buscar una etiqueta…"
+          testId="proposal-tags"
+        />
+        <TagsMultiSelect
+          availableTags={availableAmenities}
+          selectedTagIds={fields.selectedAmenityIds}
+          onChange={fields.setSelectedAmenityIds}
+          allowCreate={false}
+          label="Equipamiento"
+          placeholder="Buscar equipamiento…"
+          emptyMessage="Ningún equipamiento disponible."
+          testId="proposal-amenities"
+        />
+      </FormSection>
+
+      <FormSection title="Conector PMS (LobbyPMS)" testId="proposal-pms-section">
+        <TextField fullWidth value={lobbyApiToken} onChange={setLobbyApiToken}>
+          <Label>Token LobbyPMS — opcional</Label>
+          <Input type="password" autoComplete="off" data-testid="proposal-lobby-token-input" />
+        </TextField>
+        <p className="text-xs text-muted">
+          Si ya usas LobbyPMS, pega aquí tu token de acceso — el equipo lo verificará antes de
+          aprobar tu establecimiento. Puedes dejarlo en blanco y añadirlo más adelante.
+        </p>
+      </FormSection>
+
+      <Button
+        type="submit"
+        isDisabled={isSubmitting || contactInvalide}
+        data-testid="submit-establishment-proposal-button"
+      >
         {isSubmitting ? "Enviando…" : "Enviar propuesta"}
       </Button>
     </form>

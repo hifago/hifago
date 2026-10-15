@@ -7,7 +7,13 @@ import { asLocalizedField } from "@hifago/domain";
 import { Button, Checkbox, Input, Label, TextArea, TextField, toast } from "@hifago/ui";
 import { LocalizedTextField, buildLocalizedPayload, type LocalizedValue } from "@/components/localized-text-field";
 import { TagsMultiSelect, type TagOption } from "@/components/tags-multiselect";
+import { StayFields } from "@/components/establishment-fields/stay-fields";
+import { ContactPhoneField } from "@/components/establishment-fields/contact-phone-field";
 import { proposedTagIds, tagLabels } from "@/lib/tags/proposedTags";
+import { proposedAmenityIds } from "@/lib/amenities/proposedAmenities";
+import { describeStay, stayFromColumns, stayPayload } from "@/lib/establishments/stayFields";
+import { isContactPhoneInvalid } from "@/lib/establishments/contactPhone";
+import { ESTABLISHMENT_PROPOSAL_ERRORS } from "@/lib/establishments/proposalErrors";
 
 // storage_path résolu en URL publique côté client (bucket "catalog-media" public en lecture,
 // aucun aller-retour réseau) — même idiome que ModerateProductCreationProposalForm.tsx.
@@ -15,7 +21,10 @@ function resolvePhotoUrl(storagePath: string): string {
   return createClient().storage.from("catalog-media").getPublicUrl(storagePath).data.publicUrl;
 }
 
+// Les motifs de validation (contact, séjour, lieu) sont ceux du dépôt : la correction de l'admin
+// repasse par la même fonction, establishment_proposal_details (migration 20261015004421).
 const MODERATE_ERRORS: Record<string, string> = {
+  ...ESTABLISHMENT_PROPOSAL_ERRORS,
   proposal_not_found: "No se encontró la propuesta.",
   version_conflict: "Esta propuesta fue modificada por otra persona. Recarga la página.",
 };
@@ -36,6 +45,13 @@ type EstablishmentFieldsPayload = {
   lobby_api_token_provided?: boolean;
   // Étiquettes (migration 20261013144848) — présentes seulement si le socio a changé la sélection.
   tag_ids?: unknown;
+  // Séjour, contact public et équipements (migration 20261015004421) — même forme gardée : une clé
+  // absente veut dire « sans changement ». Le séjour voyage toujours en bloc (les trois clés).
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+  mode?: string | null;
+  contact_phone?: string | null;
+  amenity_ids?: unknown;
 };
 
 // Aperçu "valeur actuelle" vide pour kind='create' (l'établissement n'existe pas encore, donc
@@ -52,6 +68,8 @@ export function ModerateEstablishmentProposalForm({
   proposedPayload,
   availableTags,
   currentTagIds,
+  availableAmenities,
+  currentAmenityIds,
 }: {
   proposalId: string;
   expectedVersion: number;
@@ -60,6 +78,8 @@ export function ModerateEstablishmentProposalForm({
   proposedPayload: EstablishmentFieldsPayload;
   availableTags: TagOption[];
   currentTagIds: string[];
+  availableAmenities: TagOption[];
+  currentAmenityIds: string[];
 }) {
   const router = useRouter();
   const [name, setName] = useState<LocalizedValue>(() => ({ ...(asLocalizedField(proposedPayload.name) ?? {}) }));
@@ -72,9 +92,25 @@ export function ModerateEstablishmentProposalForm({
   const [rejectionReason, setRejectionReason] = useState("");
   const [lobbyApiToken, setLobbyApiToken] = useState(proposedPayload.lobby_api_token ?? "");
   // `null` = la proposition ne touche pas aux étiquettes : le champ n'est pas monté et la clé
-  // n'est pas renvoyée, moderate_establishment_proposal laisse alors celles en place.
-  const proposedTags = kind === "edit" ? proposedTagIds(proposedPayload) : null;
+  // n'est pas renvoyée, moderate_establishment_proposal laisse alors celles en place. Une création
+  // en porte aussi depuis la migration 20261015004421.
+  const proposedTags = proposedTagIds(proposedPayload);
   const [selectedTagIds, setSelectedTagIds] = useState(proposedTags ?? []);
+  // Même règle pour les équipements, le séjour et le contact (migration 20261015004421) : seul ce
+  // que la proposition porte est monté, corrigeable, et renvoyé.
+  const proposedAmenities = proposedAmenityIds(proposedPayload);
+  const [selectedAmenityIds, setSelectedAmenityIds] = useState(proposedAmenities ?? []);
+  const proposesStay = "check_in_time" in proposedPayload;
+  const [stay, setStay] = useState(() =>
+    stayFromColumns({
+      check_in_time: proposedPayload.check_in_time ?? null,
+      check_out_time: proposedPayload.check_out_time ?? null,
+      mode: proposedPayload.mode ?? null,
+    }),
+  );
+  const proposesContact = "contact_phone" in proposedPayload;
+  const [contactPhone, setContactPhone] = useState(proposedPayload.contact_phone ?? "");
+  const contactInvalide = proposesContact && isContactPhoneInvalid(contactPhone);
   const [activatePmsConnector, setActivatePmsConnector] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionTestResult, setConnectionTestResult] = useState<string | null>(null);
@@ -93,6 +129,9 @@ export function ModerateEstablishmentProposalForm({
       // moderate_establishment_proposal traite "" comme "aucun token" (nullif(btrim(...), '')).
       lobby_api_token: lobbyApiToken.trim(),
       ...(proposedTags ? { tag_ids: selectedTagIds } : {}),
+      ...(proposedAmenities ? { amenity_ids: selectedAmenityIds } : {}),
+      ...(proposesStay ? stayPayload(stay) : {}),
+      ...(proposesContact ? { contact_phone: contactPhone.trim() || null } : {}),
     };
   }
 
@@ -122,6 +161,10 @@ export function ModerateEstablishmentProposalForm({
   async function handleDecision(decision: "approve" | "reject") {
     if (decision === "approve" && !(name.es ?? "").trim()) {
       toast.danger("El nombre (es) es obligatorio.");
+      return;
+    }
+    if (decision === "approve" && contactInvalide) {
+      toast.danger(ESTABLISHMENT_PROPOSAL_ERRORS.invalid_phone);
       return;
     }
     if (decision === "reject" && !rejectionReason.trim()) {
@@ -217,6 +260,18 @@ export function ModerateEstablishmentProposalForm({
                 <dt className="inline font-medium text-foreground">Etiquetas: </dt>
                 <dd className="inline">{tagLabels(currentTagIds, availableTags)}</dd>
               </div>
+              <div data-testid="current-stay">
+                <dt className="inline font-medium text-foreground">Alojamiento: </dt>
+                <dd className="inline">{describeStay(currentPayload ?? {})}</dd>
+              </div>
+              <div data-testid="current-contact">
+                <dt className="inline font-medium text-foreground">WhatsApp: </dt>
+                <dd className="inline">{currentPayload?.contact_phone || "—"}</dd>
+              </div>
+              <div data-testid="current-amenities">
+                <dt className="inline font-medium text-foreground">Equipamiento: </dt>
+                <dd className="inline">{tagLabels(currentAmenityIds, availableAmenities)}</dd>
+              </div>
             </dl>
           )}
         </div>
@@ -250,14 +305,34 @@ export function ModerateEstablishmentProposalForm({
                 {proposedPayload.lon != null ? String(proposedPayload.lon) : "—"}
               </dd>
             </div>
-            {kind === "edit" ? (
-              <div data-testid="proposed-tags">
-                <dt className="inline font-medium text-foreground">Etiquetas: </dt>
-                <dd className="inline">
-                  {proposedTags ? tagLabels(proposedTags, availableTags) : "sin cambios"}
-                </dd>
-              </div>
-            ) : null}
+            <div data-testid="proposed-tags">
+              <dt className="inline font-medium text-foreground">Etiquetas: </dt>
+              <dd className="inline">
+                {proposedTags ? tagLabels(proposedTags, availableTags) : kind === "edit" ? "sin cambios" : "—"}
+              </dd>
+            </div>
+            <div data-testid="proposed-stay">
+              <dt className="inline font-medium text-foreground">Alojamiento: </dt>
+              <dd className="inline">
+                {proposesStay ? describeStay(proposedPayload) : kind === "edit" ? "sin cambios" : "—"}
+              </dd>
+            </div>
+            <div data-testid="proposed-contact">
+              <dt className="inline font-medium text-foreground">WhatsApp: </dt>
+              <dd className="inline">
+                {proposesContact ? proposedPayload.contact_phone || "— (retirar)" : kind === "edit" ? "sin cambios" : "—"}
+              </dd>
+            </div>
+            <div data-testid="proposed-amenities">
+              <dt className="inline font-medium text-foreground">Equipamiento: </dt>
+              <dd className="inline">
+                {proposedAmenities
+                  ? tagLabels(proposedAmenities, availableAmenities)
+                  : kind === "edit"
+                    ? "sin cambios"
+                    : "—"}
+              </dd>
+            </div>
           </dl>
         </div>
       </div>
@@ -330,6 +405,23 @@ export function ModerateEstablishmentProposalForm({
           />
         ) : null}
 
+        {proposedAmenities ? (
+          <TagsMultiSelect
+            availableTags={availableAmenities}
+            selectedTagIds={selectedAmenityIds}
+            onChange={setSelectedAmenityIds}
+            allowCreate={false}
+            label="Equipamiento"
+            placeholder="Buscar equipamiento…"
+            emptyMessage="Ningún equipamiento disponible."
+            testId="moderate-amenities"
+          />
+        ) : null}
+
+        {proposesStay ? <StayFields value={stay} onChange={setStay} /> : null}
+
+        {proposesContact ? <ContactPhoneField value={contactPhone} onChange={setContactPhone} /> : null}
+
         {/* Refonte parcours partenaire ↔ LobbyPMS (2026-08-25) — le token proposé n'est visible ici
             que tant que la proposition est "pending" (rédigé après décision, cf.
             moderate_establishment_proposal). "Probar conexión" réutilise la même route que
@@ -378,7 +470,7 @@ export function ModerateEstablishmentProposalForm({
         <div className="flex gap-2">
           <Button
             type="button"
-            isDisabled={isSubmitting}
+            isDisabled={isSubmitting || contactInvalide}
             onPress={() => handleDecision("approve")}
             data-testid="approve-button"
           >

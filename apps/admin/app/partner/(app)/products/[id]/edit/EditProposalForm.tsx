@@ -12,6 +12,7 @@ import { buildProductEditPayload } from "@/lib/products/productEditPayload";
 import { eventoOccurrenceError } from "@/lib/products/eventoOccurrence";
 import { tagIdsIfChanged } from "@/lib/tags/proposedTags";
 import { amenityIdsIfChanged } from "@/lib/amenities/proposedAmenities";
+import { slotRulesIfChanged, validateSlotRules } from "@/lib/products/slotRules";
 import {
   payloadToFieldsInit,
   useProductTypeFieldsState,
@@ -53,6 +54,10 @@ type PendingProposal = { id: string; payload: unknown; created_at: string } | nu
 // Les ÉQUIPEMENTS d'un logement suivent le même chemin (migration 20261013151206). À l'inverse, le
 // dépôt et le lien de réservation externe d'un logement sont des options admin : ils ne sont pas
 // affichés ici, mais restent dans l'état et repartent tels quels dans la proposition.
+//
+// Les HORAIRES d'une activité aussi, depuis le 2026-10-14 (migration 20261015011812) : posés à la
+// création, ils ne pouvaient plus être changés que par un admin (ProductSlotRulesBlock), alors que
+// le cahier socio range la planification dans le contenu proposable.
 export function EditProposalForm({
   productId,
   type,
@@ -62,6 +67,7 @@ export function EditProposalForm({
   currentTagIds,
   availableAmenities,
   currentAmenityIds,
+  currentSlotRules,
   establishmentId,
   establishmentLobbyConnected,
 }: {
@@ -73,6 +79,9 @@ export function EditProposalForm({
   currentTagIds: string[];
   availableAmenities: TagOption[];
   currentAmenityIds: string[];
+  // Lignes product_slot_rules en place (vides hors activité) : hydratent l'éditeur d'horaires, et
+  // servent de référence pour n'envoyer `slot_rules` que si les horaires ont changé.
+  currentSlotRules: unknown[];
   // Corrigé le 2026-08-26 : ce formulaire rendait <ProductTypeFields type state /> SANS ces deux
   // props, donc la garde interne du bloc LobbyPMS (establishmentLobbyConnected) était toujours
   // fausse et le bloc n'était JAMAIS monté côté socio — un prestataire ne pouvait pas voir à quoi
@@ -98,6 +107,7 @@ export function EditProposalForm({
       duration_days: null,
       tag_ids: currentTagIds,
       amenity_ids: currentAmenityIds,
+      slot_rules: currentSlotRules,
     }),
   );
 
@@ -119,6 +129,12 @@ export function EditProposalForm({
       toast.danger(occurrenceError);
       return;
     }
+    // Même validation que l'éditeur admin : une règle invalide ferait échouer l'approbation.
+    const slotRulesError = type === "activity" ? validateSlotRules(fields.slotRules) : null;
+    if (slotRulesError) {
+      toast.danger(slotRulesError);
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -126,6 +142,7 @@ export function EditProposalForm({
       ...buildProductEditPayload(type, name, description, fields),
       ...tagIdsIfChanged(currentTagIds, fields.selectedTagIds),
       ...amenityIdsIfChanged(currentAmenityIds, fields.selectedAmenityIds),
+      ...(type === "activity" ? slotRulesIfChanged(currentSlotRules, fields.slotRules) : {}),
     };
     const supabase = createClient();
     const { data, error: rpcError } = await supabase.rpc("submit_product_proposal", {
@@ -231,6 +248,7 @@ export function EditProposalForm({
           availableTags={availableTags}
           showAmenities
           availableAmenities={availableAmenities}
+          showSlotRulesEditor
           showAdminLodgingOptions={false}
           establishmentId={establishmentId}
           establishmentLobbyConnected={establishmentLobbyConnected}

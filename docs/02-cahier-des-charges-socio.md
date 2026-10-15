@@ -16,6 +16,7 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-10-14 — §3b, §3d, §3e : le partenaire propose toute la fiche** (specs 06 et 18 révisées) : en plus du nom, de la présentation, de l'adresse et des photos, il propose le séjour (check-in, check-out, mode), le contact WhatsApp public, les étiquettes et les équipements de son établissement, en création comme en édition (migration `20261015004421`), et les horaires d'une activité en édition (`20261015011812`) — toujours modérés, jamais écrits par lui. Ce que §3d range dans le contenu proposable (« planification ») est désormais tenu. Restent hors de sa main : publier/dépublier (dont la « mise en pause » promise ici, jamais construite — arbitrage au backlog), `operated_directly`, l'activation du connecteur Lobby.
 - **2026-10-01 — spec 19 retouchée, sans changement de périmètre** : la route de poll `apps/web/app/api/payments/[orderId]/status` est supprimée (aucun appelant, spec 33 §10) ; rien ne change pour ce cahier.
 - **§3e** (l.419) — révisé par `docs/specs/15-socio-creation-produit.md` : la règle « jamais un
   hébergement directement » ne s'applique plus à la CRÉATION (les 6 types, hôtel compris à

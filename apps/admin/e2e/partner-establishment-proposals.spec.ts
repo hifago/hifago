@@ -105,6 +105,11 @@ test("un socio propone une edición de su establecimiento ya rattaché, publicad
 
   await page.locator("#edit-proposal-nombre").fill(proposedName);
   await page.getByTestId("edit-proposal-address-input").fill("Calle Propuesta 456");
+  // Séjour et contact public (migration 20261015004421) : le partenaire propose désormais toute la
+  // fiche que l'admin édite. Les variantes (forme gardée, lieu, E.164) sont prouvées par
+  // EditEstablishmentProposalForm.test.tsx et proposal_establishment_parity.test.sql.
+  await page.getByTestId("establishment-check-in-input").fill("14:00");
+  await page.getByTestId("establishment-contact-phone-input").fill("+573009998877");
   await page.getByTestId("submit-edit-proposal-button").click();
 
   // Écran de confirmation contenu dans la carte (docs/specs/40 §4) — remplace l'ancienne bannière
@@ -132,6 +137,8 @@ test("un socio propone une edición de su establecimiento ya rattaché, publicad
   await expect(page.getByTestId("current-values")).toContainText(seedName);
   await expect(page.getByTestId("no-current-establishment")).toHaveCount(0);
   await expect(page.getByTestId("proposed-values")).toContainText(proposedName);
+  await expect(page.getByTestId("proposed-stay")).toContainText("check-in 14:00");
+  await expect(page.getByTestId("proposed-contact")).toContainText("+573009998877");
 
   await page.getByTestId("approve-button").click();
   // Le succès n'est plus un texte inline mais un toast (docs/specs/16-notifications-toast.md) —
@@ -142,6 +149,8 @@ test("un socio propone une edición de su establecimiento ya rattaché, publicad
   // --- La fiche admin reflète désormais le nom publié ---
   await page.goto(`/admin/establishments/${newEstablishmentId}`);
   await expect(page.getByRole("heading", { name: proposedName })).toBeVisible();
+  await expect(page.getByTestId("establishment-check-in-input")).toHaveValue("14:00");
+  await expect(page.getByTestId("establishment-contact-phone-input")).toHaveValue("+573009998877");
 
   // --- Le socio ne voit plus de proposition en attente, le formulaire reflète la valeur publiée ---
   await loginAs(context, SEEDED_ACCOUNTS.operadorPropuestas, SEEDED_PASSWORD);

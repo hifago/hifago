@@ -140,6 +140,15 @@ export default async function AdminProposalDetailPage({
       .eq("product_id", proposal.product.id),
     "product_amenity_assignments",
   );
+  // Horaires d'une activité (migration 20261015011812) — même comparaison en place / proposé.
+  const { data: slotRules } = checkedRead(
+    await supabase
+      .from("product_slot_rules")
+      .select("weekdays, start_time, end_time, slot_duration_minutes, capacity")
+      .eq("product_id", proposal.product.id)
+      .order("start_time"),
+    "product_slot_rules",
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -177,6 +186,7 @@ export default async function AdminProposalDetailPage({
           currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
           availableAmenities={toTagOptions(amenitiesRaw)}
           currentAmenityIds={(amenityAssignments ?? []).map((row) => row.amenity_id)}
+          currentSlotRules={slotRules ?? []}
         />
       )}
     </div>
@@ -194,7 +204,7 @@ async function AdminEstablishmentProposalDetail({ id }: { id: string }) {
     await supabase
       .from("establishment_proposals")
       .select(
-        "id, status, version, payload, kind, rejection_reason, establishment:establishments(id, name, description, address, lat, lon), partner:partners(display_name)"
+        "id, status, version, payload, kind, rejection_reason, establishment:establishments(id, name, description, address, lat, lon, check_in_time, check_out_time, mode, contact_phone), partner:partners(display_name)"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -213,24 +223,34 @@ async function AdminEstablishmentProposalDetail({ id }: { id: string }) {
     lon?: number | null;
     photos?: { storage_path: string }[];
     tag_ids?: unknown;
+    amenity_ids?: unknown;
+    check_in_time?: string | null;
+    check_out_time?: string | null;
+    mode?: string | null;
+    contact_phone?: string | null;
   };
 
-  // Étiquettes (migration 20261013144848) — édition seulement : une proposition de création n'en
-  // porte pas, et l'établissement n'existe pas encore.
-  const { data: tagsRaw } = checkedRead(
-    await supabase.from("catalog_tags").select("id, label").order("slug"),
-    "catalog_tags",
-  );
+  // Étiquettes (migration 20261013144848) puis équipements (20261015004421) : les catalogues, et
+  // ce qui est déjà posé quand l'établissement existe (une proposition de création n'a rien en
+  // place). Une panne LÈVE (checkedRead).
   const establishmentId = proposal.establishment?.id;
-  const { data: tagAssignments } = establishmentId
-    ? checkedRead(
-        await supabase
-          .from("establishment_tag_assignments")
-          .select("tag_id")
-          .eq("establishment_id", establishmentId),
-        "establishment_tag_assignments",
-      )
-    : { data: [] as { tag_id: string }[] };
+  const [tagsResult, amenitiesResult, tagAssignmentsResult, amenityAssignmentsResult] = await Promise.all([
+    supabase.from("catalog_tags").select("id, label").order("slug"),
+    supabase.from("catalog_amenities").select("id, label").order("category_key").order("sort_order"),
+    establishmentId
+      ? supabase.from("establishment_tag_assignments").select("tag_id").eq("establishment_id", establishmentId)
+      : Promise.resolve({ data: [] as { tag_id: string }[], error: null }),
+    establishmentId
+      ? supabase
+          .from("establishment_amenity_assignments")
+          .select("amenity_id")
+          .eq("establishment_id", establishmentId)
+      : Promise.resolve({ data: [] as { amenity_id: string }[], error: null }),
+  ]);
+  const { data: tagsRaw } = checkedRead(tagsResult, "catalog_tags");
+  const { data: amenitiesRaw } = checkedRead(amenitiesResult, "catalog_amenities");
+  const { data: tagAssignments } = checkedRead(tagAssignmentsResult, "establishment_tag_assignments");
+  const { data: amenityAssignments } = checkedRead(amenityAssignmentsResult, "establishment_amenity_assignments");
 
   const currentName = proposal.establishment
     ? (resolveLocalizedField(asLocalizedField(proposal.establishment.name), "es") ?? proposal.establishment.id)
@@ -270,6 +290,8 @@ async function AdminEstablishmentProposalDetail({ id }: { id: string }) {
           proposedPayload={proposedPayload}
           availableTags={toTagOptions(tagsRaw)}
           currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
+          availableAmenities={toTagOptions(amenitiesRaw)}
+          currentAmenityIds={(amenityAssignments ?? []).map((row) => row.amenity_id)}
         />
       )}
     </div>

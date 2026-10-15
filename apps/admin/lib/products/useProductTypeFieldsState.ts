@@ -260,8 +260,10 @@ export type ProductTypeFieldsState = ReturnType<typeof useProductTypeFieldsState
 // — les deux partagent les mêmes noms de clé) — DISTINCTE de ProductTypeFieldsInit (camelCase,
 // forme attendue par useProductTypeFieldsState). Un mapping explicite est requis, jamais un cast :
 // un oubli ici a déjà cassé silencieusement la pré-remplissage de ModerateProductCreationProposalForm
-// (spec 15, journal 2026-08-17). Consommé par les écrans de modération (création ET édition) —
-// jamais par ProductForm lui-même, qui construit son état directement depuis `EditableProduct`.
+// (spec 15, journal 2026-08-17). Consommé par les écrans de modération (création ET édition), par
+// l'édition socio (EditProposalForm) et, depuis le 2026-10-14, par ProductForm en mode édition : sa
+// copie à la main de ce mapping avait oublié external_booking_url et group_discount_*, que
+// l'enregistrement admin effaçait.
 export type RawProductFieldsPayload = {
   address?: string | null;
   lat?: number | null;

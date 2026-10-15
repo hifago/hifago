@@ -16,6 +16,7 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-10-14 — spec 18 retouchée, sans changement de périmètre pour ce cahier** : un partenaire propose désormais aussi les horaires d'une activité en ÉDITION, modérés comme le reste (migration `20261015011812`) ; l'admin garde la main sur l'approbation, rien ne change pour ce cahier.
 - **2026-10-01 — spec 19 retouchée, sans changement de périmètre** : la route de poll `apps/web/app/api/payments/[orderId]/status` est supprimée (aucun appelant, spec 33 §10) ; rien ne change pour ce cahier.
 Relevés par la relecture intégrale du 2026-09-07. Les sections ci-dessous ne sont pas réécrites —
 ces lignes en tiennent lieu.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { StayValues } from "@/lib/establishments/stayFields";
 
 // Miroir de useProductTypeFieldsState.ts (lib/products/), extrait le 2026-09-17 (revue de
 // packaging admin) : NewEstablishmentForm.tsx et EstablishmentEditBlock.tsx réimplémentaient
@@ -29,6 +30,13 @@ export type EstablishmentFieldsInit = {
   // consommés par EstablishmentEditBlock.tsx (EstablishmentAmenitiesBlock reprend la main en
   // édition, à sauvegarde immédiate).
   amenityIds?: string[];
+  // Séjour, contact public et étiquettes (2026-10-14, migration 20261015004421) — lus par les deux
+  // formulaires de proposition du partenaire, qui portent désormais toute la fiche. Côté admin, ils
+  // restent dans leurs blocs à sauvegarde immédiate (EstablishmentStayBlock, EstablishmentContactBlock,
+  // EstablishmentTagsBlock), qui ne passent pas par ce hook.
+  stay?: StayValues;
+  contactPhone?: string;
+  tagIds?: string[];
 };
 
 export function useEstablishmentFieldsState(init: EstablishmentFieldsInit = {}) {
@@ -40,6 +48,9 @@ export function useEstablishmentFieldsState(init: EstablishmentFieldsInit = {}) 
   const [lat, setLat] = useState(init.lat != null ? String(init.lat) : "");
   const [lon, setLon] = useState(init.lon != null ? String(init.lon) : "");
   const [selectedAmenityIds, setSelectedAmenityIds] = useState<string[]>(init.amenityIds ?? []);
+  const [stay, setStay] = useState<StayValues>(init.stay ?? { checkIn: "", checkOut: "", mode: "" });
+  const [contactPhone, setContactPhone] = useState(init.contactPhone ?? "");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(init.tagIds ?? []);
 
   return {
     operatedDirectly, setOperatedDirectly,
@@ -50,6 +61,9 @@ export function useEstablishmentFieldsState(init: EstablishmentFieldsInit = {}) 
     lat, setLat,
     lon, setLon,
     selectedAmenityIds, setSelectedAmenityIds,
+    stay, setStay,
+    contactPhone, setContactPhone,
+    selectedTagIds, setSelectedTagIds,
   };
 }
 

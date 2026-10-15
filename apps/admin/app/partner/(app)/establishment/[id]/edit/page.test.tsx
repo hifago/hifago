@@ -66,7 +66,19 @@ describe("/partner/establishment/[id]/edit", () => {
     filtres = {};
     reponses = {
       establishments: {
-        data: { id: ESTABLISHMENT_ID, name: { es: "Finca" }, description: null, address: null, lat: null, lon: null },
+        data: {
+          id: ESTABLISHMENT_ID,
+          name: { es: "Finca" },
+          description: null,
+          address: null,
+          lat: null,
+          lon: null,
+          check_in_time: null,
+          check_out_time: null,
+          mode: null,
+          contact_phone: null,
+          is_place: false,
+        },
         error: null,
       },
       "establishment_proposals#1": { data: null, error: null },
@@ -74,6 +86,8 @@ describe("/partner/establishment/[id]/edit", () => {
       establishment_media: { data: [], error: null },
       catalog_tags: { data: [], error: null },
       establishment_tag_assignments: { data: [], error: null },
+      catalog_amenities: { data: [], error: null },
+      establishment_amenity_assignments: { data: [], error: null },
     };
   });
 
@@ -100,6 +114,8 @@ describe("/partner/establishment/[id]/edit", () => {
     ["establishment_media"],
     ["catalog_tags"],
     ["establishment_tag_assignments"],
+    ["catalog_amenities"],
+    ["establishment_amenity_assignments"],
   ])("lecture %s en panne : la page lève, jamais introuvable ni vide", async (cle) => {
     reponses[cle] = PANNE;
     const resultat = ouvrir();

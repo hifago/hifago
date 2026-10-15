@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@hifago/supabase/client";
-import { Button, Input, Label, TextField, toast } from "@hifago/ui";
+import { Button, toast } from "@hifago/ui";
 import { ActionConfirmation } from "@/components/action-confirmation";
+import { ContactPhoneField } from "@/components/establishment-fields/contact-phone-field";
+import { FormSection } from "@/components/establishment-fields/form-section";
+import { CONTACT_PHONE_FORMAT_MESSAGE, isContactPhoneInvalid } from "@/lib/establishments/contactPhone";
 
 // Spec 30 (Tranche 2) — le contact WhatsApp PUBLIC du lieu, affiché sur la fiche établissement.
 //
@@ -22,11 +25,8 @@ import { ActionConfirmation } from "@/components/action-confirmation";
 // restent protégés par l'absence de policy publique. Ne jamais « simplifier » en lisant l'un des
 // deux : ils décrivent une PERSONNE ou une ORGANISATION, celui-ci décrit un LIEU.
 
-// E.164 — le MÊME motif que la contrainte `establishments_contact_phone_e164` et que la RPC.
-// ⚠️ Trois copies de la même règle, et c'est assumé : celle-ci sert à expliquer AVANT d'envoyer,
-// la RPC rend un motif lisible, la contrainte est le seul rempart qu'on ne peut pas contourner.
-// Si elles divergent un jour, c'est la contrainte qui a raison.
-const E164 = /^\+[1-9][0-9]{7,14}$/;
+// Le motif E.164 et le champ lui-même sont partagés avec les formulaires de proposition du
+// partenaire depuis le 2026-10-14 (lib/establishments/contactPhone.ts, ContactPhoneField).
 
 export function EstablishmentContactBlock({
   establishmentId,
@@ -44,7 +44,7 @@ export function EstablishmentContactBlock({
 
   const saisi = phone.trim();
   // Le champ VIDE est valide : c'est ainsi qu'on retire le bouton de la fiche publique.
-  const formatInvalide = saisi.length > 0 && !E164.test(saisi);
+  const formatInvalide = isContactPhoneInvalid(phone);
 
   async function handleSave() {
     setIsSubmitting(true);
@@ -61,9 +61,7 @@ export function EstablishmentContactBlock({
     const result = data as { ok: boolean; reason?: string } | null;
     if (error || !result?.ok) {
       toast.danger(
-        result?.reason === "invalid_phone"
-          ? "El número debe estar en formato internacional, por ejemplo +573001234567."
-          : "No se pudo guardar el contacto.",
+        result?.reason === "invalid_phone" ? CONTACT_PHONE_FORMAT_MESSAGE : "No se pudo guardar el contacto.",
       );
       return;
     }
@@ -72,12 +70,7 @@ export function EstablishmentContactBlock({
   }
 
   return (
-    <section
-      className="flex flex-col gap-4 rounded-lg border bg-surface p-4"
-      data-testid="establishment-contact-block"
-    >
-      <h2 className="text-lg font-medium">Contacto público</h2>
-
+    <FormSection title="Contacto público" testId="establishment-contact-block">
       {showConfirmation ? (
         <ActionConfirmation
           contained
@@ -90,27 +83,7 @@ export function EstablishmentContactBlock({
         />
       ) : (
       <>
-      <p className="text-sm text-muted">
-        Se muestra en la ficha pública del establecimiento como botón de WhatsApp. Déjalo vacío para
-        no mostrar ningún contacto.
-      </p>
-
-      <TextField fullWidth name="establishment-contact-phone" value={phone} onChange={setPhone}>
-        <Label>WhatsApp — opcional</Label>
-        <Input
-          type="tel"
-          placeholder="+573001234567"
-          data-testid="establishment-contact-phone-input"
-        />
-      </TextField>
-
-      {/* Message porté à côté du champ plutôt que par une prop `error` : le `TextField` de
-          `@hifago/ui` n'en a pas. Même forme que `lobby-option-picker.tsx`, la convention locale. */}
-      {formatInvalide ? (
-        <p className="text-sm text-danger" data-testid="establishment-contact-phone-error">
-          Formato internacional obligatorio, por ejemplo +573001234567.
-        </p>
-      ) : null}
+      <ContactPhoneField value={phone} onChange={setPhone} />
 
       <div>
         <Button
@@ -123,6 +96,6 @@ export function EstablishmentContactBlock({
       </div>
       </>
       )}
-    </section>
+    </FormSection>
   );
 }

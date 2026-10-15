@@ -16,6 +16,7 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-10-14 — spec 18 retouchée, sans changement de périmètre pour ce cahier** : le partenaire propose aussi les horaires d'une activité en édition, modérés par un admin (migration `20261015011812`) ; ce que le client voit et réserve ne change pas.
 - **2026-10-07 — §7/A3 ne règle que l'argent, jamais l'inventaire** (spec 34 corrigée) : depuis
   `20261006192424_order_line_cancellations.sql`, toute annulation et toute expiration rendent la
   place, la ressource partagée et le blocage d'agenda ; un evento `rsvp`/`unlimited` ne rend rien,

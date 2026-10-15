@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   emptySlotRule,
   generateSlotPreview,
+  slotRulesFromColumn,
+  slotRulesIfChanged,
   toSlotRuleRows,
   validateSlotRules,
   type DraftSlotRule,
@@ -105,5 +107,30 @@ describe("emptySlotRule / toSlotRuleRows", () => {
         capacity: 4,
       },
     ]);
+  });
+});
+
+// Horaires d'une proposition d'ÉDITION (migration 20261015011812) : la clé n'entre que si les
+// horaires ont changé — présente, elle REMPLACE tous les horaires à l'approbation.
+describe("slotRulesIfChanged", () => {
+  const EN_BASE = [{ weekdays: [3, 1], start_time: "08:00:00", end_time: "10:00:00", slot_duration_minutes: 60, capacity: 6 }];
+
+  it("horaires inchangés (secondes de la base comprises) : rien n'est envoyé", () => {
+    expect(slotRulesIfChanged(EN_BASE, slotRulesFromColumn(EN_BASE))).toEqual({});
+  });
+
+  it("une capacité changée : tous les horaires partent, sous leur forme de colonne", () => {
+    const brouillon = slotRulesFromColumn(EN_BASE).map((rule) => ({ ...rule, capacity: "8" }));
+    expect(slotRulesIfChanged(EN_BASE, brouillon)).toEqual({
+      slot_rules: [{ weekdays: [1, 3], start_time: "08:00", end_time: "10:00", slot_duration_minutes: 60, capacity: 8 }],
+    });
+  });
+
+  it("tous retirés : un tableau vide part — c'est une demande de les supprimer", () => {
+    expect(slotRulesIfChanged(EN_BASE, [])).toEqual({ slot_rules: [] });
+  });
+
+  it("aucun horaire en place ni proposé : rien n'est envoyé", () => {
+    expect(slotRulesIfChanged([], [])).toEqual({});
   });
 });

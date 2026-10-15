@@ -26,9 +26,9 @@
 
 ## Cadrage — la cible de la refonte
 - [Audit du modèle de données cible — entités partagées](00-modele-de-donnees.md) 56K
-- [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 97K
+- [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 98K
 - [Cahier des charges — portail socio (aujourd'hui /partner)](02-cahier-des-charges-socio.md) 57K
-- [Cahier des charges — back-office admin (aujourd'hui /admin)](03-cahier-des-charges-admin.md) 49K
+- [Cahier des charges — back-office admin (aujourd'hui /admin)](03-cahier-des-charges-admin.md) 50K
 - [Choix de stack et architecture cible](04-architecture-cible.md) 78K
 - [Référence technique — patterns validés et extensions requises](05-reference-technique.md) 9K
 - [Emails transactionnels — les 13 envois possibles, leur déclencheur…](06-emails-transactionnels.md) 15K
@@ -40,7 +40,7 @@
 - [Admin crée un établissement (identité, rattachement, présentation…](specs/03-admin-creation-etablissement.md) 24K ✓ · sans §0
 - [Gestion des images — upload, droits, recadrage, affichage](specs/04-gestion-images.md) 33K ✓ · sans §0
 - [Invitations partenaire : dashboard d'atterrissage, visibilité…](specs/05-invitations-onboarding-dashboard-partenaire.md) 23K ✓ · sans §0
-- [Gestion d'un établissement — admin édite, partenaire propose…](specs/06-gestion-etablissement.md) 51K ✓ · §0 offset 57 limit 60
+- [Gestion d'un établissement — admin édite, partenaire propose…](specs/06-gestion-etablissement.md) 52K ✓ · §0 offset 73 limit 60
 - [Connexion/inscription complète : Google, email+mot de passe,…](specs/07-connexion-inscription-complete.md) 36K ✓ · sans §0
 - [Admin gère une activité (tags, paliers de prix, bornes de quantité,…](specs/08-admin-gestion-activite.md) 25K ✓ · sans §0
 - [Design system admin — charte Hifago 2026 (remplace la piste Argile)](specs/09-design-system-admin.md) 21K ✓ · §0 offset 43 limit 54
@@ -81,9 +81,9 @@
 - [Avant d'écrire une spec — poser les bonnes questions](specs/avant-la-spec.md) 8K
 
 ## Suivi — backlog, dette, pièges, journal
-- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 13K
+- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 14K
 - [Dette technique et QA/UI connue — hifago](dette-technique.md) 38K
 - [Journal hifago — août 2026](journal/2026-08.md) 660K · jamais en entier (voir 5.)
 - [Journal hifago — septembre 2026](journal/2026-09.md) 678K · jamais en entier (voir 5.)
-- [Journal hifago — octobre 2026](journal/2026-10.md) 222K · jamais en entier (voir 5.)
+- [Journal hifago — octobre 2026](journal/2026-10.md) 227K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K

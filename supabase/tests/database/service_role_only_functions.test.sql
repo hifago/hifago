@@ -116,6 +116,12 @@ insert into tmp_grant_only (name) values
   ('product_slug_from_name'),          -- trigger set_product_slug (20261001235031)
   ('open_default_lodging_availability'), -- create_product_from_proposal et le roulement nocturne
   ('create_product_from_proposal'),    -- moderate_product_proposal seule (20261006182227)
+  -- Fiche établissement proposée par le partenaire (20261015004421) : la validation, appelée par
+  -- les deux RPC de dépôt et par moderate_establishment_proposal ; les écritures, par cette
+  -- dernière seule, après sa garde is_admin. Ouverte, la seconde laisserait un socio poser
+  -- lui-même séjour, contact, étiquettes et équipements sans modération.
+  ('establishment_proposal_details'),
+  ('apply_establishment_proposal_details'),
   -- Crons sans Edge Function : aucun appelant humain légitime.
   ('purge_expired_anonymous_identities'), -- cron purge-expired-anonymous-identities
   ('roll_lodging_availability_window');   -- cron roll-lodging-availability

@@ -5,6 +5,7 @@ import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { EditProposalForm } from "./EditProposalForm";
 import { PhotosSocioBlock } from "@/components/photos-socio-block";
 import { ownerScope } from "@/lib/partnerOwnership";
+import { PRODUCT_EDIT_COLUMNS } from "@/lib/products/productEditColumns";
 import { toTagOptions } from "@/lib/tags/proposedTags";
 import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 
@@ -23,21 +24,13 @@ export default async function EditProductProposalPage({
   // l'organisation ressort « introuvable », jamais un refus explicite qui en révèlerait
   // l'existence. L'admin n'est pas restreint (`!inner` ne retire rien : establishment_id est
   // not null).
-  // Colonnes étendues (spec 15 bis, 2026-08-17) : parité de champs avec ProductForm en mode
-  // édition — address/lat/lon/price_tiers/min_qty/max_qty/check_in_time/check_out_time/capacity/
-  // stay_rates, plus `type` pour le gating (ProductTypeFields).
-  // external_booking_url/price_label (2026-10-13) : le formulaire les renvoie dans chaque
-  // proposition, et depuis qu'ils ne sont plus affichés pour un logement, rien ne signalerait leur
-  // absence — non lus, ils partiraient à null et l'approbation effacerait le lien posé par un admin.
-  // occurrence_*/start_time/duration_minutes (2026-10-13) : même règle pour un evento. Non lus, le
-  // formulaire affichait « Fecha » et « Hora de inicio » vides sur un evento qui en avait.
-  // online_bookable et ses quatre voisins ne sont jamais proposables (réglage admin) : lus pour
-  // que le formulaire sache qu'un evento se réserve en ligne et n'affiche pas un prix libre vide.
+  // Colonnes du formulaire : une seule liste pour les deux écrans d'édition, et la règle qui la
+  // gouverne (lib/products/productEditColumns.ts).
   const scope = await ownerScope(supabase);
   let productQuery = supabase
     .from("products")
     .select(
-      "id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, establishment_id, lobby_category_id, lobby_product_id, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, external_booking_url, price_label, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, evento_occupies_resource, establishment:establishments!inner(partner_id, lobby_connector_active, lobby_has_token)"
+      `${PRODUCT_EDIT_COLUMNS}, establishment:establishments!inner(partner_id, lobby_connector_active, lobby_has_token)`,
     )
     .eq("id", id);
   if (scope.kind === "partner") {
@@ -63,7 +56,9 @@ export default async function EditProductProposalPage({
   // Étiquettes (migration 20261013144848) : le catalogue et celles déjà posées sur la fiche. Le
   // socio en propose le changement dans le même envoi que le reste ; il ne les écrit jamais
   // lui-même (RLS admin-only sur product_tag_assignments). Même chose pour les équipements d'un
-  // logement (migration 20261013151206, product_amenity_assignments).
+  // logement (migration 20261013151206, product_amenity_assignments), et pour les horaires d'une
+  // activité (migration 20261015011812, product_slot_rules) — lus pour tous les types, la liste
+  // est simplement vide hors activité.
   const [
     pendingResult,
     mediaResult,
@@ -72,6 +67,7 @@ export default async function EditProductProposalPage({
     tagAssignmentsResult,
     amenitiesResult,
     amenityAssignmentsResult,
+    slotRulesResult,
   ] = await Promise.all([
     supabase
       .from("product_proposals")
@@ -100,6 +96,11 @@ export default async function EditProductProposalPage({
     supabase.from("product_tag_assignments").select("tag_id").eq("product_id", id),
     supabase.from("catalog_amenities").select("id, label").order("category_key").order("sort_order"),
     supabase.from("product_amenity_assignments").select("amenity_id").eq("product_id", id),
+    supabase
+      .from("product_slot_rules")
+      .select("weekdays, start_time, end_time, slot_duration_minutes, capacity")
+      .eq("product_id", id)
+      .order("start_time"),
   ]);
   for (const [table, result] of [
     ["product_proposals", pendingResult],
@@ -109,6 +110,7 @@ export default async function EditProductProposalPage({
     ["product_tag_assignments", tagAssignmentsResult],
     ["catalog_amenities", amenitiesResult],
     ["product_amenity_assignments", amenityAssignmentsResult],
+    ["product_slot_rules", slotRulesResult],
   ] as const) {
     if (result.error) {
       throw new Error(`Lecture de la fiche impossible (${table}) : ${result.error.message}`);
@@ -119,6 +121,7 @@ export default async function EditProductProposalPage({
   const pendingPhotosProposal = pendingPhotosResult.data;
   const tagAssignments = tagAssignmentsResult.data;
   const amenityAssignments = amenityAssignmentsResult.data;
+  const slotRules = slotRulesResult.data;
 
   const photos = (media ?? []).map((m) => ({
     id: m.id,
@@ -160,6 +163,7 @@ export default async function EditProductProposalPage({
         currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
         availableAmenities={toTagOptions(amenitiesResult.data)}
         currentAmenityIds={(amenityAssignments ?? []).map((row) => row.amenity_id)}
+        currentSlotRules={slotRules ?? []}
         establishmentId={product.establishment_id}
         establishmentLobbyConnected={Boolean(
           product.establishment?.lobby_connector_active && product.establishment?.lobby_has_token
