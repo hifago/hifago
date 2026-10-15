@@ -6,6 +6,7 @@ import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
 import { buttonVariants } from "@hifago/ui";
 import { ProductForm } from "@/components/product-form";
+import { PRODUCT_EDIT_COLUMNS } from "@/lib/products/productEditColumns";
 // Correctif (spec 21, bug pré-existant sans lien avec elle) : jamais importer productTypeGating/
 // availabilityScreenFor depuis useProductTypeFieldsState.ts ("use client") depuis un Server
 // Component — cf. apps/admin/lib/products/productTypeGating.ts pour l'explication complète.
@@ -41,24 +42,9 @@ export default async function EditProductPage({
   const productResult = await supabase
     .from("products")
     .select(
-      // `program` (2026-09-16, spec 37) : lu ICI **et** réécrit par l'update() de ProductForm — les
-      // deux ensemble, jamais l'un sans l'autre, exactement la règle énoncée juste en dessous.
-      //
-      // `duration_days` est l'exception assumée : chargé sans être réécrit, mais JAMAIS réinjecté
-      // dans l'input « Duración (días) », qui reste vierge (gap création-only inchangé). Il ne sert
-      // qu'à la prop d'information `campDurationDays` de l'éditeur de programme, pour ouvrir le bon
-      // nombre de journées. Le rendre éditable serait un changement de comportement, pas un
-      // rattrapage : apps/web/lib/orders/formatLineSchedule.ts et getOrderByToken.ts RELISENT
-      // duration_days pour reconstituer la date de fin de commandes DÉJÀ PAYÉES — le modifier
-      // réécrirait rétroactivement les dates de réservations existantes.
-      //
-      // online_bookable/evento_capacity_mode/is_free/evento_payment_mode/evento_occupies_resource
-      // (2026-09-15), puis price_label/occurrence_*/start_time/duration_minutes (2026-10-13) : tous
-      // lus ICI et réécrits par l'update() de ProductForm — les deux ensemble, jamais l'un sans
-      // l'autre. `price_label` était réécrit sans être lu depuis le 2026-09-17 (un enregistrement
-      // l'effaçait) ; les colonnes d'occurrence n'étaient ni lues ni écrites, le formulaire
-      // s'affichait vierge et jetait la saisie.
-      "id, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, category, type, establishment_id, sellable, lobby_category_id, lobby_product_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, evento_occupies_resource, price_label, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, establishment:establishments(lobby_connector_active, lobby_has_token)",
+      // Colonnes du formulaire : une seule liste pour les deux écrans d'édition, et la règle qui la
+      // gouverne (lib/products/productEditColumns.ts). `category`/`sellable` ne servent qu'ici.
+      `${PRODUCT_EDIT_COLUMNS}, category, sellable, establishment:establishments(lobby_connector_active, lobby_has_token)`,
     )
     .eq("id", id)
     .maybeSingle();
