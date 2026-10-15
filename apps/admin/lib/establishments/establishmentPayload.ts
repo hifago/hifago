@@ -45,3 +45,23 @@ export function buildEstablishmentRpcParams(
     p_operated_directly: fields.operatedDirectly,
   };
 }
+
+/**
+ * Champs de présentation d'une PROPOSITION du partenaire (création ou édition) — mêmes règles que
+ * buildEstablishmentRpcParams ci-dessus, sous la forme du payload jsonb que lisent
+ * submit_establishment_creation_proposal / submit_establishment_edit_proposal. Jamais
+ * `operated_directly` : classification de plateforme, jamais proposable (spec 06 §3).
+ */
+export function buildEstablishmentProposalFields(
+  nombre: string,
+  fields: EstablishmentFieldsState,
+): { name: Json; description: Json | null; address: string | null; lat: number | null; lon: number | null } {
+  const params = buildEstablishmentRpcParams(nombre, fields);
+  return {
+    name: params.p_name,
+    description: params.p_description ?? null,
+    address: params.p_address ?? null,
+    lat: params.p_lat ?? null,
+    lon: params.p_lon ?? null,
+  };
+}
