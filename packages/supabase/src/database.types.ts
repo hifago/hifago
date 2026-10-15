@@ -2687,6 +2687,10 @@ export type Database = {
         Args: { p_changes: Json; p_note?: string; p_product_id: string }
         Returns: Json
       }
+      apply_establishment_proposal_details: {
+        Args: { p_details: Json; p_establishment_id: string }
+        Returns: undefined
+      }
       apply_order_line_ledger_transition: {
         Args: { p_new_status: string; p_order_line_ids: string[] }
         Returns: undefined
@@ -2935,6 +2939,10 @@ export type Database = {
           p_subject: string
         }
         Returns: string
+      }
+      establishment_proposal_details: {
+        Args: { p_payload: Json }
+        Returns: Json
       }
       establishment_slug_from_name: {
         Args: { p_exclude?: string; p_name: Json }
