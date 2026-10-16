@@ -19,6 +19,7 @@ import { Price } from "@/components/atoms/Price";
 import { formatLineSchedule, resolveDisplayEndDate } from "@/lib/orders/formatLineSchedule";
 import { computeCartLineTotal } from "@/lib/cart/cartLineTotal";
 import type { CartLineForDisplay } from "@/lib/cart/getCartLines";
+import { isLineScopedReason } from "@/lib/cart/lineReasons";
 import type { Locale } from "@/messages";
 
 // Spec 32 (panier en base) — remplace le rendu de lignes autrefois porté par `CheckoutForm.tsx`.
@@ -57,6 +58,7 @@ export function CartSummary({
   lodgingRequirement = null,
 }: CartSummaryProps) {
   const t = useTranslations("CartPage");
+  const tCheckout = useTranslations("CheckoutPage");
   const tCommon = useTranslations("Common");
   const router = useRouter();
   const { refresh } = useCart();
@@ -90,13 +92,28 @@ export function CartSummary({
     );
   }
 
+  // Ligne signalée par `cart_lines_availability` : le texte de SA raison, le même que celui d'un
+  // refus de create_order — jamais retirée d'office, le client choisit. Une raison hors de la liste
+  // fermée (dérive future) garde le texte générique plutôt qu'une clé manquante.
+  const motifIndisponible = (reason: string | null) =>
+    isLineScopedReason(reason) ? tCheckout(`errors.${reason}`) : t("lineUnavailable");
+  // Disponibilité illisible (panne, ligne ajoutée entre deux lectures) : UN avis pour tout le
+  // panier, jamais une ligne présentée comme disponible — create_order tranchera à l'envoi.
+  const disponibiliteInconnue = lines.some((line) => line.availability.status === "unknown");
+
   const liste = (
-    <ul className="flex flex-col divide-y divide-separator">
+    <>
+      {disponibiliteInconnue ? (
+        <Aviso tono="info" compacto testId="availability-unknown">
+          {t("availabilityUnknown")}
+        </Aviso>
+      ) : null}
+      <ul className="flex flex-col divide-y divide-separator">
         {lines.map((line, i) => (
           <li
             key={line.id}
             data-testid={`cart-line-${line.id}`}
-            data-unavailable={line.unavailable}
+            data-availability={line.availability.status}
             className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -135,19 +152,20 @@ export function CartSummary({
                 ) : null}
               </div>
             </div>
-            {line.unavailable ? (
+            {line.availability.status === "unavailable" ? (
               <Aviso
                 tono="error"
                 compacto
                 rol="alert"
                 testId={`unavailable-${line.id}`}
               >
-                {t("lineUnavailable")}
+                {motifIndisponible(line.availability.reason)}
               </Aviso>
             ) : null}
           </li>
         ))}
       </ul>
+    </>
   );
 
   const totaux = (

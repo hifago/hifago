@@ -9,6 +9,7 @@
   "lineQty": "Cantidad: {count}",
   "lineNights": "{count, plural, one {# noche} other {# noches}}",
   "lineUnavailable": "Este servicio ya no está disponible. Puedes quitarlo de tu viaje.",
+  "availabilityUnknown": "No pudimos comprobar la disponibilidad de tu viaje en este momento. Se confirmará al reservar.",
   "total": "Total",
   "totalNow": "Total a pagar ahora",
   "depositToday": "Anticipo a pagar hoy",

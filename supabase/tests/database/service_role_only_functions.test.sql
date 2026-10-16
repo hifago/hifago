@@ -22,7 +22,9 @@
 begin;
 select plan(3);
 
-create temp table tmp_grant_only (name text primary key);
+-- signature nulle : toutes les surcharges du nom ; renseignée : exactement celle-là (une surcharge
+-- du même nom peut rester exposée — cas des fonctions d'identité ci-dessous).
+create temp table tmp_grant_only (name text primary key, signature text);
 insert into tmp_grant_only (name) values
   ('apply_payment_webhook'),
   ('claim_notification_email_batch'),
@@ -117,6 +119,14 @@ insert into tmp_grant_only (name) values
   -- Crons sans Edge Function : aucun appelant humain légitime.
   ('purge_expired_anonymous_identities'), -- cron purge-expired-anonymous-identities
   ('roll_lodging_availability_window');   -- cron roll-lodging-availability
+-- Fonctions d'identité À PARAMÈTRE (20261014204210 puis 20261014204647) : appelées par les fonctions
+-- SECURITY DEFINER (82 appels, exécutés en propriétaire). Leurs surcharges SANS paramètre, qui
+-- lisent l'appelant, restent exécutables par anon et authenticated : d'où la signature exacte.
+insert into tmp_grant_only (name, signature) values
+  ('is_admin', 'is_admin(uuid)'),
+  ('has_admin_capability', 'has_admin_capability(uuid)'),
+  ('partner_id_for_account', 'partner_id_for_account(uuid)'),
+  ('has_capability', 'has_capability(uuid,text,uuid)');
 
 select is(
   (
@@ -124,7 +134,9 @@ select is(
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
-      and p.proname in (select name from tmp_grant_only)
+      and exists (select 1 from tmp_grant_only t
+                   where (t.signature is null and t.name = p.proname)
+                      or t.signature = p.oid::regprocedure::text)
       and (
         has_function_privilege('anon', p.oid, 'EXECUTE')
         or has_function_privilege('authenticated', p.oid, 'EXECUTE')
@@ -145,6 +157,7 @@ select is(
       select 1 from pg_proc p
       join pg_namespace ns on ns.oid = p.pronamespace
       where ns.nspname = 'public' and p.proname = t.name
+        and (t.signature is null or p.oid::regprocedure::text = t.signature)
     )
   ),
   '',
@@ -170,7 +183,9 @@ select is(
       )
       and not has_function_privilege('anon', p.oid, 'EXECUTE')
       and not has_function_privilege('authenticated', p.oid, 'EXECUTE')
-      and p.proname not in (select name from tmp_grant_only)
+      and not exists (select 1 from tmp_grant_only t
+                       where (t.signature is null and t.name = p.proname)
+                          or t.signature = p.oid::regprocedure::text)
   ),
   '',
   'toute fonction de public fermée à anon et authenticated est nommée dans la liste'

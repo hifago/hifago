@@ -44,7 +44,7 @@ export function lineasDelCarritoSimulado(): CartLineForDisplay[] {
       slotStartTime: fila.slot_start_time?.slice(0, 5) ?? null,
       qty: fila.qty,
       priceCop: ficha?.precio && "cop" in ficha.precio ? ficha.precio.cop : 0,
-      unavailable: false,
+      availability: { status: "available" },
       durationDays: ficha?.duracionDias ?? null,
       priceTiers: (ficha?.alojamiento?.priceTiers as CartLineForDisplay["priceTiers"]) ?? null,
     };

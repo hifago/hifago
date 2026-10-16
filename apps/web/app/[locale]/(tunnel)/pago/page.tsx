@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { createClient } from "@hifago/supabase/server";
 import { isRealAccount } from "@hifago/supabase/identity";
-import { getCartLines } from "@/lib/cart/getCartLines";
+import { getCartLines, hasUnavailableLine } from "@/lib/cart/getCartLines";
 import { getPendingOrdersForViewer } from "@/lib/orders/getPendingOrdersForViewer";
 import { getPartnerAccountProfileFields } from "@/lib/account/getMyProfile";
 import { CartSummary } from "@/components/organisms/CartSummary";
@@ -117,6 +117,7 @@ export default async function CheckoutPage({
               initialHolderName={initialHolderName}
               initialHolderPhone={initialHolderPhone}
               initialHolderEmail={initialHolderEmail}
+              hasUnavailableLines={hasUnavailableLine(lines)}
             />
           </div>
           {/* Récapitulatif d'abord sous `lg` (le client voit ce qu'il paie), à droite et collant au-

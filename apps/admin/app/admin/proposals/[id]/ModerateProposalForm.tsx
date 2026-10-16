@@ -11,6 +11,7 @@ import { ProductTypeFields } from "@/components/product-type-fields";
 import type { TagOption } from "@/components/tags-multiselect";
 import { buildProductEditPayload } from "@/lib/products/productEditPayload";
 import { eventoOccurrenceError } from "@/lib/products/eventoOccurrence";
+import { eventoChangeRefusal } from "@/lib/products/eventoChangeRefusal";
 import { withCurrentValuesForAbsentKeys } from "@/lib/products/proposalFallback";
 import { proposedTagIds, tagLabels } from "@/lib/tags/proposedTags";
 import { proposedAmenityIds } from "@/lib/amenities/proposedAmenities";
@@ -142,12 +143,11 @@ export function ModerateProposalForm({
         );
         return;
       }
-      // Trigger products_capacity_flags_frozen (migration 20261013212500) : un evento qui porte des
-      // réservations en cours ne change ni de date ni de récurrence.
-      if (rpcError?.message.includes("capacity_flags_frozen_while_reserved")) {
-        toast.danger(
-          "Este evento tiene reservas en curso: su fecha y su recurrencia no pueden cambiar hasta que se realicen o se cancelen.",
-        );
+      // Un evento qui porte des réservations en cours : nouvelle date qui les laisserait hors de
+      // ses dates (HF002, migration 20261014204354), ou drapeau de capacité gelé.
+      const refusal = eventoChangeRefusal(rpcError);
+      if (refusal) {
+        toast.danger(refusal);
         return;
       }
       toast.danger(

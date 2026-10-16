@@ -124,13 +124,6 @@ test("une ligne dépasse la capacité restante de sa ressource → message d'err
   await page.getByTestId("add-to-cart-button").click();
   await esperarRetornoTrasAgregar(page);
 
-  // Pré-sature directement la disponibilité de la ressource visée par la ligne tour-lancha, entre
-  // l'ajout au panier (purement local) et la validation du panier — simule un autre acheteur qui
-  // prend la dernière place pendant que ce client compose son panier. La ligne kayak, elle, reste
-  // valide : le test doit prouver que TOUT le panier échoue quand même (tout-ou-rien), pas
-  // seulement la ligne fautive.
-  await setBooked(TOUR_ID, TOUR_DATE, 1);
-
   await page.goto("/es/pago");
   await expect(page.getByTestId(/^cart-line-/)).toHaveCount(2);
 
@@ -138,6 +131,14 @@ test("une ligne dépasse la capacité restante de sa ressource → message d'err
   await page.locator('input[name="holder-name"]').fill("Cliente E2E Multi Full");
   await page.locator('input[name="holder-phone"]').fill(phone);
   await page.locator('input[name="holder-email"]').fill("cliente.multi.full@example.com");
+
+  // Pré-sature directement la disponibilité de la ressource visée par la ligne tour-lancha, entre
+  // l'affichage de /pago et la validation du panier — simule un autre acheteur qui prend la
+  // dernière place pendant que ce client remplit ses coordonnées (plus tôt, /pago signalerait déjà
+  // la ligne et fermerait l'envoi : c'est create_order qu'on veut voir refuser ici). La ligne
+  // kayak, elle, reste valide : le test doit prouver que TOUT le panier échoue quand même
+  // (tout-ou-rien), pas seulement la ligne fautive.
+  await setBooked(TOUR_ID, TOUR_DATE, 1);
   await page.getByTestId("submit-order-button").click();
 
   // Message ciblé sur la VRAIE raison (« esta fecha ya está completa »), pas seulement « une
@@ -149,15 +150,18 @@ test("une ligne dépasse la capacité restante de sa ressource → message d'err
   // vient précisément d'arriver.
   await expect(page).toHaveURL(/\/pago(\?|$)/);
 
-  // ⚠️ RÉGRESSION CONNUE, non corrigée ici (arbitrage Jérôme, 2026-09-15, docs/dette-technique.md) :
-  // ce test vérifiait autrefois que la ligne fautive (tour-lancha, désormais complète) portait
-  // `data-failed="true"` et la ligne valide (kayak) `data-failed="false"` — attribut disparu avec
-  // la refonte du panier (spec 32) : `create_order` renvoie toujours `line.product_id`/`date`, mais
-  // CheckoutForm.tsx ne s'en sert pas pour marquer une ligne, et CartSummary (qui affiche les
-  // lignes) est un composant client séparé, alimenté par les lignes lues côté serveur
-  // (getCartLines), sans lien avec le résultat du formulaire. Le client voit le message générique ci-dessus, mais ne sait plus repérer LAQUELLE
-  // de plusieurs lignes en est la cause. L'invariant tout-ou-rien, lui, reste garanti par
-  // `create_order` elle-même (vérifié juste en dessous), indépendamment de cette perte d'affichage.
+  // Le panier est relu après le refus (cart_lines_availability, migration 20261014211217) : la
+  // ligne fautive est de nouveau repérable — tour-lancha signalée avec la même raison, kayak non —
+  // et l'envoi reste fermé tant qu'elle y est.
+  const ligneSignalee = page.locator('[data-testid^="cart-line-"][data-availability="unavailable"]');
+  await expect(ligneSignalee).toHaveCount(1);
+  await expect(ligneSignalee).toContainText("completa");
+  await expect(ligneSignalee).not.toContainText("Kayak");
+  await expect(page.getByTestId(/^cart-line-/).filter({ hasText: "Kayak" })).toHaveAttribute(
+    "data-availability",
+    "available"
+  );
+  await expect(page.getByTestId("submit-order-button")).toBeDisabled();
 
   // Tout-ou-rien vérifiable directement en base : aucune commande créée du tout, et la ligne
   // kayak (individuellement valide) n'a pas non plus consommé son cupo.

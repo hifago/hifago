@@ -14,6 +14,8 @@
   "submit": "Confirm booking",
   "submitting": "Processing…",
   "resumeOrder": "Your order is still on file: you can pick it up from My trip.",
+  "unavailableLines": "Some services in your trip are no longer available. Remove or change them to confirm your booking.",
+  "unavailableLinesLink": "Go to My trip",
   "loginLink": "Sign in to find your reservations",
   "pendingOrdersTitle": "You have bookings pending payment:",
   "pendingOrderLink": "Booking {reference}",
