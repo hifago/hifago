@@ -2587,6 +2587,7 @@ export type Database = {
         }[]
       }
       admin_delete_catalog_amenity: { Args: { p_amenity_id: string }; Returns: Json }
+      admin_delete_partner: { Args: { p_partner_id: string }; Returns: Json }
       admin_jobs_status: {
         Args: never
         Returns: {
@@ -2680,6 +2681,10 @@ export type Database = {
           total_cop: number
           total_count: number
         }[]
+      }
+      admin_partner_deletion_check: {
+        Args: { p_partner_id: string }
+        Returns: Json
       }
       admin_rename_catalog_amenity: {
         Args: { p_amenity_id: string; p_label_en: string; p_label_es: string }
