@@ -18,6 +18,7 @@ type ProposalRow = {
   kind: string;
   entityType: "product" | "establishment";
   displayName: string;
+  note: string | null;
   partner: { display_name: string } | null;
 };
 
@@ -50,7 +51,14 @@ export function ProposalsTable({ proposals }: { proposals: ProposalRow[] }) {
         {proposals.length > 0 ? (
           proposals.map((proposal) => (
             <SimpleTableRow key={proposal.id} id={proposal.id} data-testid={`proposal-row-${proposal.id}`}>
-              <SimpleTableCell data-label="Actividad / Establecimiento">{proposal.displayName}</SimpleTableCell>
+              <SimpleTableCell data-label="Actividad / Establecimiento">
+                {proposal.displayName}
+                {proposal.note ? (
+                  <span className="block text-sm text-muted" data-testid={`proposal-note-${proposal.id}`}>
+                    {proposal.note}
+                  </span>
+                ) : null}
+              </SimpleTableCell>
               <SimpleTableCell data-label="Tipo" data-testid={`proposal-kind-${proposal.id}`}>
                 {KIND_LABELS[proposal.kind] ?? proposal.kind}
               </SimpleTableCell>

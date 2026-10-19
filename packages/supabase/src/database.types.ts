@@ -2004,6 +2004,7 @@ export type Database = {
         Row: {
           created_at: string
           establishment_id: string | null
+          establishment_proposal_id: string | null
           id: string
           kind: string
           partner_id: string
@@ -2021,6 +2022,7 @@ export type Database = {
         Insert: {
           created_at?: string
           establishment_id?: string | null
+          establishment_proposal_id?: string | null
           id?: string
           kind?: string
           partner_id: string
@@ -2038,6 +2040,7 @@ export type Database = {
         Update: {
           created_at?: string
           establishment_id?: string | null
+          establishment_proposal_id?: string | null
           id?: string
           kind?: string
           partner_id?: string
@@ -2058,6 +2061,13 @@ export type Database = {
             columns: ["establishment_id"]
             isOneToOne: false
             referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_proposals_establishment_proposal_id_fkey"
+            columns: ["establishment_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "establishment_proposals"
             referencedColumns: ["id"]
           },
           {
@@ -3702,7 +3712,12 @@ export type Database = {
         Returns: Json
       }
       submit_product_creation_proposal: {
-        Args: { p_establishment_id: string; p_payload: Json; p_type: string }
+        Args: {
+          p_establishment_id?: string
+          p_establishment_proposal_id?: string
+          p_payload?: Json
+          p_type?: string
+        }
         Returns: Json
       }
       submit_product_proposal: {

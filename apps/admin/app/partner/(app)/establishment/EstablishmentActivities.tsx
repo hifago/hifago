@@ -116,7 +116,9 @@ export function EstablishmentActivities({
       <EmptyStateCta
         title="Aún no tienes actividades en este establecimiento"
         description="Añade tu primera actividad para empezar a recibir reservas."
-        actionHref="/partner/products/new"
+        // `establishmentId` est celui d'une PROPOSITION d'établissement quand la pile en revue
+        // réutilise ce composant (20261019120000) : la page /new accepte les deux.
+        actionHref={`/partner/products/new?establecimiento=${establishmentId}`}
         actionLabel="Añadir actividad"
         testId={`empty-activities-${establishmentId}`}
       />

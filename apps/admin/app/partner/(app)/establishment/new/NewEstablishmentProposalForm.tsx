@@ -39,7 +39,10 @@ export function NewEstablishmentProposalForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Écran de confirmation plein écran (docs/specs/40 §4) — toujours « partenaire/en attente », ce
   // formulaire n'est jamais atteint par un admin.
-  const [showConfirmation, setShowConfirmation] = useState(false);
+  // Porte l'identifiant de la proposition envoyée : l'écran de confirmation enchaîne sur
+  // « Añadir una actividad », rattachée à cet établissement encore en revue (migration
+  // 20261019120000, demande Jérôme du 2026-10-19 : établissement et activités dans la foulée).
+  const [submittedProposalId, setSubmittedProposalId] = useState<string | null>(null);
 
   const addressSearchRef = useRef<HTMLDivElement | null>(null);
 
@@ -103,17 +106,21 @@ export function NewEstablishmentProposalForm() {
       return;
     }
 
-    setShowConfirmation(true);
+    setSubmittedProposalId(result.proposal_id ?? null);
   }
 
-  if (showConfirmation) {
+  if (submittedProposalId) {
     return (
       <ActionConfirmation
         status="pending"
         title="Propuesta enviada"
-        body="Un administrador de Hifago revisará tu propuesta antes de publicar el establecimiento. Te avisaremos cuando esté disponible."
-        actionLabel="Ir a mis establecimientos"
+        body="Un administrador de Hifago revisará tu establecimiento. Mientras tanto, ya puedes proponer sus actividades: se revisarán por separado."
+        actionLabel="Añadir una actividad"
         onAction={() => {
+          router.push(`/partner/products/new?establecimiento=${submittedProposalId}`);
+        }}
+        secondaryActionLabel="Ir a mis establecimientos"
+        onSecondaryAction={() => {
           router.push("/partner/establishment");
           router.refresh();
         }}

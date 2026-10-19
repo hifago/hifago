@@ -14,7 +14,9 @@ export default async function AdminProposalsPage() {
   const { data: productProposals } = checkedRead(
     await supabase
       .from("product_proposals")
-      .select("id, created_at, kind, payload, product:products(name), partner:partners(display_name)")
+      .select(
+        "id, created_at, kind, payload, establishment_id, establishment_proposal_id, product:products(name), partner:partners(display_name)",
+      )
       .eq("status", "pending")
       .order("created_at", { ascending: true }),
     "product_proposals",
@@ -45,6 +47,12 @@ export default async function AdminProposalsPage() {
         resolveLocalizedField(asLocalizedField(p.product?.name), "es") ??
         resolveLocalizedField(asLocalizedField((p.payload as { name?: unknown } | null)?.name), "es") ??
         "—",
+      // Migration 20261019120000 : activité proposée avec un établissement encore en revue —
+      // elle ne peut être approuvée qu'après lui.
+      note:
+        p.kind === "create" && !p.establishment_id && p.establishment_proposal_id
+          ? "Establecimiento en revisión"
+          : null,
       partner: p.partner,
     })),
     ...(establishmentProposals ?? []).map((p) => ({
@@ -59,6 +67,7 @@ export default async function AdminProposalsPage() {
           "es",
         ) ??
         "—",
+      note: null,
       partner: p.partner,
     })),
   ].sort((a, b) => a.created_at.localeCompare(b.created_at));

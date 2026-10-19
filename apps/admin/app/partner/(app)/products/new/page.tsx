@@ -10,7 +10,16 @@ import { toTagOptions } from "@/lib/tags/proposedTags";
 // au socio. Établissements filtrés à ceux du partenaire ET avec une capacité operator ACTIVE
 // (évite de proposer dans le sélecteur un établissement pour lequel la RPC répondrait
 // capability_suspended de toute façon).
-export default async function NewProductProposalPage() {
+//
+// Migration 20261019120000 (demande Jérôme, 2026-10-19) : les propositions de création
+// d'établissement ENCORE EN REVUE sont aussi proposées, marquées « (en revisión) » — un nouveau
+// partenaire propose ses activités sans attendre l'approbation de son établissement. Même règle de
+// capacité que la RPC : une capacité operator active, quelle qu'elle soit. `?establecimiento=`
+// présélectionne l'entrée (enchaînement depuis l'écran de confirmation de l'établissement).
+export default async function NewProductProposalPage({
+  searchParams,
+}: PageProps<"/partner/products/new">) {
+  const { establecimiento: requestedEstablishment, nueva } = (await searchParams) ?? {};
   const supabase = await createClient();
 
   const {
@@ -44,9 +53,22 @@ export default async function NewProductProposalPage() {
           .eq("partner_id", partnerId)
           .eq("role", "operator")
           .eq("status", "active")
-          .not("establishment_id", "is", null)
       : { data: null, error: null },
     "partner_capabilities",
+  );
+  const hasActiveOperatorCapability = (activeCapabilities ?? []).length > 0;
+
+  const { data: pendingEstablishmentProposals } = checkedRead(
+    partnerId && hasActiveOperatorCapability
+      ? await supabase
+          .from("establishment_proposals")
+          .select("id, payload")
+          .eq("partner_id", partnerId)
+          .eq("kind", "create")
+          .eq("status", "pending")
+          .order("created_at", { ascending: true })
+      : { data: [], error: null },
+    "establishment_proposals",
   );
 
   const activeEstablishmentIds = (activeCapabilities ?? [])
@@ -64,6 +86,21 @@ export default async function NewProductProposalPage() {
     "establishments",
   );
 
+  const establishmentOptions = [
+    ...(establishments ?? []),
+    ...(pendingEstablishmentProposals ?? []).map((proposal) => ({
+      id: proposal.id,
+      name: (proposal.payload as { name?: unknown } | null)?.name ?? null,
+      partner_id: partnerId as string,
+      pending_proposal: true,
+    })),
+  ];
+  const initialEstablishmentId =
+    typeof requestedEstablishment === "string" &&
+    establishmentOptions.some((option) => option.id === requestedEstablishment)
+      ? requestedEstablishment
+      : "";
+
   const allTags = toTagOptions(tagsRaw);
   const allAmenities = toTagOptions(amenitiesRaw);
 
@@ -74,13 +111,15 @@ export default async function NewProductProposalPage() {
         Un admin revisará tu propuesta antes de que la ficha exista en el catálogo. No podrás
         agregar fotos hasta que sea aprobada.
       </p>
-      {(establishments ?? []).length === 0 ? (
+      {establishmentOptions.length === 0 ? (
         <p className="text-sm text-muted" data-testid="no-active-establishments">
           Aún no tienes ningún establecimiento con capacidad de operador activa.
         </p>
       ) : (
         <ProductForm
-          establishments={establishments ?? []}
+          key={typeof nueva === "string" ? nueva : undefined}
+          establishments={establishmentOptions}
+          initialEstablishmentId={initialEstablishmentId}
           allTags={allTags}
           allAmenities={allAmenities}
           variant="socio-proposal"
