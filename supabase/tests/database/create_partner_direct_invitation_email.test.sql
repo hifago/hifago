@@ -3,7 +3,7 @@
 -- secret Vault, sans e-mail ou sans invitation demandée, le socio est créé et rien n'est enfilé.
 -- Comptages scopés par les identifiants des fixtures (base locale partagée).
 begin;
-select plan(14);
+select plan(21);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -43,6 +43,9 @@ insert into resultats values ('sans_email', create_partner_direct(
   'Direct sans email', array['referrer'], p_email => '   ', p_code => 'DIRECT-T3'));
 insert into resultats values ('sans_invitation', create_partner_direct(
   'Direct sans invitation', array['referrer'], p_email => 'pas-invite@test.local', p_send_invitation => false));
+insert into resultats values ('referent', create_partner_direct(
+  '<b>Ana</b> & co', array['referrer'], p_email => 'referent@test.local', p_code => 'DIRECT-T5',
+  p_invitation_expires_days => 1));
 reset role;
 
 -- Cas nominal : un e-mail d'invitation au socio, lié à son invitation, avec le lien du jeton rendu.
@@ -90,6 +93,27 @@ select is((select r->>'invitation_id' from resultats where cas = 'sans_invitatio
   'sans invitation : aucune invitation créée');
 select is((select count(*)::int from notification_emails where recipient_email = 'pas-invite@test.local'), 0,
   'sans invitation : aucun e-mail au socio');
+
+-- Contenu de l'e-mail de bienvenue (20261019130000) : sujet, nom, puces selon le parcours, durée.
+create temp view corps as
+  select cas, (select body_html from notification_emails where related_id = (r->>'invitation_id')::uuid) as html,
+         (select subject from notification_emails where related_id = (r->>'invitation_id')::uuid) as sujet
+    from resultats;
+select is((select sujet from corps where cas = 'avec_email'), 'Te damos la bienvenida a Hifago',
+  'bienvenue : sujet');
+select ok(strpos((select html from corps where cas = 'avec_email'), 'Hola Direct avec email,') > 0,
+  'bienvenue : salutation au nom de la fiche socio');
+select ok(strpos((select html from corps where cas = 'avec_email'), 'gestionar tu disponibilidad y tus reservas') > 0,
+  'bienvenue prestataire : puce établissement/réservations');
+select ok(strpos((select html from corps where cas = 'avec_email'), 'vence en 14 días') > 0,
+  'bienvenue : durée réelle de l''invitation');
+select ok(strpos((select html from corps where cas = 'referent'), 'gestionar tu disponibilidad') = 0
+          and strpos((select html from corps where cas = 'referent'), 'seguir las comisiones que generan tus recomendaciones') > 0,
+  'bienvenue référent : seulement lien/QR et commissions');
+select ok(strpos((select html from corps where cas = 'referent'), 'Hola &lt;b&gt;Ana&lt;/b&gt; &amp; co,') > 0,
+  'bienvenue : nom du socio échappé');
+select ok(strpos((select html from corps where cas = 'referent'), 'vence en 1 día.') > 0,
+  'bienvenue : singulier pour un jour');
 
 select * from finish();
 rollback;

@@ -217,7 +217,9 @@ select ok(strpos((select body_html from notification_emails where event_type = '
 -- littérale : format, chr, modèle lu en table). Liste blanche : fonctions qui n'interpolent AUCUNE
 -- valeur venue des données dans leur HTML (à justifier ici, une par une) :
 --   - create_partner_invitation : URL du secret Vault et jeton généré (encode(gen_random_bytes)) ;
---   - create_partner_direct : même corps, mêmes deux valeurs (20261014024303).
+--     depuis 20261019130000, le corps vient de partner_invitation_email_html, qui échappe le nom
+--     du socio par html_text (et passe donc X1 par elle-même) ;
+--   - create_partner_direct : même corps, mêmes deux valeurs (20261014024303, 20261019130000).
 create temp table liste_blanche_html (proname text primary key);
 insert into liste_blanche_html values ('create_partner_invitation'), ('create_partner_direct');
 

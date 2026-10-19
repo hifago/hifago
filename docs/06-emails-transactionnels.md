@@ -30,7 +30,7 @@ repond_a:
 
 | # | `event_type` | Action qui le déclenche | Part à qui | Objet (ES) |
 |---|---|---|---|---|
-| 1 | `partner_invitation` | Un admin crée une invitation **et** remplit le champ « Correo (opcional) » | L'adresse saisie par l'admin | `Invitación a unirte a Hifago` |
+| 1 | `partner_invitation` | Un admin crée une invitation **et** remplit le champ « Correo (opcional) » | L'adresse saisie par l'admin | `Te damos la bienvenida a Hifago` |
 | 2 | `admin_new_proposal` | Un socio soumet une proposition de produit ou d'établissement | **Tous les admins actifs**, un email chacun | `Nueva propuesta de producto pendiente de moderación` / `…de establecimiento…` |
 | 3 | `admin_new_reconciliation_exception` | Une exception de réconciliation est créée (PMS ou paiement) | **Tous les admins actifs**, un email chacun | `Nueva excepción de reconciliación PMS` / `…de pago` / `Pago recibido sin reserva que honrar — reembolso requerido` (entrée `kind = 'refund_required'`, 2026-09-20) |
 | 4 | `partner_proposal_decided` | Un admin approuve ou rejette une proposition | Le compte socio qui l'a soumise | `Tu propuesta fue aprobada` / `Tu propuesta fue rechazada` |
@@ -51,7 +51,7 @@ branche `approved`. Un paiement confirmé peut donc générer plusieurs emails d
 
 | # | Fonction / trigger | Fichier |
 |---|---|---|
-| 1 | `create_partner_invitation` | `supabase/migrations/20260826100000_create_partner_invitation_reject_duplicate_code.sql` |
+| 1 | `create_partner_invitation` (écran Invitaciones) + `create_partner_direct` (« Nuevo socio »), corps commun `partner_invitation_email_html` | `supabase/migrations/20261019130000_partner_invitation_email_welcome.sql` |
 | 2 | trigger `notify_admin_new_proposal` sur `product_proposals` + `establishment_proposals` | `supabase/migrations/20260824090000_fix_notify_admin_new_proposal_null_join.sql` |
 | 3 | trigger `notify_admin_new_reconciliation_exception` sur `pms_reconciliation_entries` + `payment_reconciliation_entries` | `supabase/migrations/20260824060000_notify_admin_reconciliation_exception.sql` |
 | 4 | `moderate_product_proposal` + `moderate_establishment_proposal` | `supabase/migrations/20260824070000_notify_partner_proposal_decided.sql` |
@@ -72,9 +72,15 @@ et toutes les 5 minutes par pg_cron en filet (appel en panne, reprise d'un éche
 ## Contenu exact de chaque email
 
 **1 · `partner_invitation`**
-« Has recibido una invitación para unirte a Hifago. » + lien *Aceptar invitación* (URL **absolue**,
-construite depuis le secret Vault `admin_app_public_url`) + « Este enlace es de un solo uso y expira
-pronto. »
+E-mail de bienvenue (texte validé par Jérôme le 2026-10-19), construit par
+`partner_invitation_email_html` : « Hola <nom>, » (nom de la fiche socio, échappé ; « Hola, » sans
+nom) · « Te damos la bienvenida a Hifago. Con este enlace creas tu cuenta de socio: solo eliges una
+contraseña y entras directamente a tu espacio. » · « Desde allí podrás: » suivi de puces selon le
+parcours de l'invitation — `provider` : ficha del establecimiento y servicios / disponibilidad y
+reservas / enlace y QR y comisiones ; `referrer` : enlace y QR / comisiones · bouton *Crear mi cuenta*
+(URL **absolue** `/partner/join?token=…`, depuis le secret Vault `admin_app_public_url`) · « Este enlace
+es personal, se usa una sola vez y vence en <N> días. Regístrate con esta misma dirección de correo. »
+(N = durée réelle de l'invitation : 7 jours par défaut depuis Invitaciones, 14 depuis « Nuevo socio »).
 
 **2 · `admin_new_proposal`**
 Nom de l'entité proposée (ou « Sin nombre ») + « Propuesto por: <socio> » (ou « Socio desconocido »)
