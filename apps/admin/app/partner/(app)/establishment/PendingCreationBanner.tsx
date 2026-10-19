@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@hifago/supabase/client";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
-import { Button, toast } from "@hifago/ui";
+import { Button, buttonVariants, toast } from "@hifago/ui";
 import { CatalogCard } from "@/components/catalog-card";
 
 const WITHDRAW_ERRORS: Record<string, string> = {
@@ -23,6 +25,7 @@ type PendingCreation = { id: string; payload: unknown; created_at: string };
 export function PendingCreationBanner({ proposal: initialProposal }: { proposal: PendingCreation }) {
   const [proposal, setProposal] = useState<PendingCreation | null>(initialProposal);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const router = useRouter();
 
   async function handleWithdraw() {
     if (!proposal) return;
@@ -45,6 +48,9 @@ export function PendingCreationBanner({ proposal: initialProposal }: { proposal:
 
     setProposal(null);
     toast.success("Propuesta retirada.");
+    // Le retrait emporte les activités proposées avec cet établissement (20261019120000) : la page
+    // les rend sous cette carte, elle doit être relue.
+    router.refresh();
   }
 
   if (!proposal) return null;
@@ -66,16 +72,25 @@ export function PendingCreationBanner({ proposal: initialProposal }: { proposal:
       title={proposedName ?? proposal.id}
       statusChips={[{ label: "Pendiente de revisión", color: "warning" }]}
       footer={
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          isDisabled={isWithdrawing}
-          onPress={handleWithdraw}
-          data-testid="withdraw-creation-proposal-button"
-        >
-          {isWithdrawing ? "Retirando…" : "Retirar"}
-        </Button>
+        <>
+          <Link
+            href={`/partner/products/new?establecimiento=${proposal.id}`}
+            className={buttonVariants({ size: "sm" })}
+            data-testid={`add-activity-to-pending-${proposal.id}`}
+          >
+            Añadir actividad
+          </Link>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            isDisabled={isWithdrawing}
+            onPress={handleWithdraw}
+            data-testid="withdraw-creation-proposal-button"
+          >
+            {isWithdrawing ? "Retirando…" : "Retirar"}
+          </Button>
+        </>
       }
     />
   );

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@hifago/supabase/client";
 import type { Json } from "@hifago/supabase/database.types";
-import { Button, Label, TextArea, TextField, toast } from "@hifago/ui";
+import { Alert, Button, Label, TextArea, TextField, toast } from "@hifago/ui";
 import { LocalizedTextField, type LocalizedValue } from "@/components/localized-text-field";
 import { ProductTypeFields } from "@/components/product-type-fields";
 import type { TagOption } from "@/components/tags-multiselect";
@@ -21,6 +22,7 @@ import {
 const MODERATE_ERRORS: Record<string, string> = {
   proposal_not_found: "No se encontró la propuesta.",
   version_conflict: "Esta propuesta fue modificada por otra persona. Recarga la página.",
+  establishment_pending: "Aprueba primero el establecimiento de esta propuesta.",
 };
 
 type ModerateResult = {
@@ -56,6 +58,7 @@ export function ModerateProductCreationProposalForm({
   availableAmenities,
   establishmentId,
   establishmentLobbyConnected,
+  pendingEstablishment = null,
 }: {
   proposalId: string;
   expectedVersion: number;
@@ -68,6 +71,9 @@ export function ModerateProductCreationProposalForm({
   // soumission (immuable ici, contrairement à ProductForm), donc toujours connu de la page parente.
   establishmentId: string;
   establishmentLobbyConnected: boolean;
+  // Migration 20261019120000 : proposée avec un établissement encore en revue. L'approbation
+  // attend celle de l'établissement (la RPC répond establishment_pending) ; le rejet reste libre.
+  pendingEstablishment?: { proposalId: string; name: string } | null;
 }) {
   const proposedPayload = (payload ?? {}) as RawProductCreationPayload;
   const proposedPhotos = Array.isArray(proposedPayload.photos) ? proposedPayload.photos : [];
@@ -211,10 +217,30 @@ export function ModerateProductCreationProposalForm({
         <TextArea id="rejection-reason" name="rejection-reason" />
       </TextField>
 
-      <div className="flex gap-2">
+      {pendingEstablishment ? (
+        <Alert status="warning" data-testid="establishment-pending-notice">
+          <Alert.Indicator />
+          <Alert.Content>
+            <Alert.Title>Establecimiento en revisión</Alert.Title>
+            <Alert.Description>
+              Esta actividad se propuso con «{pendingEstablishment.name}», que aún no ha sido aprobado.
+              Apruébalo primero para poder aprobar la actividad; rechazarla sí es posible ahora.{" "}
+              <Link
+                href={`/admin/proposals/${pendingEstablishment.proposalId}?entity=establishment`}
+                className="underline"
+                data-testid="pending-establishment-link"
+              >
+                Revisar el establecimiento
+              </Link>
+            </Alert.Description>
+          </Alert.Content>
+        </Alert>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
         <Button
           type="button"
-          isDisabled={isSubmitting}
+          isDisabled={isSubmitting || Boolean(pendingEstablishment)}
           onPress={() => handleDecision("approve")}
           data-testid="approve-button"
         >

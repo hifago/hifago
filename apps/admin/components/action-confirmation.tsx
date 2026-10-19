@@ -54,7 +54,12 @@ export function ActionConfirmation({
           {actionLabel}
         </Button>
         {secondaryActionLabel && onSecondaryAction ? (
-          <Button type="button" variant="outline" onPress={onSecondaryAction}>
+          <Button
+            type="button"
+            variant="outline"
+            onPress={onSecondaryAction}
+            data-testid={testId ? `${testId}-secondary-action` : undefined}
+          >
             {secondaryActionLabel}
           </Button>
         ) : null}

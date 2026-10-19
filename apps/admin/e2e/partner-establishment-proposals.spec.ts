@@ -33,7 +33,9 @@ test("un socio propone la creación de un establecimiento, publicado solo tras a
 
   // Écran de confirmation plein écran (docs/specs/40 §4) — remplace le formulaire, son bouton
   // d'action déclenche la redirection auparavant immédiate.
-  await confirmAndContinue(page, "establishment-proposal-confirmation");
+  // Action secondaire : l'action principale enchaîne désormais sur « Añadir una actividad »
+  // (20261019120000) ; ce parcours-ci revient à la liste.
+  await page.getByTestId("establishment-proposal-confirmation-secondary-action").click();
 
   await expect(page).toHaveURL(/\/partner\/establishment$/);
   await expect(page.getByTestId("pending-creation-banner")).toBeVisible();
@@ -66,8 +68,10 @@ test("un socio propone la creación de un establecimiento, publicado solo tras a
   ).toBeVisible();
 
   // --- Le nouvel établissement existe désormais dans le registre admin ---
+  // Le registre est éditable en ligne (20261013145629) : le nom est la VALEUR d'un champ, que
+  // getByText ne lit pas — on cible la ligne, dont le nom accessible le contient.
   await page.goto("/admin/establishments");
-  await expect(page.getByText(proposedName)).toBeVisible();
+  await expect(page.getByRole("row", { name: new RegExp(proposedName) })).toBeVisible();
 
   // --- La liste du socio reflète l'établissement publié, plus de proposition en attente ---
   await loginAs(context, SEEDED_ACCOUNTS.operadorPropuestas, SEEDED_PASSWORD);
@@ -158,7 +162,9 @@ test("un socio retira su propuesta de creación pendiente", async ({ page, conte
 
   await page.locator("#proposal-nombre").fill(proposedName);
   await page.getByTestId("submit-establishment-proposal-button").click();
-  await confirmAndContinue(page, "establishment-proposal-confirmation");
+  // Action secondaire : l'action principale enchaîne désormais sur « Añadir una actividad »
+  // (20261019120000) ; ce parcours-ci revient à la liste.
+  await page.getByTestId("establishment-proposal-confirmation-secondary-action").click();
 
   await expect(page).toHaveURL(/\/partner\/establishment$/);
   await expect(page.getByTestId("pending-creation-banner")).toContainText(proposedName);
@@ -171,7 +177,9 @@ test("un socio retira su propuesta de creación pendiente", async ({ page, conte
   await page.goto("/partner/establishment/new");
   await page.locator("#proposal-nombre").fill(`${proposedName} bis`);
   await page.getByTestId("submit-establishment-proposal-button").click();
-  await confirmAndContinue(page, "establishment-proposal-confirmation");
+  // Action secondaire : l'action principale enchaîne désormais sur « Añadir una actividad »
+  // (20261019120000) ; ce parcours-ci revient à la liste.
+  await page.getByTestId("establishment-proposal-confirmation-secondary-action").click();
   await expect(page).toHaveURL(/\/partner\/establishment$/);
   await expect(page.getByTestId("pending-creation-banner")).toContainText(`${proposedName} bis`);
 
