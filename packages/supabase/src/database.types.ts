@@ -3341,6 +3341,15 @@ export type Database = {
       partner_id_for_account:
         | { Args: never; Returns: string }
         | { Args: { uid: string }; Returns: string }
+      partner_invitation_email_html: {
+        Args: {
+          p_display_name: string
+          p_expires_days: number
+          p_join_url: string
+          p_onboarding_path: string
+        }
+        Returns: string
+      }
       partner_reservation_detail: {
         Args: { p_order_line_id: string }
         Returns: {

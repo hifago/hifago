@@ -31,7 +31,7 @@
 - [Cahier des charges — back-office admin (aujourd'hui /admin)](03-cahier-des-charges-admin.md) 49K
 - [Choix de stack et architecture cible](04-architecture-cible.md) 78K
 - [Référence technique — patterns validés et extensions requises](05-reference-technique.md) 9K
-- [Emails transactionnels — les 13 envois possibles, leur déclencheur…](06-emails-transactionnels.md) 15K
+- [Emails transactionnels — les 13 envois possibles, leur déclencheur…](06-emails-transactionnels.md) 16K
 - [Runbook des environnements — préprod et prod, variable par variable](runbook-environnements.md) 14K
 
 ## Specs — une feature chacune
@@ -85,5 +85,5 @@
 - [Dette technique et QA/UI connue — hifago](dette-technique.md) 38K
 - [Journal hifago — août 2026](journal/2026-08.md) 660K · jamais en entier (voir 5.)
 - [Journal hifago — septembre 2026](journal/2026-09.md) 678K · jamais en entier (voir 5.)
-- [Journal hifago — octobre 2026](journal/2026-10.md) 222K · jamais en entier (voir 5.)
+- [Journal hifago — octobre 2026](journal/2026-10.md) 226K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K
