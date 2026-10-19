@@ -1000,7 +1000,7 @@ select create_order(
    );
 
 -- Cas 16b : référent externe (ORDER-TEST-ACTIVE → partenaire 005, ≠ propriétaire 001 du produit
--- 043) → external_referrer, 17/10/7.
+-- 043) → external_referrer, 17/8/9 (barème du 2026-10-19, migration 20261019180000).
 select test_set_attribution('ORDER-TEST-ACTIVE', 'link');
 select test_set_cart(jsonb_build_array(jsonb_build_object(
   'product_id', '88880000-0000-4000-8000-000000000043', 'date', '2028-11-02', 'qty', 1
@@ -1010,7 +1010,7 @@ select create_order(
    );
 
 -- Cas 16c : auto-référence (ORDER-TEST-SELF → partenaire 001, PROPRIÉTAIRE du produit 043) →
--- self_referral, 7/0/7.
+-- self_referral, 9/0/9 (barème du 2026-10-19).
 select test_set_attribution('ORDER-TEST-SELF', 'link');
 select test_set_cart(jsonb_build_array(jsonb_build_object(
   'product_id', '88880000-0000-4000-8000-000000000043', 'date', '2028-11-03', 'qty', 1
@@ -1070,14 +1070,14 @@ select is(
    ) from order_lines where product_id = '88880000-0000-4000-8000-000000000043' and date = '2028-11-02'),
   jsonb_build_object(
     'commission_case', 'external_referrer', 'price_cop', 33333, 'total_cop', 33333,
-    'acompte_pct', '0.1700', 'referrer_pct', '0.1000', 'app_pct', '0.0700',
-    'acompte_cop', 5667, 'referrer_commission_cop', 3333, 'app_commission_cop', 2333
+    'acompte_pct', '0.1700', 'referrer_pct', '0.0800', 'app_pct', '0.0900',
+    'acompte_cop', 5667, 'referrer_commission_cop', 2667, 'app_commission_cop', 3000
   ),
-  'cas 16b : référent externe → commission_case=external_referrer, 17/10/7, montants arrondis corrects'
+  'cas 16b : référent externe → commission_case=external_referrer, 17/8/9, montants arrondis corrects'
 );
 
 -- Spec 19 §0 Tranche 0 : ledger_entries créée pour 16b (external_referrer), montant = referrer_
--- commission_cop (3333), status initial 'estimated', beneficiary_type='referrer'.
+-- commission_cop (2667), status initial 'estimated', beneficiary_type='referrer'.
 select is(
   (select jsonb_build_object(
      'beneficiary_type', beneficiary_type, 'referrer_partner_id', referrer_partner_id,
@@ -1089,7 +1089,7 @@ select is(
    )),
   jsonb_build_object(
     'beneficiary_type', 'referrer', 'referrer_partner_id', '88880000-0000-4000-8000-000000000005',
-    'establishment_id', null, 'entry_type', 'referral_earned', 'amount_cop', 3333, 'status', 'estimated'
+    'establishment_id', null, 'entry_type', 'referral_earned', 'amount_cop', 2667, 'status', 'estimated'
   ),
   'cas 16b (spec 19) : ledger_entries initiale créée, referrer/estimated, amount_cop=referrer_commission_cop'
 );
@@ -1110,10 +1110,10 @@ select is(
    ) from order_lines where product_id = '88880000-0000-4000-8000-000000000043' and date = '2028-11-03'),
   jsonb_build_object(
     'commission_case', 'self_referral', 'price_cop', 33333, 'total_cop', 33333,
-    'acompte_pct', '0.0700', 'referrer_pct', '0.0000', 'app_pct', '0.0700',
-    'acompte_cop', 2333, 'referrer_commission_cop', 0, 'app_commission_cop', 2333
+    'acompte_pct', '0.0900', 'referrer_pct', '0.0000', 'app_pct', '0.0900',
+    'acompte_cop', 3000, 'referrer_commission_cop', 0, 'app_commission_cop', 3000
   ),
-  'cas 16c : auto-référence (référent = propriétaire du produit) → commission_case=self_referral, 7/0/7'
+  'cas 16c : auto-référence (référent = propriétaire du produit) → commission_case=self_referral, 9/0/9'
 );
 select is(
   (select count(*)::int from ledger_entries where order_line_id = (

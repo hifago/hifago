@@ -4,7 +4,7 @@ titre: "Backlog hifago — points ouverts et arbitrages en attente"
 theme: journal
 statut: vivant
 langue: fr
-maj: 2026-10-14
+maj: 2026-10-19
 resume: >
   Points ouverts, arbitrages en attente et dette connue non traitée du chantier hifago. Remplace
   le "curseur" de CLAUDE.md §12 (supprimé le 2026-09-07, cf. docs/journal/2026-09.md).
@@ -24,9 +24,12 @@ repond_a:
 > le 2026-10-12 Jérôme pilote : tout nouveau point va dans la première section (les autres : le dev).
 
 ## Ouvert par Jérôme depuis sa reprise (2026-10-12)
+- **WhatsApp du prestataire obligatoire et privé** (2026-10-19, migration `20261019170000`) — en préprod depuis le 2026-10-19 (staging `c47fb72`) ; restent : validation par Jérôme (bouton retiré de la fiche publique ; numéro montré seulement sur commande payée ou sans acompte dû ; transport laissé public), saisie des numéros des établissements existants (aucun n'en a), et `contact_phone` dans `mockData/establishments/` avant toute nouvelle création.
+- **Fiche socio modifiable par l'admin** (2026-10-19, migration `20261019160000`, « Editar » sur `/admin/partners/[id]`) — identité, contact, réseaux (Instagram/Facebook/web, nouveaux), profil commercial et moyen de paiement ; en préprod depuis le 2026-10-19 (staging `c47fb72`) ; restent : validation par Jérôme, et éventuellement les trois réseaux dans « Nuevo socio » (`create_partner_direct`).
+- **Suppression définitive d'un partenaire** (2026-10-19, migration `20261019150000`, bouton sur `/admin/partners/[id]`) — en préprod depuis le 2026-10-19 (staging `c47fb72`) ; restent : validation par Jérôme (dont le choix « journal d'audit conservé »), et diagnostic du bouton « Retirar la capacidad » inerte sur la préprod (capture ou accord pour lire la préprod).
+- **Activités proposées pendant que l'établissement attend la revue** (2026-10-19, branche `feat/activites-etablissement-en-attente`, migration `20261019120000`) — en préprod depuis le 2026-10-19 (`/push-db`, staging `5fc477c`) ; reste : validation du parcours par Jérôme sur la préprod (enchaînement, refus en cascade).
 - **Charte Hifago sur l'admin et le socio** (2026-10-13, suite 14) — appliquée, non commitée : à valider au rendu par Jérôme, trois choix faits pour la lisibilité (rayon 8 px au lieu des coins carrés, barre latérale marine et non or, Anton sur le seul titre de page) ; restent à parcourir l'agenda SVAR du socio, le détail d'une commande et d'une proposition (pas de données locales), et `next build` d'`apps/admin`. Contrat : `docs/specs/09-design-system-admin.md` §0.
 - **`mockData/` en retard sur la base locale du 2026-10-13** (2026-10-14) : « Exposición Mirarte », les étiquettes `precio-1` à `precio-4`, `deportes`, `cultura`, celles des cinq événements et la nouvelle photo du transport privé 7 places partent en préprod par la migration `20261014160938`, mais `mockData/` ne les connaît pas — une base locale reconstruite (`db:setup` puis mockData) les perdrait : la migration passe AVANT mockData, quand Casa Kayam n'existe pas encore. Préalable LEVÉ le 2026-10-14 (#102) : nommage `precio-N` confirmé, calculé par `seed-mock-data.mjs`, slug vide interdit en base.
-
 - **Ordre des cartes dans une section** (2026-10-13, suite 16, commité `bda7e4b`) : catégories mélangées (activités, logements, transports), camps par prochain départ, events en alternance ponctuel / récurrent. Tranché le 2026-10-14 : une carte à plusieurs étiquettes figure dans CHACUNE de leurs sections (déjà le cas, figé par #98). Reste à confirmer par Jérôme : les cartes sans étiquette forment une famille à part. ⚠️ Aucun camp de `mockData/` n'a de départ saisi : la règle des camps ne se voit pas tant qu'aucune date n'existe. ⚠️ `supabase gen types` sort ici un format différent du fichier versionné (5 500 lignes de bruit) : la ligne `interleave_by_category` a été ajoutée à la main.
 
 ## Arbitrage Jérôme requis

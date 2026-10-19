@@ -116,6 +116,8 @@ insert into tmp_grant_only (name) values
   ('product_slug_from_name'),          -- trigger set_product_slug (20261001235031)
   ('open_default_lodging_availability'), -- create_product_from_proposal et le roulement nocturne
   ('create_product_from_proposal'),    -- moderate_product_proposal seule (20261006182227)
+  ('partner_invitation_email_html'),   -- corps de l'e-mail de bienvenue du socio (20261019130000)
+  ('partner_deletion_blocker'),        -- admin_partner_deletion_check, admin_delete_partner (20261019150000)
   -- Crons sans Edge Function : aucun appelant humain légitime.
   ('purge_expired_anonymous_identities'), -- cron purge-expired-anonymous-identities
   ('roll_lodging_availability_window');   -- cron roll-lodging-availability

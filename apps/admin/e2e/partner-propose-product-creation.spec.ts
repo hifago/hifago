@@ -102,7 +102,7 @@ test("un socio propone la creación de una actividad con foto, publicada y vendi
   // Le succès n'est plus un texte inline mais un toast (docs/specs/16-notifications-toast.md) —
   // HeroUI rend chaque toast avec role="alertdialog", le message passé à toast.success(...)
   // devient son titre visible.
-  await expect(page.getByRole("alertdialog").filter({ hasText: "Propuesta aprobada." })).toBeVisible();
+  await expect(page.getByRole("alertdialog").filter({ hasText: "Propuesta aprobada y publicada." })).toBeVisible();
 
   // --- La fiche existe désormais réellement, vendable (revirement 2026-08-20, publication
   // immédiate à l'approbation), avec sa photo rattachée en base ---

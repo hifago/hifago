@@ -1424,37 +1424,46 @@ export type Database = {
           created_at: string
           display_name: string
           email: string | null
+          facebook: string | null
           id: string
           identification_number: string | null
           identification_type: string | null
+          instagram: string | null
           legal_name: string | null
           partner_city: string | null
           phone: string | null
           updated_at: string
+          website: string | null
         }
         Insert: {
           created_at?: string
           display_name: string
           email?: string | null
+          facebook?: string | null
           id?: string
           identification_number?: string | null
           identification_type?: string | null
+          instagram?: string | null
           legal_name?: string | null
           partner_city?: string | null
           phone?: string | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
           created_at?: string
           display_name?: string
           email?: string | null
+          facebook?: string | null
           id?: string
           identification_number?: string | null
           identification_type?: string | null
+          instagram?: string | null
           legal_name?: string | null
           partner_city?: string | null
           phone?: string | null
           updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }
@@ -2004,6 +2013,7 @@ export type Database = {
         Row: {
           created_at: string
           establishment_id: string | null
+          establishment_proposal_id: string | null
           id: string
           kind: string
           partner_id: string
@@ -2021,6 +2031,7 @@ export type Database = {
         Insert: {
           created_at?: string
           establishment_id?: string | null
+          establishment_proposal_id?: string | null
           id?: string
           kind?: string
           partner_id: string
@@ -2038,6 +2049,7 @@ export type Database = {
         Update: {
           created_at?: string
           establishment_id?: string | null
+          establishment_proposal_id?: string | null
           id?: string
           kind?: string
           partner_id?: string
@@ -2058,6 +2070,13 @@ export type Database = {
             columns: ["establishment_id"]
             isOneToOne: false
             referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_proposals_establishment_proposal_id_fkey"
+            columns: ["establishment_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "establishment_proposals"
             referencedColumns: ["id"]
           },
           {
@@ -2577,6 +2596,7 @@ export type Database = {
         }[]
       }
       admin_delete_catalog_amenity: { Args: { p_amenity_id: string }; Returns: Json }
+      admin_delete_partner: { Args: { p_partner_id: string }; Returns: Json }
       admin_jobs_status: {
         Args: never
         Returns: {
@@ -2671,6 +2691,10 @@ export type Database = {
           total_count: number
         }[]
       }
+      admin_partner_deletion_check: {
+        Args: { p_partner_id: string }
+        Returns: Json
+      }
       admin_rename_catalog_amenity: {
         Args: { p_amenity_id: string; p_label_en: string; p_label_es: string }
         Returns: Json
@@ -2681,6 +2705,10 @@ export type Database = {
       }
       admin_rename_partner: {
         Args: { p_display_name: string; p_note?: string; p_partner_id: string }
+        Returns: Json
+      }
+      admin_update_partner_profile: {
+        Args: { p_changes: Json; p_note?: string; p_partner_id: string }
         Returns: Json
       }
       admin_update_product_inline: {
@@ -2829,6 +2857,7 @@ export type Database = {
         Args: { p_by: string; p_line_id: string; p_new_status: string }
         Returns: Json
       }
+      colombian_whatsapp_or_null: { Args: { p_phone: string }; Returns: string }
       consume_partner_invitation: {
         Args: {
           p_document_version: string
@@ -2850,6 +2879,7 @@ export type Database = {
       create_establishment: {
         Args: {
           p_address?: string
+          p_contact_phone?: string
           p_description?: Json
           p_lat?: number
           p_lon?: number
@@ -2978,6 +3008,10 @@ export type Database = {
           p_refund_id: string
         }
         Returns: Json
+      }
+      get_establishment_contact_phone: {
+        Args: { p_establishment_id: string }
+        Returns: string
       }
       get_event_occurrence_availability: {
         Args: { p_from: string; p_product_id: string; p_to: string }
@@ -3341,6 +3375,15 @@ export type Database = {
       partner_id_for_account:
         | { Args: never; Returns: string }
         | { Args: { uid: string }; Returns: string }
+      partner_invitation_email_html: {
+        Args: {
+          p_display_name: string
+          p_expires_days: number
+          p_join_url: string
+          p_onboarding_path: string
+        }
+        Returns: string
+      }
       partner_reservation_detail: {
         Args: { p_order_line_id: string }
         Returns: {
@@ -3693,7 +3736,12 @@ export type Database = {
         Returns: Json
       }
       submit_product_creation_proposal: {
-        Args: { p_establishment_id: string; p_payload: Json; p_type: string }
+        Args: {
+          p_establishment_id?: string
+          p_establishment_proposal_id?: string
+          p_payload?: Json
+          p_type?: string
+        }
         Returns: Json
       }
       submit_product_proposal: {

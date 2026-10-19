@@ -3,6 +3,7 @@ import { createClient } from "@hifago/supabase/server";
 import { checkedRead } from "@/lib/supabase/checkedRead";
 import { ProductForm } from "@/components/product-form";
 import { toTagOptions } from "@/lib/tags/proposedTags";
+import { ProviderServiceStep } from "../../PartnerProviderWelcome";
 
 // Spec 15 — pendant de /admin/products/new côté socio : mêmes champs/gating (ProductForm,
 // variant="socio-proposal"), mais écrit via submit_product_creation_proposal (proposition
@@ -10,7 +11,16 @@ import { toTagOptions } from "@/lib/tags/proposedTags";
 // au socio. Établissements filtrés à ceux du partenaire ET avec une capacité operator ACTIVE
 // (évite de proposer dans le sélecteur un établissement pour lequel la RPC répondrait
 // capability_suspended de toute façon).
-export default async function NewProductProposalPage() {
+//
+// Migration 20261019120000 (demande Jérôme, 2026-10-19) : les propositions de création
+// d'établissement ENCORE EN REVUE sont aussi proposées, marquées « (en revisión) » — un nouveau
+// partenaire propose ses activités sans attendre l'approbation de son établissement. Même règle de
+// capacité que la RPC : une capacité operator active, quelle qu'elle soit. `?establecimiento=`
+// présélectionne l'entrée (enchaînement depuis l'écran de confirmation de l'établissement).
+export default async function NewProductProposalPage({
+  searchParams,
+}: PageProps<"/partner/products/new">) {
+  const { establecimiento: requestedEstablishment, nueva } = (await searchParams) ?? {};
   const supabase = await createClient();
 
   const {
@@ -44,10 +54,44 @@ export default async function NewProductProposalPage() {
           .eq("partner_id", partnerId)
           .eq("role", "operator")
           .eq("status", "active")
-          .not("establishment_id", "is", null)
       : { data: null, error: null },
     "partner_capabilities",
   );
+  const hasActiveOperatorCapability = (activeCapabilities ?? []).length > 0;
+
+  const { data: pendingEstablishmentProposals } = checkedRead(
+    partnerId && hasActiveOperatorCapability
+      ? await supabase
+          .from("establishment_proposals")
+          .select("id, payload")
+          .eq("partner_id", partnerId)
+          .eq("kind", "create")
+          .eq("status", "pending")
+          .order("created_at", { ascending: true })
+      : { data: [], error: null },
+    "establishment_proposals",
+  );
+
+  // Premier service (texte d'accueil du prestataire, validé par Jérôme le 2026-10-19) : tant que le
+  // partenaire n'a ni service publié ni proposition en attente, le formulaire s'ouvre sur « ce
+  // qu'est un service » (ProviderServiceStep) au lieu de la seule ligne sur la revue.
+  const [anyProductResult, anyProductProposalResult] = await Promise.all([
+    partnerId
+      ? supabase.from("products").select("id").eq("partner_id", partnerId).limit(1)
+      : { data: [] as { id: string }[], error: null },
+    partnerId
+      ? supabase
+          .from("product_proposals")
+          .select("id")
+          .eq("partner_id", partnerId)
+          .eq("kind", "create")
+          .eq("status", "pending")
+          .limit(1)
+      : { data: [] as { id: string }[], error: null },
+  ]);
+  const { data: anyProduct } = checkedRead(anyProductResult, "products");
+  const { data: anyProductProposal } = checkedRead(anyProductProposalResult, "product_proposals");
+  const isFirstService = (anyProduct ?? []).length === 0 && (anyProductProposal ?? []).length === 0;
 
   const activeEstablishmentIds = (activeCapabilities ?? [])
     .map((c) => c.establishment_id)
@@ -64,23 +108,44 @@ export default async function NewProductProposalPage() {
     "establishments",
   );
 
+  const establishmentOptions = [
+    ...(establishments ?? []),
+    ...(pendingEstablishmentProposals ?? []).map((proposal) => ({
+      id: proposal.id,
+      name: (proposal.payload as { name?: unknown } | null)?.name ?? null,
+      partner_id: partnerId as string,
+      pending_proposal: true,
+    })),
+  ];
+  const initialEstablishmentId =
+    typeof requestedEstablishment === "string" &&
+    establishmentOptions.some((option) => option.id === requestedEstablishment)
+      ? requestedEstablishment
+      : "";
+
   const allTags = toTagOptions(tagsRaw);
   const allAmenities = toTagOptions(amenitiesRaw);
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="titre-page">Proponer una nueva ficha</h1>
-      <p className="text-sm text-muted">
-        Un admin revisará tu propuesta antes de que la ficha exista en el catálogo. No podrás
-        agregar fotos hasta que sea aprobada.
-      </p>
-      {(establishments ?? []).length === 0 ? (
+      <h1 className="titre-page">Proponer un nuevo servicio</h1>
+      {isFirstService && establishmentOptions.length > 0 ? (
+        <ProviderServiceStep />
+      ) : (
+        <p className="text-sm text-muted">
+          Un admin revisará tu propuesta antes de que el servicio exista en el catálogo. No podrás
+          agregar fotos hasta que sea aprobado.
+        </p>
+      )}
+      {establishmentOptions.length === 0 ? (
         <p className="text-sm text-muted" data-testid="no-active-establishments">
           Aún no tienes ningún establecimiento con capacidad de operador activa.
         </p>
       ) : (
         <ProductForm
-          establishments={establishments ?? []}
+          key={typeof nueva === "string" ? nueva : undefined}
+          establishments={establishmentOptions}
+          initialEstablishmentId={initialEstablishmentId}
           allTags={allTags}
           allAmenities={allAmenities}
           variant="socio-proposal"

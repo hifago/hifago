@@ -30,7 +30,7 @@ mots_cles: [mercadopago, paiement, acompte, ledger, commission, referrer, 17/10/
   remboursement, no-show, payments, ledger_entries, order_lines, hifago]
 repond_a:
   - "Comment intégrer Mercado Pago pour encaisser l'acompte en ligne ?"
-  - "Comment se répartit l'argent entre Hifago (7 %/17 %), le référent (10 %) et l'établissement ?"
+  - "Comment se répartit l'argent entre Hifago (9 %/17 %), le référent (8 %) et l'établissement ?"
   - "Pourquoi le référent doit-il avoir un compte Mercado Pago ?"
   - "Que se passe-t-il si le client ne vient pas, ou si l'établissement annule ?"
   - "Quel est le ledger de règlement, et pourquoi n'existait-il pas déjà ?"
@@ -154,11 +154,11 @@ mark_ledger_entry_paid(p_ledger_entry_id uuid, p_comprobante_path text, p_note t
 voit ses propres `ledger_entries` (`beneficiary_type='referrer' and beneficiary_id = <son partner_id>`).
 
 **Invariants (Tranche 0)**
-- La part app (7 % ou 17 %) n'est **jamais** une ligne de `ledger_entries` — c'est un revenu
+- La part app (9 % ou 17 %) n'est **jamais** une ligne de `ledger_entries` — c'est un revenu
   retenu par la plateforme, pas une dette envers un tiers. Ceci est vrai y compris quand
   `commission_case = 'direct'` (aucun référent) : Hifago perçoit alors la totalité de l'acompte
-  (17 %), pas seulement 7 % — l'app absorbe la part qui serait allée au référent (§3b).
-- La part référent (10 %) n'est due (`due`) que si la ligne est `fulfilled` — sinon `void` +
+  (17 %), pas seulement 9 % — l'app absorbe la part qui serait allée au référent (§3b).
+- La part référent (8 %) n'est due (`due`) que si la ligne est `fulfilled` — sinon `void` +
   redirection vers l'établissement (`establishment_compensation`), jamais un split en temps réel.
 - `ledger_entries` est append-only dans son sens métier — transitions de statut uniquement, jamais
   de suppression (même discipline que `audit_log`, `20260813201000_admin_audit_log.sql`).
@@ -459,12 +459,14 @@ la création de la SAS et du compte bancaire pro (cartes A3/A4, non cochées).
 Côté hifago 2.0, le moteur de commission **17/10/7 est déjà entièrement conçu, validé et codé** —
 ce n'est pas l'objet de cette spec. `01-cahier-des-charges-client.md` §3b (validé par Jérôme le
 2026-08-11) fixe, par ligne de commande, snapshoté à la création et jamais recalculé
-(`create_order`, `20260814180000_order_lines_commission_snapshot.sql`) :
+(`create_order`, `20260814180000_order_lines_commission_snapshot.sql`). Barème révisé par Jérôme
+le 2026-10-19 (`20261019180000_commission_referent_8_app_9.sql`, ex-17/10/7 ; les lignes plus
+anciennes gardent leur barème figé) :
 
 | Cas | Qui a référé | Acompte total | Part référent | Part app (Hifago) |
 |---|---|---|---|---|
-| Référent externe | un partenaire différent du prestataire encaissant | 17 % | 10 % | 7 % |
-| Auto-référence | le prestataire s'est référé lui-même | 7 % | 0 % | 7 % |
+| Référent externe | un partenaire différent du prestataire encaissant | 17 % | 8 % | 9 % |
+| Auto-référence | le prestataire s'est référé lui-même | 9 % | 0 % | 9 % |
 | Direct | aucun référent attribué | 17 % | 0 % | 17 % |
 
 Trois faits, vérifiés directement dans les documents déjà validés, cadrent tout le reste de cette

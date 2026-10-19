@@ -7,6 +7,12 @@ import { Button, Input, Label, TextArea, TextField, cn, toast } from "@hifago/ui
 import { mountAddressAutocomplete } from "@/components/address-autocomplete";
 import { StagedEstablishmentPhotos, type StagedPhoto } from "@/components/establishment-photos-staged";
 import { ActionConfirmation } from "@/components/action-confirmation";
+import { ColombianWhatsAppField, WHATSAPP_SOCIO_DESCRIPTION } from "@/components/colombian-whatsapp-field";
+import {
+  colombianWhatsAppError,
+  colombianWhatsAppReasonMessage,
+  toColombianWhatsApp,
+} from "@/lib/establishments/colombianWhatsApp";
 
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 type DescriptionLang = "es" | "en";
@@ -34,12 +40,18 @@ export function NewEstablishmentProposalForm() {
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
   const [lobbyApiToken, setLobbyApiToken] = useState("");
+  // WhatsApp du socio — obligatoire (décision Jérôme, 2026-10-19), exigé aussi par la RPC.
+  const [whatsapp, setWhatsapp] = useState("");
+  const [showWhatsappError, setShowWhatsappError] = useState(false);
   const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Écran de confirmation plein écran (docs/specs/40 §4) — toujours « partenaire/en attente », ce
   // formulaire n'est jamais atteint par un admin.
-  const [showConfirmation, setShowConfirmation] = useState(false);
+  // Porte l'identifiant de la proposition envoyée : l'écran de confirmation enchaîne sur
+  // « Añadir un servicio », rattachée à cet établissement encore en revue (migration
+  // 20261019120000, demande Jérôme du 2026-10-19 : établissement et activités dans la foulée).
+  const [submittedProposalId, setSubmittedProposalId] = useState<string | null>(null);
 
   const addressSearchRef = useRef<HTMLDivElement | null>(null);
 
@@ -72,6 +84,12 @@ export function NewEstablishmentProposalForm() {
       toast.danger("El nombre es obligatorio.");
       return;
     }
+    const whatsappError = colombianWhatsAppError(whatsapp);
+    if (whatsappError) {
+      setShowWhatsappError(true);
+      toast.danger(whatsappError);
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -82,6 +100,7 @@ export function NewEstablishmentProposalForm() {
       lat: lat.trim() ? Number(lat) : null,
       lon: lon.trim() ? Number(lon) : null,
       photos: stagedPhotos.map((photo) => ({ storage_path: photo.path })) as Json,
+      contact_phone: toColombianWhatsApp(whatsapp),
       // Refonte parcours partenaire ↔ LobbyPMS (2026-08-25) — optionnel, filtré côté RPC si vide ;
       // reste en clair uniquement tant que la proposition est "pending" (l'admin doit le lire pour
       // le tester), rédigé dès qu'elle est tranchée (cf. moderate_establishment_proposal).
@@ -98,22 +117,28 @@ export function NewEstablishmentProposalForm() {
     const result = data as { ok: boolean; reason?: string; proposal_id?: string } | null;
     if (rpcError || !result?.ok) {
       toast.danger(
-        SUBMIT_ERRORS[result?.reason ?? ""] ?? "No se pudo enviar la propuesta. Inténtalo de nuevo.",
+        SUBMIT_ERRORS[result?.reason ?? ""] ??
+          colombianWhatsAppReasonMessage(result?.reason) ??
+          "No se pudo enviar la propuesta. Inténtalo de nuevo.",
       );
       return;
     }
 
-    setShowConfirmation(true);
+    setSubmittedProposalId(result.proposal_id ?? null);
   }
 
-  if (showConfirmation) {
+  if (submittedProposalId) {
     return (
       <ActionConfirmation
         status="pending"
         title="Propuesta enviada"
-        body="Un administrador de Hifago revisará tu propuesta antes de publicar el establecimiento. Te avisaremos cuando esté disponible."
-        actionLabel="Ir a mis establecimientos"
+        body="Un administrador de Hifago revisará tu establecimiento. Mientras tanto, ya puedes proponer sus servicios: se revisarán por separado."
+        actionLabel="Añadir un servicio"
         onAction={() => {
+          router.push(`/partner/products/new?establecimiento=${submittedProposalId}`);
+        }}
+        secondaryActionLabel="Ir a mis establecimientos"
+        onSecondaryAction={() => {
           router.push("/partner/establishment");
           router.refresh();
         }}
@@ -165,6 +190,15 @@ export function NewEstablishmentProposalForm() {
         </div>
         <TextArea data-testid="proposal-description-textarea" />
       </TextField>
+
+      <ColombianWhatsAppField
+        value={whatsapp}
+        onChange={setWhatsapp}
+        showError={showWhatsappError}
+        label="Tu WhatsApp"
+        description={WHATSAPP_SOCIO_DESCRIPTION}
+        testId="proposal-whatsapp-input"
+      />
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="proposal-address-search">Buscar dirección (Google)</Label>

@@ -197,7 +197,6 @@ export const ESTABLECIMIENTO_KAYAM_FICHA: FichaEstablecimiento = {
   horaEntrada: "15:00:00",
   horaSalida: "11:00:00",
   modo: "rooms",
-  contacto: "+573001112244",
   fotos: [
     { url: "/mock/establishments/kayam/photos/1.jpeg" },
     { url: "/mock/rooms/kayam-glamping/photos/1.webp" },
@@ -232,7 +231,6 @@ export const ESTABLECIMIENTO_MINIMO: FichaEstablecimiento = {
   horaEntrada: null,
   horaSalida: null,
   modo: "whole_house",
-  contacto: null,
   fotos: [],
   alojamientos: [{ ...ALOJAMIENTOS.bania, establecimiento: null, capacidad: 10 }],
   otrosProductos: [],

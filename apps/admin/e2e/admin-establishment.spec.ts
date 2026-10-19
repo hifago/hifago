@@ -69,11 +69,14 @@ test("un compte admin crée un établissement (identité, partner, présentation
   await page.getByTestId("image-crop-confirm").click();
   await expect(page.getByTestId("photos-list").locator("li")).toHaveCount(1, { timeout: 10000 });
 
+  // WhatsApp du prestataire, obligatoire depuis 20261019170000.
+  await page.getByTestId("establishment-whatsapp-input").fill("3001234567");
   await page.getByTestId("create-establishment-button").click();
   await confirmAndContinue(page, "establishment-form-confirmation");
 
   await expect(page).toHaveURL(/\/admin\/establishments$/);
-  await expect(page.getByText(establishmentName)).toBeVisible();
+  // La liste est éditable en ligne : le nom vit dans un champ, que getByText ne voit pas.
+  await expect(page.getByRole("textbox", { name: `Nombre — ${establishmentName}` })).toHaveValue(establishmentName);
 });
 
 test("la recherche partenaire filtre réellement le registre", async ({ page, context }) => {

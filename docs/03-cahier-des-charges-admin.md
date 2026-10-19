@@ -38,7 +38,7 @@ ces lignes en tiennent lieu.
   `docs/specs/19-paiement-mercadopago-acompte-ledger.md`** (statut `partiel`) : le règlement du
   référent et la compensation établissement passent par Mercado Pago, déclenchés **par API** une
   fois la prestation réalisée — plus un geste manuel admin avec dépôt de justificatif. Le moteur
-  17/10/7 et la règle A3 (non-remboursement, redistribution des 10 % vers le prestataire) sont
+  17/8/9 (barème révisé le 2026-10-19, ex-17/10/7) et la règle A3 (non-remboursement, redistribution des 8 % vers le prestataire) sont
   cités comme prémisses par cette spec : ils ne changent pas.
 - **§3c, « Hébergement adossé à un PMS : lecture seule pour l'admin » — trop large depuis
   `docs/specs/24-modele-hebergement-et-surface-lobbypms.md`.** La frontière exacte y est posée :
@@ -625,8 +625,8 @@ client est une annulation **par le prestataire lui-même** (il ne peut pas honor
 réservation) — alors, plus aucune commission n'est due sur la ligne.
 
 **Ce qui change côté commission, sur une ligne annulée/no-show côté client** (l'acompte reste
-encaissé) : la part app (7 % ou 17 % en direct) reste inchangée ; la part référent
-(10 %, cas référent externe uniquement) n'est **pas** versée au référent — elle est **redirigée
+encaissé) : la part app (9 % ou 17 % en direct) reste inchangée ; la part référent
+(8 %, cas référent externe uniquement) n'est **pas** versée au référent — elle est **redirigée
 vers le prestataire**, en compensation du créneau bloqué pour rien. Détail complet en
 `hifago/docs/01-cahier-des-charges-client.md` §7/A3.
 

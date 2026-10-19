@@ -6,7 +6,11 @@ import { buttonVariants } from "@hifago/ui";
 import { EmptyStateCta } from "@/components/EmptyStateCta";
 import { PendingCreationBanner } from "./PendingCreationBanner";
 import { EstablishmentStack, type EstablishmentCardRow } from "./EstablishmentStack";
-import type { PendingProductCreationRow, ProductCardRow } from "./EstablishmentActivities";
+import {
+  EstablishmentActivities,
+  type PendingProductCreationRow,
+  type ProductCardRow,
+} from "./EstablishmentActivities";
 
 type ProductQueryRow = {
   id: string;
@@ -25,6 +29,7 @@ type PendingCreationProposalRow = {
   type: string | null;
   payload: unknown;
   establishment_id: string | null;
+  establishment_proposal_id: string | null;
   created_at: string;
 };
 
@@ -105,7 +110,7 @@ export default async function PartnerEstablishmentPage() {
     partnerId
       ? supabase
           .from("product_proposals")
-          .select("id, type, payload, establishment_id, created_at")
+          .select("id, type, payload, establishment_id, establishment_proposal_id, created_at")
           .eq("partner_id", partnerId)
           .eq("kind", "create")
           .eq("status", "pending")
@@ -221,18 +226,22 @@ export default async function PartnerEstablishmentPage() {
     productsByEstablishment.set(product.establishment_id, list);
   }
 
+  // Migration 20261019120000 : une activité proposée avec un établissement encore en revue n'a pas
+  // d'establishment_id — elle est rangée sous l'identifiant de la proposition d'établissement, que
+  // la pile « en revue » ci-dessous lit avec la même Map.
   const pendingProductCreationsByEstablishment = new Map<string, PendingProductCreationRow[]>();
   for (const proposal of pendingProductCreationsRaw ?? []) {
-    if (!proposal.establishment_id) continue;
+    const groupId = proposal.establishment_id ?? proposal.establishment_proposal_id;
+    if (!groupId) continue;
     const row: PendingProductCreationRow = {
       id: proposal.id,
       type: proposal.type,
       payload: proposal.payload,
       created_at: proposal.created_at,
     };
-    const list = pendingProductCreationsByEstablishment.get(proposal.establishment_id) ?? [];
+    const list = pendingProductCreationsByEstablishment.get(groupId) ?? [];
     list.push(row);
-    pendingProductCreationsByEstablishment.set(proposal.establishment_id, list);
+    pendingProductCreationsByEstablishment.set(groupId, list);
   }
 
   return (
@@ -240,16 +249,17 @@ export default async function PartnerEstablishmentPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="titre-page">Mi establecimiento y servicios</h1>
         <div className="flex flex-wrap gap-2">
-          {/* Sans établissement existant, l'écran /partner/products/new n'a nulle part où proposer
-              l'activité (message "Aún no tienes ningún establecimiento con capacidad de operador
-              activa.") — bouton réservé au cas où au moins un existe déjà, comme celui-ci. */}
-          {establishmentRows.length > 0 ? (
+          {/* Sans établissement existant ni en revue, l'écran /partner/products/new n'a nulle part
+              où proposer l'activité (message "Aún no tienes ningún establecimiento con capacidad
+              de operador activa.") — bouton réservé au cas où au moins un existe. Un établissement
+              en revue suffit depuis 20261019120000. */}
+          {establishmentRows.length > 0 || (pendingEstablishmentCreations ?? []).length > 0 ? (
             <Link
               href="/partner/products/new"
               className={buttonVariants({ size: "sm" })}
               data-testid="add-new-activity-link"
             >
-              Añadir actividad
+              Añadir servicio
             </Link>
           ) : null}
           <Link
@@ -263,13 +273,22 @@ export default async function PartnerEstablishmentPage() {
       </div>
 
       {(pendingEstablishmentCreations ?? []).map((proposal) => (
-        <PendingCreationBanner key={proposal.id} proposal={proposal} />
+        <div key={proposal.id} className="flex flex-col gap-4" data-testid={`pending-establishment-stack-${proposal.id}`}>
+          <PendingCreationBanner proposal={proposal} />
+          <div className="pl-0 md:pl-4">
+            <EstablishmentActivities
+              establishmentId={proposal.id}
+              products={[]}
+              pendingCreations={pendingProductCreationsByEstablishment.get(proposal.id) ?? []}
+            />
+          </div>
+        </div>
       ))}
 
       {establishmentRows.length === 0 && (pendingEstablishmentCreations ?? []).length === 0 ? (
         <EmptyStateCta
           title="Aún no tienes ningún establecimiento"
-          description="Añade tu establecimiento para empezar a publicar actividades y recibir reservas."
+          description="Añade tu establecimiento para empezar a publicar servicios y recibir reservas."
           actionHref="/partner/establishment/new"
           actionLabel="Añadir establecimiento"
           testId="empty-establishments"

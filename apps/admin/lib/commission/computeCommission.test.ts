@@ -8,16 +8,16 @@ describe("computeCommission", () => {
     ).toEqual({ case: "direct", acomptePct: 0.17, referrerPct: 0, appPct: 0.17 });
   });
 
-  it("auto-référence : le référent est le propriétaire du produit → 7/0/7", () => {
+  it("auto-référence : le référent est le propriétaire du produit → 9/0/9", () => {
     expect(
       computeCommission({ referrerPartnerId: "partner-a", productPartnerId: "partner-a" })
-    ).toEqual({ case: "self_referral", acomptePct: 0.07, referrerPct: 0, appPct: 0.07 });
+    ).toEqual({ case: "self_referral", acomptePct: 0.09, referrerPct: 0, appPct: 0.09 });
   });
 
-  it("référent externe : différent du propriétaire du produit → 17/10/7", () => {
+  it("référent externe : différent du propriétaire du produit → 17/8/9", () => {
     expect(
       computeCommission({ referrerPartnerId: "partner-b", productPartnerId: "partner-a" })
-    ).toEqual({ case: "external_referrer", acomptePct: 0.17, referrerPct: 0.1, appPct: 0.07 });
+    ).toEqual({ case: "external_referrer", acomptePct: 0.17, referrerPct: 0.08, appPct: 0.09 });
   });
 
   it("referrerPartnerId null est traité identiquement à un référent absent (aucun 3e état)", () => {

@@ -119,7 +119,7 @@ select test_login('99990000-0000-4000-8000-000000000001');
 
 select lives_ok(
   $$ select create_establishment('a9990001-0000-4000-8000-000000000001',
-       jsonb_build_object('es', 'Nuevo Establecimiento Pending')) $$,
+       jsonb_build_object('es', 'Nuevo Establecimiento Pending'), p_contact_phone => '+573001234567') $$,
   'create_establishment réussit pour un partenaire avec capacité operator en attente'
 );
 select is(
@@ -137,7 +137,7 @@ select is(
 
 select lives_ok(
   $$ select create_establishment('a9990002-0000-4000-8000-000000000002',
-       jsonb_build_object('es', 'Segundo Establecimiento')) $$,
+       jsonb_build_object('es', 'Segundo Establecimiento'), p_contact_phone => '+573001234567') $$,
   'create_establishment réussit pour un partenaire ayant déjà un établissement'
 );
 select is(
@@ -151,7 +151,7 @@ select is(
 select test_login('99990000-0000-4000-8000-000000000002');
 select throws_ok(
   $$ select create_establishment('a9990001-0000-4000-8000-000000000001',
-       jsonb_build_object('es', 'Forge')) $$,
+       jsonb_build_object('es', 'Forge'), p_contact_phone => '+573001234567') $$,
   '42501'::char(5),
   'create_establishment réservé au rôle admin',
   'create_establishment refuse un appelant non-admin'

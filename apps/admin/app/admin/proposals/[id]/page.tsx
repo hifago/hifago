@@ -1,9 +1,11 @@
 import type { ProductType } from "@/lib/products/productTypeGating";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
 import { checkedRead } from "@/lib/supabase/checkedRead";
 import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
+import { buttonVariants } from "@hifago/ui";
 import { toTagOptions } from "@/lib/tags/proposedTags";
 import { ModerateProposalForm } from "./ModerateProposalForm";
 import { PhotoModerationForm } from "./PhotoModerationForm";
@@ -39,7 +41,7 @@ export default async function AdminProposalDetailPage({
     await supabase
       .from("product_proposals")
       .select(
-        "id, status, version, payload, kind, type, establishment_id, rejection_reason, product:products(id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, price_label, external_booking_url, group_discount_threshold_qty, group_discount_pct, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, evento_occupies_resource), establishment:establishments(id, name, lobby_connector_active, lobby_has_token), partner:partners(display_name)"
+        "id, status, version, payload, kind, type, establishment_id, rejection_reason, product:products(id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, price_label, external_booking_url, group_discount_threshold_qty, group_discount_pct, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, evento_occupies_resource), establishment:establishments(id, name, lobby_connector_active, lobby_has_token), establishment_proposal:establishment_proposals(id, status, payload), partner:partners(display_name)"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -62,9 +64,24 @@ export default async function AdminProposalDetailPage({
       asLocalizedField((proposal.payload as { name?: unknown } | null)?.name),
       "es",
     );
+    // Migration 20261019120000 : proposée avec un établissement encore en revue — pas encore
+    // d'establishment_id, le nom vient de la proposition d'établissement.
+    const pendingEstablishment =
+      !proposal.establishment && proposal.establishment_proposal?.status === "pending"
+        ? {
+            proposalId: proposal.establishment_proposal.id,
+            name:
+              resolveLocalizedField(
+                asLocalizedField((proposal.establishment_proposal.payload as { name?: unknown } | null)?.name),
+                "es",
+              ) ?? proposal.establishment_proposal.id,
+          }
+        : null;
     const establishmentName = proposal.establishment
       ? (resolveLocalizedField(asLocalizedField(proposal.establishment.name), "es") ?? proposal.establishment.id)
-      : "—";
+      : pendingEstablishment
+        ? `${pendingEstablishment.name} (en revisión)`
+        : "—";
 
     const { data: tagsRaw } = checkedRead(
       await supabase.from("catalog_tags").select("id, label").order("slug"),
@@ -102,6 +119,7 @@ export default async function AdminProposalDetailPage({
             availableTags={availableTags}
             availableAmenities={toTagOptions(amenitiesRaw)}
             establishmentId={proposal.establishment_id ?? ""}
+            pendingEstablishment={pendingEstablishment}
             establishmentLobbyConnected={Boolean(
               proposal.establishment?.lobby_connector_active && proposal.establishment?.lobby_has_token
             )}
@@ -235,6 +253,21 @@ async function AdminEstablishmentProposalDetail({ id }: { id: string }) {
   const currentName = proposal.establishment
     ? (resolveLocalizedField(asLocalizedField(proposal.establishment.name), "es") ?? proposal.establishment.id)
     : null;
+
+  // Migration 20261019120000 : activités proposées avec cet établissement, modérées séparément —
+  // listées ici pour que l'admin les retrouve depuis l'établissement (tous statuts : après la
+  // décision, la liste dit ce qu'elles sont devenues).
+  const { data: attachedActivities } =
+    proposal.kind === "create"
+      ? checkedRead(
+          await supabase
+            .from("product_proposals")
+            .select("id, type, status, payload")
+            .eq("establishment_proposal_id", proposal.id)
+            .order("created_at", { ascending: true }),
+          "product_proposals",
+        )
+      : { data: [] as { id: string; type: string | null; status: string; payload: unknown }[] };
   const proposedName = resolveLocalizedField(asLocalizedField(proposedPayload.name), "es");
   const isPhotos = proposal.kind === "photos";
   const kindLabel = isPhotos ? "fotos" : proposal.kind === "create" ? "creación" : "edición";
@@ -272,6 +305,73 @@ async function AdminEstablishmentProposalDetail({ id }: { id: string }) {
           currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
         />
       )}
+
+      {(attachedActivities ?? []).length > 0 ? (
+        <AttachedActivities activities={attachedActivities ?? []} establishmentPending={proposal.status === "pending"} />
+      ) : null}
     </div>
+  );
+}
+
+const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+  activity: "Actividad",
+  evento: "Evento",
+  camp: "Campamento",
+  lodging: "Alojamiento",
+  transport: "Transporte",
+};
+
+const PROPOSAL_STATUS_LABELS: Record<string, string> = {
+  pending: "Pendiente",
+  approved: "Aprobada",
+  rejected: "Rechazada",
+  withdrawn: "Retirada",
+};
+
+function AttachedActivities({
+  activities,
+  establishmentPending,
+}: {
+  activities: { id: string; type: string | null; status: string; payload: unknown }[];
+  establishmentPending: boolean;
+}) {
+  return (
+    <section className="flex flex-col gap-3" data-testid="attached-activities">
+      <h2 className="text-base font-semibold">Actividades propuestas con este establecimiento</h2>
+      <p className="text-sm text-muted">
+        {establishmentPending
+          ? "Se revisan por separado: aprobar el establecimiento no aprueba sus actividades, que quedan pendientes. Rechazarlo las rechaza también."
+          : "Se revisan por separado del establecimiento."}
+      </p>
+      <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
+        {activities.map((activity) => {
+          const name =
+            resolveLocalizedField(asLocalizedField((activity.payload as { name?: unknown } | null)?.name), "es") ??
+            activity.id;
+          return (
+            <li
+              key={activity.id}
+              className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
+              data-testid={`attached-activity-${activity.id}`}
+            >
+              <div className="flex flex-col">
+                <span className="font-medium">{name}</span>
+                <span className="text-sm text-muted">
+                  {ACTIVITY_TYPE_LABELS[activity.type ?? ""] ?? activity.type ?? "—"} ·{" "}
+                  {PROPOSAL_STATUS_LABELS[activity.status] ?? activity.status}
+                </span>
+              </div>
+              <Link
+                href={`/admin/proposals/${activity.id}`}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+                data-testid={`review-attached-activity-${activity.id}`}
+              >
+                {activity.status === "pending" ? "Revisar" : "Ver"}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

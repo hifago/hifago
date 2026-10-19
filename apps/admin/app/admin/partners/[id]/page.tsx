@@ -8,9 +8,10 @@ import { buttonVariants } from "@hifago/ui";
 import { CapabilitiesSection } from "./CapabilitiesSection";
 import { EstablishmentsSection } from "./EstablishmentsSection";
 import { CodesSection } from "./CodesSection";
+import { DeletePartnerButton } from "./DeletePartnerButton";
 import { PartnerLocationBlock } from "./PartnerLocationBlock";
 import { PartnerIdentitySection } from "./PartnerIdentitySection";
-import { commercialStatusLabel, resumenMetodoPago } from "@/lib/partners/crmProfile";
+import { resumenMetodoPago, type CommercialStatus } from "@/lib/partners/crmProfile";
 
 export default async function AdminPartnerDetailPage({
   params,
@@ -24,7 +25,7 @@ export default async function AdminPartnerDetailPage({
     await supabase
       .from("partners")
       .select(
-        "id, display_name, legal_name, identification_type, identification_number, partner_city, email, phone",
+        "id, display_name, legal_name, identification_type, identification_number, partner_city, email, phone, instagram, facebook, website",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -48,6 +49,7 @@ export default async function AdminPartnerDetailPage({
     allEstablishmentsResult,
     codesResult,
     crmProfileResult,
+    deletionCheckResult,
   ] = await Promise.all([
     supabase
       .from("partner_capabilities")
@@ -82,6 +84,9 @@ export default async function AdminPartnerDetailPage({
       .select("address, lat, lon, barrio, tags, commercial_status, notes, bank")
       .eq("partner_id", id)
       .maybeSingle(),
+    // « Eliminar definitivamente » n'apparaît que si la base l'autorise : aucune commande, pas le
+    // partenaire plateforme (20261019150000, même fonction que la suppression elle-même).
+    supabase.rpc("admin_partner_deletion_check", { p_partner_id: id }),
   ]);
   const { data: capabilities } = checkedRead(capabilitiesResult, "partner_capabilities");
   const { data: agreements } = checkedRead(agreementsResult, "role_agreements");
@@ -90,6 +95,8 @@ export default async function AdminPartnerDetailPage({
   const { data: codes } = checkedRead(codesResult, "partner_codes");
   // partner_id est la clé primaire de partner_crm_profile : jamais plus d'une ligne.
   const { data: crmProfile } = checkedRead(crmProfileResult, "partner_crm_profile");
+  const { data: deletionCheck } = checkedRead(deletionCheckResult, "admin_partner_deletion_check");
+  const deletable = (deletionCheck as { deletable?: boolean } | null)?.deletable === true;
 
   // Dernier accord par rôle (accepted_at desc ci-dessus, donc le premier trouvé par rôle est le
   // plus récent) — un partenaire peut avoir plusieurs accords au fil des versions de document.
@@ -109,29 +116,39 @@ export default async function AdminPartnerDetailPage({
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <h1 className="titre-page">{partner.display_name}</h1>
-        <Link
-          href={`/admin/partners/${partner.id}/offboarding`}
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-          data-testid="offboarding-link"
-        >
-          Offboarding
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/admin/partners/${partner.id}/offboarding`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+            data-testid="offboarding-link"
+          >
+            Offboarding
+          </Link>
+          {deletable ? <DeletePartnerButton partnerId={partner.id} /> : null}
+        </div>
       </div>
 
       <PartnerIdentitySection
-        identity={{
-          legalName: partner.legal_name,
-          identification:
-            [partner.identification_type, partner.identification_number].filter(Boolean).join(" ") || null,
-          city: partner.partner_city,
-          email: partner.email,
-          phone: partner.phone,
-          commercialStatus: commercialStatusLabel(crmProfile?.commercial_status),
-          barrio: crmProfile?.barrio ?? null,
-          tags: crmProfile?.tags ?? [],
-          notes: crmProfile?.notes ?? null,
-          paymentMethod: resumenMetodoPago(crmProfile?.bank),
+        partnerId={partner.id}
+        profile={{
+          display_name: partner.display_name,
+          legal_name: partner.legal_name ?? "",
+          identification_type: partner.identification_type ?? "",
+          identification_number: partner.identification_number ?? "",
+          partner_city: partner.partner_city ?? "",
+          email: partner.email ?? "",
+          phone: partner.phone ?? "",
+          instagram: partner.instagram ?? "",
+          facebook: partner.facebook ?? "",
+          website: partner.website ?? "",
+          barrio: crmProfile?.barrio ?? "",
+          notes: crmProfile?.notes ?? "",
+          // Sans ligne de profil, la valeur par défaut de la colonne (20260814233000).
+          commercial_status: (crmProfile?.commercial_status ?? "prospecto") as CommercialStatus,
+          tags: (crmProfile?.tags ?? []).join(", "),
         }}
+        // Le moyen de paiement ne quitte le serveur que résumé (suffixe seul).
+        paymentMethodSummary={resumenMetodoPago(crmProfile?.bank)}
       />
 
       <PartnerLocationBlock

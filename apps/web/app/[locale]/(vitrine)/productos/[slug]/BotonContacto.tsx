@@ -7,9 +7,9 @@ import { LinkButton } from "@/components/atoms/LinkButton";
 // différence se voit à l'endroit exact où le client la cherche, sans bandeau ni texte explicatif ».
 // Rien d'autre sur la fiche ne signale qu'elle n'est pas réservable, et c'est délibéré.
 //
-// Un seul composant, deux usages : `products.external_booking_url` sur une fiche produit,
-// `establishments.contact_phone` (converti en lien wa.me par la couche) sur une fiche
-// établissement. Il ne construit AUCUNE URL lui-même — un composant qui devinerait « c'est un
+// `products.external_booking_url` (ou le WhatsApp d'un transport) sur une fiche produit. La fiche
+// établissement ne l'emploie plus depuis le 2026-10-19 : le WhatsApp du prestataire est privé
+// jusqu'à la réservation finalisée (migration 20261019170000). Il ne construit AUCUNE URL lui-même — un composant qui devinerait « c'est un
 // numéro, donc wa.me » ferait de la logique métier dans du rendu.
 
 // COULEUR SELON LA SURFACE (plan 41, P4) : or sur le clair (le panneau de la fiche produit, le

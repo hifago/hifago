@@ -80,7 +80,7 @@ export function CartSummary({
   const totalesPorLinea = lines.map(computeCartLineTotal);
   const total = totalesPorLinea.reduce((sum, montant) => sum + montant, 0);
   // Estimation FIXE à 17 %, jamais le pourcentage exact selon commission_case (create_order, qui
-  // peut descendre à 7 % sur un cas rare d'auto-parrainage) — même principe « panier = estimation
+  // peut descendre à 9 % sur un cas rare d'auto-parrainage) — même principe « panier = estimation
   // affichée » que le reste de ce composant, cf. cartLineTotal.ts.
   const totalNow = Math.round(total * 0.17);
 

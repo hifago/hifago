@@ -255,7 +255,8 @@ export async function createActiveOperatorEstablishment(
 ): Promise<string> {
   const { data: establishmentId, error: createError } = await adminClient.rpc(
     "create_establishment",
-    { p_partner_id: partnerId, p_name: { es: name } }
+    // WhatsApp exigé depuis 20261019170000 — un numéro fictif à la forme colombienne.
+    { p_partner_id: partnerId, p_name: { es: name }, p_contact_phone: "+573000000000" }
   );
   if (createError || !establishmentId) {
     throw new Error(`e2e setup: create_establishment a échoué : ${createError?.message}`);

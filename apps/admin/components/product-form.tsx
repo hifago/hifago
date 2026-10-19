@@ -37,6 +37,10 @@ type Establishment = {
   partner_id: string;
   lobby_connector_active?: boolean | null;
   lobby_has_token?: boolean | null;
+  // Migration 20261019120000 : variant socio-proposal seulement — l'entrée est une PROPOSITION de
+  // création d'établissement encore en revue (`id` = celui de la proposition), pas un
+  // établissement. La proposition d'activité la vise alors par p_establishment_proposal_id.
+  pending_proposal?: boolean;
 };
 
 export type EditableProduct = {
@@ -120,6 +124,9 @@ const SUBMIT_ERRORS: Record<string, string> = {
   // plusieurs créations en attente sur le même establecimiento, cf. 20260818110000_
   // product_creation_review_ux.sql — cette raison n'est plus jamais renvoyée par la RPC.
   pending_cap_exceeded: "Tienes demasiadas propuestas pendientes de revisión.",
+  // 20261019120000 : l'établissement en revue a été tranché (ou retiré) pendant la saisie.
+  establishment_proposal_not_pending:
+    "Este establecimiento ya fue revisado. Vuelve a cargar la página y elígelo de nuevo.",
 };
 
 // Un seul endroit pour le nom du type en espagnol (genre inclus) — le bouton de soumission, le
@@ -254,6 +261,8 @@ export function ProductForm({
     body: string;
     actionLabel: string;
     onAction: () => void;
+    secondaryActionLabel?: string;
+    onSecondaryAction?: () => void;
   } | null>(null);
 
   const {
@@ -490,7 +499,9 @@ export function ProductForm({
         ...(vitrinaOculta ? { external_booking_url: null, price_label: null } : {}),
       };
       const { data, error: rpcError } = await supabase.rpc("submit_product_creation_proposal", {
-        p_establishment_id: establishment.id,
+        ...(establishment.pending_proposal
+          ? { p_establishment_proposal_id: establishment.id }
+          : { p_establishment_id: establishment.id }),
         p_type: type,
         p_payload: payload as Json,
       });
@@ -508,7 +519,16 @@ export function ProductForm({
       setConfirmation({
         status: "pending",
         title: "Propuesta enviada",
-        body: `Un administrador de Hifago revisará tu propuesta antes de publicar ${entityNoun(type)}. Te avisaremos cuando esté disponible.`,
+        body: establishment.pending_proposal
+          ? `Un administrador de Hifago revisará ${entityNoun(type)} por separado, después de tu establecimiento. Te avisaremos de cada decisión.`
+          : `Un administrador de Hifago revisará tu propuesta antes de publicar ${entityNoun(type)}. Te avisaremos cuando esté disponible.`,
+        // Migration 20261019120000 : enchaîner une autre proposition sur le même établissement.
+        // `nueva` change à chaque clic : la page en fait la `key` de ce formulaire, dont tout
+        // l'état (champs, photos, étape, cet écran) repart de zéro.
+        secondaryActionLabel: "Añadir otro servicio",
+        onSecondaryAction: () => {
+          router.push(`/partner/products/new?establecimiento=${establishment.id}&nueva=${Date.now()}`);
+        },
         actionLabel: "Ir a mis establecimientos",
         // Refonte vue prestataire (2026-08-19) : "Mis actividades" fusionnée dans
         // "/partner/establishment" — cible directe plutôt que "/partner/products" (qui redirige
@@ -665,6 +685,8 @@ export function ProductForm({
         body={confirmation.body}
         actionLabel={confirmation.actionLabel}
         onAction={confirmation.onAction}
+        secondaryActionLabel={confirmation.secondaryActionLabel}
+        onSecondaryAction={confirmation.onSecondaryAction}
         testId="product-form-confirmation"
       />
     );
@@ -768,7 +790,8 @@ export function ProductForm({
               <ListBox>
                 {establishments.map((establishment) => {
                   const resolvedName = asLocalizedField(establishment.name);
-                  const label = (resolvedName?.es ?? resolvedName?.en) || establishment.id;
+                  const name = (resolvedName?.es ?? resolvedName?.en) || establishment.id;
+                  const label = establishment.pending_proposal ? `${name} (en revisión)` : name;
                   return (
                     <ListBox.Item key={establishment.id} id={establishment.id} textValue={label}>
                       {label}

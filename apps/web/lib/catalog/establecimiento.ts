@@ -19,12 +19,11 @@ const BUCKET_MEDIA = "catalog-media";
 // Une seule ligne, template literal sans interpolation : supabase-js infère le type de retour en
 // analysant le type LITTÉRAL de la chaîne.
 //
-// ⚠️ `contact_phone` est nouveau (2026-09-08) et n'est lisible QUE grâce au
-// `grant select (contact_phone)` de sa migration : `establishments` n'a aucun grant au niveau
-// table pour `anon`, seulement colonne par colonne. Sans lui, cette requête entière échouerait sur
-// « permission denied for column » — une erreur qui tombe avant la RLS et ressemble à un bug de
-// policy (piège §11.1).
-const COLUMNAS_ESTABLECIMIENTO = `id, slug, name, description, address, lat, lon, check_in_time, check_out_time, mode, contact_phone`;
+// ⚠️ `establishments` n'a aucun grant au niveau table pour `anon`, seulement colonne par colonne.
+// `contact_phone` n'en a PLUS (migration 20261019170000 : le WhatsApp du prestataire ne sort
+// qu'après une réservation finalisée, par `order_for_client_jsonb`) — le rajouter ici ferait
+// échouer la requête entière sur « permission denied for column » (piège §11.1).
+const COLUMNAS_ESTABLECIMIENTO = `id, slug, name, description, address, lat, lon, check_in_time, check_out_time, mode`;
 
 /** Ce que la carte d'un produit affiche depuis une fiche établissement. */
 const COLUMNAS_PRODUCTO = `id, slug, name, type, price_cop, price_label, capacity`;
@@ -145,7 +144,6 @@ export const getEstablecimientoPorSlug = cache(
       modo: establecimiento.mode === "rooms" || establecimiento.mode === "whole_house"
         ? establecimiento.mode
         : null,
-      contacto: establecimiento.contact_phone,
       // ⚠️ PAS de repli sur les photos des chambres : la photo d'une chambre montre une chambre,
       // pas le lieu. L'afficher comme photo d'établissement promettrait autre chose que ce qu'on
       // montre — l'aplat gris dit la vérité (spec 30 §10.6). La carte GROUPÉE du catalogue, elle,
