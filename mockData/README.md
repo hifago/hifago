@@ -123,7 +123,7 @@ décrivent le format, pas des fichiers présents.
   "operated_directly": false,
   "check_in_time": "14:00", "check_out_time": "11:00",
   "mode": "rooms",                       // "rooms" | "whole_house" | absent
-  "contact_phone": "+573001234567",
+  "contact_phone": "+573001234567",     // REQUIS pour une création (+57 et 10 chiffres) — WhatsApp privé du prestataire
   "status": "active",                    // "active" | "archived"
   "is_place": false,                     // optionnel — true = un LIEU, pas un prestataire (cf. ci-dessous)
   "amenities": ["wifi", "piscina-privada", "muelle-privado"],  // optionnel, cf. § Équipements ci-dessous

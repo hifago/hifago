@@ -5,7 +5,7 @@ theme: specs
 public: [ia, dev, jerome]
 langue: fr
 statut: implemente
-maj: 2026-09-08
+maj: 2026-10-19
 resume: >
   Les deux derniers écrans hérités de la vitrine, et les plus gros. Sort d'abord la logique métier
   des trois formulaires de réservation vers lib/reservas/ (lot B3, différé depuis la spec 27),
@@ -21,6 +21,15 @@ repond_a:
 ---
 
 # Vitrine : les fiches produit et établissement
+
+> ⚠️ **Révision du 2026-10-19 (décision Jérôme) — le contact d'établissement n'est plus public.**
+> `establishments.contact_phone` devient le WhatsApp PRIVÉ du prestataire : obligatoire à la
+> création, colombien (+57 et 10 chiffres), jamais montré avant que le client ait finalisé sa
+> réservation. Le bouton `BotonContacto` de la fiche établissement (§3.2, §5d) et le
+> `grant select (contact_phone)` (§6b) sont retirés ; le numéro sort par `order_for_client_jsonb`
+> sur une commande finalisée et dans l'e-mail de confirmation. Tout ce qui suit sur ce contact
+> PUBLIC est historique — la règle en vigueur est l'en-tête de
+> `supabase/migrations/20261019170000_establishment_whatsapp_prive.sql`.
 
 > **Cible stack** : hifago. **Troisième et dernier écran** du chantier front hérité, après la
 > spec 28 (l'accueil) et la spec 29 (les listings et l'index de catégories). S'appuie sur la

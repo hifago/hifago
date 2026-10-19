@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Title } from "@/components/atoms/Title";
-import { GlypheWhatsApp } from "@/components/atoms/GlypheWhatsApp";
 import { PuceEstado } from "@/components/atoms/PuceEstado";
 import { PhotoStrip } from "@/components/molecules/PhotoStrip";
 import { AmenidadesList } from "@/components/molecules/AmenidadesList";
@@ -12,19 +11,17 @@ import { BandeauPagina } from "@/components/organisms/BandeauPagina";
 import { SeccionRiel } from "@/components/organisms/SeccionRiel";
 import type { FichaEstablecimiento as DatosFicha } from "@/lib/catalog/tipos";
 import type { Locale } from "@/messages";
-import { urlDeContacto } from "@/lib/catalog/establecimiento";
-import { BotonContacto } from "../../productos/[slug]/BotonContacto";
 
 // LE CORPS DE LA FICHE ÉTABLISSEMENT (spec 30 §5d). Ex-`EstablishmentDetailView`.
 //
 // ⚠️ « use client » pour la même raison que la fiche produit : un Server Component ne peut pas
-// importer `@hifago/ui` (CLAUDE.md §11.16) — `PhotoStrip` et `BotonContacto` y mènent. Il ne pose
+// importer `@hifago/ui` (CLAUDE.md §11.16) — `PhotoStrip` y mène. Il ne pose
 // PLUS de `<main>` : `PageShell` le fait.
 //
 // PLAN 41, P4 (2026-10-03) — la page au style de l'accueil :
 //   - BANDEAU OR à fond perdu (`BandeauPagina contenido`), qui porte le SEUL `<h1>` (le nom, sans
-//     point : un nom propre), l'adresse, les horaires en puces et « Contactar por WhatsApp » en
-//     bouton MARINE (un bouton or disparaîtrait sur l'or, F4). Rendu ICI et non par `page.tsx`, comme
+//     point : un nom propre), l'adresse et les horaires en puces — plus de bouton « Contactar por
+//     WhatsApp » depuis le 2026-10-19 (le numéro du prestataire est privé). Rendu ICI et non par `page.tsx`, comme
 //     la fiche produit : les horaires y sont traduits, et le fil d'Ariane arrive déjà rendu par la
 //     page, qui en tire aussi le JSON-LD ;
 //   - CONTENU CLAIR : galerie et description, côte à côte à partir de `lg` sur la grille de la fiche
@@ -115,20 +112,9 @@ export function FichaEstablecimiento({
         tituloTestId="establishment-name"
         conPunto={false}
         meta={meta}
-        accion={
-          // Le bouton n'est jamais rendu sans sa source, et rien ne le remplace : un établissement
-          // sans contact n'affiche simplement pas de bouton (spec 30 §5d).
-          ficha.contacto ? (
-            <BotonContacto
-              href={urlDeContacto(ficha.contacto)}
-              etiqueta={t("contactar")}
-              color="marine"
-              width="auto"
-              iconBefore={<GlypheWhatsApp />}
-              testId="establishment-contact-link"
-            />
-          ) : undefined
-        }
+        // AUCUN bouton de contact (décision Jérôme du 2026-10-19, migration 20261019170000) : le
+        // WhatsApp du prestataire n'apparaît jamais avant que le client ait finalisé sa réservation.
+        // Il était ici depuis la spec 30 §5d ; la colonne n'est même plus lisible par la vitrine.
         testId="ficha-bandeau"
       />
 

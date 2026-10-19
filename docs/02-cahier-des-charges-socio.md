@@ -3,7 +3,7 @@ id: refonte-cdc-socio
 titre: "Cahier des charges — portail socio (aujourd'hui /partner)"
 theme: cadrage
 statut: brouillon
-maj: 2026-09-20
+maj: 2026-10-19
 resume: >
   Comportement métier cible du portail partenaire (référent/prestataire), dérivé du comportement
   réel actuel et challengé section par section avec Jérôme avant reprise dans la refonte.
@@ -16,6 +16,10 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-10-19 — spec 19 retouchée, barème de l'acompte révisé** : 17 % = 8 % référent + 9 % app
+  (ex-10 + 7), auto-référence 9 % (ex-7 %), direct 17 % inchangé — migration
+  `20261019180000_commission_referent_8_app_9.sql`, seules les commandes créées après prennent le
+  nouveau barème. Ce cahier ne cite aucun taux : rien d'autre ne change ici.
 - **2026-10-01 — spec 19 retouchée, sans changement de périmètre** : la route de poll `apps/web/app/api/payments/[orderId]/status` est supprimée (aucun appelant, spec 33 §10) ; rien ne change pour ce cahier.
 - **§3e** (l.419) — révisé par `docs/specs/15-socio-creation-produit.md` : la règle « jamais un
   hébergement directement » ne s'applique plus à la CRÉATION (les 6 types, hôtel compris à

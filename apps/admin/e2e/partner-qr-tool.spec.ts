@@ -137,8 +137,9 @@ test("un socio génère son lien/QR réel sur /partner/tools, un visiteur anonym
   await expect(commissionRow).toBeVisible();
   await expect(commissionRow).toContainText("Estimada"); // commande fraîchement créée, statut 'reserved'.
 
-  // external_referrer (10/7, cf. create_order) : referrer_commission_cop = round(total_cop * 0.10),
-  // total_cop = price_cop * qty(1). Jamais un montant figé en dur (base locale partagée).
-  const expectedCommission = Math.round(price * 0.1);
+  // external_referrer (8/9 depuis le 2026-10-19, cf. create_order) : referrer_commission_cop =
+  // round(total_cop * 0.08), total_cop = price_cop * qty(1). Jamais un montant figé en dur (base
+  // locale partagée).
+  const expectedCommission = Math.round(price * 0.08);
   await expect(commissionRow.getByTestId(/^referrer-commission-/)).toHaveText(formatCop(expectedCommission));
 });

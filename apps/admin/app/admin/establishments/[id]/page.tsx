@@ -33,7 +33,7 @@ export default async function AdminEstablishmentDetailPage({
     await supabase
       .from("establishments")
       .select(
-        "id, name, description, address, lat, lon, operated_directly, status, lobby_connector_active, lobby_has_token, lobby_last_synced_at, check_in_time, check_out_time, mode, contact_phone",
+        "id, name, description, address, lat, lon, operated_directly, status, lobby_connector_active, lobby_has_token, lobby_last_synced_at, check_in_time, check_out_time, mode",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -43,6 +43,14 @@ export default async function AdminEstablishmentDetailPage({
   if (!establishment) {
     notFound();
   }
+
+  // Le WhatsApp du prestataire n'est plus lisible en direct depuis le 2026-10-19 (grant retiré à
+  // authenticated, migration 20261019170000 : il ne doit jamais sortir avant une réservation
+  // finalisée) — la RPC le rend à l'admin seul.
+  const { data: contactPhone } = checkedRead(
+    await supabase.rpc("get_establishment_contact_phone", { p_establishment_id: establishment.id }),
+    "get_establishment_contact_phone",
+  );
 
   // Bandeau d'avertissement (spec 06 §5.1) : une seule requête select, pas de nouvelle RPC — évite
   // que l'admin modifie en aveugle pendant qu'une proposition d'édition du partner attend.
@@ -158,7 +166,7 @@ export default async function AdminEstablishmentDetailPage({
 
       <EstablishmentContactBlock
         establishmentId={establishment.id}
-        initialContactPhone={establishment.contact_phone}
+        initialContactPhone={contactPhone}
       />
 
       <EstablishmentPmsBlock

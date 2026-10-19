@@ -12,7 +12,6 @@
   "lodgingKindWholeHouse": "Entire house",
   "lodgingCapacity": "Up to {count, plural, one {# person} other {# people}}",
   "lodgingUnitCount": "{count} in total",
-  "contactar": "Contact on WhatsApp",
   "fotoAlt": "{nombre}, photo {indice} of {total}",
   "migasEtiqueta": "Breadcrumb"
 }

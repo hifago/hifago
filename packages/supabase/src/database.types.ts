@@ -1424,37 +1424,46 @@ export type Database = {
           created_at: string
           display_name: string
           email: string | null
+          facebook: string | null
           id: string
           identification_number: string | null
           identification_type: string | null
+          instagram: string | null
           legal_name: string | null
           partner_city: string | null
           phone: string | null
           updated_at: string
+          website: string | null
         }
         Insert: {
           created_at?: string
           display_name: string
           email?: string | null
+          facebook?: string | null
           id?: string
           identification_number?: string | null
           identification_type?: string | null
+          instagram?: string | null
           legal_name?: string | null
           partner_city?: string | null
           phone?: string | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
           created_at?: string
           display_name?: string
           email?: string | null
+          facebook?: string | null
           id?: string
           identification_number?: string | null
           identification_type?: string | null
+          instagram?: string | null
           legal_name?: string | null
           partner_city?: string | null
           phone?: string | null
           updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }
@@ -2698,6 +2707,10 @@ export type Database = {
         Args: { p_display_name: string; p_note?: string; p_partner_id: string }
         Returns: Json
       }
+      admin_update_partner_profile: {
+        Args: { p_changes: Json; p_note?: string; p_partner_id: string }
+        Returns: Json
+      }
       admin_update_product_inline: {
         Args: { p_changes: Json; p_note?: string; p_product_id: string }
         Returns: Json
@@ -2844,6 +2857,7 @@ export type Database = {
         Args: { p_by: string; p_line_id: string; p_new_status: string }
         Returns: Json
       }
+      colombian_whatsapp_or_null: { Args: { p_phone: string }; Returns: string }
       consume_partner_invitation: {
         Args: {
           p_document_version: string
@@ -2865,6 +2879,7 @@ export type Database = {
       create_establishment: {
         Args: {
           p_address?: string
+          p_contact_phone?: string
           p_description?: Json
           p_lat?: number
           p_lon?: number
@@ -2993,6 +3008,10 @@ export type Database = {
           p_refund_id: string
         }
         Returns: Json
+      }
+      get_establishment_contact_phone: {
+        Args: { p_establishment_id: string }
+        Returns: string
       }
       get_event_occurrence_availability: {
         Args: { p_from: string; p_product_id: string; p_to: string }

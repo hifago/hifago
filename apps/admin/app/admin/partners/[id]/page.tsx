@@ -11,7 +11,7 @@ import { CodesSection } from "./CodesSection";
 import { DeletePartnerButton } from "./DeletePartnerButton";
 import { PartnerLocationBlock } from "./PartnerLocationBlock";
 import { PartnerIdentitySection } from "./PartnerIdentitySection";
-import { commercialStatusLabel, resumenMetodoPago } from "@/lib/partners/crmProfile";
+import { resumenMetodoPago, type CommercialStatus } from "@/lib/partners/crmProfile";
 
 export default async function AdminPartnerDetailPage({
   params,
@@ -25,7 +25,7 @@ export default async function AdminPartnerDetailPage({
     await supabase
       .from("partners")
       .select(
-        "id, display_name, legal_name, identification_type, identification_number, partner_city, email, phone",
+        "id, display_name, legal_name, identification_type, identification_number, partner_city, email, phone, instagram, facebook, website",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -129,19 +129,26 @@ export default async function AdminPartnerDetailPage({
       </div>
 
       <PartnerIdentitySection
-        identity={{
-          legalName: partner.legal_name,
-          identification:
-            [partner.identification_type, partner.identification_number].filter(Boolean).join(" ") || null,
-          city: partner.partner_city,
-          email: partner.email,
-          phone: partner.phone,
-          commercialStatus: commercialStatusLabel(crmProfile?.commercial_status),
-          barrio: crmProfile?.barrio ?? null,
-          tags: crmProfile?.tags ?? [],
-          notes: crmProfile?.notes ?? null,
-          paymentMethod: resumenMetodoPago(crmProfile?.bank),
+        partnerId={partner.id}
+        profile={{
+          display_name: partner.display_name,
+          legal_name: partner.legal_name ?? "",
+          identification_type: partner.identification_type ?? "",
+          identification_number: partner.identification_number ?? "",
+          partner_city: partner.partner_city ?? "",
+          email: partner.email ?? "",
+          phone: partner.phone ?? "",
+          instagram: partner.instagram ?? "",
+          facebook: partner.facebook ?? "",
+          website: partner.website ?? "",
+          barrio: crmProfile?.barrio ?? "",
+          notes: crmProfile?.notes ?? "",
+          // Sans ligne de profil, la valeur par défaut de la colonne (20260814233000).
+          commercial_status: (crmProfile?.commercial_status ?? "prospecto") as CommercialStatus,
+          tags: (crmProfile?.tags ?? []).join(", "),
         }}
+        // Le moyen de paiement ne quitte le serveur que résumé (suffixe seul).
+        paymentMethodSummary={resumenMetodoPago(crmProfile?.bank)}
       />
 
       <PartnerLocationBlock

@@ -26,7 +26,7 @@
 
 ## Cadrage — la cible de la refonte
 - [Audit du modèle de données cible — entités partagées](00-modele-de-donnees.md) 56K
-- [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 97K
+- [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 98K
 - [Cahier des charges — portail socio (aujourd'hui /partner)](02-cahier-des-charges-socio.md) 57K
 - [Cahier des charges — back-office admin (aujourd'hui /admin)](03-cahier-des-charges-admin.md) 49K
 - [Choix de stack et architecture cible](04-architecture-cible.md) 78K
@@ -64,7 +64,7 @@
 - [Architecture de la vitrine : routes, zones, coquilles et couche…](specs/27-architecture-vitrine-et-routage.md) 32K ✓ · §0 offset 52 limit 116
 - [Vitrine : l'accueil, qui est aussi l'écran de résultats de recherche](specs/28-vitrine-accueil-et-resultats.md) 48K ✓ · §0 offset 57 limit 158
 - [Vitrine : les pages de listing et l'index de catégories](specs/29-vitrine-listings-et-index-de-categories.md) 71K ✓ · §0 offset 67 limit 196
-- [Vitrine : les fiches produit et établissement](specs/30-vitrine-fiches-produit-et-etablissement.md) 82K ✓ · §0 offset 68 limit 218
+- [Vitrine : les fiches produit et établissement](specs/30-vitrine-fiches-produit-et-etablissement.md) 83K ✓ · §0 offset 77 limit 218
 - [Identité anonyme de l'invité](specs/31-identite-anonyme.md) 21K ◐ · §0 offset 45 limit 137 · reste : Les 4 tranches sont livrées (2026-09-10). Reste le point de vérification de la Tranche 4…
 - [Panier en base](specs/32-panier-en-base.md) 24K ✓ · §0 offset 48 limit 90
 - [L'écran de résultat de paiement et la fermeture du tunnel](specs/33-resultat-paiement-et-fermeture-du-tunnel.md) 46K ✓ · §0 offset 57 limit 215
@@ -81,9 +81,9 @@
 - [Avant d'écrire une spec — poser les bonnes questions](specs/avant-la-spec.md) 8K
 
 ## Suivi — backlog, dette, pièges, journal
-- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 13K
+- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 14K
 - [Dette technique et QA/UI connue — hifago](dette-technique.md) 38K
 - [Journal hifago — août 2026](journal/2026-08.md) 660K · jamais en entier (voir 5.)
 - [Journal hifago — septembre 2026](journal/2026-09.md) 678K · jamais en entier (voir 5.)
-- [Journal hifago — octobre 2026](journal/2026-10.md) 233K · jamais en entier (voir 5.)
+- [Journal hifago — octobre 2026](journal/2026-10.md) 246K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K

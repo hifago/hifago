@@ -259,7 +259,7 @@ export default async function PartnerEstablishmentPage() {
               className={buttonVariants({ size: "sm" })}
               data-testid="add-new-activity-link"
             >
-              Añadir actividad
+              Añadir servicio
             </Link>
           ) : null}
           <Link
@@ -288,7 +288,7 @@ export default async function PartnerEstablishmentPage() {
       {establishmentRows.length === 0 && (pendingEstablishmentCreations ?? []).length === 0 ? (
         <EmptyStateCta
           title="Aún no tienes ningún establecimiento"
-          description="Añade tu establecimiento para empezar a publicar actividades y recibir reservas."
+          description="Añade tu establecimiento para empezar a publicar servicios y recibir reservas."
           actionHref="/partner/establishment/new"
           actionLabel="Añadir establecimiento"
           testId="empty-establishments"

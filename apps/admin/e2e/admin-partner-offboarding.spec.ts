@@ -63,6 +63,8 @@ test("admin déroule les 4 étapes d'offboarding d'un partenaire, ses activités
   await page.getByRole("option", { name: new RegExp(partnerName) }).click();
   await goToNextWizardStep(page);
   await page.locator('input[name="nombre"]').fill(establishmentName);
+  // WhatsApp du prestataire, obligatoire depuis 20261019170000.
+  await page.getByTestId("establishment-whatsapp-input").fill("3001234567");
   await page.getByTestId("create-establishment-button").click();
   await confirmAndContinue(page, "establishment-form-confirmation");
   await expect(page).toHaveURL(/\/admin\/establishments$/);

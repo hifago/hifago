@@ -14,6 +14,12 @@ import { buildEstablishmentRpcParams } from "@/lib/establishments/establishmentP
 import { uploadCatalogBlob } from "@/lib/media/uploadCatalogBlob";
 import { ActionConfirmation } from "@/components/action-confirmation";
 import { WizardStepper } from "@/components/wizard-stepper";
+import { ColombianWhatsAppField } from "@/components/colombian-whatsapp-field";
+import {
+  colombianWhatsAppError,
+  colombianWhatsAppReasonMessage,
+  toColombianWhatsApp,
+} from "@/lib/establishments/colombianWhatsApp";
 
 type Partner = { id: string; display_name: string };
 
@@ -49,6 +55,10 @@ export function NewEstablishmentForm({
   // Identidad — `nombre` reste hors du hook d'état partagé, même patron que `name`/`description`
   // côté produit (useProductTypeFieldsState) : possédé par le composant, jamais localisé.
   const [nombre, setNombre] = useState("");
+  // WhatsApp du prestataire — obligatoire (décision Jérôme, 2026-10-19), exigé aussi par
+  // create_establishment. L'erreur sous le champ n'apparaît qu'après une tentative d'envoi.
+  const [whatsapp, setWhatsapp] = useState("");
+  const [showWhatsappError, setShowWhatsappError] = useState(false);
 
   // Rattachement partenaire — préréempli depuis ?partner_id= (docs/specs/05-invitations-onboarding-
   // dashboard-partenaire.md §5.6), ex. depuis le badge « Falta establecimiento » de
@@ -83,7 +93,8 @@ export function NewEstablishmentForm({
     if (index === 0) {
       return partnerId ? null : "El partner es obligatorio.";
     }
-    return nombre.trim() ? null : "El nombre es obligatorio.";
+    if (!nombre.trim()) return "El nombre es obligatorio.";
+    return colombianWhatsAppError(whatsapp);
   }
 
   function goNext() {
@@ -156,6 +167,7 @@ export function NewEstablishmentForm({
     for (let index = 0; index < STEP_TITLES.length; index += 1) {
       const error = validateStep(index);
       if (error) {
+        setShowWhatsappError(true);
         toast.danger(error);
         setStepIndex(index);
         return;
@@ -174,10 +186,13 @@ export function NewEstablishmentForm({
     const { data: establishmentId, error: rpcError } = await supabase.rpc("create_establishment", {
       p_partner_id: partnerId!,
       ...buildEstablishmentRpcParams(nombre, fields),
+      // validateStep garantit déjà un numéro valide ; la RPC le revérifie (colombian_whatsapp_or_null).
+      p_contact_phone: toColombianWhatsApp(whatsapp) ?? undefined,
     });
 
     if (rpcError || !establishmentId) {
-      toast.danger("No se pudo crear el establecimiento.");
+      // create_establishment lève avec le motif pour MESSAGE (contact_phone_required/_invalid).
+      toast.danger(colombianWhatsAppReasonMessage(rpcError?.message) ?? "No se pudo crear el establecimiento.");
       setIsSubmitting(false);
       return;
     }
@@ -326,6 +341,12 @@ export function NewEstablishmentForm({
             <TextArea data-testid="description-textarea" />
           </TextField>
 
+          <ColombianWhatsAppField
+            value={whatsapp}
+            onChange={setWhatsapp}
+            showError={showWhatsappError}
+          />
+
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="address-search">Buscar dirección (Google)</Label>
             {/* Web Component Google — pas de <Input> HeroUI ici, il gère son propre champ interne */}
@@ -444,12 +465,17 @@ export function NewEstablishmentForm({
         <Button type="button" variant="outline" onPress={goPrev} isDisabled={stepIndex === 0}>
           Anterior
         </Button>
+        {/* `key` distincts : sans eux, React réutilise le MÊME <button> et le fait passer de
+            type="button" à type="submit" pendant le clic sur « Siguiente » — le navigateur envoie
+            alors le formulaire, qui valide l'étape 2 avant toute saisie (toast « El nombre es
+            obligatorio » et erreur WhatsApp à l'arrivée, constatés au rendu réel le 2026-10-19). */}
         {stepIndex < STEP_TITLES.length - 1 ? (
-          <Button type="button" onPress={goNext} data-testid="wizard-next-button">
+          <Button key="next" type="button" onPress={goNext} data-testid="wizard-next-button">
             Siguiente
           </Button>
         ) : (
           <Button
+            key="submit"
             type="submit"
             isDisabled={isSubmitting || isUploadingPhotos}
             data-testid="create-establishment-button"

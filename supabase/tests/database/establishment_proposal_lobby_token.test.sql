@@ -30,7 +30,7 @@ select test_login('88972000-0000-4000-8000-000000000021');
 -- Cas 1 : token présent et non vide → whitelisté tel quel -----------------------------------------
 create temp table tmp_create_with_token as
   select submit_establishment_creation_proposal(jsonb_build_object(
-    'name', jsonb_build_object('es', 'Hostal Con Lobby'),
+    'name', jsonb_build_object('es', 'Hostal Con Lobby'), 'contact_phone', '+573001234567',
     'lobby_api_token', '  real-token-abc  '
   )) as result;
 
@@ -44,7 +44,7 @@ select is(
 -- Cas 2 : token absent ou vide → jamais dans le payload stocké -------------------------------------
 create temp table tmp_create_empty_token as
   select submit_establishment_creation_proposal(jsonb_build_object(
-    'name', jsonb_build_object('es', 'Hostal Sans Lobby'), 'lobby_api_token', '   '
+    'name', jsonb_build_object('es', 'Hostal Sans Lobby'), 'contact_phone', '+573001234567', 'lobby_api_token', '   '
   )) as result;
 
 select is(
@@ -111,7 +111,7 @@ set local role authenticated;
 
 create temp table tmp_create_with_token_2 as
   select submit_establishment_creation_proposal(jsonb_build_object(
-    'name', jsonb_build_object('es', 'Hostal Con Lobby Actif'),
+    'name', jsonb_build_object('es', 'Hostal Con Lobby Actif'), 'contact_phone', '+573001234567',
     'lobby_api_token', 'real-token-xyz'
   )) as result;
 
@@ -143,7 +143,7 @@ set local role authenticated;
 
 create temp table tmp_create_no_token as
   select submit_establishment_creation_proposal(jsonb_build_object(
-    'name', jsonb_build_object('es', 'Hostal Sans Lobby Du Tout')
+    'name', jsonb_build_object('es', 'Hostal Sans Lobby Du Tout'), 'contact_phone', '+573001234567'
   )) as result;
 
 reset role;
@@ -173,7 +173,7 @@ set local role authenticated;
 
 create temp table tmp_create_to_reject as
   select submit_establishment_creation_proposal(jsonb_build_object(
-    'name', jsonb_build_object('es', 'Hostal A Rejeter'),
+    'name', jsonb_build_object('es', 'Hostal A Rejeter'), 'contact_phone', '+573001234567',
     'lobby_api_token', 'real-token-reject'
   )) as result;
 
@@ -200,7 +200,7 @@ set local role authenticated;
 
 create temp table tmp_create_to_withdraw as
   select submit_establishment_creation_proposal(jsonb_build_object(
-    'name', jsonb_build_object('es', 'Hostal A Retirer'),
+    'name', jsonb_build_object('es', 'Hostal A Retirer'), 'contact_phone', '+573001234567',
     'lobby_api_token', 'real-token-withdraw'
   )) as result;
 

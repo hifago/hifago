@@ -8,6 +8,13 @@ import { Button, Checkbox, Input, Label, TextArea, TextField, toast } from "@hif
 import { LocalizedTextField, buildLocalizedPayload, type LocalizedValue } from "@/components/localized-text-field";
 import { TagsMultiSelect, type TagOption } from "@/components/tags-multiselect";
 import { proposedTagIds, tagLabels } from "@/lib/tags/proposedTags";
+import { ColombianWhatsAppField } from "@/components/colombian-whatsapp-field";
+import {
+  colombianWhatsAppError,
+  colombianWhatsAppReasonMessage,
+  localPartOfColombianWhatsApp,
+  toColombianWhatsApp,
+} from "@/lib/establishments/colombianWhatsApp";
 
 // storage_path résolu en URL publique côté client (bucket "catalog-media" public en lecture,
 // aucun aller-retour réseau) — même idiome que ModerateProductCreationProposalForm.tsx.
@@ -36,6 +43,9 @@ type EstablishmentFieldsPayload = {
   lobby_api_token_provided?: boolean;
   // Étiquettes (migration 20261013144848) — présentes seulement si le socio a changé la sélection.
   tag_ids?: unknown;
+  // WhatsApp du prestataire (migration 20261019170000) — création seulement. Absent d'une
+  // proposition déposée avant cette date : l'admin le saisit alors ici avant d'approuver.
+  contact_phone?: string | null;
 };
 
 // Aperçu "valeur actuelle" vide pour kind='create' (l'établissement n'existe pas encore, donc
@@ -76,6 +86,8 @@ export function ModerateEstablishmentProposalForm({
   const proposedTags = kind === "edit" ? proposedTagIds(proposedPayload) : null;
   const [selectedTagIds, setSelectedTagIds] = useState(proposedTags ?? []);
   const [activatePmsConnector, setActivatePmsConnector] = useState(false);
+  const [whatsapp, setWhatsapp] = useState(() => localPartOfColombianWhatsApp(proposedPayload.contact_phone));
+  const [showWhatsappError, setShowWhatsappError] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionTestResult, setConnectionTestResult] = useState<string | null>(null);
 
@@ -93,6 +105,7 @@ export function ModerateEstablishmentProposalForm({
       // moderate_establishment_proposal traite "" comme "aucun token" (nullif(btrim(...), '')).
       lobby_api_token: lobbyApiToken.trim(),
       ...(proposedTags ? { tag_ids: selectedTagIds } : {}),
+      ...(kind === "create" ? { contact_phone: toColombianWhatsApp(whatsapp) } : {}),
     };
   }
 
@@ -124,6 +137,14 @@ export function ModerateEstablishmentProposalForm({
       toast.danger("El nombre (es) es obligatorio.");
       return;
     }
+    if (decision === "approve" && kind === "create") {
+      const whatsappError = colombianWhatsAppError(whatsapp);
+      if (whatsappError) {
+        setShowWhatsappError(true);
+        toast.danger(whatsappError);
+        return;
+      }
+    }
     if (decision === "reject" && !rejectionReason.trim()) {
       toast.danger("El motivo es obligatorio para rechazar.");
       return;
@@ -154,7 +175,9 @@ export function ModerateEstablishmentProposalForm({
         return;
       }
       toast.danger(
-        MODERATE_ERRORS[result?.reason ?? ""] ?? "No se pudo procesar la propuesta. Inténtalo de nuevo.",
+        MODERATE_ERRORS[result?.reason ?? ""] ??
+          colombianWhatsAppReasonMessage(result?.reason) ??
+          "No se pudo procesar la propuesta. Inténtalo de nuevo.",
       );
       return;
     }
@@ -250,6 +273,12 @@ export function ModerateEstablishmentProposalForm({
                 {proposedPayload.lon != null ? String(proposedPayload.lon) : "—"}
               </dd>
             </div>
+            {kind === "create" ? (
+              <div data-testid="proposed-whatsapp">
+                <dt className="inline font-medium text-foreground">WhatsApp: </dt>
+                <dd className="inline">{proposedPayload.contact_phone || "— no indicado —"}</dd>
+              </div>
+            ) : null}
             {kind === "edit" ? (
               <div data-testid="proposed-tags">
                 <dt className="inline font-medium text-foreground">Etiquetas: </dt>
@@ -280,6 +309,15 @@ export function ModerateEstablishmentProposalForm({
           testIdPrefix="description"
           fieldTestId="description-textarea"
         />
+
+        {kind === "create" ? (
+          <ColombianWhatsAppField
+            value={whatsapp}
+            onChange={setWhatsapp}
+            showError={showWhatsappError}
+            testId="moderate-whatsapp-input"
+          />
+        ) : null}
 
         {/* Lecture seule : ce formulaire n'édite jamais les photos (même invariant que
             ModerateProductCreationProposalForm.tsx) — toujours rattachées telles que proposées par

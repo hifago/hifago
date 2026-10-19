@@ -29,11 +29,13 @@ test("un socio propone la creación de un establecimiento, publicado solo tras a
 
   await page.locator("#proposal-nombre").fill(proposedName);
   await page.getByTestId("proposal-address-input").fill("Vereda El Roble, Guatapé");
+  // WhatsApp du socio, obligatoire depuis 20261019170000.
+  await page.getByTestId("proposal-whatsapp-input").fill("3001234567");
   await page.getByTestId("submit-establishment-proposal-button").click();
 
   // Écran de confirmation plein écran (docs/specs/40 §4) — remplace le formulaire, son bouton
   // d'action déclenche la redirection auparavant immédiate.
-  // Action secondaire : l'action principale enchaîne désormais sur « Añadir una actividad »
+  // Action secondaire : l'action principale enchaîne désormais sur « Añadir un servicio »
   // (20261019120000) ; ce parcours-ci revient à la liste.
   await page.getByTestId("establishment-proposal-confirmation-secondary-action").click();
 
@@ -161,8 +163,10 @@ test("un socio retira su propuesta de creación pendiente", async ({ page, conte
   await page.goto("/partner/establishment/new");
 
   await page.locator("#proposal-nombre").fill(proposedName);
+  // WhatsApp du socio, obligatoire depuis 20261019170000.
+  await page.getByTestId("proposal-whatsapp-input").fill("3001234567");
   await page.getByTestId("submit-establishment-proposal-button").click();
-  // Action secondaire : l'action principale enchaîne désormais sur « Añadir una actividad »
+  // Action secondaire : l'action principale enchaîne désormais sur « Añadir un servicio »
   // (20261019120000) ; ce parcours-ci revient à la liste.
   await page.getByTestId("establishment-proposal-confirmation-secondary-action").click();
 
@@ -176,8 +180,10 @@ test("un socio retira su propuesta de creación pendiente", async ({ page, conte
   // proposition peut être soumise immédiatement, sans "pending_creation_exists".
   await page.goto("/partner/establishment/new");
   await page.locator("#proposal-nombre").fill(`${proposedName} bis`);
+  // WhatsApp du socio, obligatoire depuis 20261019170000.
+  await page.getByTestId("proposal-whatsapp-input").fill("3001234567");
   await page.getByTestId("submit-establishment-proposal-button").click();
-  // Action secondaire : l'action principale enchaîne désormais sur « Añadir una actividad »
+  // Action secondaire : l'action principale enchaîne désormais sur « Añadir un servicio »
   // (20261019120000) ; ce parcours-ci revient à la liste.
   await page.getByTestId("establishment-proposal-confirmation-secondary-action").click();
   await expect(page).toHaveURL(/\/partner\/establishment$/);

@@ -51,7 +51,7 @@ grant all on ids to authenticated;
 create function propose_establishment(p_cle text, p_nombre text) returns void language sql as $$
   insert into ids values (p_cle,
     (select (submit_establishment_creation_proposal(
-       jsonb_build_object('name', jsonb_build_object('es', p_nombre))) ->> 'proposal_id')::uuid));
+       jsonb_build_object('name', jsonb_build_object('es', p_nombre), 'contact_phone', '+573001234567')) ->> 'proposal_id')::uuid));
 $$;
 create function propose_activity(p_cle text, p_establishment_proposal text, p_nombre text) returns jsonb
 language plpgsql as $$

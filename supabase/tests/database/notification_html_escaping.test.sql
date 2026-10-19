@@ -20,7 +20,7 @@
 -- Le nom de produit de create_order (« recurso bloqueado ») est couvert par create_order.test.sql,
 -- cas 24k.
 begin;
-select plan(23);
+select plan(24);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -40,9 +40,9 @@ insert into partners (id, display_name) values
   ('9a5c0000-0000-4000-8000-000000000011', '<u>Socio</u> & co');
 update partner_accounts set partner_id = '9a5c0000-0000-4000-8000-000000000011'
  where id = '9a5c0000-0000-4000-8000-000000000002';
-insert into establishments (id, partner_id, name) values
+insert into establishments (id, partner_id, name, contact_phone) values
   ('9a5c0000-0000-4000-8000-000000000012', '9a5c0000-0000-4000-8000-000000000011',
-   jsonb_build_object('es', '<q>Sitio</q> & co'));
+   jsonb_build_object('es', '<q>Sitio</q> & co'), '+573001234567');
 insert into products (id, partner_id, establishment_id, type, name, price_cop, sellable, slug) values
   ('9a5c0000-0000-4000-8000-000000000013', '9a5c0000-0000-4000-8000-000000000011',
    '9a5c0000-0000-4000-8000-000000000012', 'activity',
@@ -88,6 +88,11 @@ select ok(strpos((select body_html from notification_emails where event_type = '
                    and related_id = '9a5c0000-0000-4000-8000-000000000021'),
                  '<strong>&lt;em&gt;REF-1&lt;/em&gt;</strong>') > 0,
   'W3 : confirmation client — référence échappée');
+-- 20261019170000 : le WhatsApp du prestataire part dans la confirmation, nom d'établissement échappé.
+select ok(strpos((select body_html from notification_emails where event_type = 'client_order_confirmed'
+                   and related_id = '9a5c0000-0000-4000-8000-000000000021'),
+                 '<li>&lt;q&gt;Sitio&lt;/q&gt; &amp; co — <a href="https://wa.me/573001234567">+573001234567</a></li>') > 0,
+  'W3b : confirmation client — WhatsApp du prestataire, nom d''établissement échappé');
 select is((select subject from notification_emails where event_type = 'client_order_confirmed'
             and related_id = '9a5c0000-0000-4000-8000-000000000021'),
   'Reserva <em>REF-1</em> confirmada',
@@ -141,7 +146,7 @@ select vault.create_secret('https://admin.esc.test', 'admin_app_public_url');
 insert into establishment_proposals (id, establishment_id, partner_id, submitted_by, kind, payload) values (
   '9a5c0000-0000-4000-8000-000000000062', null, '9a5c0000-0000-4000-8000-000000000011',
   '9a5c0000-0000-4000-8000-000000000002', 'create',
-  jsonb_build_object('name', jsonb_build_object('es', '<s>Lugar</s> ''y'''))
+  jsonb_build_object('name', jsonb_build_object('es', '<s>Lugar</s> ''y'''), 'contact_phone', '+573001234567')
 );
 select ok(strpos((select body_html from notification_emails where event_type = 'admin_new_proposal'
                    and related_id = '9a5c0000-0000-4000-8000-000000000062' and recipient_email = 'esc-admin@test.local'),

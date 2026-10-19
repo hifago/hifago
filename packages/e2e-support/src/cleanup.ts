@@ -256,8 +256,10 @@ async function purgerPartenairesDeTest(
   await client.query(`delete from partner_crm_profile where partner_id = any($1::uuid[])`, [P]);
   await client.query(`delete from partner_payout_accounts where partner_id = any($1::uuid[])`, [P]);
   await client.query(`delete from partner_offboarding where partner_id = any($1::uuid[])`, [P]);
-  await client.query(`delete from establishment_proposals where partner_id = any($1::uuid[])`, [P]);
+  // product_proposals AVANT establishment_proposals : un service proposé pendant la revue de son
+  // établissement le vise (product_proposals_establishment_proposal_id_fkey, 20261019120000).
   await client.query(`delete from product_proposals where partner_id = any($1::uuid[])`, [P]);
+  await client.query(`delete from establishment_proposals where partner_id = any($1::uuid[])`, [P]);
   await client.query(
     `delete from partner_invitations
       where promo_code = any($1) or partner_id = any($2::uuid[])

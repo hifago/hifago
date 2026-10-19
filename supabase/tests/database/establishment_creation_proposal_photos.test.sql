@@ -35,7 +35,7 @@ select test_login('88970000-0000-4000-8000-000000000021');
 -- Cas 1 : plafond 6 photos, même invariant que submit_product_creation_proposal ------------------
 select is(
   (select submit_establishment_creation_proposal(jsonb_build_object(
-     'name', jsonb_build_object('es', 'Hostal Cap Fotos'),
+     'name', jsonb_build_object('es', 'Hostal Cap Fotos'), 'contact_phone', '+573001234567',
      'photos', (select jsonb_agg(jsonb_build_object('storage_path', 'p/' || gs || '.webp'))
                   from generate_series(1, 7) gs)
    ))->>'reason'),
@@ -48,7 +48,7 @@ select is(
 -- produit) ------------------------------------------------------------------------------------
 create temp table tmp_create_photos as
   select submit_establishment_creation_proposal(jsonb_build_object(
-    'name', jsonb_build_object('es', 'Hostal Con Fotos'),
+    'name', jsonb_build_object('es', 'Hostal Con Fotos'), 'contact_phone', '+573001234567',
     'operated_directly', true,
     'photos', jsonb_build_array(
       jsonb_build_object('storage_path', 'estab/1.webp', 'evil_field', 'x'),
@@ -128,7 +128,7 @@ set local role authenticated;
 
 create temp table tmp_create_photos_2 as
   select submit_establishment_creation_proposal(jsonb_build_object(
-    'name', jsonb_build_object('es', 'Hostal Corregido'),
+    'name', jsonb_build_object('es', 'Hostal Corregido'), 'contact_phone', '+573001234567',
     'photos', jsonb_build_array(jsonb_build_object('storage_path', 'estab/3.webp'))
   )) as result;
 
@@ -178,14 +178,14 @@ set local role authenticated;
 
 select is(
   (select submit_establishment_creation_proposal(jsonb_build_object(
-     'name', jsonb_build_object('es', 'Hostal Multi Un')
+     'name', jsonb_build_object('es', 'Hostal Multi Un'), 'contact_phone', '+573001234567'
    ))->>'ok'),
   'true',
   'cas 5 : 1re proposition de création → succès'
 );
 select is(
   (select submit_establishment_creation_proposal(jsonb_build_object(
-     'name', jsonb_build_object('es', 'Hostal Multi Deux')
+     'name', jsonb_build_object('es', 'Hostal Multi Deux'), 'contact_phone', '+573001234567'
    ))->>'ok'),
   'true',
   'cas 5 : 2e proposition de création alors que la 1re est toujours pending → succès (plus de pending_creation_exists)'

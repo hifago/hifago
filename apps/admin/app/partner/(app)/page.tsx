@@ -10,7 +10,6 @@ import {
   todayInBogota,
 } from "@hifago/domain";
 import { Card, Chip } from "@hifago/ui";
-import { EmptyStateCta } from "@/components/EmptyStateCta";
 import { positionOrderLines, type OrderLineForAgenda, type SlotDuration } from "@/lib/agenda/positionOrderLines";
 import { selectActiveOperatorEstablishmentIds } from "@/lib/agenda/activeOperatorEstablishments";
 import { MANUAL_ORDER_INELIGIBLE_TYPES } from "@/lib/products/manualOrderEligibility";
@@ -19,6 +18,14 @@ import { PartnerAgenda } from "./PartnerAgenda";
 import type { ProductOption } from "./AddReservationDialog";
 import { partnerHomeHeader } from "./partnerHomeHeader";
 import { PartnerHomeBanner } from "./PartnerHomeBanner";
+import { PartnerReferrerWelcome } from "./PartnerReferrerWelcome";
+import {
+  EstablishmentInReviewNote,
+  ProviderEstablishmentStep,
+  ProviderReferrerStep,
+  ProviderServiceStep,
+} from "./PartnerProviderWelcome";
+import { providerWelcomeStep } from "./providerWelcomeStep";
 
 const ROLE_LABELS: Record<string, string> = {
   referrer: "Referente",
@@ -121,6 +128,67 @@ export default async function PartnerHomePage() {
   // derrière la carte détaillée.
   const header = partnerHomeHeader(rows);
 
+  // Référent seul sans compte Mercado Pago : texte d'accueil (PartnerReferrerWelcome) au lieu du
+  // bandeau compact — décision de Jérôme, 2026-10-19 : il s'efface dès que la seule action
+  // obligatoire est faite, sans colonne « première connexion ». Lu seulement dans ce cas ; une
+  // panne LÈVE, lue comme une absence elle remontrerait l'accueil à qui a déjà saisi son compte.
+  // Prestataire : même règle, étendue à sa prise en main (providerWelcomeStep.ts, texte validé par
+  // Jérôme le 2026-10-19) — établissement, puis premier service, puis compte Mercado Pago (il est
+  // aussi référent). Un établissement EN REVUE compte : sans lui, l'accueil répétait « Aún no tienes
+  // ningún establecimiento » juste après sa création. Un prestataire suspendu (« roles-card ») n'a
+  // pas d'accueil : sa carte dit pourquoi.
+  const isProviderHome = header === "first-establishment" || header === "provider-banner";
+  const [payoutResult, pendingEstablishmentResult, productResult, productProposalResult] = await Promise.all([
+    (header === "referrer-banner" || isProviderHome) && partnerId
+      ? supabase.from("partner_payout_accounts").select("partner_id").eq("partner_id", partnerId).maybeSingle()
+      : { data: null, error: null },
+    isProviderHome && partnerId
+      ? supabase
+          .from("establishment_proposals")
+          .select("id")
+          .eq("partner_id", partnerId)
+          .eq("kind", "create")
+          .eq("status", "pending")
+          .order("created_at", { ascending: true })
+          .limit(1)
+      : { data: [] as { id: string }[], error: null },
+    isProviderHome && partnerId
+      ? supabase.from("products").select("id").eq("partner_id", partnerId).limit(1)
+      : { data: [] as { id: string }[], error: null },
+    isProviderHome && partnerId
+      ? supabase
+          .from("product_proposals")
+          .select("id")
+          .eq("partner_id", partnerId)
+          .eq("kind", "create")
+          .eq("status", "pending")
+          .limit(1)
+      : { data: [] as { id: string }[], error: null },
+  ]);
+  const { data: payoutAccount } = checkedRead(payoutResult, "partner_payout_accounts");
+  const { data: pendingEstablishments } = checkedRead(pendingEstablishmentResult, "establishment_proposals");
+  const { data: anyProduct } = checkedRead(productResult, "products");
+  const { data: anyProductProposal } = checkedRead(productProposalResult, "product_proposals");
+  const showReferrerWelcome = header === "referrer-banner" && payoutAccount === null;
+
+  const pendingEstablishmentId = pendingEstablishments?.[0]?.id ?? null;
+  // « provider-banner » implique un établissement approuvé : sans aucun, partnerHomeHeader rend
+  // « first-establishment » (testé en premier).
+  const hasEstablishment = header === "provider-banner";
+  const establishmentPending = !hasEstablishment && pendingEstablishmentId !== null;
+  const providerStep = isProviderHome
+    ? providerWelcomeStep({
+        hasEstablishment,
+        hasPendingEstablishment: pendingEstablishmentId !== null,
+        hasService: (anyProduct ?? []).length > 0 || (anyProductProposal ?? []).length > 0,
+        hasPayoutAccount: payoutAccount !== null,
+      })
+    : null;
+  // Établissement en revue : le service s'y rattache d'office (`?establecimiento=` présélectionne).
+  const serviceHref = establishmentPending
+    ? `/partner/products/new?establecimiento=${pendingEstablishmentId}`
+    : "/partner/products/new";
+
   let events: ReturnType<typeof positionOrderLines> = [];
   let productOptions: ProductOption[] = [];
 
@@ -209,21 +277,28 @@ export default async function PartnerHomePage() {
           le <h1> « Agenda » du bas de page : sans celui-ci l'écran n'avait aucun titre — sur mobile
           il empruntait celui de la barre de navigation, qui n'est plus un <h1> (2026-10-13). */}
       {establishmentIds.length === 0 ? <h1 className="titre-page">Inicio</h1> : null}
-      {header === "first-establishment" ? (
+      {providerStep === "establishment" ? (
         // Remplace l'ancienne double carte ("Tus roles" détaillée par rôle + bloc "agenda vide/
         // Crear producto" en dessous, redondant — "créer un produit" n'a jamais été la bonne
-        // action avant d'avoir un établissement) par un seul message actionnable. testId conservé
-        // identique à l'ancien sous-message ("partner-establishment-pending") : même contrat e2e
-        // (admin-invitations.spec.ts), la fiche établissement n'a pas encore d'id à ce stade.
-        <EmptyStateCta
-          title="Aún no tienes ningún establecimiento"
-          description="Añade tu establecimiento para empezar a publicar actividades y recibir reservas."
-          actionHref="/partner/establishment/new"
-          actionLabel="Añadir establecimiento"
-          testId="partner-establishment-pending"
-        />
+        // action avant d'avoir un établissement) par un seul message actionnable, devenu le texte
+        // d'accueil du prestataire (2026-10-19). testId conservé (« partner-establishment-
+        // pending ») : même contrat e2e (admin-invitations.spec.ts).
+        <ProviderEstablishmentStep />
+      ) : providerStep === "service" ? (
+        <ProviderServiceStep actionHref={serviceHref} establishmentPending={establishmentPending} />
+      ) : providerStep === "referrer" ? (
+        <ProviderReferrerStep establishmentPending={establishmentPending} />
+      ) : establishmentPending ? (
+        <section className="flex max-w-3xl flex-col gap-3 rounded-lg border border-border bg-surface p-5">
+          <EstablishmentInReviewNote />
+          <Link href="/partner/establishment" className="text-sm font-medium underline">
+            Ver mi establecimiento y servicios
+          </Link>
+        </section>
       ) : header === "provider-banner" ? (
         <PartnerHomeBanner kind="provider" />
+      ) : showReferrerWelcome ? (
+        <PartnerReferrerWelcome />
       ) : header === "referrer-banner" ? (
         <PartnerHomeBanner kind="referrer" />
       ) : (

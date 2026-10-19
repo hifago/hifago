@@ -6,7 +6,7 @@ import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
 const FIXTURE_PHOTO = path.join(__dirname, "fixtures/test-photo.jpg");
 
 // Retour Jérôme (2026-08-19, refonte vue prestataire) : "Proponer un nuevo establecimiento" n'avait
-// jusqu'ici aucun champ photo, contrairement à "Proponer una nueva ficha" (produit,
+// jusqu'ici aucun champ photo, contrairement à "Proponer un nuevo servicio" (produit,
 // partner-propose-product-creation.spec.ts) — incohérence entre les deux formulaires établissement
 // (création vs édition, cette dernière ayant déjà PhotosSocioBlock). Comblé par la migration
 // 20260819200000_establishment_creation_proposal_photos.sql, même patron que côté produit.
@@ -59,10 +59,12 @@ test("un socio propone la creación de un establecimiento avec foto, rattachée 
   await page.getByTestId("image-crop-confirm").click();
   await expect(gallery.getByTestId("media-gallery-item")).toHaveCount(1, { timeout: 10000 });
 
+  // WhatsApp du socio, obligatoire depuis 20261019170000.
+  await page.getByTestId("proposal-whatsapp-input").fill("3001234567");
   await page.getByTestId("submit-establishment-proposal-button").click();
   // Écran de confirmation plein écran (docs/specs/40 §4) — remplace le formulaire, son bouton
   // d'action déclenche la redirection auparavant immédiate.
-  // Action secondaire : l'action principale enchaîne désormais sur « Añadir una actividad »
+  // Action secondaire : l'action principale enchaîne désormais sur « Añadir un servicio »
   // (20261019120000) ; ce parcours-ci revient à la liste.
   await page.getByTestId("establishment-proposal-confirmation-secondary-action").click();
   await expect(page).toHaveURL(/\/partner\/establishment$/);

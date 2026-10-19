@@ -182,7 +182,7 @@ Ajoutés par la réécriture du §2 le 2026-09-07 — **contradictions internes 
 | 1 | Périmètre et vision | ✅ validé 2026-08-11 |
 | 2 | Parcours utilisateurs | ✅ réécrit et validé 2026-09-07 |
 | 3a | Catalogue et tarification produits | ✅ corrigé 2026-08-13 |
-| 3b | Moteur de commission (17/10/7) | ✅ validé 2026-08-11 |
+| 3b | Moteur de commission (17/8/9) | ✅ validé 2026-08-11, barème révisé 2026-10-19 |
 | 3c | Code partenaire / attribution référent | ✅ corrigé 2026-08-13 |
 | 3d | Disponibilité, cupos, calendrier | ✅ corrigé 2026-08-13 |
 | 3e | Règles de panier | ✅ réécrit et validé 2026-09-07 |
@@ -607,9 +607,15 @@ est toujours prix unitaire × quantité, sans palier, hors maison entière) :
   s'applique **jamais** aux chambres, dortoirs ou logements entiers, qui conservent leurs mécanismes
   tarifaires propres.
 
-### 3b. Moteur de commission (17/10/7) — priorité n°1
+### 3b. Moteur de commission (17/8/9) — priorité n°1
 
-**Statut : ✅ validé par Jérôme le 2026-08-11.**
+**Statut : ✅ validé par Jérôme le 2026-08-11 ; barème révisé par Jérôme le 2026-10-19.**
+
+**Révision du 2026-10-19** : l'acompte global reste le même (17 %), seule la répartition change —
+le référent externe touche **8 %** (au lieu de 10 %) et la part app passe à **9 %** (au lieu de
+7 %) partout où il y a un référent, auto-référence comprise (acompte 9 % au lieu de 7 %). Le
+direct reste à 17 %. Migration `20261019180000_commission_referent_8_app_9.sql` ; les lignes
+créées avant gardent leur barème 17/10/7 figé (invariant ci-dessous).
 
 Chaque **ligne** de commande (une nuit, une prestation) porte son propre calcul de commission,
 déterminé à la création de la commande et **jamais recalculé après coup** — même si les taux
@@ -620,12 +626,12 @@ calcul est figé/snapshoté sur la ligne, pas recalculé dynamiquement à la lec
 
 | Cas | Qui a référé | Acompte (part app à l'arrivée) | Commission référent | Part app |
 |---|---|---|---|---|
-| **Référent externe** | un partenaire différent du prestataire qui encaisse | 17 % (= 10+7) | 10 % | 7 % |
-| **Auto-référence** | le prestataire s'est référé lui-même (même identité des deux côtés) | 7 % (= 0+7) | 0 % | 7 % |
+| **Référent externe** | un partenaire différent du prestataire qui encaisse | 17 % (= 8+9) | 8 % | 9 % |
+| **Auto-référence** | le prestataire s'est référé lui-même (même identité des deux côtés) | 9 % (= 0+9) | 0 % | 9 % |
 | **Direct** | aucun référent attribué | 17 % (= 0+17) | 0 % | 17 % |
 
-**Composition** : l'acompte est toujours la somme de deux briques — la part référent (**10 %**,
-seulement s'il y a un référent externe) et la part app (**7 %** dès qu'il y a un référent
+**Composition** : l'acompte est toujours la somme de deux briques — la part référent (**8 %**,
+seulement s'il y a un référent externe) et la part app (**9 %** dès qu'il y a un référent
 quelconque, référent externe ou auto-référence ; **17 %** s'il n'y a aucun référent, l'app
 absorbant alors la part qui serait allée au référent). Il n'y a **aucun plancher** d'acompte —
 ces pourcentages s'appliquent tels quels, sans minimum.
@@ -1205,10 +1211,10 @@ Filtré depuis `docs/2-reference/08-known-gaps.md` sur ce qui touche réellement
   sur la ligne (rien n'a été vendu).
   Sur une ligne **réalisée**, ou **annulée/no-show côté client** (l'acompte reste encaissé dans
   les deux cas), la répartition de l'acompte (§3b) change selon le cas :
-  - la **part app** (7 %, ou 17 % en direct) reste **toujours identique**, réalisée
+  - la **part app** (9 %, ou 17 % en direct) reste **toujours identique**, réalisée
     ou pas ;
-  - la **part référent** (10 %, cas référent externe uniquement) n'est due **que si la ligne est
-    réalisée**. Sur une ligne annulée/no-show côté client, ces 10 % ne sont **pas** versés au
+  - la **part référent** (8 %, cas référent externe uniquement) n'est due **que si la ligne est
+    réalisée**. Sur une ligne annulée/no-show côté client, ces 8 % ne sont **pas** versés au
     référent — ils sont **redirigés vers le prestataire**, en compensation du créneau bloqué pour
     rien. Le référent n'a rien apporté de concret (le client n'est jamais venu) ; le prestataire,
     lui, a bloqué sa disponibilité pour cette réservation.

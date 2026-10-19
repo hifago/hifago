@@ -413,8 +413,6 @@ export type FichaEstablecimiento = {
   horaEntrada: string | null;
   horaSalida: string | null;
   modo: "rooms" | "whole_house" | null;
-  /** `establishments.contact_phone`, E.164. `null` → aucun bouton de contact. */
-  contacto: string | null;
   fotos: FotoTarjeta[];
   alojamientos: TarjetaOferta[];
   otrosProductos: TarjetaOferta[];

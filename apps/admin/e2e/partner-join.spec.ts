@@ -74,9 +74,10 @@ test("un admin crée une invitation, un nouveau visiteur la consomme et atterrit
   await visitorPage.getByTestId("join-submit-button").click();
 
   await visitorPage.waitForURL("**/partner");
-  // Référent seul, actif dès l'adhésion : son propre bandeau (décision de Gabriel, 2026-10-07),
-  // jamais « Prestador activo / Mi establecimiento ».
-  await expect(visitorPage.getByTestId("partner-status-referrer")).toHaveText("Referente activo");
+  // Référent seul, actif dès l'adhésion, sans compte Mercado Pago : texte d'accueil (Jérôme,
+  // 2026-10-19), jamais « Prestador activo / Mi establecimiento ».
+  await expect(visitorPage.getByTestId("partner-referrer-welcome")).toBeVisible();
+  await expect(visitorPage.getByTestId("partner-status-referrer")).toHaveCount(0);
   await expect(visitorPage.getByTestId("partner-status-compact")).toHaveCount(0);
 
   // Bug remonté par Jérôme (2026-08-25) : le nom saisi dans ce formulaire n'apparaissait jamais
@@ -86,6 +87,15 @@ test("un admin crée une invitation, un nouveau visiteur la consomme et atterrit
   // migration 20260825150000.
   await visitorPage.goto("/partner/account");
   await expect(visitorPage.getByTestId("profile-full-name-input")).toHaveValue("Nouvelle Organisation E2E");
+
+  // Compte Mercado Pago saisi → l'accueil s'efface, son bandeau compact (décision de Gabriel,
+  // 2026-10-07) revient.
+  await visitorPage.getByTestId("payout-mercadopago-account-input").fill("referente-e2e@test.local");
+  await visitorPage.getByTestId("save-payout-account-button").click();
+  await expect(visitorPage.getByTestId("payout-account-registered")).toBeVisible();
+  await visitorPage.goto("/partner");
+  await expect(visitorPage.getByTestId("partner-status-referrer")).toHaveText("Referente activo");
+  await expect(visitorPage.getByTestId("partner-referrer-welcome")).toHaveCount(0);
 
   await visitorContext.close();
 });
@@ -144,7 +154,7 @@ test("un visiteur déjà authentifié consomme l'invitation sans recréer de com
   await visitorPage.getByTestId("join-submit-button").click();
 
   await visitorPage.waitForURL("**/partner");
-  await expect(visitorPage.getByTestId("partner-status-referrer")).toHaveText("Referente activo");
+  await expect(visitorPage.getByTestId("partner-referrer-welcome")).toBeVisible();
 
   await visitorContext.close();
 });

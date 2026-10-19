@@ -45,7 +45,10 @@ export type OrderLineForDisplay = {
   /**
    * Spec 34 décision ⑥ — l'URL `wa.me` de l'établissement, SANS le message : celui-ci est
    * localisé, donc ajouté par le composant, qui seul dispose du traducteur. `null` quand
-   * `contact_phone` est vide — et alors aucun bouton n'est rendu, jamais un bouton mort.
+   * `contact_phone` est vide — et alors aucun bouton n'est rendu, jamais un bouton mort — ET tant
+   * que la commande n'est pas finalisée (payée, ou sans rien à payer en ligne) : c'est
+   * `order_for_client_jsonb` qui le décide (migration 20261019170000, décision Jérôme : le numéro du
+   * prestataire n'apparaît jamais avant). L'écran n'a donc aucune condition à ajouter.
    *
    * ⚠️ Construite ICI et pas dans `OrderResult.tsx`, qui est `"use client"` : y importer
    * `urlDeContacto` embarquerait tout `lib/catalog/` — et `createPublicClient` — dans le bundle

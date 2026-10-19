@@ -72,7 +72,6 @@ const ESTABLECIMIENTO = {
   check_in_time: null,
   check_out_time: null,
   mode: "hostel",
-  contact_phone: null,
 };
 
 describe("getEstablecimientoPorSlug — panne ≠ absence", () => {

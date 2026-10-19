@@ -21,11 +21,13 @@ test("un socio propone su establecimiento y una actividad en la misma sesión; e
   const establishmentName = `Finca En Revisión ${stamp}`;
   const activityName = `Cabalgata Encadenada ${stamp}`;
 
-  // --- Socio : l'établissement, puis « Añadir una actividad » depuis la confirmation ---
+  // --- Socio : l'établissement, puis « Añadir un servicio » depuis la confirmation ---
   await loginAs(context, SEEDED_ACCOUNTS.operadorPropuestas, SEEDED_PASSWORD);
   await page.goto("/partner/establishment/new");
   await page.waitForLoadState("networkidle");
   await page.locator("#proposal-nombre").fill(establishmentName);
+  // WhatsApp du socio, obligatoire depuis 20261019170000.
+  await page.getByTestId("proposal-whatsapp-input").fill("3001234567");
   await page.getByTestId("submit-establishment-proposal-button").click();
   await confirmAndContinue(page, "establishment-proposal-confirmation");
 
@@ -44,7 +46,7 @@ test("un socio propone su establecimiento y una actividad en la misma sesión; e
   await page.getByTestId("price-input").fill("40000");
   await page.getByTestId("submit-product-proposal-button").click();
 
-  // « Añadir otra actividad » repart d'un formulaire vierge, même établissement présélectionné.
+  // « Añadir otro servicio » repart d'un formulaire vierge, même établissement présélectionné.
   await page.getByTestId("product-form-confirmation-secondary-action").click();
   await expect(page).toHaveURL(/nueva=\d+/);
   await page.waitForLoadState("networkidle");

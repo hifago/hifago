@@ -12,7 +12,7 @@
 --      dans la RLS, elle est une porte à part, avec sa propre clé ;
 --   5. les totaux ignorent les lignes mortes, alors que ces lignes restent LISTÉES.
 begin;
-select plan(33);
+select plan(34);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -232,11 +232,22 @@ select ok(
 update establishments set contact_phone = '+573001234567'
  where id = '89330000-0000-4000-8000-000000000011';
 
+-- 20261019170000 (décision Jérôme) : le numéro existe, mais la commande n'est pas finalisée (un
+-- acompte de 17000 reste dû en ligne) — il ne sort PAS.
+select ok(
+  (public.get_order_by_token((select access_token from t_token)) #> '{order,lines,0,establishment_contact_phone}') = 'null'::jsonb,
+  'le WhatsApp du prestataire ne sort pas tant que la commande n''est pas payée (20261019170000)'
+);
+
+update orders set payment_status = 'paid' where id = '89330000-0000-4000-8000-000000000041';
+
 select is(
   (public.get_order_by_token((select access_token from t_token)) #>> '{order,lines,0,establishment_contact_phone}'),
   '+573001234567',
-  'le contact de l''établissement sort du contrat quand il existe (spec 34 décision ⑥)'
+  'payée, la commande rend le contact de l''établissement (spec 34 décision ⑥, 20261019170000)'
 );
+
+update orders set payment_status = 'unpaid' where id = '89330000-0000-4000-8000-000000000041';
 
 -- Le produit de fixture est de type 'activity' : `duration_days` y est NUL par défaut, comme pour
 -- toute ligne hors camp (contrainte products_duration_days_required_for_camp, 20260814220000).

@@ -114,12 +114,12 @@ export function EstablishmentActivities({
   if (products.length === 0 && pendingCreations.length === 0) {
     return (
       <EmptyStateCta
-        title="Aún no tienes actividades en este establecimiento"
-        description="Añade tu primera actividad para empezar a recibir reservas."
+        title="Aún no tienes servicios en este establecimiento"
+        description="Añade tu primer servicio para empezar a recibir reservas."
         // `establishmentId` est celui d'une PROPOSITION d'établissement quand la pile en revue
         // réutilise ce composant (20261019120000) : la page /new accepte les deux.
         actionHref={`/partner/products/new?establecimiento=${establishmentId}`}
-        actionLabel="Añadir actividad"
+        actionLabel="Añadir servicio"
         testId={`empty-activities-${establishmentId}`}
       />
     );

@@ -51,7 +51,6 @@ function ficha(overrides: Partial<DatosFicha> = {}): DatosFicha {
     horaEntrada: null,
     horaSalida: null,
     modo: null,
-    contacto: null,
     fotos: [],
     alojamientos: [],
     otrosProductos: [],
@@ -111,24 +110,11 @@ describe("FichaEstablecimiento — les horaires DU LIEU", () => {
   });
 });
 
-describe("FichaEstablecimiento — le contact public", () => {
-  it("construit un lien wa.me en retirant le +", () => {
-    renderFicha({ contacto: "+573001234567" });
-    const lien = screen.getByTestId("establishment-contact-link");
-    expect(lien.getAttribute("href")).toBe("https://wa.me/573001234567");
-  });
-
-  it("ouvre dans un nouvel onglet, sans laisser la cible accéder à l'ouvreur", () => {
-    renderFicha({ contacto: "+573001234567" });
-    const lien = screen.getByTestId("establishment-contact-link");
-    expect(lien.getAttribute("target")).toBe("_blank");
-    // `noopener` : sans lui, la page cible peut réécrire l'URL de la nôtre.
-    expect(lien.getAttribute("rel") ?? "").toContain("noopener");
-  });
-
-  it("n'affiche AUCUN bouton sans numéro, et rien à la place", () => {
+describe("FichaEstablecimiento — jamais le WhatsApp du prestataire (2026-10-19)", () => {
+  it("n'affiche aucun lien WhatsApp : le numéro ne sort qu'après une réservation finalisée", () => {
     renderFicha();
     expect(screen.queryByTestId("establishment-contact-link")).toBeNull();
+    expect(document.querySelector("a[href*='wa.me']")).toBeNull();
   });
 });
 
@@ -194,14 +180,6 @@ describe("FichaEstablecimiento — la charte (plan 41, P4)", () => {
     const horarios = screen.getByTestId("establishment-hours");
     expect(bandeau.contains(horarios)).toBe(true);
     expect(horarios.querySelectorAll("[data-tono='neutro']").length).toBe(2);
-  });
-
-  it("met le contact dans le bandeau, en bouton marine", () => {
-    renderFicha({ contacto: "+573001234567" });
-    const lien = screen.getByTestId("establishment-contact-link");
-    expect(screen.getByTestId("ficha-bandeau").contains(lien)).toBe(true);
-    // La couleur `marine` de l'atome (F4) : ses jetons `--bouton-marine*`.
-    expect(lien.className).toContain("--bouton-marine");
   });
 
   it("rend les offres en rails à titre à point, avec prix et capacité, sans « GO »", () => {

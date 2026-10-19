@@ -23,7 +23,7 @@
 // POURQUOI DEUX CLIENTS SUPABASE (+ UN TROISIÈME ÉPHÉMÈRE PAR PERSONNE)
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 // Toutes les écritures nécessaires (`create_partner_direct`, `set_capability_status`,
-// `create_establishment`, `update_establishment_stay_details`, `update_establishment_contact`,
+// `create_establishment` (WhatsApp compris), `update_establishment_stay_details`,
 // `set_establishment_status`, `set_establishment_is_place`, `add_catalog_media`, `create_product_from_proposal`, l'insert direct
 // dans `catalog_tags`) sont `security definer`/`security invoker` ou RLS directe, mais vérifient
 // TOUTES `is_admin(auth.uid())` — un client `service_role` pur (`auth.uid()` null) échoue sur
@@ -463,6 +463,13 @@ async function creerEtablissements(admin, svc, establishments, idPartenaireParCl
       continue;
     }
 
+    // Le WhatsApp du prestataire est exigé par create_establishment depuis 20261019170000. Jamais
+    // inventé ici : un numéro fictif finirait envoyé aux clients après leur réservation. Un item
+    // déjà en base est ignoré plus haut, avant ce contrôle — seule une NOUVELLE création l'exige.
+    if (!e.contact_phone) {
+      throw new Error(`${e._fichier} : "contact_phone" requis pour créer l'établissement (+57 et 10 chiffres, migration 20261019170000).`);
+    }
+
     const { data: idEtablissement, error: erreurCreation } = await admin.rpc("create_establishment", {
       p_partner_id: idPartenaireParCle.get(e.partner),
       p_name: e.name,
@@ -471,6 +478,7 @@ async function creerEtablissements(admin, svc, establishments, idPartenaireParCl
       p_lat: e.lat ?? null,
       p_lon: e.lon ?? null,
       p_operated_directly: e.operated_directly ?? false,
+      p_contact_phone: e.contact_phone,
     });
     if (erreurCreation) throw new Error(`${e._fichier} : create_establishment : ${erreurCreation.message}`);
 
@@ -483,15 +491,6 @@ async function creerEtablissements(admin, svc, establishments, idPartenaireParCl
       });
       if (error) throw new Error(`${e._fichier} : update_establishment_stay_details : ${error.message}`);
       if (!resultat?.ok) throw new Error(`${e._fichier} : update_establishment_stay_details a renvoyé ok=false (${resultat?.reason})`);
-    }
-
-    if (e.contact_phone) {
-      const { data: resultat, error } = await admin.rpc("update_establishment_contact", {
-        p_establishment_id: idEtablissement,
-        p_contact_phone: e.contact_phone,
-      });
-      if (error) throw new Error(`${e._fichier} : update_establishment_contact : ${error.message}`);
-      if (!resultat?.ok) throw new Error(`${e._fichier} : update_establishment_contact a renvoyé ok=false (${resultat?.reason})`);
     }
 
     // Un LIEU (le village, qui porte les événements du municipio) : pas de fiche publique

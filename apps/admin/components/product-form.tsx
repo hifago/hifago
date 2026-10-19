@@ -525,7 +525,7 @@ export function ProductForm({
         // Migration 20261019120000 : enchaîner une autre proposition sur le même établissement.
         // `nueva` change à chaque clic : la page en fait la `key` de ce formulaire, dont tout
         // l'état (champs, photos, étape, cet écran) repart de zéro.
-        secondaryActionLabel: "Añadir otra actividad",
+        secondaryActionLabel: "Añadir otro servicio",
         onSecondaryAction: () => {
           router.push(`/partner/products/new?establecimiento=${establishment.id}&nueva=${Date.now()}`);
         },

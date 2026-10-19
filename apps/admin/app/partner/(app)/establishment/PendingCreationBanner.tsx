@@ -78,7 +78,7 @@ export function PendingCreationBanner({ proposal: initialProposal }: { proposal:
             className={buttonVariants({ size: "sm" })}
             data-testid={`add-activity-to-pending-${proposal.id}`}
           >
-            Añadir actividad
+            Añadir servicio
           </Link>
           <Button
             type="button"
