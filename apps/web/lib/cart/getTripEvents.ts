@@ -39,6 +39,11 @@ export async function getTripEvents(locale: Locale): Promise<TripEventForDisplay
     supabase.rpc("trip_events_status"),
   ]);
 
+  // Visiteur sans session (lien direct, robot, connexion anonyme pas encore faite par
+  // CartContext) : anon n'a aucun grant sur trip_events (migration 20261019190000), d'où 42501
+  // avant même la RLS — il n'a rien noté, la liste est vide. Sans ce cas, /mi-viaje rendait 500
+  // (constaté en prod le 2026-10-19). authenticated a son grant : 42501 ne vient que d'anon.
+  if (error?.code === "42501") return [];
   // Comme le panier : une liste illisible n'est jamais une liste vide.
   if (error) throw error;
   if (!data) return [];
