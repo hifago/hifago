@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { getCartLines } from "@/lib/cart/getCartLines";
+import { getTripEvents } from "@/lib/cart/getTripEvents";
 import {
   findCampMissingLodging,
   nochesRequeridas,
@@ -40,10 +41,16 @@ export default async function CartPage({ params, searchParams }: PageProps<"/[lo
   const [{ locale }, paramsBrutos] = await Promise.all([params, searchParams]);
   setRequestLocale(locale);
   const t = await getTranslations("CartPage");
-  const lines = await getCartLines(locale as Locale);
+  // Spec 42 : les eventos non réservables notés, lus à côté du panier — jamais dedans.
+  const [lines, eventos] = await Promise.all([
+    getCartLines(locale as Locale),
+    getTripEvents(locale as Locale),
+  ]);
+  // La plage du voyage couvre aussi les eventos notés : ils sont dans le voyage, à leur date.
+  const fechasDelViaje = [...lines, ...eventos.map((evento) => ({ date: evento.date }))];
   const tripLabel =
-    lines.length > 0
-      ? formatTripLabel(computeTripRange(lines), locale, (key, values) =>
+    fechasDelViaje.length > 0
+      ? formatTripLabel(computeTripRange(fechasDelViaje), locale, (key, values) =>
           t(key === "trip.range" ? "tripRange" : "tripSingle", values)
         )
       : undefined;
@@ -89,9 +96,10 @@ export default async function CartPage({ params, searchParams }: PageProps<"/[lo
         testId="mi-viaje-banner"
       />
 
-      {lines.length > 0 ? (
+      {lines.length > 0 || eventos.length > 0 ? (
         <CartSummary
           lines={lines}
+          eventos={eventos}
           editable
           locale={locale as Locale}
           presentation="trip"

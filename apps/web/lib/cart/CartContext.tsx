@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createClient } from "@hifago/supabase/client";
+import { todayInBogota } from "@hifago/domain";
+import { copiarEventosDeViaje, type EventoDeViaje } from "./copiarEventosDeViaje";
 
 // Spec 32 (panier en base) — réécrit le 2026-09-10 : les lignes ne vivent plus dans `useState`
 // (perdues à tout rechargement, cf. l'ancien commentaire de tête) mais dans `cart_items`,
@@ -23,6 +25,11 @@ export type CartLine = {
 
 export type AddToCartInput = Omit<CartLine, "id">;
 
+// Spec 42 : un evento non réservable noté dans Mi viaje (`trip_events`) — jamais une ligne de
+// panier, jamais lu par create_order. Seuls les eventos À VENIR (date de Guatapé) et encore visibles
+// (produit publié) : ce que Mi viaje affiche, donc ce que la pastille de l'en-tête compte.
+export type TripEvent = { id: string } & EventoDeViaje;
+
 // Retour Jérôme (2026-09-14) : un panier ajouté en visiteur (session anonyme) disparaissait après
 // connexion — corrigé pour signInWithPassword directement dans LoginForm.tsx (lecture AVANT/
 // réécriture APRÈS par le MÊME client, aucun état ne traverse la bascule d'identité). `signInWithOAuth`
@@ -41,7 +48,11 @@ type CartContextValue = {
   // JAMAIS une ligne ajoutée sans identité derrière (create_order refuse tout appel sans
   // auth.uid(), spec 31 Tranche 1) — ou si l'insertion elle-même échoue.
   addLine: (input: AddToCartInput) => Promise<{ ok: boolean }>;
-  // Resynchronise `lines` depuis la base — après un retrait (CartSummary) ou une commande créée
+  // Spec 42 : les eventos non réservables notés dans Mi viaje, et leur ajout — même identité, même
+  // déclencheur de session anonyme que `addLine`. Un doublon (déjà noté à cette date) est un succès.
+  tripEvents: TripEvent[];
+  addTripEvent: (input: EventoDeViaje) => Promise<{ ok: boolean }>;
+  // Resynchronise `lines` et `tripEvents` depuis la base — après un retrait (CartSummary) ou une commande créée
   // (CheckoutForm, cart_items déjà vidée côté serveur par create_order à ce moment-là).
   refresh: () => Promise<void>;
 };
@@ -68,6 +79,7 @@ function toCartLine(row: {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
+  const [tripEvents, setTripEvents] = useState<TripEvent[]>([]);
   // Un seul client pour toute la durée de vie du provider (jamais un par appel) : chaque
   // createClient() ouvre son propre GoTrueClient (BroadcastChannel + listener), jamais fermé —
   // un par clic sur "Ajouter au panier" fuirait un client à chaque ajout.
@@ -91,13 +103,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return (data ?? []).map(toCartLine);
   }, [supabase]);
 
+  // Spec 42 : mêmes règles d'affichage que `getTripEvents` (Mi viaje) — à venir à Guatapé, produit
+  // encore visible (`products!inner` : la RLS de products écarte un evento dépublié) — pour que la
+  // pastille ne compte jamais une ligne que Mi viaje n'affiche pas.
+  const fetchTripEvents = useCallback(async (): Promise<TripEvent[]> => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return [];
+    const { data } = await supabase
+      .from("trip_events")
+      .select("id, product_id, date, products!inner(id)")
+      .gte("date", todayInBogota())
+      .order("date", { ascending: true });
+    return (data ?? []).map((row) => ({ id: row.id, productId: row.product_id, date: row.date }));
+  }, [supabase]);
+
   const refresh = useCallback(async () => {
-    setLines(await fetchLines());
-  }, [fetchLines]);
+    const [nuevasLineas, nuevosEventos] = await Promise.all([fetchLines(), fetchTripEvents()]);
+    setLines(nuevasLineas);
+    setTripEvents(nuevosEventos);
+  }, [fetchLines, fetchTripEvents]);
 
   useEffect(() => {
     fetchLines().then(setLines);
-  }, [fetchLines]);
+    fetchTripEvents().then(setTripEvents);
+  }, [fetchLines, fetchTripEvents]);
 
   // Consomme un panier anonyme déposé par GoogleButton.tsx juste avant une redirection OAuth —
   // voir le commentaire de PENDING_CART_MERGE_KEY ci-dessus. Tourne à CHAQUE montage (donc sur
@@ -133,13 +164,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
         /* best-effort */
       }
 
-      let payload: { fromAccountId: string; lines: CartLine[] } | null = null;
+      // `events` (spec 42) : absent d'un dépôt antérieur à la spec — d'où le repli sur [].
+      let payload: { fromAccountId: string; lines: CartLine[]; events?: EventoDeViaje[] } | null = null;
       try {
         payload = JSON.parse(brut);
       } catch {
         return;
       }
-      if (!payload?.lines?.length) return;
+      const lineasPendientes = payload?.lines ?? [];
+      const eventosPendientes = payload?.events ?? [];
+      if (!payload || (lineasPendientes.length === 0 && eventosPendientes.length === 0)) return;
 
       const {
         data: { session },
@@ -150,44 +184,55 @@ export function CartProvider({ children }: { children: ReactNode }) {
       // en place sous la même identité anonyme.
       if (!session || session.user.id === payload.fromAccountId) return;
 
-      await supabase.from("cart_items").insert(
-        payload.lines.map((line) => ({
-          account_id: session.user.id,
-          product_id: line.productId,
-          date: line.date,
-          end_date: line.endDate ?? null,
-          slot_start_time: line.slotStartTime ?? null,
-          qty: line.qty,
-        }))
-      );
+      if (lineasPendientes.length > 0) {
+        await supabase.from("cart_items").insert(
+          lineasPendientes.map((line) => ({
+            account_id: session.user.id,
+            product_id: line.productId,
+            date: line.date,
+            end_date: line.endDate ?? null,
+            slot_start_time: line.slotStartTime ?? null,
+            qty: line.qty,
+          }))
+        );
+      }
+      await copiarEventosDeViaje(supabase, session.user.id, eventosPendientes);
       setLines(await fetchLines());
+      setTripEvents(await fetchTripEvents());
     }
 
     void consommer();
-  }, [supabase, fetchLines]);
+  }, [supabase, fetchLines, fetchTripEvents]);
+
+  // L'identité derrière tout ajout (spec 31 inv. 1 et 2), partagée par `addLine` et
+  // `addTripEvent` : la session déjà posée (connectée ou anonyme), sinon une session anonyme créée
+  // ICI et nulle part ailleurs. `null` = échec fermé, rien n'est ajouté.
+  const obtenerSesion = useCallback(async () => {
+    // Invariant 2 (spec 31) : vérifier AVANT tout qu'aucune session n'existe déjà —
+    // signInAnonymously() n'est PAS idempotent (POST /signup inconditionnel + remplacement de
+    // la session locale). Appelé sans cette garde, il créerait une identité à CHAQUE ajout et
+    // déconnecterait un client réellement connecté dès son premier clic sur « Ajouter au
+    // panier ». getSession() lit la session déjà posée (connectée ou déjà anonyme) sans
+    // aller-retour réseau dans le cas courant.
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session) return session;
+    // Invariant 1 : c'est LE seul déclencheur du projet — jamais à la simple visite, jamais
+    // sur un ?ref=. Échec fermé (cahier §0/CLAUDE.md §4.4) : si la session ne peut pas être
+    // créée, rien n'entre dans Mi viaje.
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error || !data.session) return null;
+    return data.session;
+  }, [supabase]);
 
   const value = useMemo<CartContextValue>(
     () => ({
       lines,
       addLine: async (input) => {
-        // Invariant 2 (spec 31) : vérifier AVANT tout qu'aucune session n'existe déjà —
-        // signInAnonymously() n'est PAS idempotent (POST /signup inconditionnel + remplacement de
-        // la session locale). Appelé sans cette garde, il créerait une identité à CHAQUE ajout et
-        // déconnecterait un client réellement connecté dès son premier clic sur « Ajouter au
-        // panier ». getSession() lit la session déjà posée (connectée ou déjà anonyme) sans
-        // aller-retour réseau dans le cas courant.
-        let {
-          data: { session },
-        } = await supabase.auth.getSession();
+        const session = await obtenerSesion();
         if (!session) {
-          // Invariant 1 : c'est LE seul déclencheur du projet — jamais à la simple visite, jamais
-          // sur un ?ref=. Échec fermé (cahier §0/CLAUDE.md §4.4) : si la session ne peut pas être
-          // créée, la ligne n'entre PAS dans le panier.
-          const { data, error } = await supabase.auth.signInAnonymously();
-          if (error || !data.session) {
-            return { ok: false };
-          }
-          session = data.session;
+          return { ok: false };
         }
 
         // Attribution (spec 32) : best-effort, ne bloque jamais l'ajout — le cookie hifago_ref est
@@ -208,9 +253,30 @@ export function CartProvider({ children }: { children: ReactNode }) {
         await refresh();
         return { ok: true };
       },
+      tripEvents,
+      addTripEvent: async (input) => {
+        const session = await obtenerSesion();
+        if (!session) {
+          return { ok: false };
+        }
+        // Même attribution best-effort qu'un ajout au panier : c'est le même voyage.
+        void fetch("/api/cart/attribution", { method: "POST" }).catch(() => {});
+        const { error: insertError } = await supabase.from("trip_events").insert({
+          account_id: session.user.id,
+          product_id: input.productId,
+          date: input.date,
+        });
+        // 23505 : déjà noté à cette date (`trip_events_account_product_date_key`) — le client
+        // obtient ce qu'il demandait, jamais un message d'échec.
+        if (insertError && insertError.code !== "23505") {
+          return { ok: false };
+        }
+        await refresh();
+        return { ok: true };
+      },
       refresh,
     }),
-    [lines, supabase, refresh]
+    [lines, tripEvents, supabase, refresh, obtenerSesion]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

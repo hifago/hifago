@@ -144,14 +144,14 @@ export function simularRpc(nombre: string, respuesta: Respuesta) {
 const nunca = () => new Promise<never>(() => {});
 
 // Constructeur de requête minimal : chaînable, et « thenable » comme celui de supabase-js. Filtres
-// `eq` seulement ; `maybeSingle`/`single` rendent la première ligne (ou `null`), comme le vrai.
+// `eq` et `gte` (spec 42 : les eventos notés à venir, lus par l'en-tête et `/mi-viaje`) ; `maybeSingle`/`single` rendent la première ligne (ou `null`), comme le vrai.
 function consulta(tabla: string) {
   let operacion: "select" | "insert" | "delete" = "select";
   let filasAInsertar: Fila[] = [];
   let unico = false;
-  const filtros: [string, unknown][] = [];
+  const filtros: ((fila: Fila) => boolean)[] = [];
 
-  const coincide = (fila: Fila) => filtros.every(([col, valor]) => fila[col] === valor);
+  const coincide = (fila: Fila) => filtros.every((filtro) => filtro(fila));
 
   const ejecutar = (): Respuesta => {
     if (tabla === "cart_items") {
@@ -181,7 +181,11 @@ function consulta(tabla: string) {
     order: () => constructor,
     limit: () => constructor,
     eq: (col: string, valor: unknown) => {
-      filtros.push([col, valor]);
+      filtros.push((fila) => fila[col] === valor);
+      return constructor;
+    },
+    gte: (col: string, valor: string) => {
+      filtros.push((fila) => String(fila[col]) >= valor);
       return constructor;
     },
     insert: (filas: Fila | Fila[]) => {

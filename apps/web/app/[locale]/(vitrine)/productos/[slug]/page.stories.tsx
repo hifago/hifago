@@ -98,7 +98,7 @@ export const PrecioConsultarSinFoto: StoryObj = {
 
 export const EventoSinEnlace: StoryObj = {
   ...ficha(EVENTO_SIN_ENLACE.slug),
-  name: "Événement sans lien (aucun bouton, défaut connu)",
+  name: "Événement sans lien : seulement « Añadir a Mi viaje » (spec 42)",
 };
 
 // — États obtenus en cliquant —

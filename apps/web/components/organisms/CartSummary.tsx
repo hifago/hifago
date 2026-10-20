@@ -9,16 +9,18 @@ import { createClient } from "@hifago/supabase/client";
 // ce que `scripts/check-i18n-links.sh` refuse — le contrôle était rouge depuis la livraison de
 // la spec 32 le matin même. Sans effet visible ici (seul `refresh()` est appelé, et next-intl
 // le conserve tel quel), mais un contrôle rouge qu'on laisse rouge cesse d'en être un.
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { useCart } from "@/lib/cart/CartContext";
 import { Button } from "@/components/atoms/Button";
 import { Card } from "@/components/atoms/Card";
 import { LinkButton } from "@/components/atoms/LinkButton";
 import { Aviso } from "@/components/molecules/Aviso";
 import { Price } from "@/components/atoms/Price";
+import { PuceEstado } from "@/components/atoms/PuceEstado";
 import { formatLineSchedule, resolveDisplayEndDate } from "@/lib/orders/formatLineSchedule";
 import { computeCartLineTotal } from "@/lib/cart/cartLineTotal";
 import type { CartLineForDisplay } from "@/lib/cart/getCartLines";
+import type { TripEventForDisplay } from "@/lib/cart/getTripEvents";
 import { isLineScopedReason } from "@/lib/cart/lineReasons";
 import type { Locale } from "@/messages";
 
@@ -32,6 +34,12 @@ import type { Locale } from "@/messages";
 // ligne `cart_items` au retrait (RLS directe, aucune RPC nécessaire — spec 32 §0).
 export type CartSummaryProps = {
   lines: CartLineForDisplay[];
+  /**
+   * Spec 42 — les eventos non réservables notés dans Mi viaje (`presentation="trip"` seulement ;
+   * `/pago` ne les reçoit jamais : rien à payer). Mêlés aux lignes par date, sans prix ni
+   * quantité, et hors du total.
+   */
+  eventos?: TripEventForDisplay[];
   editable: boolean;
   locale: Locale;
   presentation?: "trip" | "checkout";
@@ -50,8 +58,32 @@ function TrashIcon() {
   );
 }
 
+// Mi viaje dans l'ordre des dates (Jérôme, 2026-09-16 et 2026-10-19), lignes du panier et eventos
+// notés mêlés. Les deux listes arrivent déjà triées par date : une fusion, jamais un tri — et à date
+// égale, la réservation d'abord.
+type ElementoViaje =
+  | { tipo: "linea"; line: CartLineForDisplay; indice: number }
+  | { tipo: "evento"; evento: TripEventForDisplay };
+
+function fusionarPorFecha(lines: CartLineForDisplay[], eventos: TripEventForDisplay[]): ElementoViaje[] {
+  const elementos: ElementoViaje[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < lines.length || j < eventos.length) {
+    if (j >= eventos.length || (i < lines.length && lines[i].date <= eventos[j].date)) {
+      elementos.push({ tipo: "linea", line: lines[i], indice: i });
+      i += 1;
+    } else {
+      elementos.push({ tipo: "evento", evento: eventos[j] });
+      j += 1;
+    }
+  }
+  return elementos;
+}
+
 export function CartSummary({
   lines,
+  eventos = [],
   editable,
   locale,
   presentation = editable ? "trip" : "checkout",
@@ -64,10 +96,10 @@ export function CartSummary({
   const { refresh } = useCart();
   const [removingId, setRemovingId] = useState<string | null>(null);
 
-  async function handleRemove(id: string) {
+  async function handleRemove(id: string, tabla: "cart_items" | "trip_events" = "cart_items") {
     setRemovingId(id);
     const supabase = createClient();
-    await supabase.from("cart_items").delete().eq("id", id);
+    await supabase.from(tabla).delete().eq("id", id);
     // `refresh()` resynchronise la pastille du header (CartContext, compte seul) ; `router.refresh()`
     // relit `getCartLines` côté serveur pour que CETTE liste reflète le retrait.
     await refresh();
@@ -84,7 +116,7 @@ export function CartSummary({
   // affichée » que le reste de ce composant, cf. cartLineTotal.ts.
   const totalNow = Math.round(total * 0.17);
 
-  if (lines.length === 0) {
+  if (lines.length === 0 && eventos.length === 0) {
     return (
       <p data-testid="empty-cart" className="text-sm text-muted">
         {t("emptyCart")}
@@ -109,61 +141,116 @@ export function CartSummary({
         </Aviso>
       ) : null}
       <ul className="flex flex-col divide-y divide-separator">
-        {lines.map((line, i) => (
-          <li
-            key={line.id}
-            data-testid={`cart-line-${line.id}`}
-            data-availability={line.availability.status}
-            className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <div className="flex min-w-0 flex-col gap-1">
-                <span className="text-base font-semibold sm:text-[17px]">{line.productName}</span>
-                <span className="text-sm text-muted">
-                  {line.establishmentName} · {formatLineSchedule(line, locale)}
-                  {resolveDisplayEndDate(line)
-                    ? ` · ${t("lineNights", {
-                        count: differenceInCalendarDays(
-                          isoDateToLocalMidnight(resolveDisplayEndDate(line)!),
-                          isoDateToLocalMidnight(line.date)
-                        ),
-                      })}`
-                    : ""}
-                  {` · ${t("lineQty", { count: line.qty })}`}
-                </span>
-              </div>
-              <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
-                <span className="font-semibold tabular-nums">
-                  <Price amountCop={totalesPorLinea[i]} locale={locale} />
-                </span>
-                {editable ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    color="neutral"
-                    size="sm"
-                    onPress={() => handleRemove(line.id)}
-                    isDisabled={removingId === line.id}
-                    iconBefore={<TrashIcon />}
-                    testId={`remove-line-${line.id}`}
-                  >
-                    {t("removeLine")}
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-            {line.availability.status === "unavailable" ? (
-              <Aviso
-                tono="error"
-                compacto
-                rol="alert"
-                testId={`unavailable-${line.id}`}
+        {fusionarPorFecha(lines, eventos).map((elemento) => {
+          if (elemento.tipo === "evento") {
+            const { evento } = elemento;
+            return (
+              <li
+                key={evento.id}
+                data-testid={`trip-event-${evento.id}`}
+                className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0"
               >
-                {motifIndisponible(line.availability.reason)}
-              </Aviso>
-            ) : null}
-          </li>
-        ))}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <Link
+                      href={`/productos/${evento.productSlug}`}
+                      className="text-base font-semibold underline-offset-4 hover:underline sm:text-[17px]"
+                    >
+                      {evento.productName}
+                    </Link>
+                    <span className="text-sm text-muted">
+                      {evento.establishmentName} ·{" "}
+                      {formatLineSchedule(
+                        { date: evento.date, slotStartTime: evento.startTime?.slice(0, 5) ?? null },
+                        locale
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
+                    <PuceEstado tono="neutro" testId={`trip-event-badge-${evento.id}`}>
+                      {t("eventoSinReserva")}
+                    </PuceEstado>
+                    {editable ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        color="neutral"
+                        size="sm"
+                        onPress={() => handleRemove(evento.id, "trip_events")}
+                        isDisabled={removingId === evento.id}
+                        iconBefore={<TrashIcon />}
+                        testId={`remove-trip-event-${evento.id}`}
+                      >
+                        {t("removeLine")}
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+                {evento.onOccurrence ? null : (
+                  <Aviso tono="error" compacto rol="alert" testId={`trip-event-off-date-${evento.id}`}>
+                    {t("eventoNoLongerOnDate")}
+                  </Aviso>
+                )}
+              </li>
+            );
+          }
+          const { line, indice: i } = elemento;
+          return (
+            <li
+              key={line.id}
+              data-testid={`cart-line-${line.id}`}
+              data-availability={line.availability.status}
+              className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <span className="text-base font-semibold sm:text-[17px]">{line.productName}</span>
+                  <span className="text-sm text-muted">
+                    {line.establishmentName} · {formatLineSchedule(line, locale)}
+                    {resolveDisplayEndDate(line)
+                      ? ` · ${t("lineNights", {
+                          count: differenceInCalendarDays(
+                            isoDateToLocalMidnight(resolveDisplayEndDate(line)!),
+                            isoDateToLocalMidnight(line.date)
+                          ),
+                        })}`
+                      : ""}
+                    {` · ${t("lineQty", { count: line.qty })}`}
+                  </span>
+                </div>
+                <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
+                  <span className="font-semibold tabular-nums">
+                    <Price amountCop={totalesPorLinea[i]} locale={locale} />
+                  </span>
+                  {editable ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      color="neutral"
+                      size="sm"
+                      onPress={() => handleRemove(line.id)}
+                      isDisabled={removingId === line.id}
+                      iconBefore={<TrashIcon />}
+                      testId={`remove-line-${line.id}`}
+                    >
+                      {t("removeLine")}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+              {line.availability.status === "unavailable" ? (
+                <Aviso
+                  tono="error"
+                  compacto
+                  rol="alert"
+                  testId={`unavailable-${line.id}`}
+                >
+                  {motifIndisponible(line.availability.reason)}
+                </Aviso>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </>
   );
@@ -191,6 +278,16 @@ export function CartSummary({
       <Card contentGap="md" padding="lg" testId="trip-summary">
         {liste}
         <div className="border-t border-separator pt-4">{totaux}</div>
+      </Card>
+    );
+  }
+
+  // Spec 42 : des eventos notés et aucune ligne de panier — rien à payer, ni total ni « Ir a
+  // pagar » : la liste seule.
+  if (lines.length === 0) {
+    return (
+      <Card contentGap="md" padding="lg" testId="trip-summary">
+        {liste}
       </Card>
     );
   }

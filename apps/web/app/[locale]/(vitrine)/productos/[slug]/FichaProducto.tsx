@@ -25,6 +25,7 @@ import { ProgramaCamp } from "./ProgramaCamp";
 import { LodgingReservationForm } from "./LodgingReservationForm";
 import { SlotReservationForm } from "./SlotReservationForm";
 import { EventoReservationForm } from "./EventoReservationForm";
+import { EventoSinReservaForm } from "./EventoSinReservaForm";
 import { BarraReservaMovil } from "./BarraReservaMovil";
 
 // LE CORPS DE LA FICHE PRODUIT (spec 30 §5a). Ex-`ProductDetailView`, réécrit sur le socle.
@@ -185,6 +186,15 @@ export function FichaProducto({
         capacityMode={ficha.eventoReservable.capacityMode}
         occurrences={ficha.eventoReservable.occurrences}
       />
+    ) : ficha.modoReserva === "evento" && (ficha.fechasEventoSinReserva?.length ?? 0) > 0 ? (
+      // Spec 42 : un evento non réservable se note dans Mi viaje à l'une de ses dates — le
+      // cul-de-sac de la spec 30 §10.5 ne reste que pour un evento sans date à venir ET sans lien.
+      <div className="flex flex-col gap-3">
+        <EventoSinReservaForm productId={ficha.id} fechas={ficha.fechasEventoSinReserva ?? []} />
+        {ficha.urlExterna ? (
+          <BotonContacto href={ficha.urlExterna} etiqueta={t("reserveExternal")} testId="vitrina-contact-link" />
+        ) : null}
+      </div>
     ) : ficha.modoReserva === "vitrina" || ficha.modoReserva === "evento" ? (
       // La vitrine : le calendrier laisse SA PLACE au bouton de contact, sans bandeau ni
       // texte explicatif (cahier §2e). ⚠️ Un evento SANS url n'affiche donc rien ici — un

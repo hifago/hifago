@@ -22,6 +22,8 @@ let erreurOAuth: { message: string } | null = null;
 // des tests existants), écrasé par les tests du dépôt de panier avant Google (2026-09-14).
 let lignesPanier: { id: string; productId: string; date: string; qty: number }[] = [];
 let sessionAnonyme: { user: { id: string } } | null = { user: { id: "anon-1" } };
+// Spec 42 : eventos notés courants, vides par défaut.
+let eventosViaje: { id: string; productId: string; date: string }[] = [];
 
 vi.mock("@hifago/supabase/client", () => ({
   createClient: () => ({
@@ -44,7 +46,7 @@ const { PENDING_CART_MERGE_KEY: CLE_DEPOT_PANIER } = await vi.importActual<
 >("@/lib/cart/CartContext");
 vi.mock("@/lib/cart/CartContext", async (importOriginal) => {
   const reel = await importOriginal<typeof import("@/lib/cart/CartContext")>();
-  return { ...reel, useCart: () => ({ lines: lignesPanier }) };
+  return { ...reel, useCart: () => ({ lines: lignesPanier, tripEvents: eventosViaje }) };
 });
 
 function rendre(element: React.ReactElement, locale: Locale = "es") {
@@ -75,6 +77,7 @@ beforeEach(() => {
   appels = [];
   erreurOAuth = null;
   lignesPanier = [];
+  eventosViaje = [];
   sessionAnonyme = { user: { id: "anon-1" } };
   sessionStorage.clear();
 });
@@ -142,7 +145,19 @@ describe("GoogleButton", () => {
 
       const brut = sessionStorage.getItem(CLE_DEPOT_PANIER);
       expect(brut).not.toBeNull();
-      expect(JSON.parse(brut!)).toEqual({ fromAccountId: "anon-1", lines: lignesPanier });
+      expect(JSON.parse(brut!)).toEqual({ fromAccountId: "anon-1", lines: lignesPanier, events: [] });
+    });
+
+    it("spec 42 : dépose aussi les eventos notés, même sans aucune ligne de panier", async () => {
+      eventosViaje = [{ id: "e1", productId: "evt-1", date: "2099-01-01" }];
+      await presser(rendre(<GoogleButton />));
+
+      const brut = sessionStorage.getItem(CLE_DEPOT_PANIER);
+      expect(JSON.parse(brut!)).toEqual({
+        fromAccountId: "anon-1",
+        lines: [],
+        events: [{ productId: "evt-1", date: "2099-01-01" }],
+      });
     });
 
     it("ne dépose rien quand le panier anonyme est vide", async () => {

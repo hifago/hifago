@@ -213,6 +213,18 @@ export const getProductoPorSlug = cache(
           })
         : { data: [] };
 
+    // Spec 42 : un evento NON réservable se note dans Mi viaje à une de ses dates — le même calcul
+    // de récurrence que create_order et la fiche réservable (`expand_event_occurrences`), sur la
+    // même fenêtre. Rien à lire pour tout autre produit.
+    const leerFechasEventoSinReserva = async () =>
+      esEvento && !esEventoReservable
+        ? await supabase.rpc("expand_event_occurrences", {
+            p_product_id: producto.id,
+            p_from: hoyIso,
+            p_to: lastBookableDateIso(hoyIso),
+          })
+        : { data: [] };
+
     const leerRsvpEvento = async () =>
       esEventoReservable && producto.evento_capacity_mode === "rsvp"
         ? await supabase.rpc("get_evento_rsvp_counts", {
@@ -239,6 +251,7 @@ export const getProductoPorSlug = cache(
       leerOcurrenciasEvento(),
       leerRsvpEvento(),
       leerAmenidades(),
+      leerFechasEventoSinReserva(),
     ]);
     // Une sous-lecture en échec lève comme la principale : jamais une fiche amputée (sans photos,
     // calendrier vide) présentée comme complète.
@@ -252,6 +265,7 @@ export const getProductoPorSlug = cache(
       { data: ocurrenciasEvento },
       { data: rsvpEvento },
       { data: amenidadesRaw },
+      { data: fechasEventoSinReserva },
     ] = lecturas;
 
     const amenidades = agruparAmenidadesPorCategoria((amenidadesRaw ?? []) as FilaAmenidad[], locale);
@@ -336,6 +350,7 @@ export const getProductoPorSlug = cache(
             maxQty,
           }
         : null,
+      fechasEventoSinReserva: esEvento && !esEventoReservable ? (fechasEventoSinReserva ?? []) : null,
       alojamiento: esAlojamiento
         ? {
             lodgingKind: asLodgingKind(producto.lodging_kind),

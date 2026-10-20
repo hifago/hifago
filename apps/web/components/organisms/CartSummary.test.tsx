@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { loadMessages } from "@/messages";
 import { LINE_SCOPED_REASONS } from "@/lib/cart/lineReasons";
 import type { CartLineAvailability, CartLineForDisplay } from "@/lib/cart/getCartLines";
+import type { TripEventForDisplay } from "@/lib/cart/getTripEvents";
 import { CartSummary } from "./CartSummary";
 
 // La disponibilité de chaque ligne (`cart_lines_availability`, lue par getCartLines) : le motif
@@ -29,15 +30,18 @@ const refreshPanier = vi.fn(async () => {
 });
 vi.mock("@/lib/cart/CartContext", () => ({ useCart: () => ({ refresh: refreshPanier }) }));
 
+// Spec 42 : la table visée par chaque retrait — une ligne de panier ou un evento noté.
+const tablesSupprimees: string[] = [];
 vi.mock("@hifago/supabase/client", () => ({
   createClient: () => ({
-    from: () => ({
+    from: (table: string) => ({
       delete: () => ({
         eq: async (_col: string, id: string) => {
           // La suppression rend la main APRÈS un tour de boucle : une relecture lancée sans
           // l'attendre passerait avant elle dans la séquence.
           await new Promise((fin) => setTimeout(fin, 0));
           sequence.push(`suppression:${id}`);
+          tablesSupprimees.push(table);
           return { error: null };
         },
       }),
@@ -83,6 +87,7 @@ beforeEach(() => {
   refreshRouter.mockClear();
   refreshPanier.mockClear();
   sequence.length = 0;
+  tablesSupprimees.length = 0;
 });
 
 describe("CartSummary — disponibilité de chaque ligne", () => {
@@ -142,5 +147,79 @@ describe("CartSummary — disponibilité de chaque ligne", () => {
     for (const reason of LINE_SCOPED_REASONS) {
       expect(erreurs[reason], reason).toBeTruthy();
     }
+  });
+});
+
+// Spec 42 — les eventos non réservables notés dans Mi viaje.
+const evento = (id: string, date: string, onOccurrence = true): TripEventForDisplay => ({
+  id,
+  productId: `evt-${id}`,
+  productName: `Evento ${id}`,
+  productSlug: `evento-${id}`,
+  establishmentName: "Casa",
+  date,
+  startTime: "20:00:00",
+  onOccurrence,
+});
+
+function rendreViaje(lines: CartLineForDisplay[], eventos: TripEventForDisplay[]) {
+  return render(
+    <NextIntlClientProvider locale="es" messages={loadMessages("es")}>
+      <CartSummary lines={lines} eventos={eventos} editable locale="es" />
+    </NextIntlClientProvider>
+  ).container;
+}
+
+const ordreAffiche = (racine: HTMLElement) =>
+  [...racine.querySelectorAll('li[data-testid^="cart-line-"], li[data-testid^="trip-event-"]')].map(
+    (li) => li.getAttribute("data-testid")
+  );
+
+describe("CartSummary — eventos notés sans réservation (spec 42)", () => {
+  it("mêlés aux réservations par date ; à date égale, la réservation d'abord", () => {
+    const racine = rendreViaje(
+      [{ ...ligne("a", { status: "available" }), date: "2026-11-05" }],
+      [evento("x", "2026-11-03"), evento("y", "2026-11-05"), evento("z", "2026-11-09")]
+    );
+    expect(ordreAffiche(racine)).toEqual([
+      "trip-event-x",
+      "cart-line-a",
+      "trip-event-y",
+      "trip-event-z",
+    ]);
+  });
+
+  it("hors du total : seul le prix des réservations compte", () => {
+    const racine = rendreViaje([ligne("a", { status: "available" })], [evento("x", "2026-11-03")]);
+    const total = racine.querySelector('[data-testid="cart-total"]')!.textContent!;
+    expect(total).toContain("50.000");
+    expect(racine.querySelector('[data-testid="trip-event-badge-x"]')!.textContent).toBe(
+      es.CartPage.eventoSinReserva
+    );
+  });
+
+  it("seulement des eventos : la liste, sans total ni « Ir a pagar »", () => {
+    const racine = rendreViaje([], [evento("x", "2026-11-03")]);
+    expect(racine.querySelector('[data-testid="trip-event-x"]')).not.toBeNull();
+    expect(racine.querySelector('[data-testid="cart-total"]')).toBeNull();
+    expect(racine.querySelector('[data-testid="go-to-checkout"]')).toBeNull();
+    expect(racine.querySelector('[data-testid="empty-cart"]')).toBeNull();
+  });
+
+  it("date qui n'est plus une occurrence : l'avis sur cette ligne seule", () => {
+    const racine = rendreViaje([], [evento("x", "2026-11-03", false), evento("y", "2026-11-04")]);
+    expect(racine.querySelector('[data-testid="trip-event-off-date-x"]')!.textContent).toBe(
+      es.CartPage.eventoNoLongerOnDate
+    );
+    expect(racine.querySelector('[data-testid="trip-event-off-date-y"]')).toBeNull();
+  });
+
+  it("« Quitar » retire l'evento de trip_events, jamais de cart_items", async () => {
+    const racine = rendreViaje([], [evento("x", "2026-11-03")]);
+    await act(async () => {
+      fireEvent.click(racine.querySelector('[data-testid="remove-trip-event-x"]')!);
+    });
+    await waitFor(() => expect(sequence).toEqual(["suppression:x", "pastille", "relecture"]));
+    expect(tablesSupprimees).toEqual(["trip_events"]);
   });
 });

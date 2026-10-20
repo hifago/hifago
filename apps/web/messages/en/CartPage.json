@@ -15,6 +15,8 @@
   "depositToday": "Deposit due today",
   "depositExplanation": "The balance is paid directly at each establishment.",
   "removeLine": "Remove",
+  "eventoSinReserva": "No booking",
+  "eventoNoLongerOnDate": "This event no longer takes place on this date. Remove it or pick another date on its page.",
   "goToCheckout": "Book now",
   "lodgingRequiredNotice": "Your camp requires lodging in your trip that covers its {count, plural, one {# night} other {# nights}} before you book.",
   "chooseLodging": "Choose your accommodation",

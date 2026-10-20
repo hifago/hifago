@@ -60,6 +60,7 @@ function renderView(overrides: {
     urlExterna: null,
     ocurrencia: null,
     eventoReservable: null,
+    fechasEventoSinReserva: null,
     duracionDias: null,
     descuentoGrupo: null,
     programa: null,

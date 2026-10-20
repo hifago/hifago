@@ -62,7 +62,7 @@ export type GoogleButtonProps = {
 export function GoogleButton({ next = "/", testId = "google-signin-button" }: GoogleButtonProps) {
   const t = useTranslations("Common");
   const locale = useLocale();
-  const { lines } = useCart();
+  const { lines, tripEvents } = useCart();
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [hasFailed, setHasFailed] = useState(false);
 
@@ -81,7 +81,8 @@ export function GoogleButton({ next = "/", testId = "google-signin-button" }: Go
     // (donc sur la page d'atterrissage de `/auth/callback`, quelle qu'elle soit). `fromAccountId`
     // est ce qui empêche une double fusion si la redirection échoue avant même de partir (la
     // session resterait la MÊME identité anonyme, cf. le garde côté CartContext.tsx).
-    if (lines.length > 0) {
+    // Spec 42 : les eventos notés voyagent dans le même dépôt (`events`), consommé au même endroit.
+    if (lines.length > 0 || tripEvents.length > 0) {
       const {
         data: { session: sessionAnonyme },
       } = await supabase.auth.getSession();
@@ -89,7 +90,11 @@ export function GoogleButton({ next = "/", testId = "google-signin-button" }: Go
         try {
           sessionStorage.setItem(
             PENDING_CART_MERGE_KEY,
-            JSON.stringify({ fromAccountId: sessionAnonyme.user.id, lines })
+            JSON.stringify({
+              fromAccountId: sessionAnonyme.user.id,
+              lines,
+              events: tripEvents.map(({ productId, date }) => ({ productId, date })),
+            })
           );
         } catch {
           /* navigation privée stricte — best-effort, jamais bloquant */

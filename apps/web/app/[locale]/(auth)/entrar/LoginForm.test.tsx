@@ -22,17 +22,39 @@ let cartItemsSelectResult: { data: typeof ANON_LINES | null; error: unknown } = 
 let signInResult: { error: unknown } = { error: null };
 let sessionAfterSignIn: { user: { id: string } } | null = { user: { id: "compte-reel-1" } };
 let insertCalls: unknown[][] = [];
+// Spec 42 : les eventos notés suivent le panier. `gte` reçoit la borne « à venir ».
+const ANON_EVENTS = [
+  { product_id: "evt-1", date: "2099-01-01" },
+  { product_id: "evt-2", date: "2099-02-01" },
+];
+let tripEventsSelectResult: { data: typeof ANON_EVENTS | null; error: unknown } = { data: [], error: null };
+let tripEventsGte: string | null = null;
+let eventInsertCalls: unknown[] = [];
 
 vi.mock("@hifago/supabase/client", () => ({
   createClient: () => ({
-    from: (table: string) => ({
-      select: () =>
-        Promise.resolve(table === "cart_items" ? cartItemsSelectResult : { data: [], error: null }),
-      insert: (rows: unknown[]) => {
-        insertCalls.push(rows);
-        return Promise.resolve({ data: null, error: null });
-      },
-    }),
+    from: (table: string) =>
+      table === "trip_events"
+        ? {
+            select: () => ({
+              gte: (_col: string, desde: string) => {
+                tripEventsGte = desde;
+                return Promise.resolve(tripEventsSelectResult);
+              },
+            }),
+            insert: (row: unknown) => {
+              eventInsertCalls.push(row);
+              return Promise.resolve({ data: null, error: null });
+            },
+          }
+        : {
+            select: () =>
+              Promise.resolve(table === "cart_items" ? cartItemsSelectResult : { data: [], error: null }),
+            insert: (rows: unknown[]) => {
+              insertCalls.push(rows);
+              return Promise.resolve({ data: null, error: null });
+            },
+          },
     auth: {
       signInWithPassword: () => Promise.resolve(signInResult),
       getSession: () => Promise.resolve({ data: { session: sessionAfterSignIn } }),
@@ -82,6 +104,9 @@ describe("LoginForm — transfert du panier anonyme au login", () => {
     signInResult = { error: null };
     sessionAfterSignIn = { user: { id: "compte-reel-1" } };
     insertCalls = [];
+    tripEventsSelectResult = { data: [], error: null };
+    tripEventsGte = null;
+    eventInsertCalls = [];
     pushMock.mockClear();
     refreshMock.mockClear();
   });
@@ -123,5 +148,19 @@ describe("LoginForm — transfert du panier anonyme au login", () => {
     expect(insertCalls).toHaveLength(0);
     // La connexion elle-même n'est jamais bloquée par ce filet best-effort.
     expect(pushMock).toHaveBeenCalledWith("/cuenta/reservas");
+  });
+
+  it("spec 42 : recopie les eventos notés à venir, UN insert par evento, même sans panier", async () => {
+    cartItemsSelectResult = { data: [], error: null };
+    tripEventsSelectResult = { data: ANON_EVENTS, error: null };
+    const container = rendre();
+    await soumettre(container);
+
+    expect(tripEventsGte).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(insertCalls).toHaveLength(0);
+    expect(eventInsertCalls).toEqual([
+      { account_id: "compte-reel-1", product_id: "evt-1", date: "2099-01-01" },
+      { account_id: "compte-reel-1", product_id: "evt-2", date: "2099-02-01" },
+    ]);
   });
 });

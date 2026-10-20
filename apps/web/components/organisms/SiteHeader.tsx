@@ -165,14 +165,16 @@ function IconeViaje() {
 export function SiteHeader({ isAuthenticated, transparente = false, testId }: SiteHeaderProps) {
   const t = useTranslations("Chrome");
   const router = useRouter();
-  const { lines } = useCart();
+  const { lines, tripEvents } = useCart();
   const aDefile = useADefile();
 
   // ⚠️ CE QUE LA PASTILLE COMPTE : le nombre de LIGNES du panier, pas la somme des quantités
   // (décision de Jérôme, 2026-09-02). Une réservation « Paseo en lancha, 3 personnes » est UNE
   // chose sélectionnée, pas trois. C'est écrit ici parce que c'est exactement le genre de décision
-  // qu'un futur lecteur inverserait « pour corriger un bug ».
-  const nombreArticles = lines.length;
+  // qu'un futur lecteur inverserait « pour corriger un bug ». Spec 42 : un evento noté sans
+  // réservation est lui aussi UNE chose dans Mi viaje — compté, à venir seulement, comme Mi viaje
+  // l'affiche (`CartContext.tsx`).
+  const nombreArticles = lines.length + tripEvents.length;
 
   // ⚠️ UN BOUTON À LIBELLÉ VISIBLE, plus une icône seule (demande de Jérôme, 2026-10-02 : « l'icône
   // Mi viaje et le texte Mi Viaje en Guatapé dans un bouton bien visible »). `LinkButton` et non

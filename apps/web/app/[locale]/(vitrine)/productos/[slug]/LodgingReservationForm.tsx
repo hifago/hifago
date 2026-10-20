@@ -654,6 +654,21 @@ export function LodgingReservationForm({
             components={dayButtonComponents}
           />
         </div>
+        {/* Retour Jérôme (2026-10-19) : changer l'arrivée d'une plage déjà posée (un dortoir, par
+            exemple) obligeait à deviner quel clic la ferait repartir. « Borrar » vide la sélection
+            d'un geste ; la quantité, elle, est gardée (cf. handleSelectRange). */}
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="ghost"
+            color="neutral"
+            testId="calendar-clear"
+            isDisabled={!range?.from}
+            onPress={() => setRange(undefined)}
+          >
+            {t("clearCalendar")}
+          </Button>
+        </div>
       </div>
 
       {nights.length > 0 ? (
