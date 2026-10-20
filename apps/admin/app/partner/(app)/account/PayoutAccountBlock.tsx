@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@hifago/supabase/client";
-import { Button, Card, Input, Label, TextField, toast } from "@hifago/ui";
+import { Button, buttonVariants, Card, Input, Label, TextField, toast } from "@hifago/ui";
+
+// Page publique d'inscription Mercado Pago Colombie (redirige vers /signup/splitter, vérifié le
+// 2026-10-19). Pas de lien d'affiliation : le parrainage MP (« Invita y gana ») ne produit que des
+// liens personnels rattachés au compte d'un particulier, rien pour une plateforme.
+const MERCADOPAGO_SIGNUP_URL = "https://www.mercadopago.com.co/hub/registration/landing";
 
 // Compte de paiement du referrer (spec 19 §10 point 7 — table dédiée partner_payout_accounts,
 // jamais construite jusqu'ici) : demande directe de Jérôme (2026-08-25), self-service et
@@ -72,14 +77,24 @@ export function PayoutAccountBlock({ registeredSuffix }: { registeredSuffix: str
             </Label>
             <Input data-testid="payout-mercadopago-account-input" />
           </TextField>
-          <Button
-            type="submit"
-            isDisabled={isSubmitting || !isDirty}
-            data-testid="save-payout-account-button"
-            className="self-start"
-          >
-            {isSubmitting ? "Guardando…" : "Guardar"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="submit"
+              isDisabled={isSubmitting || !isDirty}
+              data-testid="save-payout-account-button"
+            >
+              {isSubmitting ? "Guardando…" : "Guardar"}
+            </Button>
+            <a
+              href={MERCADOPAGO_SIGNUP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonVariants({ variant: "outline" })}
+              data-testid="create-mercadopago-account-link"
+            >
+              Crear mi cuenta Mercado Pago
+            </a>
+          </div>
         </form>
       </Card.Content>
     </Card>
