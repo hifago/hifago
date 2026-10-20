@@ -35,6 +35,7 @@ sb.mock(import("../lib/auth/viewer.ts"), { spy: true });
 sb.mock(import("../lib/account/getMyProfile.ts"), { spy: true });
 sb.mock(import("../lib/orders/getMyOrders.ts"), { spy: true });
 sb.mock(import("../lib/cart/getCartLines.ts"), { spy: true });
+sb.mock(import("../lib/cart/getTripEvents.ts"), { spy: true });
 sb.mock(import("../lib/orders/getPendingOrdersForViewer.ts"), { spy: true });
 sb.mock(import("../lib/orders/getOrderByToken.ts"), { spy: true });
 

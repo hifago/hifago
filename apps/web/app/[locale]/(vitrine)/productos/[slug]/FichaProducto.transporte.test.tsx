@@ -56,6 +56,7 @@ function renderTransporte(transporte: DatosTransporte | null) {
     urlExterna: transporte ? "https://wa.me/573001112233" : null,
     ocurrencia: null,
     eventoReservable: null,
+    fechasEventoSinReserva: null,
     duracionDias: null,
     descuentoGrupo: null,
     // `programa`/`primeraSalidaIso` : camp uniquement (spec 37, contrainte CHECK).

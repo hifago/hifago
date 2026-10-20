@@ -15,6 +15,8 @@
   "depositToday": "Anticipo a pagar hoy",
   "depositExplanation": "El resto se paga directamente en cada establecimiento.",
   "removeLine": "Quitar",
+  "eventoSinReserva": "Sin reserva",
+  "eventoNoLongerOnDate": "Este evento ya no tiene lugar en esta fecha. Quítalo o elige otra fecha en su ficha.",
   "goToCheckout": "Reservar",
   "lodgingRequiredNotice": "Tu retiro requiere un alojamiento en tu viaje que cubra sus {count, plural, one {# noche} other {# noches}} antes de reservar.",
   "chooseLodging": "Elige tu alojamiento",

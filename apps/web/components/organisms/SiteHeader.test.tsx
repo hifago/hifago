@@ -24,11 +24,16 @@ type Row = {
   qty: number;
 };
 let cartRows: Row[] = [];
+// Spec 42 : eventos notés sans réservation, comptés dans la pastille.
+let tripRows: { id: string; product_id: string; date: string }[] = [];
 
 vi.mock("@hifago/supabase/client", () => ({
   createClient: () => ({
     auth: { getSession: () => Promise.resolve({ data: { session: { user: { id: "test-user" } } } }) },
     from: (table: string) => {
+      if (table === "trip_events") {
+        return { select: () => ({ gte: () => ({ order: () => Promise.resolve({ data: tripRows, error: null }) }) }) };
+      }
       if (table !== "cart_items") throw new Error(`table inattendue dans ce mock : ${table}`);
       return {
         insert: (row: { product_id: string; date: string; end_date: string | null; slot_start_time: string | null; qty: number }) => {
@@ -107,11 +112,18 @@ const ligne = (id: string): AddToCartInput => ({
 // suffisant même pour les N appels concurrents de `RemplitLePanier` (aucun n'est chaîné à un
 // autre, donc N ne rallonge pas la profondeur, seulement la largeur de chaque palier).
 async function rendu(
-  props: { isAuthenticated?: boolean; lignes?: AddToCartInput[]; locale?: Locale; transparente?: boolean } = {}
+  props: {
+    isAuthenticated?: boolean;
+    lignes?: AddToCartInput[];
+    eventos?: { id: string; product_id: string; date: string }[];
+    locale?: Locale;
+    transparente?: boolean;
+  } = {}
 ) {
   // Chaque appel isole son propre panier : sans ce reset, les lignes ajoutées par un test
   // précédent (table en mémoire du mock, cf. tête de fichier) fausseraient le compte du suivant.
   cartRows = [];
+  tripRows = props.eventos ?? [];
   let container!: HTMLElement;
   await act(async () => {
     ({ container } = render(
@@ -469,6 +481,15 @@ describe("SiteHeader", () => {
       expect((container.querySelector(".badge") as HTMLElement).className).toContain(
         "[--badge-bg:var(--bouton-marine)]"
       );
+    });
+
+    it("spec 42 : un evento noté sans réservation compte comme une chose de Mi viaje", async () => {
+      const container = await rendu({
+        lignes: [ligne("a")],
+        eventos: [{ id: "e1", product_id: "evt-1", date: "2099-01-01" }],
+      });
+      const panier = container.querySelector('[data-testid="header-cart"]') as HTMLElement;
+      expect(panier.textContent).toBe("Mi viaje en Guatapé, 2 servicios");
     });
   });
 });

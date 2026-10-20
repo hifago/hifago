@@ -2526,6 +2526,45 @@ export type Database = {
           },
         ]
       }
+      trip_events: {
+        Row: {
+          account_id: string
+          created_at: string
+          date: string
+          id: string
+          product_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          date: string
+          id?: string
+          product_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          date?: string
+          id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_events_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_events_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -3760,6 +3799,13 @@ export type Database = {
           p_note?: string
         }
         Returns: Json
+      }
+      trip_events_status: {
+        Args: never
+        Returns: {
+          id: string
+          on_occurrence: boolean
+        }[]
       }
       update_establishment: {
         Args: {

@@ -344,6 +344,12 @@ export type FichaProducto = {
   ocurrencia: DatosOcurrencia | null;
   /** Non nul ⟺ `modoReserva === "evento_bookable"`. */
   eventoReservable: DatosEventoReservable | null;
+  /**
+   * Spec 42 — non nul ⟺ `modoReserva === "evento"` (evento non réservable en ligne) : ses dates
+   * d'occurrence d'aujourd'hui (Guatapé) à l'horizon de réservation, celles qu'on peut noter dans
+   * Mi viaje. Vide = aucune date à venir, aucun formulaire.
+   */
+  fechasEventoSinReserva: string[] | null;
   alojamiento: DatosAlojamiento | null;
   /** Non nul seulement pour `transport` — cf. `DatosTransporte`, informatif de bout en bout. */
   transporte: DatosTransporte | null;

@@ -252,6 +252,20 @@ export function SlotReservationForm({
           // reconstruite ici à chaque rendu — cf. sa doc.
           components={dateTaggedDayButtonComponents}
         />
+        {/* Retour Jérôme (2026-10-19) : un bouton pour repartir d'une grille vide, sous chacun des
+            quatre calendriers de réservation. Passe par l'unique point d'écriture de la date. */}
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="ghost"
+            color="neutral"
+            testId="calendar-clear"
+            isDisabled={!selectedDate}
+            onPress={() => handleSelectDate(undefined)}
+          >
+            {t("clearCalendar")}
+          </Button>
+        </div>
       </div>
 
       {selectedSlot ? (

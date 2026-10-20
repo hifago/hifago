@@ -76,6 +76,7 @@
 - [Garantir la confirmation d'un paiement quand le client ne revient pas](specs/39-garantie-confirmation-paiement.md) 30K ◐ · §0 offset 144 limit 57 · reste : Lot A + B1 + B2 livrés et vérifiés en local le 2026-09-22 (§C). Restent : validation par…
 - [Assistant par étapes — création/édition produit et établissement,…](specs/40-admin-produit-etablissement-assistant-par-etapes.md) 11K ✓ · §0 offset 41 limit 44
 - [Charte Hifago sur toute la vitrine : analyse de l'accueil, règles du…](specs/41-charte-hifago-toute-la-vitrine.md) 199K ○ · §0 offset 69 limit 112
+- [Mi viaje — ajouter un evento non réservable, sans réservation](specs/42-mi-viaje-eventos-sin-reserva.md) 10K ✓ · §0 offset 40 limit 74
 - [Specs — fonctionnalités prêtes à coder, une par une](specs/README.md) 3K
 - [Gabarit de spec de feature (à copier, ne décrit aucune feature réelle)](specs/_modele.md) 7K
 - [Avant d'écrire une spec — poser les bonnes questions](specs/avant-la-spec.md) 8K

@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { CartProvider, PENDING_CART_MERGE_KEY, useCart, type AddToCartInput } from "./CartContext";
@@ -29,10 +29,33 @@ type Row = {
 };
 let rows: Row[] = [];
 
+// Spec 42 : `trip_events` en mémoire. `gte` honore réellement la borne reçue (le filtre « à venir »
+// est donc prouvé, pas supposé), et l'unicité (compte, produit, date) rend 23505 comme la base.
+type FilaEvento = { id: string; account_id: string; product_id: string; date: string };
+let filasEventos: FilaEvento[] = [];
+
 vi.mock("@hifago/supabase/client", () => ({
   createClient: () => ({
     auth: { getSession, signInAnonymously },
     from: (table: string) => {
+      if (table === "trip_events") {
+        return {
+          insert: (row: Omit<FilaEvento, "id">) => {
+            const doublon = filasEventos.some(
+              (f) => f.account_id === row.account_id && f.product_id === row.product_id && f.date === row.date
+            );
+            if (doublon) return Promise.resolve({ error: { code: "23505" } });
+            filasEventos.push({ id: `evt-${filasEventos.length + 1}`, ...row });
+            return Promise.resolve({ error: null });
+          },
+          select: () => ({
+            gte: (_col: string, desde: string) => ({
+              order: () =>
+                Promise.resolve({ data: filasEventos.filter((f) => f.date >= desde), error: null }),
+            }),
+          }),
+        };
+      }
       if (table !== "cart_items") throw new Error(`table inattendue dans ce mock : ${table}`);
       type NouvelleLigne = {
         product_id: string;
@@ -64,11 +87,21 @@ const LIGNE: AddToCartInput = {
 };
 
 function Sonde() {
-  const { lines, addLine } = useCart();
+  const { lines, addLine, tripEvents, addTripEvent } = useCart();
+  const [resultadoEvento, setResultadoEvento] = useState("");
   return (
     <div>
       <button onClick={() => addLine(LIGNE)}>ajouter</button>
+      <button
+        onClick={async () =>
+          setResultadoEvento(String((await addTripEvent({ productId: "evt-p1", date: "2099-01-01" })).ok))
+        }
+      >
+        noter
+      </button>
       <span data-testid="count">{lines.length}</span>
+      <span data-testid="eventos">{tripEvents.length}</span>
+      <span data-testid="resultado-evento">{resultadoEvento}</span>
     </div>
   );
 }
@@ -79,6 +112,7 @@ describe("CartContext — invariants 1/2 (session anonyme au premier ajout)", ()
     signInAnonymously.mockReset();
     currentSession = null;
     rows = [];
+    filasEventos = [];
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true } as Response));
   });
 
@@ -133,6 +167,7 @@ describe("CartContext — consommation du panier déposé avant une redirection 
   beforeEach(() => {
     currentSession = null;
     rows = [];
+    filasEventos = [];
     sessionStorage.clear();
   });
 
@@ -244,5 +279,86 @@ describe("CartContext — consommation du panier déposé avant une redirection 
 
     await screen.findByText("1");
     expect(rows).toHaveLength(1);
+  });
+});
+
+// Spec 42 — les eventos non réservables notés dans Mi viaje (`trip_events`).
+describe("CartContext — eventos notés sans réservation (spec 42)", () => {
+  beforeEach(() => {
+    getSession.mockClear();
+    signInAnonymously.mockReset();
+    currentSession = null;
+    rows = [];
+    filasEventos = [];
+    sessionStorage.clear();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true } as Response));
+  });
+
+  it("aucune session → UNE session anonyme, puis l'evento est noté sous elle", async () => {
+    signInAnonymously.mockImplementation(() => {
+      currentSession = { user: { id: "anon-evt" } };
+      return Promise.resolve({ data: { session: currentSession }, error: null });
+    });
+    render(
+      <CartProvider>
+        <Sonde />
+      </CartProvider>
+    );
+    fireEvent.click(screen.getByText("noter"));
+    await screen.findByText("true");
+    expect(signInAnonymously).toHaveBeenCalledTimes(1);
+    expect(filasEventos).toEqual([
+      { id: "evt-1", account_id: "anon-evt", product_id: "evt-p1", date: "2099-01-01" },
+    ]);
+    expect(screen.getByTestId("eventos").textContent).toBe("1");
+  });
+
+  it("le même evento à la même date une seconde fois : un succès, jamais une seconde ligne", async () => {
+    currentSession = { user: { id: "u1" } };
+    filasEventos = [{ id: "evt-0", account_id: "u1", product_id: "evt-p1", date: "2099-01-01" }];
+    render(
+      <CartProvider>
+        <Sonde />
+      </CartProvider>
+    );
+    fireEvent.click(screen.getByText("noter"));
+    await screen.findByText("true");
+    expect(filasEventos).toHaveLength(1);
+  });
+
+  it("un evento déjà passé (date de Guatapé) n'est ni lu ni compté", async () => {
+    currentSession = { user: { id: "u1" } };
+    filasEventos = [
+      { id: "evt-passe", account_id: "u1", product_id: "evt-p1", date: "2000-01-01" },
+      { id: "evt-futur", account_id: "u1", product_id: "evt-p1", date: "2099-01-01" },
+    ];
+    render(
+      <CartProvider>
+        <Sonde />
+      </CartProvider>
+    );
+    await screen.findByText("1", { selector: "[data-testid=eventos]" });
+  });
+
+  it("fusion post-OAuth : les eventos déposés suivent, même sans aucune ligne de panier", async () => {
+    currentSession = { user: { id: "compte-reel" } };
+    sessionStorage.setItem(
+      PENDING_CART_MERGE_KEY,
+      JSON.stringify({
+        fromAccountId: "anon-avant-google",
+        lines: [],
+        events: [{ productId: "evt-p1", date: "2099-01-01" }],
+      })
+    );
+    render(
+      <CartProvider>
+        <Sonde />
+      </CartProvider>
+    );
+    await screen.findByText("1", { selector: "[data-testid=eventos]" });
+    expect(rows).toHaveLength(0);
+    expect(filasEventos).toEqual([
+      { id: "evt-1", account_id: "compte-reel", product_id: "evt-p1", date: "2099-01-01" },
+    ]);
   });
 });

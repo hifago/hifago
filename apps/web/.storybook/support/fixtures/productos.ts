@@ -55,6 +55,7 @@ const BASE: Omit<FichaProducto, "id" | "slug" | "tipo" | "nombre" | "modoReserva
   urlExterna: null,
   ocurrencia: null,
   eventoReservable: null,
+  fechasEventoSinReserva: null,
   alojamiento: null,
   transporte: null,
   duracionDias: null,
@@ -309,10 +310,12 @@ export const EVENTO_JAM: FichaProducto = {
   modoReserva: "evento",
   urlExterna: "https://instagram.com/casakayam",
   ocurrencia: { tipo: "recurring", fecha: dia(2), frecuenciaDias: 7, finFecha: null, finConteo: null, hora: "20:00" },
+  // Spec 42 : les dates qu'on peut noter dans Mi viaje — la même série que `ocurrencia`.
+  fechasEventoSinReserva: [dia(2), dia(9), dia(16), dia(23)],
   establecimiento: ESTABLECIMIENTO_KAYAM,
 };
 
-/** Même événement SANS lien : le bloc de réservation est vide (cul-de-sac connu). */
+/** Même événement SANS lien : seul le formulaire « Añadir a Mi viaje » (spec 42). */
 export const EVENTO_SIN_ENLACE: FichaProducto = {
   ...EVENTO_JAM,
   id: "prod-jam-sin-enlace",

@@ -4,6 +4,7 @@ import { getMyProfile, getPartnerAccountProfileFields } from "@/lib/account/getM
 import { getViewerAccount, viewerIsRealAccount } from "@/lib/auth/viewer";
 import { getMyOrders } from "@/lib/orders/getMyOrders";
 import { getCartLines, type CartLineForDisplay } from "@/lib/cart/getCartLines";
+import { getTripEvents } from "@/lib/cart/getTripEvents";
 import { getPendingOrdersForViewer } from "@/lib/orders/getPendingOrdersForViewer";
 import { getOrderByToken } from "@/lib/orders/getOrderByToken";
 import { buscarCategorias, buscarSecciones, buscarTipo } from "@/lib/catalog/buscar";
@@ -117,6 +118,8 @@ export function instalarDatosPorDefecto() {
 
   // Tunnel de réservation.
   mocked(getCartLines).mockImplementation(async () => lineasDelCarritoSimulado());
+  // Spec 42 : aucun evento noté par défaut — une story les pose par `mocked(getTripEvents)`.
+  mocked(getTripEvents).mockImplementation(async () => []);
   mocked(getPendingOrdersForViewer).mockImplementation(async () => []);
   mocked(getOrderByToken).mockImplementation(async (token: string) => PEDIDOS_POR_TOKEN[token] ?? null);
 }

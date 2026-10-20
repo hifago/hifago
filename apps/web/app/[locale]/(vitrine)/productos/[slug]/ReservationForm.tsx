@@ -309,13 +309,27 @@ export function ReservationForm({
           modifiers={{ full: fullDates, campWeek: diasSemanaSeleccionada }}
           modifiersClassNames={{
             full: "line-through opacity-60",
-            campWeek: "bg-accent/20",
+            campWeek: "bg-accent/20 jour-teinte",
           }}
           // data-date (ISO, indépendant de la locale) : cible stable pour les tests e2e, la locale
           // d'affichage du calendrier ne doit jamais faire flancher un sélecteur de test. Référence
           // module-scope (packages/ui), jamais reconstruite ici à chaque rendu — cf. sa doc.
           components={dateTaggedDayButtonComponents}
         />
+        {/* Retour Jérôme (2026-10-19) : un bouton pour repartir d'une grille vide, sous chacun des
+            quatre calendriers de réservation. Passe par l'unique point d'écriture de la date. */}
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="ghost"
+            color="neutral"
+            testId="calendar-clear"
+            isDisabled={!selectedDate}
+            onPress={() => handleSelectDate(undefined)}
+          >
+            {t("clearCalendar")}
+          </Button>
+        </div>
       </div>
 
       {afficherEditions ? (

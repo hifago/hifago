@@ -9,6 +9,8 @@ import { useTranslations } from "next-intl";
 // visiblement, et c'est bien le problème.
 import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@hifago/supabase/client";
+import { todayInBogota } from "@hifago/domain";
+import { copiarEventosDeViaje } from "@/lib/cart/copiarEventosDeViaje";
 import { Input, Label, TextField } from "@hifago/ui";
 import { Button } from "@/components/atoms/Button";
 import { Aviso } from "@/components/molecules/Aviso";
@@ -56,6 +58,14 @@ export function LoginForm({ next, callbackFailed = false }: { next: string; call
     const { data: anonLines } = await supabase
       .from("cart_items")
       .select("product_id, date, end_date, slot_start_time, qty");
+    // Spec 42 : les eventos notés suivent le même chemin — à venir seulement (Mi viaje n'affiche
+    // pas les autres), recopiés un par un (`copiarEventosDeViaje`). Deux lectures séparées plutôt
+    // qu'un `Promise.all` déstructuré : `scripts/check-supabase-errors.sh` ne verrait plus ces
+    // lectures best-effort, et l'exemption de ce fichier deviendrait un angle mort.
+    const { data: anonEvents } = await supabase
+      .from("trip_events")
+      .select("product_id, date")
+      .gte("date", todayInBogota());
 
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
@@ -68,14 +78,21 @@ export function LoginForm({ next, callbackFailed = false }: { next: string; call
       return;
     }
 
-    if (anonLines && anonLines.length > 0) {
+    if ((anonLines && anonLines.length > 0) || (anonEvents && anonEvents.length > 0)) {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (session) {
-        await supabase
-          .from("cart_items")
-          .insert(anonLines.map((line) => ({ ...line, account_id: session.user.id })));
+        if (anonLines && anonLines.length > 0) {
+          await supabase
+            .from("cart_items")
+            .insert(anonLines.map((line) => ({ ...line, account_id: session.user.id })));
+        }
+        await copiarEventosDeViaje(
+          supabase,
+          session.user.id,
+          (anonEvents ?? []).map((evento) => ({ productId: evento.product_id, date: evento.date }))
+        );
       }
     }
 
