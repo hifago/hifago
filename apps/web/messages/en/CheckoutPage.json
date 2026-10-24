@@ -51,7 +51,6 @@
     "pms_unreachable": "We could not confirm availability with the accommodation. Nothing was charged — please try again in a few minutes.",
     "pms_unconfirmed_pending": "We could not confirm your booking with the accommodation. Nothing was charged. If you see a pending booking, it will be released automatically within about 30 minutes.",
     "pms_claim_in_progress": "Your booking is already being confirmed with the accommodation. Try again in a few minutes.",
-    "pms_contended": "Another booking is being finalised for those dates. You were not charged: wait a few minutes and try again from My trip.",
     "order_placed_unreadable": "Your booking was registered, but we could not open it.",
     "unknown": "The order could not be completed. Please try again."
   }

@@ -49,9 +49,6 @@ describe("checkNightsErrorKey — un message juste pour chaque réponse de check
     ["erreur de base (db_error)", { reason: "db_error", released: false }, "pms_unconfirmed_pending"],
     ["commande introuvable", { reason: "order_not_found", released: false }, "pms_unconfirmed_pending"],
     ["claim déjà tenu (double soumission)", { reason: "pms_claim_in_progress", released: false }, "pms_claim_in_progress"],
-    // Correctif du 2026-10-23 : « complet » à cause des seules lignes en vol — rien n'est relâché, et ce
-    // n'est PAS « ya no está disponible ».
-    ["places tenues par d'autres commandes (pas relâchée)", { reason: "pms_contended", released: false }, "pms_contended"],
     ["refus Lobby, commande défaite", { reason: "pms_refused", released: true }, "pms_refused"],
     ["refus Lobby, relâchement impossible", { reason: "pms_refused", released: false }, "pms_refused_pending"],
     ["issue inconnue chez Lobby, commande défaite", { reason: "pms_unreachable", released: true }, "pms_unreachable"],
@@ -75,7 +72,6 @@ describe("checkNightsErrorKey — un message juste pour chaque réponse de check
       "pms_unreachable",
       "pms_unconfirmed_pending",
       "pms_claim_in_progress",
-      "pms_contended",
     ]) {
       expect(messages.CheckoutPage.errors[key], key).toBeTruthy();
     }

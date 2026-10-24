@@ -408,10 +408,14 @@ jamais « confirmada », jamais une promesse de remboursement.
     Lobby annulée : annuler ou rembourser les lignes à la main » (la commande reste payée et « confirmée »
     pour le client, sans chambre : l'admin doit annuler ou rembourser), jamais résolue automatiquement ;
     chaque refus typé de la RPC a son texte à l'écran.
-13. **Faux « complet »** : si `hold_pms_nights` refuse uniquement à cause des lignes « en vol »
-    (disponibilité Lobby ≥ quantité demandée), `check-nights` ne défait PAS la commande — elle annulerait
-    aussi un paiement `pending` d'un client parti payer. Il répond `pms_contended` (`released:false`) ;
-    la tenue expire seule. Un vrai « complet » (disponibilité < quantité) défait la commande, comme avant.
+13. **« Complet » dû aux lignes en vol — assumé, inchangé** : quand `hold_pms_nights` répond `full`,
+    `check-nights` défait la commande (`release_order_after_pms_refusal`, `released:true`, panier rendu),
+    que la place manque chez Lobby ou qu'elle soit tenue par un autre panier : c'est un vrai « complet »,
+    comme pour un produit non PMS. Le cas rare du double comptage de moins de 30 s (règle (b) : un
+    booking enregistré il y a moins de 30 s peut être compté deux fois, par la lecture ET comme « en vol »)
+    peut refuser à tort une commande dont le client est parti payer : il est assumé (une première version
+    de ce point, `pms_contended`, ne relâchait rien dans ce cas ; elle a été retirée le 2026-10-24, un
+    vrai « complet » devant défaire la commande).
 
 **Mise en prod — ordre** (aligné sur `scripts/deploy-preprod.mjs`) : migrations (`supabase db push`,
 deux fichiers : `20261023120000` puis `20261023150000`) → Edge Functions (`pms-book-paid-orders`,

@@ -148,28 +148,6 @@ describe("lecture à chaud puis hold", () => {
     expect(appelsNommes("release_order_after_pms_refusal")).toEqual([]);
   });
 
-  it("complet à cause des seules lignes en vol (dispo ≥ demande) → pms_contended, RIEN n'est relâché", async () => {
-    holdResult = {
-      data: { ok: false, reason: "full", line_id: "l1", night: "2028-09-02", available: 2, in_flight: 1, requested: 2 },
-      error: null,
-    };
-    const response = await appeler();
-    expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({ ok: false, reason: "pms_contended", released: false });
-    expect(appelsNommes("release_order_after_pms_refusal")).toEqual([]);
-  });
-
-  it.each([
-    ["dispo < demande, rien en vol", { available: 1, in_flight: 0, requested: 2 }],
-    ["dispo < demande, même avec des lignes en vol", { available: 1, in_flight: 1, requested: 2 }],
-    ["champs absents (échec fermé)", {}],
-  ])("vrai « complet » (%s) → pms_refused, commande défaite", async (_cas, chiffres) => {
-    holdResult = { data: { ok: false, reason: "full", line_id: "l1", night: "2028-09-02", ...chiffres }, error: null };
-    const response = await appeler();
-    expect(await response.json()).toEqual({ ok: false, reason: "pms_refused", released: true });
-    expect(appelsNommes("release_order_after_pms_refusal")).toHaveLength(1);
-  });
-
   it.each(["full", "not_quoted"])("hold refusé (%s) → pms_refused, commande défaite", async (reason) => {
     holdResult = { data: { ok: false, reason, line_id: "l1", night: "2028-09-02" }, error: null };
     const response = await appeler();

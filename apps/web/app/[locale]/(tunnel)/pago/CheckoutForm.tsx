@@ -60,15 +60,11 @@ type CheckNightsErrorKey =
   | "pms_unavailable"
   | "pms_unreachable"
   | "pms_unconfirmed_pending"
-  | "pms_claim_in_progress"
-  | "pms_contended";
+  | "pms_claim_in_progress";
 
 export function checkNightsErrorKey(result: { reason?: string; released?: boolean } | null): CheckNightsErrorKey {
   if (result === null) return "pms_unconfirmed_pending";
   if (result.reason === "pms_claim_in_progress") return "pms_claim_in_progress";
-  // Places tenues par d'autres commandes en cours : rien n'est relâché, `released` vaut false ET ce
-  // n'est pas une indisponibilité — jamais « pms_refused_pending » (« ya no está disponible »).
-  if (result.reason === "pms_contended") return "pms_contended";
   if (result.released !== true) {
     return result.reason === "pms_refused" ? "pms_refused_pending" : "pms_unconfirmed_pending";
   }
@@ -241,7 +237,7 @@ export function CheckoutForm({
         | null;
       const key = checkNightsErrorKey(pmsResult);
       fail(t(`errors.${key}`));
-      setCanResumeOrder(key === "pms_unconfirmed_pending" || key === "pms_claim_in_progress" || key === "pms_contended");
+      setCanResumeOrder(key === "pms_unconfirmed_pending" || key === "pms_claim_in_progress");
       // Commande DÉFAITE (`released`) : release_order_after_pms_refusal a remis ses lignes dans le
       // panier (migration 20261014211217) — create_order l'avait vidé en la créant. On le relit :
       // le récapitulatif le montre de nouveau, avec la disponibilité de chaque ligne, la pastille

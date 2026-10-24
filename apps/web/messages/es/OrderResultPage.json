@@ -68,7 +68,6 @@
     "pms_unavailable": "Este alojamiento no se puede reservar en línea por ahora. No se cobró nada y la reserva quedó anulada.",
     "pms_unreachable": "No pudimos confirmar tu reserva con el alojamiento. No se cobró nada y la reserva quedó anulada; puedes volver a reservar en unos minutos.",
     "pms_claim_in_progress": "Tu reserva ya se está confirmando con el alojamiento. Vuelve a intentarlo en unos minutos.",
-    "pms_contended": "Otra reserva está terminando de confirmarse sobre esas fechas. No se cobró nada: espera unos minutos y vuelve a pulsar «Pagar».",
     "pms_unknown_outcome": "No sabemos si el alojamiento alcanzó a registrar tu reserva. No se cobró nada: vuelve a intentarlo en unos minutos.",
     "pms_unconfirmed": "No pudimos confirmar tu reserva con el alojamiento. No se cobró nada: inténtalo de nuevo en unos minutos."
   },

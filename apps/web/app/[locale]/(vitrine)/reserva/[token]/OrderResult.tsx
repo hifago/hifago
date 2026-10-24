@@ -91,7 +91,6 @@ export type PmsNoticeKey =
   | "pms_refused_pending"
   | "pms_release_pending"
   | "pms_claim_in_progress"
-  | "pms_contended"
   | "pms_unknown_outcome"
   | "pms_unconfirmed"
   | "order_not_found"
@@ -136,9 +135,6 @@ export function bookingRecovery(
   // et un nouvel essai ne ferait que répéter le refus — bouton retiré.
   if (body.reason === "order_expiring") return stop("order_expiring", true);
   if (body.reason === "pms_claim_in_progress") return stop("pms_claim_in_progress");
-  // Places tenues par d'autres commandes en cours (rien n'est relâché) : le client peut réessayer
-  // « Pagar » tout à l'heure — le bouton reste, aucune promesse de libération.
-  if (body.reason === "pms_contended") return stop("pms_contended");
   if (body.released === true) {
     if (body.reason === "pms_refused" || body.reason === "pms_unavailable")
       return stop(body.reason);
