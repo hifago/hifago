@@ -1,12 +1,11 @@
 import {
-  asLodgingKind,
   createTtlCache,
-  cuposPerUnit,
   getNightAvailabilityRange,
   isPmsBacked,
   LOBBY_DEFAULT_BASE_URL,
   nightsOfMonth,
   pickCategoryNights,
+  pmsUnitsToCupos,
   isMonthWithinHorizon,
   todayInBogota,
   toMirrorRows,
@@ -41,8 +40,6 @@ interface ProductRow {
   type: string;
   lobby_category_id: number | null;
   establishment_id: string;
-  lodging_kind: string | null;
-  capacity: number | null;
 }
 
 interface EstablishmentRow {
@@ -149,7 +146,7 @@ export async function GET(request: Request) {
   // relecture autoritative doit reproduire la règle de la base, pas seulement s'y substituer.
   const { data: product, error: productError } = await service
     .from("products")
-    .select("id, type, lobby_category_id, establishment_id, lodging_kind, capacity")
+    .select("id, type, lobby_category_id, establishment_id")
     .eq("id", productId)
     .eq("sellable", true)
     .maybeSingle<ProductRow>();
@@ -315,23 +312,14 @@ export async function GET(request: Request) {
       );
     }
 
-    // CONVERSION UNITÉS LOBBY → CUPOS, et c'est le coeur de cette route. `available_rooms` compte
-    // des chambres/tentes/lits-unités ; tout le reste de hifago (product_availability.capacity,
-    // order_lines.qty, min_qty/max_qty, price_tiers) compte des cupos. La règle de conversion est
-    // celle du garde-fou capacity_exceeds_physical, partagée dans le domaine plutôt que réécrite
-    // ici — cf. cuposPerUnit.
-    //
-    // ⚠️ ELLE RESTE APPLIQUÉE PAR PRODUIT, APRÈS LA LECTURE, et R1 rend ce point critique plutôt
-    // que théorique : ce qui est en cache appartient maintenant à l'ÉTABLISSEMENT, et deux produits
-    // pointant la même catégorie Lobby peuvent avoir des `lodging_kind`/`capacity` différents.
-    // Multiplier avant le cache écrirait la conversion du premier visiteur sur tous les suivants.
-    // Nouveaux objets, jamais une mutation en place — les lignes en cache sont réutilisées telles
-    // quelles au prochain hit.
-    const perUnit = cuposPerUnit(asLodgingKind(product.lodging_kind), product.capacity);
-    const cupos: NightAvailabilityRow[] =
-      perUnit === 1
-        ? picked.nights
-        : picked.nights.map((row) => ({ ...row, capacity: row.capacity * perUnit }));
+    // UNITÉS LOBBY → CUPOS : facteur 1 (`pmsUnitsToCupos`, 2026-10-23). `available_rooms` compte déjà
+    // ce que hifago vend, lits compris pour une catégorie partagée (VIDPOVO = capacity 1 × quantity 8) :
+    // multiplier par `products.capacity` donnait 8 × 8 = 64. Appliquée APRÈS le cache, en nouveaux
+    // objets — ce qui est en cache appartient à l'établissement, jamais à un produit.
+    const cupos: NightAvailabilityRow[] = picked.nights.map((row) => ({
+      ...row,
+      capacity: pmsUnitsToCupos(row.capacity),
+    }));
 
     // `restrictedNights` ne porte QUE les nuits où Lobby pose une contrainte non nulle
     // (`hasActiveRestriction`) : sur les comptes observés à ce jour, ce tableau est vide et la
