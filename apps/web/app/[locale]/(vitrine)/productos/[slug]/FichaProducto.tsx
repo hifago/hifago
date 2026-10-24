@@ -224,6 +224,7 @@ export function FichaProducto({
         maxQty={alojamiento.maxQty}
         lodgingKind={alojamiento.lodgingKind as never}
         isPmsBacked={alojamiento.esPmsBacked}
+        lobbyPricing={alojamiento.precioLobby}
         availability={ficha.disponibilidad}
         restrictedNights={ficha.restriccionesPms}
         rates={ficha.tarifas}

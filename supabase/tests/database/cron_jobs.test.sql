@@ -19,6 +19,9 @@ select is(
     'jobs-watchdog | */15 * * * * | select public.jobs_watchdog();',
     'payments-reconcile | */2 * * * * | select invoke_payments_reconcile();',
     'payments-reconcile-watchdog | */15 * * * * | select payments_reconcile_watchdog();',
+    -- Lobby après l'acompte (20261023120000) : le filet de pms-book-paid-orders, toutes les minutes
+    -- (le trigger de pms_booking_requests l'appelle déjà tout de suite).
+    'pms-book-paid-orders | * * * * * | select invoke_pms_book_paid_orders();',
     'pms-cancel-bookings | */10 * * * * | select invoke_pms_cancel_bookings();',
     'pms-nightly-contract-check | 0 7 * * * | select invoke_pms_nightly_contract_check();',
     'pms-poll-bookings | */15 * * * * | select invoke_pms_poll_bookings();',

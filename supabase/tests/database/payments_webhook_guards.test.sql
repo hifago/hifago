@@ -4,10 +4,12 @@
 --   - un `pending` reçu sur un paiement qui ne l'est plus, alors qu'un autre intent de la commande
 --     est `pending`, ne le rétrograde pas (other_intent_pending) ; sans autre pending, il passe ;
 --   - l'index payments_one_pending_per_order refuse un second pending ;
---   - I2 : un `approved` alors qu'une nuit PMS-backed `reserved` n'a pas de booking → rien
---     n'est appliqué, refund_required pms_booking_missing, texte client dédié ; un logement local
---     ou une nuit PMS AVEC booking s'appliquent ; la décision est définitive (le même paiement
---     rejoué après la pose du booking n'est jamais appliqué) ;
+--   - I2 — ADAPTÉ (migration 20261023120000, Lobby après l'acompte) : un `approved` alors qu'une
+--     nuit PMS-backed `reserved` n'a pas de booking EST appliqué (la garde pms_booking_missing est
+--     retirée : la nuit est tenue par hold_pms_nights, son booking s'écrit après l'acompte) — une
+--     demande pms_booking_requests, aucune entrée refund_required, les e-mails de confirmation
+--     différés ; rejoué, le même paiement est already_applied ; un logement local ou une nuit PMS
+--     AVEC booking s'appliquent comme avant. Le reste : lobby_apres_acompte_paiement.test.sql ;
 --   - un `approved` sur un intent remplacé (annulé, commande vivante, intent plus récent) →
 --     refund_required superseded_intent, texte client dédié, valeurs échappées ; sans intent plus
 --     récent, ou sans ligne à honorer → paid_after_expiry comme avant ;
@@ -112,23 +114,28 @@ create temp table r_local as select test_webhook('mp-grd-4', '9a5d0000-0000-4000
 create temp table r_booke as select test_webhook('mp-grd-5', '9a5d0000-0000-4000-8000-000000000036', 'approved', 10000) as r;
 reset role;
 
-select is((select r from r_i2), jsonb_build_object('ok', true, 'reason', 'pms_booking_missing'),
-  'I1 : approved avec une nuit PMS sans booking → ok, pms_booking_missing');
+-- ADAPTÉ (migration 20261023120000) : I1 à I4 affirmaient le refus pms_booking_missing (rien
+-- appliqué, refund_required, texte client « no logramos confirmar »). La garde est retirée par
+-- décision du 2026-10-23 : le paiement s'applique et pose UNE demande de booking.
+select is((select r from r_i2), jsonb_build_object('ok', true),
+  'I1 : approved avec une nuit PMS sans booking → appliqué (Lobby est réservé après l''acompte)');
 select is(
   (select jsonb_build_object(
      'paiement', (select status from payments where id = '9a5d0000-0000-4000-8000-000000000034'),
      'mp', (select mp_payment_id from payments where id = '9a5d0000-0000-4000-8000-000000000034'),
-     'commande', (select payment_status from orders where id = '9a5d0000-0000-4000-8000-000000000023'))),
-  jsonb_build_object('paiement', 'pending', 'mp', 'mp-grd-3', 'commande', 'pending'),
-  'I2 : rien n''est appliqué (paiement et commande intacts), l''identifiant MP est gardé pour rembourser');
+     'commande', (select payment_status from orders where id = '9a5d0000-0000-4000-8000-000000000023'),
+     'demande', (select status from pms_booking_requests where order_id = '9a5d0000-0000-4000-8000-000000000023'),
+     'confirmation', (select order_for_client_jsonb(o) ->> 'pms_confirmation' from orders o where o.id = '9a5d0000-0000-4000-8000-000000000023'))),
+  jsonb_build_object('paiement', 'approved', 'mp', 'mp-grd-3', 'commande', 'paid', 'demande', 'pending', 'confirmation', 'pending'),
+  'I2 : paiement approuvé, commande payée, UNE demande de booking en attente — l''écran dit « confirmation en cours »');
+select is((select count(*)::int from payment_reconciliation_entries where mp_payment_id = 'mp-grd-3'), 0,
+  'I3 : aucune entrée refund_required (la garde pms_booking_missing n''existe plus)');
 select is(
-  (select jsonb_build_object('kind', kind, 'reason_code', reason_code) from payment_reconciliation_entries where mp_payment_id = 'mp-grd-3'),
-  jsonb_build_object('kind', 'refund_required', 'reason_code', 'pms_booking_missing'),
-  'I3 : une entrée refund_required / pms_booking_missing pour l''admin (traitement manuel)');
-select ok(strpos((select n.body_html from notification_emails n join payment_reconciliation_entries e on e.id = n.related_id
-                   where e.mp_payment_id = 'mp-grd-3' and n.event_type = 'client_payment_received_not_honored'),
-                 'no logramos confirmar la disponibilidad del alojamiento') > 0,
-  'I4 : le client reçoit le texte de pms_booking_missing (jamais « expirada »)');
+  (select count(*)::int from notification_emails
+    where related_id = '9a5d0000-0000-4000-8000-000000000023'
+      and event_type in ('client_order_confirmed', 'partner_payment_confirmed', 'partner_commission_earned')),
+  0,
+  'I4 : les e-mails de confirmation (5, 6, 7) attendent le booking Lobby (D4)');
 select is((select r from r_local), jsonb_build_object('ok', true),
   'I5 : un logement local sans booking s''applique (rien à réserver chez Lobby)');
 select is((select r from r_booke), jsonb_build_object('ok', true),
@@ -139,13 +146,16 @@ update order_lines set pms_booking_id = 'lobby-guards-tardif' where id = '9a5d00
 set local role service_role;
 create temp table r_rejeu as select test_webhook('mp-grd-3', '9a5d0000-0000-4000-8000-000000000034', 'approved', 10000) as r;
 reset role;
+-- ADAPTÉ (migration 20261023120000) : affirmait que le rejeu restait pms_booking_missing ; le
+-- paiement ayant été appliqué, un rejeu est un no-op ordinaire, et ne pose pas de seconde demande.
 select is(
   (select jsonb_build_object(
      'r', (select r from r_rejeu),
      'paiement', (select status from payments where id = '9a5d0000-0000-4000-8000-000000000034'),
-     'commande', (select payment_status from orders where id = '9a5d0000-0000-4000-8000-000000000023'))),
-  jsonb_build_object('r', jsonb_build_object('ok', true, 'reason', 'pms_booking_missing'), 'paiement', 'pending', 'commande', 'pending'),
-  'I7 : décision définitive — rejoué après la pose du booking, le paiement à rembourser n''est jamais appliqué');
+     'commande', (select payment_status from orders where id = '9a5d0000-0000-4000-8000-000000000023'),
+     'demandes', (select count(*)::int from pms_booking_requests where order_id = '9a5d0000-0000-4000-8000-000000000023'))),
+  jsonb_build_object('r', jsonb_build_object('ok', true, 'reason', 'already_applied'), 'paiement', 'approved', 'commande', 'paid', 'demandes', 1),
+  'I7 : rejoué après la pose du booking → already_applied, toujours une seule demande');
 
 -- ── Intent remplacé ──────────────────────────────────────────────────────
 set local role service_role;
@@ -186,10 +196,12 @@ select is((select r from r_sans_recent), jsonb_build_object('ok', true, 'reason'
   'S8 : annulé sans intent plus récent → paid_after_expiry, comme avant');
 
 -- ── Écran client ─────────────────────────────────────────────────────────
+-- ADAPTÉ (migration 20261023120000) : affirmait « paiement reçu, non honoré » après I2 ; la
+-- commande est désormais payée et honorée (sa nuit, réservée ensuite, porte son booking).
 select is(
   (select order_for_client_jsonb(o) ->> 'payment_received_not_honored' from orders o where o.id = '9a5d0000-0000-4000-8000-000000000023'),
-  'true',
-  'O1 : après I2, l''écran dit « paiement reçu, non honoré » (jamais « confirmando »)');
+  'false',
+  'O1 : après I2, rien n''est « reçu, non honoré » — la commande est payée');
 select is(
   (select order_for_client_jsonb(o) ->> 'payment_received_not_honored' from orders o where o.id = '9a5d0000-0000-4000-8000-000000000026'),
   'true',

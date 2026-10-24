@@ -8,7 +8,9 @@
 //   - « déjà annulé » = 422 RECORD_NOT_FOUND → done ;
 //   - 404 de ROUTAGE → JAMAIS un succès : réessai (entrée en attente, motif court, aux 1re ET 2e
 //     tentatives), puis échec au plafond (3e) ;
-//   - 422 RESTRICTED_RESERVATION → close avec son code ;
+//   - 422 RESTRICTED_RESERVATION d'un booking qu'aucune ligne hifago ne porte (les fixtures n'en
+//     posent aucune) → jamais close en silence : failed, code 422, motif « annulation à vérifier à la
+//     main dans Lobby » (migration 20261023150000 ; le cas « ligne trouvée » est en pgTAP) ;
 //   - heartbeat `ok=false` avec son motif exact, et le jeton nulle part (heartbeat, file, réponse,
 //     journaux si FUNCTION_LOG est fourni).
 //
@@ -132,7 +134,7 @@ async function main() {
     checks.push([
       run.status === 200 && summary.ok === false && summary.claimed === 6 && summary.cancelled === 1 && summary.already_gone === 1 &&
         summary.restricted === 1 && summary.retried === 2 && summary.failed === 1 && summary.skipped === 0,
-      `résumé : 6 réclamées, 1 annulée, 1 déjà annulée (422), 1 close (RESTRICTED), 2 retentées, 1 en échec, ok=false (${run.text.slice(0, 220)})`,
+      `résumé : 6 réclamées, 1 annulée, 1 déjà annulée (422), 1 RESTRICTED (à la main), 2 retentées, 1 en échec, ok=false (${run.text.slice(0, 220)})`,
     ]);
     checks.push([calls.every((c) => c.tokenInBody), "le jeton part dans le CORPS du POST (jamais dans l'URL)"]);
 
@@ -146,8 +148,10 @@ async function main() {
       [byBooking[BOOKING.alreadyDone]?.status === "done", `422 RECORD_NOT_FOUND → done (${byBooking[BOOKING.alreadyDone]?.status})`],
       [byBooking[BOOKING.routing]?.status === "pending" && /^HTTP 404/.test(byBooking[BOOKING.routing]?.last_error ?? ""),
         `404 de routage → jamais un succès : en attente, motif « ${byBooking[BOOKING.routing]?.last_error} »`],
-      [byBooking[BOOKING.restricted]?.status === "done" && byBooking[BOOKING.restricted]?.last_error === "422 RESTRICTED_RESERVATION",
-        `422 RESTRICTED_RESERVATION → close avec son code (${byBooking[BOOKING.restricted]?.last_error})`],
+      [byBooking[BOOKING.restricted]?.status === "failed" && byBooking[BOOKING.restricted]?.lobby_status_code === 422 &&
+        byBooking[BOOKING.restricted]?.last_error ===
+          `422 RESTRICTED_RESERVATION — aucune ligne hifago ne porte le booking ${BOOKING.restricted} : annulation à vérifier à la main dans Lobby`,
+        `422 RESTRICTED_RESERVATION sans ligne hifago → failed, motif explicite (${byBooking[BOOKING.restricted]?.status}, ${byBooking[BOOKING.restricted]?.last_error})`],
       [byBooking[BOOKING.lastTry]?.status === "failed" && byBooking[BOOKING.lastTry]?.lobby_status_code === 404,
         `404 à la dernière tentative → failed (${byBooking[BOOKING.lastTry]?.status}, ${byBooking[BOOKING.lastTry]?.lobby_status_code})`],
       [byBooking[BOOKING.secondTry]?.status === "pending" && byBooking[BOOKING.secondTry]?.attempts === 2,

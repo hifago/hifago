@@ -1,6 +1,6 @@
 import { createClient } from "@hifago/supabase/server";
 import { asLocalizedField, resolveLocalizedField } from "@hifago/domain";
-import type { ReconciliationEntryRow } from "@/app/admin/reconciliation/ReconciliationList";
+import type { PendingPmsLine, ReconciliationEntryRow } from "@/app/admin/reconciliation/ReconciliationList";
 import type { PaymentReconciliationEntryRow } from "@/app/admin/reconciliation/PaymentReconciliationList";
 
 // Lecture de l'écran /admin/reconciliation — extraite de sa page pour être prouvée : sur une panne,
@@ -45,6 +45,26 @@ function latestRefund(refunds: PaymentReconciliationQueryRow["refunds"]) {
     refundError: chosen?.last_error ?? null,
     refundMpId: chosen?.mp_refund_id ?? null,
   };
+}
+
+// Les nuits PMS de la commande sans booking (`admin_pms_booking_requests.lines`), une par champ de
+// saisie du dialogue « Confirmar » — lecture défensive : jsonb inattendu → aucune ligne, jamais une
+// exception (le dialogue sait confirmer sans id saisi).
+function parsePendingLines(raw: unknown): PendingPmsLine[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item) => {
+    if (typeof item !== "object" || item === null) return [];
+    const line = item as { order_line_id?: unknown; product_name?: unknown; date?: unknown; end_date?: unknown };
+    if (typeof line.order_line_id !== "string") return [];
+    return [
+      {
+        orderLineId: line.order_line_id,
+        productName: resolveLocalizedField(asLocalizedField(line.product_name), "es") ?? "—",
+        date: typeof line.date === "string" ? line.date : null,
+        endDate: typeof line.end_date === "string" ? line.end_date : null,
+      },
+    ];
+  });
 }
 
 export async function loadReconciliationPage(): Promise<{
@@ -100,6 +120,22 @@ export async function loadReconciliationPage(): Promise<{
   if (summariesError) throw summariesError;
   const summaryByLineId = new Map((summaries ?? []).map((summary) => [summary.order_line_id, summary]));
 
+  // Lobby APRÈS l'acompte : les demandes de booking BLOQUÉES des commandes de ces entrées (table
+  // RPC-only, lue par une RPC admin) — ce qui décide si l'écran propose Reintentar / Confirmar / Anular.
+  const orderIds = [...new Set((summaries ?? []).map((summary) => summary.order_id))];
+  const { data: requests, error: requestsError } = await supabase.rpc("admin_pms_booking_requests", {
+    p_order_ids: orderIds,
+  });
+  if (requestsError) throw requestsError;
+  const blockedRequestByOrderId = new Map(
+    (requests ?? [])
+      .filter((request) => request.status === "failed" || request.status === "needs_human")
+      .map((request) => [
+        request.order_id,
+        { id: request.request_id, status: request.status, lines: parsePendingLines(request.lines) },
+      ])
+  );
+
   const rows: ReconciliationEntryRow[] = (entries ?? []).map((entry) => {
     const summary = summaryByLineId.get(entry.order_line_id);
     return {
@@ -108,6 +144,8 @@ export async function loadReconciliationPage(): Promise<{
       status: entry.status,
       attempts: entry.attempts,
       orderId: summary?.order_id ?? "",
+      orderLineId: entry.order_line_id,
+      pmsRequest: (summary && blockedRequestByOrderId.get(summary.order_id)) || null,
       holderName: summary?.holder_name ?? "—",
       establishmentName: resolveLocalizedField(asLocalizedField(summary?.establishment_name), "es") ?? "—",
     };

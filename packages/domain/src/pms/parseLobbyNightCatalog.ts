@@ -47,6 +47,20 @@ export function hasActiveRestriction(restrictions: LobbyNightRestrictions): bool
   return (restrictions.minStay ?? 0) > 0 || (restrictions.maxStay ?? 0) > 0 || (restrictions.leadDays ?? 0) > 0;
 }
 
+/**
+ * people → prix COP d'UNE unité pour UNE nuit, à ce niveau d'occupation, tel que Lobby le cote.
+ *
+ * ⚠️ RETOURNEMENT DU 2026-10-23 (constat de Gabriel en production, décision de l'orchestrateur) :
+ * le prix public d'un logement Lobby EST le prix Lobby, sans marge — retour au cahier client §5 et à
+ * la v1 (`priceForPeople`, src/services/portalService.js, qui lisait `value`). La commission reste une
+ * PART du total (§3b), jamais une majoration. Jusqu'ici ce parseur ne lisait aucun prix (spec 24 §0,
+ * révisée dans la même branche).
+ *
+ * Une occupation ABSENTE de l'objet n'est pas cotée : jamais un prix fabriqué ni pris à un autre
+ * niveau (la v1 retombait sur `list[0]`, c'est précisément ce qui n'est plus fait).
+ */
+export type LobbyNightPrices = Readonly<Record<number, number>>;
+
 export interface LobbyCatalogEntry {
   /** yyyy-MM-dd TEL QUE LOBBY LE REND. `null` = la réponse ne porte pas de date. */
   date: string | null;
@@ -63,6 +77,11 @@ export interface LobbyCatalogEntry {
    * observés. Jamais une contrainte inventée.
    */
   restrictionsByCategory: Map<number, LobbyNightRestrictions>;
+  /**
+   * categoryId → prix par occupation (`LobbyNightPrices`) du plan retenu. Une catégorie absente de
+   * cette carte n'a AUCUN prix lisible cette nuit-là : elle n'est pas vendable au prix Lobby.
+   */
+  pricesByCategory: Map<number, LobbyNightPrices>;
 }
 
 export type LobbyNightCatalogResult =
@@ -87,6 +106,60 @@ function readEntryDate(record: Record<string, unknown>): string | null {
 interface NightCategories {
   availableByCategory: Map<number, number>;
   restrictionsByCategory: Map<number, LobbyNightRestrictions>;
+  pricesByCategory: Map<number, LobbyNightPrices>;
+}
+
+// Le plan tarifaire « standard » de Lobby (docs/3-integrations/lobby_pms_api.md du dépôt legacy,
+// « Standard rates use STANDARD_RATE »). À défaut, le premier plan qui porte des prix lisibles.
+const STANDARD_RATE_PLAN = "STANDARD_RATE";
+
+// Un prix lisible : nombre, ou chaîne non vide (Lobby écrit parfois `"120000.00"`), fini et > 0.
+// Arrondi au peso : `order_lines.price_cop` est un entier, et l'écart est au plus d'un demi-peso.
+// Absent, illisible ou ≤ 0 : `null`, donc omis — jamais un 0 qui mettrait une nuit en vente gratuite.
+function readPriceValue(value: unknown): number | null {
+  const usable = typeof value === "number" || (typeof value === "string" && value.trim().length > 0);
+  if (!usable) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.round(parsed);
+}
+
+// `prices[{people, value}]` d'un plan. Une même occupation cotée deux fois à deux prix différents
+// est AMBIGUË : on ne sait pas lequel fait foi, elle est retirée (non cotée), jamais tranchée.
+function readPlanPrices(plan: Record<string, unknown>): LobbyNightPrices | null {
+  if (!Array.isArray(plan.prices)) return null;
+  const prices: Record<number, number> = {};
+  const ambiguous = new Set<number>();
+  for (const entry of plan.prices) {
+    const price = asRecord(entry);
+    if (!price) continue;
+    const people = typeof price.people === "string" ? Number(price.people) : price.people;
+    if (typeof people !== "number" || !Number.isInteger(people) || people < 1) continue;
+    const value = readPriceValue(price.value);
+    if (value === null) continue;
+    if (prices[people] !== undefined && prices[people] !== value) ambiguous.add(people);
+    prices[people] = value;
+  }
+  for (const people of ambiguous) delete prices[people];
+  return Object.keys(prices).length > 0 ? prices : null;
+}
+
+function readCategoryPrices(category: Record<string, unknown>): LobbyNightPrices | null {
+  if (!Array.isArray(category.plans)) return null;
+  const plans = category.plans.map(asRecord).filter((plan): plan is Record<string, unknown> => plan !== null);
+  const standard = plans.find((plan) => plan.name === STANDARD_RATE_PLAN);
+  const fromStandard = standard ? readPlanPrices(standard) : null;
+  if (fromStandard) return fromStandard;
+  for (const plan of plans) {
+    const prices = readPlanPrices(plan);
+    if (prices) return prices;
+  }
+  return null;
+}
+
+function samePrices(a: LobbyNightPrices, b: LobbyNightPrices): boolean {
+  const keysA = Object.keys(a);
+  return keysA.length === Object.keys(b).length && keysA.every((key) => a[Number(key)] === b[Number(key)]);
 }
 
 function readCategories(record: Record<string, unknown>): NightCategories | null {
@@ -95,6 +168,8 @@ function readCategories(record: Record<string, unknown>): NightCategories | null
 
   const availableByCategory = new Map<number, number>();
   const restrictionsByCategory = new Map<number, LobbyNightRestrictions>();
+  const pricesByCategory = new Map<number, LobbyNightPrices>();
+  const ambiguousPrices = new Set<number>();
   for (const entry of rawCategories) {
     const category = asRecord(entry);
     if (!category) continue;
@@ -127,8 +202,17 @@ function readCategories(record: Record<string, unknown>): NightCategories | null
 
     const restrictions = readRestrictions(category.restrictions);
     if (restrictions) restrictionsByCategory.set(categoryId, restrictions);
+
+    // Doublon de catégorie aux prix DIFFÉRENTS : comme pour une occupation en double, aucun des deux
+    // n'est retenu. Mêmes prix : rien d'ambigu.
+    const prices = readCategoryPrices(category);
+    const knownPrices = pricesByCategory.get(categoryId);
+    if (knownPrices && (!prices || !samePrices(knownPrices, prices))) ambiguousPrices.add(categoryId);
+    else if (prices && !knownPrices && known !== undefined) ambiguousPrices.add(categoryId);
+    if (prices) pricesByCategory.set(categoryId, prices);
   }
-  return { availableByCategory, restrictionsByCategory };
+  for (const categoryId of ambiguousPrices) pricesByCategory.delete(categoryId);
+  return { availableByCategory, restrictionsByCategory, pricesByCategory };
 }
 
 // Même discipline défensive que le reste : un champ absent ou illisible reste `null`, jamais 0 —

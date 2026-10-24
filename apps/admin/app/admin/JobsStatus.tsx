@@ -40,6 +40,7 @@ export type JobsStatusProps = { unavailable: true } | { jobs: JobStatusRow[]; ch
 const JOB_LABELS: Record<string, string> = {
   "pms-poll-bookings": "Lectura de reservas del PMS",
   "pms-cancel-bookings": "Cancelaciones en el PMS",
+  "pms-book-paid-orders": "Reservas pagadas enviadas al PMS",
   "pms-sync-availability": "Sincronización de disponibilidad del PMS",
   "send-notification-emails": "Envío de correos",
   "pms-nightly-contract-check": "Control nocturno del contrato PMS",

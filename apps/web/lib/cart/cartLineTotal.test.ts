@@ -47,3 +47,17 @@ describe("computeCartLineTotal", () => {
     expect(computeCartLineTotal(line)).toBe(200_000); // 50 000 × 4, aucun facteur de jours
   });
 });
+
+describe("computeCartLineTotal — prix Lobby (2026-10-23)", () => {
+  const nuitee = { date: "2026-11-06", endDate: "2026-11-08", qty: 2, priceCop: 20000, priceTiers: null };
+  it("le devis ou l'estimation, déjà × qty, prime sur le prix fixe", () => {
+    expect(computeCartLineTotal({ ...nuitee, pmsPrice: { kind: "quoted", totalCop: 230000, estimateCop: null } })).toBe(230000);
+    expect(computeCartLineTotal({ ...nuitee, pmsPrice: { kind: "estimated", totalCop: 210000 } })).toBe(210000);
+  });
+  it("non estimable : 0 au total, que le récapitulatif dit à part", () => {
+    expect(computeCartLineTotal({ ...nuitee, pmsPrice: { kind: "pending" } })).toBe(0);
+  });
+  it("sans prix Lobby : le calcul habituel", () => {
+    expect(computeCartLineTotal({ ...nuitee, pmsPrice: null })).toBe(80000);
+  });
+});

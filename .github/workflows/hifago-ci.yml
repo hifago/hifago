@@ -201,7 +201,7 @@ jobs:
   # fixtures qui écoutent sur toutes les interfaces (sous Linux, une écoute 127.0.0.1 est injoignable
   # depuis le conteneur). Base NON seedée, volontairement : les lots de ces fonctions sont globaux et
   # chaque script s'arrête (exit 2) s'il trouve des lignes hors de ses fixtures.
-  # En fin de job, pms_reserve_nights : une route de la vitrine, pas une Edge Function, lancée contre
+  # En fin de job, pms_check_nights : une route de la vitrine, pas une Edge Function, lancée contre
   # une vitrine construite et servie dans le job (voir ses étapes).
   integration-edge:
     needs: [db]
@@ -242,12 +242,12 @@ jobs:
       - run: npm run test:notification-integration
       - run: npm run test:payments-integration
       - run: |
-          for f in pms_poll_bookings pms_sync_availability pms_cancel_bookings pms_nightly_contract_check; do
+          for f in pms_poll_bookings pms_sync_availability pms_cancel_bookings pms_book_paid_orders pms_nightly_contract_check; do
             node "tests/pms-integration/$f.integration.mjs" || exit 1
           done
-      # pms_reserve_nights (suite de P12, 2026-10-07 ; D4 l'avait renvoyé à plus tard) : le seul test
-      # qui exerce record_pms_booking et release_order_after_pms_refusal À TRAVERS la route — il lui
-      # faut la vitrine servie, sa route reserve-nights pointée sur la fixture Lobby du script (:4546,
+      # pms_check_nights (remplace pms_reserve_nights le 2026-10-23, Lobby APRÈS l'acompte) : le seul
+      # test qui exerce hold_pms_nights et release_order_after_pms_refusal À TRAVERS la route — il lui
+      # faut la vitrine servie, sa route check-nights pointée sur la fixture Lobby du script (:4546,
       # sur l'hôte : la route tourne dans Next, pas dans un conteneur). Clés : celles de la pile qui
       # vient de démarrer, lues par `supabase status`, jamais recopiées ici — et seulement ces deux-là
       # (le même `status` porte FUNCTIONS_URL, que les tests Edge ci-dessus prendraient pour l'URL
@@ -273,7 +273,7 @@ jobs:
           done
           echo "vitrine : /es → $code"
           [ "$code" != "000" ]
-      - run: node tests/pms-integration/pms_reserve_nights.integration.mjs
+      - run: node tests/pms-integration/pms_check_nights.integration.mjs
       - name: Journal de la vitrine (en cas d'échec)
         if: failure()
         run: tail -n 200 "$RUNNER_TEMP/web.log" || true

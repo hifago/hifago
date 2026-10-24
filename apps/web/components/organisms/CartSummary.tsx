@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { differenceInCalendarDays } from "date-fns";
-import { isoDateToLocalMidnight } from "@hifago/domain";
+import { formatCop, isoDateToLocalMidnight } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/client";
 // ⚠️ Corrigé le 2026-09-10 (spec 33) : ce fichier importait `useRouter` de `next/navigation`,
 // ce que `scripts/check-i18n-links.sh` refuse — le contrôle était rouge depuis la livraison de
@@ -220,7 +220,14 @@ export function CartSummary({
                 </div>
                 <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
                   <span className="font-semibold tabular-nums">
-                    <Price amountCop={totalesPorLinea[i]} locale={locale} />
+                    {/* Prix Lobby non estimable (2026-10-23) : jamais un 0 affiché comme un prix. */}
+                    {line.pmsPrice?.kind === "pending" ? (
+                      <span className="text-sm font-normal text-muted" data-testid={`pms-price-pending-${line.id}`}>
+                        {t("pmsPricePending")}
+                      </span>
+                    ) : (
+                      <Price amountCop={totalesPorLinea[i]} locale={locale} />
+                    )}
                   </span>
                   {editable ? (
                     <Button
@@ -238,6 +245,19 @@ export function CartSummary({
                   ) : null}
                 </div>
               </div>
+              {/* Prix Lobby : le devis de /pago diffère de ce que le miroir laissait attendre — le client
+                  voit le nouveau prix AVANT de payer ; sur /mi-viaje, l'estimation est dite comme telle. */}
+              {line.pmsPrice?.kind === "quoted" &&
+              line.pmsPrice.estimateCop !== null &&
+              line.pmsPrice.estimateCop !== line.pmsPrice.totalCop ? (
+                <Aviso tono="info" compacto testId={`pms-price-updated-${line.id}`}>
+                  {t("pmsPriceUpdated", { before: formatCop(line.pmsPrice.estimateCop) })}
+                </Aviso>
+              ) : line.pmsPrice?.kind === "estimated" ? (
+                <p className="text-sm text-muted" data-testid={`pms-price-estimated-${line.id}`}>
+                  {t("pmsPriceEstimated")}
+                </p>
+              ) : null}
               {line.availability.status === "unavailable" ? (
                 <Aviso
                   tono="error"
@@ -263,6 +283,11 @@ export function CartSummary({
           <Price amountCop={total} locale={locale} />
         </span>
       </div>
+      {lines.some((line) => line.pmsPrice?.kind === "pending") ? (
+        <p className="text-sm text-muted" data-testid="pms-total-pending">
+          {t("pmsTotalPending")}
+        </p>
+      ) : null}
       <div className="rounded-[16px] bg-[var(--default)] p-4" data-testid="cart-total-now">
         <p className="meta">{t("depositToday")}</p>
         <p className="prix-fort mt-1 tabular-nums">

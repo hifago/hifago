@@ -5,6 +5,7 @@ import {
   resolveTierPrice,
   type PriceTier,
 } from "@/lib/reservas/reservationRange";
+import type { CartLinePmsPrice } from "@/lib/cart/getCartLines";
 
 // Sous-ensemble de `CartLineForDisplay` (getCartLines.ts) réellement nécessaire au calcul — même
 // découplage que `LineSchedule` dans `formatLineSchedule.ts` : plus simple à tester, et
@@ -15,6 +16,8 @@ export type CartLineForPricing = {
   qty: number;
   priceCop: number;
   priceTiers: PriceTier[] | null;
+  /** Prix Lobby (2026-10-23) : prime sur tout calcul local ; `pending` ne compte pas au total. */
+  pmsPrice?: CartLinePmsPrice | null;
 };
 
 // Prix total affiché par ligne de panier (Jérôme, 2026-09-16). Une ligne `lodging` (endDate posé —
@@ -34,6 +37,9 @@ export type CartLineForPricing = {
 // authoritative, au moment du paiement) ; les récupérer pour chaque produit distinct d'un panier
 // mixte est une complexité non demandée qui resterait de toute façon une estimation.
 export function computeCartLineTotal(line: CartLineForPricing): number {
+  // Une ligne au prix Lobby : le devis (/pago) ou l'estimation du miroir, déjà × qty — jamais le prix
+  // fixe hifago, que create_order ne facturera pas. Sans estimation, 0 : le total le dit à part.
+  if (line.pmsPrice) return line.pmsPrice.kind === "pending" ? 0 : line.pmsPrice.totalCop;
   if (!line.endDate) return line.priceCop * line.qty;
 
   const nights = nightsInRange({ from: parseISO(line.date), to: parseISO(line.endDate) });

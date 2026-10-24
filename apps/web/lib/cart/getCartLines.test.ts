@@ -11,19 +11,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({
   reponse: { data: [] as unknown, error: null as unknown },
   verdicts: { data: [] as unknown, error: null as unknown },
+  // Prix Lobby (2026-10-23) : les nuits du miroir que lit l'estimation.
+  miroir: { data: [] as unknown, error: null as unknown },
   rpc: vi.fn(),
 }));
 
 vi.mock("@hifago/supabase/server", () => ({
   createClient: async () => {
-    const requete = {
-      select: () => requete,
-      order: () => requete,
-      then: (ok: (v: unknown) => unknown, ko: (e: unknown) => unknown) =>
-        Promise.resolve(state.reponse).then(ok, ko),
+    const requeteDe = (table: string) => {
+      const requete = {
+        select: () => requete,
+        order: () => requete,
+        in: () => requete,
+        gte: () => requete,
+        lt: () => requete,
+        then: (ok: (v: unknown) => unknown, ko: (e: unknown) => unknown) =>
+          Promise.resolve(table === "pms_availability_mirror" ? state.miroir : state.reponse).then(ok, ko),
+      };
+      return requete;
     };
     return {
-      from: () => requete,
+      from: (table: string) => requeteDe(table),
       rpc: (...args: unknown[]) => {
         state.rpc(...args);
         return Promise.resolve(state.verdicts);
@@ -148,5 +156,84 @@ describe("hasUnavailableLine — ce qui ferme l'envoi sur /pago", () => {
   it("tout disponible, ou panier vide : ouvert", () => {
     expect(hasUnavailableLine(avec("available"))).toBe(false);
     expect(hasUnavailableLine([])).toBe(false);
+  });
+});
+
+describe("getCartLines — une nuitée au prix Lobby (lobby_dynamic_pricing, 2026-10-23)", () => {
+  // Deux nuits, 2 lits, établissement au prix Lobby.
+  const nuitee = (id: string) => ({
+    ...ligne(id),
+    date: "2026-11-06",
+    end_date: "2026-11-08",
+    qty: 2,
+    products: {
+      ...ligne(id).products,
+      type: "lodging",
+      lobby_category_id: 9631,
+      unit: "per_person",
+      establishment: { id: "e-1", name: { es: "Casa" }, lobby_dynamic_pricing: true },
+    },
+  });
+  const miroir = [
+    { establishment_id: "e-1", lobby_category_id: 9631, date: "2026-11-06", prices: { 1: 45000 } },
+    { establishment_id: "e-1", lobby_category_id: 9631, date: "2026-11-07", prices: { 1: 60000 } },
+  ];
+
+  beforeEach(() => {
+    state.reponse = { data: [nuitee("a")], error: null };
+    state.miroir = { data: miroir, error: null };
+  });
+
+  it("/mi-viaje : sans devis, la ligne reste disponible, au prix estimé du miroir (Σ nuits × qty)", async () => {
+    state.verdicts = { data: [{ id: "a", available: false, reason: "pms_quote_missing" }], error: null };
+    const [line] = await getCartLines("es");
+    expect(line.availability).toEqual({ status: "available" });
+    expect(line.pmsPrice).toEqual({ kind: "estimated", totalCop: 210000 });
+  });
+
+  it("/mi-viaje : une nuit absente du miroir — « precio confirmado en el pago », jamais un total partiel", async () => {
+    state.verdicts = { data: [{ id: "a", available: false, reason: "pms_quote_expired" }], error: null };
+    state.miroir = { data: miroir.slice(0, 1), error: null };
+    const [line] = await getCartLines("es");
+    expect(line.availability).toEqual({ status: "available" });
+    expect(line.pmsPrice).toEqual({ kind: "pending" });
+  });
+
+  it("/mi-viaje : un refus qui n'est pas « pas encore de devis » reste un refus", async () => {
+    state.verdicts = { data: [{ id: "a", available: false, reason: "pms_capacity_exceeded" }], error: null };
+    const [line] = await getCartLines("es");
+    expect(line.availability).toEqual({ status: "unavailable", reason: "pms_capacity_exceeded" });
+  });
+
+  it("/pago : le devis frais fait foi, avec ce que le miroir laissait attendre", async () => {
+    state.verdicts = { data: [{ id: "a", available: true, reason: null }], error: null };
+    const pmsQuotes = new Map([["a", { ok: true as const, totalCop: 230000, unitPriceCop: 115000, nightly: [] }]]);
+    const [line] = await getCartLines("es", { pmsQuotes });
+    expect(line.pmsPrice).toEqual({ kind: "quoted", totalCop: 230000, estimateCop: 210000 });
+    expect(line.availability).toEqual({ status: "available" });
+  });
+
+  it("/pago : le devis a échoué — la ligne ferme l'envoi, même si la base a encore un ancien devis", async () => {
+    state.verdicts = { data: [{ id: "a", available: true, reason: null }], error: null };
+    const pmsQuotes = new Map([["a", { ok: false as const, reason: "pms_quote_missing" as const }]]);
+    const lines = await getCartLines("es", { pmsQuotes });
+    expect(lines[0].availability).toEqual({ status: "unavailable", reason: "pms_quote_missing" });
+    expect(hasUnavailableLine(lines)).toBe(true);
+  });
+
+  it("/pago : une raison plus précise de la base est gardée", async () => {
+    state.verdicts = { data: [{ id: "a", available: false, reason: "qty_cap_exceeded" }], error: null };
+    const pmsQuotes = new Map([["a", { ok: false as const, reason: "pms_quote_missing" as const }]]);
+    const [line] = await getCartLines("es", { pmsQuotes });
+    expect(line.availability).toEqual({ status: "unavailable", reason: "qty_cap_exceeded" });
+  });
+
+  it("interrupteur éteint : aucun prix Lobby, le calcul habituel du panier", async () => {
+    const fixe = nuitee("a");
+    fixe.products.establishment.lobby_dynamic_pricing = false;
+    state.reponse = { data: [fixe], error: null };
+    state.verdicts = { data: [{ id: "a", available: true, reason: null }], error: null };
+    const [line] = await getCartLines("es");
+    expect(line.pmsPrice).toBeNull();
   });
 });

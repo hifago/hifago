@@ -100,6 +100,8 @@ describe("PuceEstado", () => {
   it("applique la correspondance du plan (S7)", () => {
     expect(TONO_POR_ESTADO_PEDIDO).toEqual({
       paid: "exito",
+      confirming: "info",
+      paid_unconfirmed: "alerta",
       confirmed: "exito",
       unpaid: "alerta",
       awaiting: "info",

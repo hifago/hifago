@@ -133,6 +133,38 @@ describe("lobbyClient (vrai fetch contre un serveur de fixtures local)", () => {
     expect(result.body).toEqual({ booking: { booking_id: 20863344, room_id: 488678 } });
   });
 
+  it("createLobbyBooking : `payment` part dans le corps quand il est donné, et est omis sinon", async () => {
+    const seen: Record<string, unknown>[] = [];
+    const spy = createServer((req, res) => {
+      let raw = "";
+      req.on("data", (chunk) => (raw += chunk));
+      req.on("end", () => {
+        seen.push(JSON.parse(raw));
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ booking: { booking_id: 1, room_id: 2 } }));
+      });
+    });
+    await new Promise<void>((resolve) => spy.listen(0, "127.0.0.1", resolve));
+    const address = spy.address();
+    const spyUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+    const base = {
+      categoryId: 9631,
+      startDate: "2028-09-01",
+      endDate: "2028-09-02",
+      totalAdults: 1,
+      holderName: "T",
+      ratesPerDay: [{ date: "2028-09-01", price: 100000 }],
+    };
+    try {
+      await createLobbyBooking(spyUrl, "fake-token", { ...base, payment: 30000 });
+      await createLobbyBooking(spyUrl, "fake-token", base);
+    } finally {
+      await new Promise<void>((resolve) => spy.close(() => resolve()));
+    }
+    expect(seen[0].payment).toBe(30000);
+    expect("payment" in seen[1]).toBe(false);
+  });
+
   it("createLobbyBooking : catégorie non réservable → 422 INPUT_PARAMETERS, jamais une exception", async () => {
     const result = await createLobbyBooking(baseUrl, "fake-token", {
       categoryId: 99999,
