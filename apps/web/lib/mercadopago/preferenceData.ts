@@ -1,4 +1,8 @@
-import { parsePhoneNumber } from "react-phone-number-input";
+// ⚠️ `libphonenumber-js` (pure), JAMAIS `react-phone-number-input` : ce dernier embarque des composants
+// React, et `class extends React.Component` fait échouer `next build` dans une route serveur
+// (« Super expression must either be null or a function », CI de la PR #116). Les deux partagent les
+// mêmes métadonnées (`min`) : la validité ici est celle de `isValidPhoneNumber` de `CheckoutForm`.
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { asLocalizedField, OPERATION_TIME_ZONE, resolveLocalizedField } from "@hifago/domain";
 
 // Spec 19 §0 Tranche 1 « contenu de la préférence » — ce que Hifago dit à Mercado Pago de l'acheteur
@@ -90,7 +94,7 @@ export function splitHolderName(holderName: string | null | undefined): { name?:
  * `+573001234567` → `{ area_code: "57", number: "3001234567" }` : l'indicatif pays et le numéro
  * national, sans « + ». `null` quand le numéro n'est pas analysable ou invalide (donnée ancienne,
  * saisie libre) : le champ est alors omis plutôt que de transmettre une valeur que Mercado Pago
- * recouperait mal. `parsePhoneNumber` est déjà celui de `CheckoutForm` (`isValidPhoneNumber`).
+ * recouperait mal. Même analyse que le `isValidPhoneNumber` de `CheckoutForm`.
  */
 export function toMercadoPagoPhone(
   holderPhone: string | null | undefined
@@ -98,7 +102,7 @@ export function toMercadoPagoPhone(
   const raw = clean(holderPhone);
   if (!raw) return null;
   try {
-    const parsed = parsePhoneNumber(raw);
+    const parsed = parsePhoneNumberFromString(raw);
     if (!parsed?.isValid()) return null;
     return { area_code: parsed.countryCallingCode, number: parsed.nationalNumber };
   } catch {
