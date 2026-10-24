@@ -130,6 +130,9 @@ insert into tmp_grant_only (name) values
   -- Helpers INTERNES des e-mails de confirmation (appelés en propriétaire par apply_payment_webhook,
   -- resolve_pms_booking_request et create_order) : fermés à tous, service_role compris.
   ('notify_order_confirmed'),
+  -- Visibilité prestataire (20261024120000) : helpers internes des RPC prestataire et de l'e-mail d'annulation.
+  ('order_awaits_payment'),
+  ('line_never_paid'),
   ('notify_partner_camp_evento_blocked'),
   -- Helpers INTERNES (audit P12c, 2026-10-06) : appelés uniquement par d'autres fonctions SECURITY
   -- DEFINER (exécutées en propriétaire) ou par des triggers, jamais par un client. Aucun garde
