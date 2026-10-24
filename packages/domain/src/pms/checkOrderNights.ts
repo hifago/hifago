@@ -17,7 +17,7 @@
 // `readAt` est pris AVANT l'envoi de la première requête de lecture : un booking enregistré après cet
 // instant a pu ne pas être vu par la lecture, et la base le compte alors « en vol » (marge
 // d'horloge comprise).
-import { addDaysIso } from "../time/bogotaDates.ts";
+import { addDaysIso, nowIsoInstant } from "../time/bogotaDates.ts";
 import { pmsUnitsToCupos } from "../products/lodgingCupos.ts";
 import { getNightAvailabilityRange, pickCategoryNights, type PmsFailure } from "./getNightAvailabilityWindow.ts";
 
@@ -54,9 +54,9 @@ export function nightsOfLine(date: string, endDate: string): string[] {
 
 export async function checkOrderNights(
   groups: CheckGroup[],
-  options: { baseUrl: string; relaySecret?: string; timeoutMs?: number; now?: () => Date }
+  options: { baseUrl: string; relaySecret?: string; timeoutMs?: number; now?: Date }
 ): Promise<CheckResult> {
-  const readAt = (options.now ?? (() => new Date()))().toISOString();
+  const readAt = nowIsoInstant(options.now);
   const snapshot: NightsSnapshot = {};
 
   for (const group of groups) {

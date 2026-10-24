@@ -1,5 +1,6 @@
 import { createServer, type Server } from "node:http";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { addDaysIso } from "../time/bogotaDates";
 import { checkOrderNights, nightsOfLine, type CheckGroup } from "./checkOrderNights";
 
 // Faux Lobby : `available` donne les unités libres par (catégorie, nuit) ; une nuit absente de la
@@ -12,9 +13,7 @@ let available: Record<string, Record<string, number>> = {};
 
 function nightsBetween(start: string, endInclusive: string): string[] {
   const out: string[] = [];
-  for (let d = new Date(`${start}T00:00:00Z`); d <= new Date(`${endInclusive}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1)) {
-    out.push(d.toISOString().slice(0, 10));
-  }
+  for (let night = start; night <= endInclusive; night = addDaysIso(night, 1)) out.push(night);
   return out;
 }
 

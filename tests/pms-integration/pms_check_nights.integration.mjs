@@ -32,6 +32,21 @@ let appels = { bookings: 0, addService: 0, availability: 0 };
 let disponibilite = 5;
 let lobbyDown = false;
 
+// Les dates civiles de start_date à end_date INCLUS, en arithmétique ancrée UTC des deux côtés (parse
+// et format en UTC : indépendante de tout fuseau) — le serveur de fixtures de ce script est du JS nu,
+// il ne peut pas consommer packages/domain/src/time/addDaysIso.
+function datesEntre(debut, fin) {
+  const [y, m, d] = debut.split("-").map(Number);
+  const dates = [];
+  for (let i = 0; i < 400; i++) {
+    const jour = new Date(Date.UTC(y, m - 1, d + i));
+    const iso = [jour.getUTCFullYear(), String(jour.getUTCMonth() + 1).padStart(2, "0"), String(jour.getUTCDate()).padStart(2, "0")].join("-");
+    if (iso > fin) break;
+    dates.push(iso);
+  }
+  return dates;
+}
+
 function startFixtureServer() {
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
@@ -48,10 +63,9 @@ function startFixtureServer() {
       appels.availability++;
       if (lobbyDown) return send(500, { message: "fixture: Lobby en panne" });
       const nuits = [];
-      const fin = new Date(`${url.searchParams.get("end_date")}T00:00:00Z`);
-      for (let jour = new Date(`${url.searchParams.get("start_date")}T00:00:00Z`); jour <= fin; jour.setUTCDate(jour.getUTCDate() + 1)) {
+      for (const date of datesEntre(url.searchParams.get("start_date"), url.searchParams.get("end_date"))) {
         nuits.push({
-          date: jour.toISOString().slice(0, 10),
+          date,
           categories: [{ category_id: LOBBY_CATEGORY_ID, available_rooms: disponibilite, plans: [] }],
         });
       }

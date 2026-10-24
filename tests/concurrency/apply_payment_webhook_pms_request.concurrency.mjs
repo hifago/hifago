@@ -96,14 +96,14 @@ async function seedRun(seed) {
          price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
          acompte_cop, referrer_commission_cop, app_commission_cop, pms_held_at
        ) values ($1, $2, $3, $4, '2030-04-01', $5, 1, 'reserved', 'PMS Req',
-                 100000, 100000, 'direct', 0.17, 0, 0.17, 17000, 0, 17000, $6)`,
+                 100000, 100000, 'direct', 0.17, 0, 0.17, 17000, 0, 17000, case when $6::boolean then now() end)`,
       [
         lineId(k),
         orderId(k),
         BUYER_ID,
         isPms(k) ? PMS_PRODUCT : ACTIVITY_PRODUCT,
         isPms(k) ? "2030-04-02" : null,
-        isPms(k) ? new Date() : null,
+        isPms(k),
       ]
     );
     await seed.query("insert into payments (id, order_id, status, amount_cop) values ($1, $2, 'pending', 17000)", [
