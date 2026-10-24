@@ -237,3 +237,11 @@ re-découvrir, pas un arbitrage.
 ## Déplacé du backlog le 2026-10-13 (plafond de 60 lignes)
 - **Test hors CI** : `tests/pms-integration/pms_reserve_nights.integration.mjs` n'est lancé par aucun job (il exige un serveur Next).
 - **Incohérence possible entre `delete_my_account()` et l'API Admin** (spec 35, 2026-09-11) : si la RPC réussit mais que le changement d'email/mot de passe échoue ensuite (panne réseau entre les deux appels du Route Handler), le profil est anonymisé mais le compte reste connectable avec l'ancien email — accepté tel quel pour ce lot (le compte reste fonctionnel, juste pas encore anonymisé ; le client peut retenter). Pas de rattrapage automatique posé.
+
+## Campagne des 6 bugs (2026-10-24)
+- M2 : supprimer `claim_order_for_pms_booking` quelques jours après stabilisation ; boutons admin « relancer Lobby » faits (reprise admin), pas « rattacher un booking » hors réconciliation.
+- Multi-unités : GLAMPING ×2 envoie UN booking `total_adults = qty` (la v1 : un par tente).
+- Un vrai « complet » dû à une tenue défait la commande ; `pms_contended` retiré (double comptage < 30 s assumé).
+- `/pago` : affichage faux jusqu'à 15 min si Lobby tombe juste après un rendu (`getCartLines`, branche `pmsQuotes` sans entrée) ; le facturé reste un devis frais.
+- Verrou par (établissement, catégorie) : deux établissements sur un même compte Lobby ne se protègent pas ; dérive d'horloge > 30 s non couverte.
+- `tests/notification-real/send_8_real_emails.mjs` appelle une ancienne signature de `create_order` ; erreur TS7053 `apps/admin/app/api/upload/[entity]/route.ts:102` antérieure.
