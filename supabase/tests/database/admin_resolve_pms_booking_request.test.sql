@@ -15,8 +15,8 @@
 --     tenues ni marquées et ne comptent plus « en vol » (un second hold sur la dernière unité passe) ;
 --     demande done (erreur gardée) ; e-mails 5/6/7/8 UNE fois (un second confirm → not_resolvable,
 --     resolve 'done' → not_pending, toujours une) ; pms_confirmation failed → null ; entrées
---     « commande PAYÉE » / « issue inconnue » / « remise à saisir » ouvertes résolues, jamais « jeton
---     Lobby remplacé » ni une entrée d'activité ; journal d'audit ;
+--     « commande PAYÉE — Lobby a refusé » ouvertes résolues ; « remise à saisir » et « issue inconnue »
+--     restent ouvertes (tâches à part) ; jamais « jeton Lobby remplacé » ni une entrée d'activité ; journal d'audit ;
 --   - cancel : demande cancelled (erreur gardée), lignes sans booking plus tenues ni marquées, AUCUNE
 --     ligne annulée, aucun e-mail, entrées résolues, pms_confirmation null, journal ;
 --   - retry : demande pending, 0 tentative, due, erreur et clôture effacées ; marqueur effacé sur les
@@ -303,7 +303,7 @@ select is(admin_resolve_pms_booking_request(t_id('3001'), 'confirm', jsonb_build
             jsonb_build_object('order_line_id', t_id('2001'), 'pms_booking_id', '880001'),
             jsonb_build_object('order_line_id', t_id('2015'), 'pms_booking_id', ' 880002 '))),
   jsonb_build_object('ok', true, 'status', 'done', 'bookings_recorded', 1, 'lines_released', 1,
-                     'markers_cleared', 0, 'entries_resolved', 3),
+                     'markers_cleared', 0, 'entries_resolved', 1),
   'C1 : confirm → done ; un booking posé, un identique idempotent, une nuit relâchée, trois entrées résolues');
 reset role;
 select is(
@@ -335,10 +335,11 @@ select is(
                                                                   'quand', resolved_at = now()))
      from pms_reconciliation_entries where id in (t_id('4001'), t_id('4002'), t_id('4006'))),
   jsonb_build_object(
-    '4001', jsonb_build_object('statut', 'resolved', 'par', t_id('23'), 'note', 'résolue par confirm de la demande ' || t_id('3001') || ' (reprise admin, commande RPR-1001)', 'quand', true),
-    '4002', jsonb_build_object('statut', 'resolved', 'par', t_id('23'), 'note', 'résolue par confirm de la demande ' || t_id('3001') || ' (reprise admin, commande RPR-1001)', 'quand', true),
+    -- « issue inconnue » et « remise à saisir » : vraies tâches séparées, elles RESTENT ouvertes.
+    '4001', jsonb_build_object('statut', 'open', 'par', null, 'note', null, 'quand', null),
+    '4002', jsonb_build_object('statut', 'open', 'par', null, 'note', null, 'quand', null),
     '4006', jsonb_build_object('statut', 'resolved', 'par', t_id('23'), 'note', 'résolue par confirm de la demande ' || t_id('3001') || ' (reprise admin, commande RPR-1001)', 'quand', true)),
-  'C6 : « issue inconnue », « remise à saisir » et « commande PAYÉE » (retrying) sont résolues, par l''admin, avec la note');
+  'C6 : seule « commande PAYÉE — Lobby a refusé » (retrying) est résolue ; « remise à saisir » et « issue inconnue » restent ouvertes');
 select is(
   (select jsonb_object_agg(right(id::text, 4), jsonb_build_object('statut', status, 'par', resolved_by))
      from pms_reconciliation_entries where id in (t_id('4003'), t_id('4004'), t_id('4005'))),

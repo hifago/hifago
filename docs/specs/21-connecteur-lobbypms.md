@@ -399,7 +399,7 @@ jamais « confirmada », jamais une promesse de remboursement.
     `Reintentar con Lobby` (l'admin atteste avoir vérifié chez Lobby qu'aucun booking n'existe ; le
     marqueur est effacé et la demande repart), `Confirmar` (réservation résolue à la main, avec l'id de
     booking saisi si besoin : les e-mails 5/6/7/8 partent UNE fois, l'état client se libère, les
-    lignes sans booking ne comptent plus « en vol ») et `Anular solicitud` (rien ne part chez Lobby ;
+    lignes sans booking ne comptent plus « en vol » ; seule l'entrée « commande PAYÉE — Lobby a refusé » est résolue : « remise à saisir à la main » et « issue inconnue / booking NON enregistré » restent ouvertes, ce sont des tâches à part) et `Anular solicitud` (rien ne part chez Lobby ;
     n'annule ni les lignes ni de remboursement). Sans ce levier une commande payée restait
     `paid_unconfirmed` pour toujours.
 13. **Faux « complet »** : si `hold_pms_nights` refuse uniquement à cause des lignes « en vol »

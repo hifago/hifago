@@ -485,8 +485,10 @@ grant execute on function public.admin_pms_booking_requests(uuid[]) to authentic
 --             lignes sans booking ne sont plus tenues ni marquées. N'annule AUCUNE ligne
 --             (set_order_line_status) et ne rembourse rien (remboursements suspendus).
 -- confirm et cancel résolvent aussi les entrées de réconciliation OUVERTES des lignes de la commande
--- nées de cette demande (« commande PAYÉE … », « … issue inconnue … », « remise à saisir … ») — jamais
--- une entrée « jeton Lobby remplacé », ni celles des activités ou d'une annulation refusée. Dans les
+-- dont le détail est « commande PAYÉE — Lobby a refusé … » (l'entrée de la demande elle-même) — jamais
+-- « remise à saisir », « issue inconnue » ni « booking … NON enregistré » (tâches à part, à traiter à
+-- la main puis à résoudre), ni « jeton Lobby remplacé », ni celles des activités ou d'une annulation
+-- refusée. Dans les
 -- deux cas pms_confirmation n'est plus 'failed' (ni 'pending' : la demande n'est plus en cours).
 -- Refus métier rendus (ok:false, reason), toute validation AVANT la première écriture ; une action
 -- inconnue, ou des bookings hors confirm, sont des erreurs d'appelant et lèvent. Une ligne d'audit_log
@@ -727,10 +729,11 @@ begin
              resolved_at = now()
        where e.status in ('open', 'retrying')
          and e.order_line_id in (select ol.id from public.order_lines ol where ol.order_id = v_order_id)
-         and coalesce(e.detail, '') not like 'jeton Lobby remplacé%'
-         and (coalesce(e.detail, '') like 'commande PAYÉE%'
-              or strpos(coalesce(e.detail, ''), 'issue inconnue') > 0
-              or strpos(coalesce(e.detail, ''), 'remise à saisir') > 0)
+         -- UNIQUEMENT l'entrée de la demande elle-même (resolve_pms_booking_request, issue `failed`). Les
+         -- entrées « remise à saisir à la main » (saisir l'acompte dans Lobby), « issue inconnue » et
+         -- « booking … NON enregistré » (annuler à la main un booking) sont de vraies tâches SÉPARÉES :
+         -- elles restent ouvertes après confirm / cancel (arbitrage de l'orchestrateur, 2026-10-23).
+         and coalesce(e.detail, '') like 'commande PAYÉE — Lobby a refusé%'
       returning e.id
     )
     select coalesce(array_agg(r.id order by r.id), '{}'::uuid[]) into v_entries from resolved r;
