@@ -17,10 +17,7 @@ cd "$(dirname "$0")/.."
 
 # Une ligne par exemption : identifiant GHSA, date d'entrée, raison. Revoir à chaque passage du hook.
 EXEMPTIONS=(
-  # braces (toutes versions) via eslint-config-next → @next/eslint-plugin-next → fast-glob →
-  # micromatch → braces. Outillage de lint seulement, jamais déployé. Aucune version corrigée publiée
-  # au 2026-10-03 ; `npm audit fix --force` proposait de redescendre eslint-config-next en 14.x.
-  "GHSA-vfj7-8cjw-p6xm|2026-10-03|braces, outillage de lint uniquement, aucune version corrigée"
+  # (vide au 2026-10-24 : l'exemption braces/GHSA-vfj7-8cjw-p6xm est retirée, l'avis n'apparaît plus.)
 )
 
 echo "== Dépendances de production (aucune exemption possible) =="

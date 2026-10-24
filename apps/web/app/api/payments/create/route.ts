@@ -6,15 +6,24 @@ import {
   PREFERENCE_EXPIRY_MARGIN_MINUTES,
 } from "@/lib/mercadopago/client";
 import { isPaymentsMockEnabled } from "@/lib/mercadopago/mock";
+import { buildPayerIdentity, buildPreferenceItems } from "@/lib/mercadopago/preferenceData";
+import { getOrderLinesForPreference } from "@/lib/orders/getOrderLinesForPreference";
 import { getSiteUrl, isProductionSite } from "@/lib/seo/siteUrl";
 
-// Plafond de la plateforme pour cette route : lecture en base (5 s) + Mercado Pago (20 s,
-// `PREFERENCE_DEADLINE_MS`, lib/mercadopago/client.ts) + écriture en base (5 s) = 30 s au pire, et
-// 10 s de marge pour répondre plutôt qu'une 504 sans corps.
+// Plafond de la plateforme pour cette route : lecture en base (5 s) + détail des lignes (3 s, au
+// mieux) + Mercado Pago (20 s, `PREFERENCE_DEADLINE_MS`, lib/mercadopago/client.ts) + écriture en
+// base (5 s) = 33 s au pire, et 7 s de marge pour répondre plutôt qu'une 504 sans corps.
 export const maxDuration = 40;
 
 /** Délai de chacun des deux accès base : une base qui cale répond en erreur, jamais en silence. */
 const DB_CALL_TIMEOUT_MS = 5_000;
+
+/**
+ * Délai du détail des lignes (`get_order_by_token`), qui n'enrichit que la préférence : plus court
+ * que les accès ci-dessus, et sa panne n'est jamais une erreur — la préférence part alors avec
+ * l'item agrégé, au même montant.
+ */
+const ORDER_LINES_TIMEOUT_MS = 3_000;
 
 // Spec 19 §0 Tranche 1 — création de la préférence Checkout Pro. Le CLIENT appelle d'abord
 // create_payment_intent(order_id) directement via son propre client Supabase (RPC anon/
@@ -48,7 +57,12 @@ export async function POST(request: Request) {
   const service = createServiceRoleClient();
   const { data: payment, error: readError } = await service
     .from("payments")
-    .select("id, order_id, amount_cop, payer_email, status, orders(access_token, created_at)")
+    // Niveau 1 de l'enrichissement de la préférence (anti-fraude MP, 2026-10-23) : le titulaire et
+    // la référence viennent par le MÊME embed, sans aller-retour de plus. Les lignes, elles, ne
+    // passent JAMAIS par un embed `order_lines` — cf. `getOrderLinesForPreference`.
+    .select(
+      "id, order_id, amount_cop, payer_email, status, orders(access_token, created_at, holder_name, holder_phone, reference)"
+    )
     .eq("id", paymentId)
     .abortSignal(AbortSignal.timeout(DB_CALL_TIMEOUT_MS))
     .maybeSingle();
@@ -158,11 +172,25 @@ export async function POST(request: Request) {
     return url.toString();
   };
 
+  // Niveau 2 : le détail des lignes, au mieux (`null` en cas de panne ou de délai). Hors du `try`
+  // ci-dessous parce que sa panne n'est PAS une panne de Mercado Pago, et ne doit jamais en prendre
+  // le code de retour. `buildPreferenceItems` garantit Σ items = `payments.amount_cop`.
+  const lines = await getOrderLinesForPreference(order.access_token, ORDER_LINES_TIMEOUT_MS);
+  const items = buildPreferenceItems({
+    paymentId: payment.id,
+    amountCop: payment.amount_cop,
+    reference: order.reference,
+    lines,
+  });
+
   try {
     const { initPoint, preferenceId, collectorId } = await createCheckoutPreference({
       paymentId: payment.id,
       amountCop: payment.amount_cop,
       payerEmail: payment.payer_email,
+      payerIdentity: buildPayerIdentity(order.holder_name, order.holder_phone),
+      items,
+      reference: order.reference,
       successUrl: withPaymentOutcome("approved"),
       pendingUrl: withPaymentOutcome("pending"),
       failureUrl: withPaymentOutcome("rejected"),

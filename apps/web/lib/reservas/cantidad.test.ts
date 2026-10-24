@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { limitarCantidad, pisoCantidad, topeCantidad } from "./cantidad";
+import { limitarCantidad, pisoCantidad, plafondCantidad, topeCantidad } from "./cantidad";
 
 describe("limitarCantidad", () => {
   it("laisse passer une valeur dans les bornes", () => {
@@ -81,5 +81,33 @@ describe("topeCantidad", () => {
 
   it("reflète le maximum sinon", () => {
     expect(topeCantidad(8)).toBe(8);
+  });
+});
+
+describe("plafondCantidad", () => {
+  const restantes = new Map([
+    ["2026-12-20", 8],
+    ["2026-12-21", 2],
+    ["2026-12-22", 5],
+  ]);
+
+  it("sans plage : le maximum des nuits chargées, borné par max_qty", () => {
+    expect(plafondCantidad(20, restantes, [])).toBe(8);
+    expect(plafondCantidad(6, restantes, [])).toBe(6);
+  });
+
+  it("sur une plage : la nuit la moins fournie borne (2 lits libres une nuit)", () => {
+    expect(plafondCantidad(20, restantes, ["2026-12-20", "2026-12-21", "2026-12-22"])).toBe(2);
+    expect(plafondCantidad(20, restantes, ["2026-12-20"])).toBe(8);
+  });
+
+  it("une nuit absente de la map vaut 0 — fail-closed", () => {
+    expect(plafondCantidad(20, restantes, ["2026-12-20", "2026-12-23"])).toBe(0);
+  });
+
+  it("max_qty absent : défaut 20 ; rien de chargé : seul max_qty borne", () => {
+    expect(plafondCantidad(null, new Map([["2026-12-20", 64]]), [])).toBe(20);
+    expect(plafondCantidad(null, new Map(), [])).toBe(20);
+    expect(plafondCantidad(6, new Map(), [])).toBe(6);
   });
 });

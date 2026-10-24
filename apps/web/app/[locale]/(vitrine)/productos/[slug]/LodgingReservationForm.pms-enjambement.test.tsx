@@ -132,7 +132,9 @@ describe("PMS-backed : la plage ne peut pas enjamber une nuit pleine annoncée p
     expect(jour("2026-12-24")?.disabled).toBe(true);
   });
 
-  it("monter la quantité après coup replie la plage au lieu de l'avertir", async () => {
+  it("monter la quantité au-delà de la plage posée la ramène au plafond, la plage reste", async () => {
+    // Depuis le 2026-10-23 (bug 6, plafond de lits) : avec une plage posée, le plafond est la nuit
+    // la moins fournie de la plage. Avant, la saisie de 3 repliait la plage sur l'arrivée.
     await renderPms();
     fireEvent.click(jour("2026-12-28")!);
     fireEvent.click(jour("2026-12-30")!); // 2 nuits : 28 et 29
@@ -141,7 +143,19 @@ describe("PMS-backed : la plage ne peut pas enjamber une nuit pleine annoncée p
 
     setQty("3"); // la nuit du 29 n'a que 2 places
     expect(avertissement()).toBeNull();
-    expect(screen.queryByText("2 noches")).toBeNull();
+    expect((screen.getByTestId("lodging-qty-input") as HTMLInputElement).value).toBe("2");
+    expect(screen.getByText("2 noches")).toBeTruthy();
+  });
+
+  it("avec la seule arrivée posée, monter la quantité replie encore la sélection", async () => {
+    await renderPms();
+    fireEvent.click(jour("2026-12-29")!); // arrivée seule, nuit à 2 places
+    setQty("3");
+    // L'arrivée ne tient plus 3 : la sélection repart de zéro (repli de handleQtyChange) — la
+    // quantité n'est pas bridée par une plage qui n'existe pas encore, et « Borrar » n'a plus rien
+    // à effacer.
+    expect((screen.getByTestId("lodging-qty-input") as HTMLInputElement).value).toBe("3");
+    expect((screen.getByTestId("calendar-clear") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("une nuit ABSENTE de la réponse Lobby se comporte comme une nuit pleine", async () => {
@@ -180,6 +194,22 @@ describe("PMS-backed : la plage ne peut pas enjamber une nuit pleine annoncée p
     fireEvent.click(jour("2027-01-02")!);
     expect(avertissement()).toBeNull();
     expect(screen.getByText("3 noches")).toBeTruthy(); // 30, 31, 1er
+  });
+});
+
+describe("PMS-backed : le plafond de quantité suit les places restantes (2026-10-23)", () => {
+  const maxChamp = () => Number((screen.getByTestId("lodging-qty-input") as HTMLInputElement).max);
+
+  it("sans plage : le maximum des nuits chargées, borné par max_qty (4, pas 6)", async () => {
+    await renderPms();
+    expect(maxChamp()).toBe(4);
+  });
+
+  it("sur une plage : la nuit la moins fournie (29 déc., 2 lits) borne le champ", async () => {
+    await renderPms();
+    fireEvent.click(jour("2026-12-28")!);
+    fireEvent.click(jour("2026-12-30")!); // nuits 28 (4) et 29 (2)
+    expect(maxChamp()).toBe(2);
   });
 });
 
