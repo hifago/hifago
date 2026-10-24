@@ -27,7 +27,7 @@
 ## Cadrage — la cible de la refonte
 - [Audit du modèle de données cible — entités partagées](00-modele-de-donnees.md) 57K
 - [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 99K
-- [Cahier des charges — portail socio (aujourd'hui /partner)](02-cahier-des-charges-socio.md) 58K
+- [Cahier des charges — portail socio (aujourd'hui /partner)](02-cahier-des-charges-socio.md) 59K
 - [Cahier des charges — back-office admin (aujourd'hui /admin)](03-cahier-des-charges-admin.md) 52K
 - [Choix de stack et architecture cible](04-architecture-cible.md) 78K
 - [Référence technique — patterns validés et extensions requises](05-reference-technique.md) 9K

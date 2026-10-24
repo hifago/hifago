@@ -170,6 +170,9 @@ select is(
 update order_lines set status = 'cancelled_by_client' where id = '7d700000-0000-4000-8000-000000000060';
 select is((select count(*)::int from p7d_pending where pms_booking_id = 'DUP-6' and establishment_id = '7d700000-0000-4000-8000-000000000011'),
   0, 'l''activité de A tombe, la nuit de A tient le booking : rien en file chez A');
+-- ADAPTÉ le 2026-10-24 (20261024120000) : le prestataire n'est plus prévenu de l'annulation d'une ligne
+-- jamais payée. La commande de ce test porte une réservation CONFIRMÉE (payée).
+update orders set payment_status = 'paid' where id = (select order_id from order_lines where id = '7d700000-0000-4000-8000-000000000060');
 select notify_order_line_cancelled('7d700000-0000-4000-8000-000000000060', 'client');
 select is(
   (select count(*)::int from notification_emails

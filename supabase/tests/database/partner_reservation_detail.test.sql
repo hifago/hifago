@@ -43,9 +43,12 @@ insert into products (id, partner_id, establishment_id, type, name, price_cop, s
    '88970000-0000-4000-8000-000000000011', 'activity',
    jsonb_build_object('es', 'Actividad Reservation Detail'), 50000, true, 'reservation-detail-test');
 
-insert into orders (id, account_id, holder_name, holder_email) values
+-- ADAPTÉ le 2026-10-24 (20261024120000) : la commande est PAYÉE. Une ligne `reserved` d'une commande
+-- non payée qui porte un acompte dû (ici 8500) n'est plus une réservation pour le prestataire — le
+-- détail la rend introuvable (partner_sans_impayees.test.sql).
+insert into orders (id, account_id, holder_name, holder_email, payment_status) values
   ('88970000-0000-4000-8000-000000000041', '88970000-0000-4000-8000-000000000023',
-   'Reservation Detail Holder', 'rd-holder@test.local');
+   'Reservation Detail Holder', 'rd-holder@test.local', 'paid');
 insert into order_lines (
   id, order_id, account_id, product_id, date, qty, status, holder_name, holder_phone,
   price_cop, total_cop, commission_case, acompte_pct, referrer_pct, app_pct,
