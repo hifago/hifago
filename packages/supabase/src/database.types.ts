@@ -577,6 +577,7 @@ export type Database = {
           lat: number | null
           lobby_api_token: string | null
           lobby_connector_active: boolean
+          lobby_dynamic_pricing: boolean
           lobby_has_token: boolean | null
           lobby_last_synced_at: string | null
           lobby_token_changed_at: string | null
@@ -601,6 +602,7 @@ export type Database = {
           lat?: number | null
           lobby_api_token?: string | null
           lobby_connector_active?: boolean
+          lobby_dynamic_pricing?: boolean
           lobby_has_token?: boolean | null
           lobby_last_synced_at?: string | null
           lobby_token_changed_at?: string | null
@@ -625,6 +627,7 @@ export type Database = {
           lat?: number | null
           lobby_api_token?: string | null
           lobby_connector_active?: boolean
+          lobby_dynamic_pricing?: boolean
           lobby_has_token?: boolean | null
           lobby_last_synced_at?: string | null
           lobby_token_changed_at?: string | null
@@ -851,6 +854,7 @@ export type Database = {
           pms_booking_id: string | null
           pms_held_at: string | null
           pms_last_polled_at: string | null
+          pms_nightly_unit_prices: Json | null
           pms_recorded_at: string | null
           price_cop: number
           product_id: string
@@ -883,6 +887,7 @@ export type Database = {
           pms_booking_id?: string | null
           pms_held_at?: string | null
           pms_last_polled_at?: string | null
+          pms_nightly_unit_prices?: Json | null
           pms_recorded_at?: string | null
           price_cop: number
           product_id: string
@@ -915,6 +920,7 @@ export type Database = {
           pms_booking_id?: string | null
           pms_held_at?: string | null
           pms_last_polled_at?: string | null
+          pms_nightly_unit_prices?: Json | null
           pms_recorded_at?: string | null
           price_cop?: number
           product_id?: string
@@ -1695,6 +1701,7 @@ export type Database = {
           lobby_category_id: number
           max_stay: number | null
           min_stay: number | null
+          prices: Json | null
           synced_at: string
         }
         Insert: {
@@ -1705,6 +1712,7 @@ export type Database = {
           lobby_category_id: number
           max_stay?: number | null
           min_stay?: number | null
+          prices?: Json | null
           synced_at?: string
         }
         Update: {
@@ -1715,6 +1723,7 @@ export type Database = {
           lobby_category_id?: number
           max_stay?: number | null
           min_stay?: number | null
+          prices?: Json | null
           synced_at?: string
         }
         Relationships: [
@@ -1814,6 +1823,61 @@ export type Database = {
             columns: ["establishment_id"]
             isOneToOne: false
             referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pms_cart_quotes: {
+        Row: {
+          account_id: string
+          cart_item_id: string
+          date: string
+          end_date: string
+          min_available_cupos: number
+          nightly_unit_prices: Json
+          product_id: string
+          quoted_at: string
+        }
+        Insert: {
+          account_id: string
+          cart_item_id: string
+          date: string
+          end_date: string
+          min_available_cupos: number
+          nightly_unit_prices: Json
+          product_id: string
+          quoted_at?: string
+        }
+        Update: {
+          account_id?: string
+          cart_item_id?: string
+          date?: string
+          end_date?: string
+          min_available_cupos?: number
+          nightly_unit_prices?: Json
+          product_id?: string
+          quoted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pms_cart_quotes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pms_cart_quotes_cart_item_id_fkey"
+            columns: ["cart_item_id"]
+            isOneToOne: true
+            referencedRelation: "cart_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pms_cart_quotes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -3616,6 +3680,10 @@ export type Database = {
         }[]
       }
       payments_reconcile_watchdog: { Args: never; Returns: undefined }
+      pms_quote_unit_sum: {
+        Args: { p_date: string; p_end_date: string; p_nightly: Json }
+        Returns: number
+      }
       process_campaign_batch: {
         Args: { p_batch_size?: number; p_campaign_id: string }
         Returns: Json
@@ -3655,6 +3723,10 @@ export type Database = {
           p_order_line_id: string
           p_pms_booking_id: string
         }
+        Returns: Json
+      }
+      record_pms_cart_quotes: {
+        Args: { p_account_id: string; p_quotes: Json }
         Returns: Json
       }
       release_notification_email_claim: {

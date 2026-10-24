@@ -49,6 +49,7 @@ import {
 } from "@/lib/reservas/calendario";
 import { limitarCantidad, plafondCantidad, topeCantidad } from "@/lib/reservas/cantidad";
 import { plazasRestantes } from "@/lib/reservas/disponibilidad";
+import { precioLobbyPorUnidad } from "@/lib/reservas/precioLobby";
 import { motivoPms } from "@/lib/reservas/pms";
 import { usePrefillUltimosCriterios } from "@/lib/reservas/usePrefillUltimosCriterios";
 import { Title } from "@/components/atoms/Title";
@@ -60,7 +61,8 @@ import { Title } from "@/components/atoms/Title";
 // Ce composant a eu un jumeau, HotelReservationForm.tsx, qui ajoutait un sélecteur de chambre
 // avant le calendrier. T3 (2026-08-27) a supprimé l'étage hôtel : chaque chambre est devenue un
 // produit, et ce formulaire les sert toutes.
-type AvailabilityRow = { date: string; capacity: number; booked: number };
+// `unitPriceCop` : prix Lobby d'une unité cette nuit (miroir ou route), lu seulement si `lobbyPricing`.
+type AvailabilityRow = { date: string; capacity: number; booked: number; unitPriceCop?: number | null };
 type RateRow = { date: string; price_cop: number };
 
 // Une nuit est RÉSERVABLE si son restant couvre la quantité demandée. Seuil `qty`, jamais 0 — une
@@ -94,6 +96,7 @@ export function LodgingReservationForm({
   maxQty,
   lodgingKind,
   isPmsBacked,
+  lobbyPricing = false,
   availability,
   restrictedNights = [],
   rates,
@@ -104,6 +107,11 @@ export function LodgingReservationForm({
   maxQty: number;
   lodgingKind: LodgingKind | null;
   isPmsBacked: boolean;
+  /**
+   * Logement PMS vendu au prix Lobby (`lobby_dynamic_pricing`, 2026-10-23) : l'estimation devient la
+   * somme des prix Lobby des nuits × qty, et l'ajout se désactive si une nuit n'est pas cotée.
+   */
+  lobbyPricing?: boolean;
   /**
    * Pour un PMS-backed, ce sont les nuits du MIROIR (pms_availability_mirror), lues côté serveur et
    * déjà converties en cupos — plus un tableau vide comme jusqu'au 2026-09-18. Elles servent de
@@ -488,7 +496,15 @@ export function LodgingReservationForm({
     (night) => inCartByDate.get(night) ?? 0
   );
 
-  const canAdd = nights.length > 0 && !hasUnavailableNight;
+  // Prix Lobby (2026-10-23) : la somme des nuits pour une unité, ou `null` si une nuit n'est pas cotée
+  // — l'ajout est alors désactivé, jamais un total partiel. Hors prix Lobby : sans objet.
+  const lobbyUnitPriceCop = useMemo(
+    () => (lobbyPricing ? precioLobbyPorUnidad(nights, (night) => byDate.get(night)?.unitPriceCop) : null),
+    [lobbyPricing, nights, byDate]
+  );
+  const lobbyPriceMissing = lobbyPricing && nights.length > 0 && lobbyUnitPriceCop === null;
+
+  const canAdd = nights.length > 0 && !hasUnavailableNight && !lobbyPriceMissing;
 
   // Estimation d'affichage (jamais la vraie barrière) : palier de quantité déjà résolu côté client
   // (mécanique publique, pas de secret) puis override exact par nuit si posé côté admin —
@@ -497,9 +513,10 @@ export function LodgingReservationForm({
   // facturé, cf. CartLine.priceCop.
   const estimatedUnitPriceCop = useMemo(() => {
     if (nights.length === 0) return 0;
+    if (lobbyPricing) return lobbyUnitPriceCop ?? 0;
     const tierPrice = resolveTierPrice(priceTiers, priceCop, qty);
     return estimateNightsTotal(nights, tierPrice, (night) => rateByDate.get(night));
-  }, [nights, qty, priceTiers, priceCop, rateByDate]);
+  }, [nights, qty, priceTiers, priceCop, rateByDate, lobbyPricing, lobbyUnitPriceCop]);
 
   // La quantité N'EST PLUS remise à 1 ici. Elle l'était à chaque clic sur le calendrier, ce qui
   // rendait impossible le seul geste qui compte : poser d'abord le nombre de places, puis regarder
@@ -687,6 +704,10 @@ export function LodgingReservationForm({
         hasUnavailableNight ? (
           <p className="text-sm text-danger" role="alert" data-testid="range-unavailable-warning">
             {t("rangeUnavailable")}
+          </p>
+        ) : lobbyPriceMissing ? (
+          <p className="text-sm text-danger" role="alert" data-testid="lobby-price-missing">
+            {t("lobbyPriceMissing")}
           </p>
         ) : (
           <p className="text-sm text-muted" aria-live="polite">

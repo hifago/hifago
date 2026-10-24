@@ -22,6 +22,7 @@ function ligne(partial: Partial<CartLineForDisplay> & { id: string }): CartLineF
     availability: { status: "available" },
     durationDays: null,
     priceTiers: null,
+    pmsPrice: null,
     ...partial,
   };
 }

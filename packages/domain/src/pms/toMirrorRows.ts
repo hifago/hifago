@@ -1,4 +1,5 @@
 import type { NightCatalogRow } from "./alignLobbyCatalogEntries.ts";
+import type { LobbyNightPrices } from "./parseLobbyNightCatalog.ts";
 
 /** Une ligne (catégorie, nuit) — la forme que `sync_pms_availability_month` attend en `p_rows`. */
 export interface MirrorRow {
@@ -8,6 +9,11 @@ export interface MirrorRow {
   min_stay: number | null;
   max_stay: number | null;
   lead_days: number | null;
+  /**
+   * Prix Lobby par occupation de cette nuit (2026-10-23), `null` si aucun n'est lisible. Le miroir
+   * ne sert qu'à AFFICHER : le prix facturé vient du devis lu à chaud sur /pago.
+   */
+  prices: LobbyNightPrices | null;
 }
 
 /**
@@ -32,6 +38,7 @@ export function toMirrorRows(nights: NightCatalogRow[]): MirrorRow[] {
         min_stay: restrictions?.minStay ?? null,
         max_stay: restrictions?.maxStay ?? null,
         lead_days: restrictions?.leadDays ?? null,
+        prices: night.pricesByCategory.get(categoryId) ?? null,
       });
     }
   }

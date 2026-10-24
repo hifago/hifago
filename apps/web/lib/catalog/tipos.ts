@@ -177,7 +177,16 @@ export type CategoriaConTarjetas = {
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Ce que le calendrier d'un produit à date unique reçoit. */
-export type FilaDisponibilidad = { date: string; capacity: number; booked: number };
+export type FilaDisponibilidad = {
+  date: string;
+  capacity: number;
+  booked: number;
+  /**
+   * Prix Lobby d'UNE unité cette nuit (logement PMS à prix Lobby, 2026-10-23), lu dans le miroir :
+   * affichage seulement, le prix facturé vient du devis de /pago. Absent ou `null` : non coté.
+   */
+  unitPriceCop?: number | null;
+};
 
 /** Override de prix pour une nuit donnée (hébergement). */
 export type FilaTarifa = { date: string; price_cop: number };
@@ -264,6 +273,12 @@ export type DatosAlojamiento = {
    * l'établissement. Toujours vrai pour un logement qui n'est pas adossé au PMS.
    */
   reservableEnLinea: boolean;
+  /**
+   * Vrai pour un logement PMS dont l'établissement vend au prix Lobby (`lobby_dynamic_pricing`,
+   * migration 20261024100000) : le formulaire estime alors le séjour nuit par nuit au prix Lobby,
+   * et `price_cop` n'est plus que le « desde » des cartes et du JSON-LD.
+   */
+  precioLobby: boolean;
   /**
    * `product_amenity_assignments` (migration 20260917110000) — toujours `[]`, jamais `null` : pas
    * de garde supplémentaire côté composant. Référentiel fermé, peuplé par migration (décision

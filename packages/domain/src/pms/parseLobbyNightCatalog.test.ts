@@ -15,7 +15,7 @@ const GUSTO = 36572;
 const entree = (
   date: string | null,
   availableByCategory: Map<number, number>
-): LobbyCatalogEntry => ({ date, availableByCategory, restrictionsByCategory: new Map() });
+): LobbyCatalogEntry => ({ date, availableByCategory, restrictionsByCategory: new Map(), pricesByCategory: new Map() });
 
 // Réponse de PLAGE telle qu'elle est HYPOTHÉTIQUEMENT rendue si `available-rooms` honore vraiment
 // start_date/end_date (« over a date range » dans la doc, jamais essayé par personne — c'est ce que
@@ -397,5 +397,72 @@ describe("restrictions{min_stay, max_stay, lead_days} — relevées, jamais appl
     if (!parsed.ok) return;
     // Ne rien inscrire évite de faire croire à une observation qu'on n'a pas faite.
     expect(parsed.entries[0].restrictionsByCategory.has(GUSTO)).toBe(false);
+  });
+});
+
+describe("parseLobbyNightCatalog — les prix Lobby (prix public, 2026-10-23)", () => {
+  // Forme de la doc Lobby (dépôt legacy, docs/3-integrations/lobby_pms_api.md) : `plans[].prices[]`,
+  // `{people, value}`, `value` parfois en chaîne (« 120000.00 »).
+  const corps = (plans: unknown) => ({
+    date: "2026-11-07",
+    categories: [{ category_id: GLAMPING, available_rooms: 3, plans }],
+  });
+  const prixDe = (plans: unknown) => {
+    const parsed = parseLobbyNightCatalog(corps(plans));
+    return parsed.ok ? parsed.entries[0].pricesByCategory.get(GLAMPING) : "illisible";
+  };
+
+  it("lit `value` par niveau d'occupation, nombre ou chaîne", () => {
+    expect(
+      prixDe([{ name: "STANDARD_RATE", prices: [{ people: 1, value: 120000 }, { people: 2, value: "180000.00" }] }])
+    ).toEqual({ 1: 120_000, 2: 180_000 });
+  });
+
+  it("STANDARD_RATE d'abord, sinon le premier plan qui porte des prix", () => {
+    expect(
+      prixDe([
+        { name: "PROMO", prices: [{ people: 1, value: 90000 }] },
+        { name: "STANDARD_RATE", prices: [{ people: 1, value: 120000 }] },
+      ])
+    ).toEqual({ 1: 120_000 });
+    expect(
+      prixDe([
+        { name: "STANDARD_RATE", prices: [] },
+        { name: "PROMO", prices: [{ people: 1, value: 90000 }] },
+      ])
+    ).toEqual({ 1: 90_000 });
+  });
+
+  it("absent, illisible ou ≤ 0 : omis — jamais un prix fabriqué, jamais une nuit gratuite", () => {
+    expect(prixDe([])).toBeUndefined();
+    expect(prixDe(undefined)).toBeUndefined();
+    expect(
+      prixDe([
+        {
+          name: "STANDARD_RATE",
+          prices: [
+            { people: 1, value: 0 },
+            { people: 2, value: "" },
+            { people: 3, value: "abc" },
+            { people: 4, price: 50000 },
+            { people: 0, value: 10000 },
+            { people: 1.5, value: 10000 },
+          ],
+        },
+      ])
+    ).toBeUndefined();
+  });
+
+  it("une occupation cotée deux fois à deux prix différents est retirée, jamais tranchée", () => {
+    expect(
+      prixDe([{ name: "STANDARD_RATE", prices: [{ people: 1, value: 1000 }, { people: 1, value: 2000 }, { people: 2, value: 3000 }] }])
+    ).toEqual({ 2: 3000 });
+  });
+
+  it("le prix suit la catégorie jusqu'au catalogue aligné (miroir, devis)", () => {
+    const parsed = parseLobbyNightCatalog(corps([{ name: "STANDARD_RATE", prices: [{ people: 1, value: 120000 }] }]));
+    if (!parsed.ok) throw new Error("illisible");
+    const aligned = alignLobbyCatalogEntries(parsed.entries, ["2026-11-07"]);
+    expect(aligned.ok && aligned.nights[0].pricesByCategory.get(GLAMPING)).toEqual({ 1: 120_000 });
   });
 });

@@ -213,6 +213,49 @@ describe("PMS-backed : le plafond de quantité suit les places restantes (2026-1
   });
 });
 
+describe("PMS-backed au prix Lobby (lobby_dynamic_pricing, 2026-10-23)", () => {
+  // Vendredi 4 décembre 45 000 le lit, samedi 5 60 000 ; le 6 n'est pas coté en prix.
+  const SEMIS_PRIX = [
+    { date: "2026-12-04", capacity: 4, booked: 0, unitPriceCop: 45000 },
+    { date: "2026-12-05", capacity: 4, booked: 0, unitPriceCop: 60000 },
+    { date: "2026-12-06", capacity: 4, booked: 0, unitPriceCop: null },
+    { date: "2026-12-07", capacity: 4, booked: 0, unitPriceCop: 45000 },
+    ...NUITS,
+    ...NUITS_JANVIER,
+  ];
+  function renderPrixLobby() {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ json: async () => ({ ok: true, nights: [], restrictedNights: [] }) } as Response));
+    render(
+      <NextIntlClientProvider locale="es" messages={{ ProductPage: messages.ProductPage, Common: messages.Common }}>
+        <LodgingReservationForm
+          productId="p"
+          priceCop={20000} priceTiers={null} maxQty={6} lodgingKind="dorm"
+          isPmsBacked lobbyPricing availability={SEMIS_PRIX} rates={[]}
+        />
+      </NextIntlClientProvider>
+    );
+  }
+
+  it("estime le séjour au prix Lobby de CHAQUE nuit × qty, jamais au prix fixe", () => {
+    renderPrixLobby();
+    setQty("2");
+    fireEvent.click(jour("2026-12-04")!);
+    fireEvent.click(jour("2026-12-06")!); // nuits du 4 (45 000) et du 5 (60 000)
+    // (45 000 + 60 000) × 2 lits = 210 000 — le prix fixe aurait donné 20 000 × 2 × 2 = 80 000.
+    expect(screen.getByTestId("lodging-estimated-price").textContent).toMatch(/210\.000/);
+    expect((screen.getByTestId("add-to-cart-button") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("une nuit sans prix Lobby : ajout désactivé, message, aucun total partiel", () => {
+    renderPrixLobby();
+    fireEvent.click(jour("2026-12-05")!);
+    fireEvent.click(jour("2026-12-07")!); // nuits du 5 et du 6, le 6 sans prix
+    expect(screen.getByTestId("lobby-price-missing")).toBeTruthy();
+    expect(screen.queryByTestId("lodging-estimated-price")).toBeNull();
+    expect((screen.getByTestId("add-to-cart-button") as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
 // ---------------------------------------------------------------------------------------------
 // LE SEMIS — plus d'appel à LobbyPMS au chargement (2026-09-18, décision Gabriel).
 //

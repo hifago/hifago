@@ -28,7 +28,7 @@
 // ORDRE : toutes les NUITS d'abord, arrêt à la première qui échoue ; les ACTIVITÉS ensuite, seulement
 // si toutes les nuits sont réservées. Une activité refusée ne bloque jamais la confirmation.
 import { createLobbyBooking, addLobbyProductService } from "./lobbyClient.ts";
-import { buildEvenRatesPerDay } from "./buildEvenRatesPerDay.ts";
+import { buildNightlyRatesPerDay, type StoredNightlyUnitPrice } from "./buildEvenRatesPerDay.ts";
 import { buildLobbyBookingNote } from "./buildLobbyBookingNote.ts";
 import { parseLobbyBookingResponse } from "./parseLobbyBookingResponse.ts";
 import { describeLobbyErrorBody } from "./describeLobbyErrorBody.ts";
@@ -46,6 +46,11 @@ export interface ClaimedLodgingLine {
   /** Acompte encaissé pour cette ligne — relu en base par le claim, jamais envoyé par un client. */
   acompte_cop: number;
   lobby_category_id: number | null;
+  /**
+   * La ventilation par nuit figée par create_order depuis le devis Lobby (2026-10-23), relue par le
+   * claim. Absente ou nulle pour une ligne ancienne ou au prix fixe : repli sur le partage égal.
+   */
+  pms_nightly_unit_prices?: StoredNightlyUnitPrice[] | null;
 }
 
 export interface ClaimedActivityLine {
@@ -158,7 +163,13 @@ async function bookNight(
     endDate: line.end_date as string,
     totalAdults: line.qty,
     holderName: line.holder_name,
-    ratesPerDay: buildEvenRatesPerDay(line.date, line.end_date as string, line.total_cop),
+    ratesPerDay: buildNightlyRatesPerDay(
+      line.date,
+      line.end_date as string,
+      line.qty,
+      line.total_cop,
+      line.pms_nightly_unit_prices
+    ),
     note: buildLobbyBookingNote({
       orderLineId: line.id,
       promoCode: order.attribution_code ?? null,

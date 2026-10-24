@@ -11,10 +11,12 @@
 --     connecteur actif, ressource sommée sur deux lignes, créneau déjà entamé, camp couvert par un
 --     séjour, panier aux raisons mêlées ;
 --   - lecture seule : rien de matérialisé (product_availability, product_slot_availability) ;
---   - le panier de l'appelant seulement ; sans identité, rien ; jamais exécutable par anon.
+--   - le panier de l'appelant seulement ; sans identité, rien ; jamais exécutable par anon ;
+--   - prix Lobby dynamique (migration 20261024110000) : devis absent, aux autres dates, périmé,
+--     quantité au-delà des places cotées ; paliers sans objet sous devis.
 -- Dates relatives à today_in_bogota(), jamais current_date.
 begin;
-select plan(42);
+select plan(47);
 
 create temp table test_r (k text primary key, avail text[], ordered text);
 grant all on test_r to authenticated;
@@ -54,6 +56,40 @@ begin
    where k = p_case;
 end;
 $$;
+-- Prix Lobby (migration 20261024110000) : le devis que /pago écrirait (record_pms_cart_quotes, en
+-- service_role) pour chaque nuitée du panier de l'appelant — âge, places cotées, décalage de dates.
+-- SECURITY DEFINER : pms_cart_quotes est fermée à authenticated.
+create function test_devis(p_age_minutes int, p_min int, p_shift int default 0) returns void
+language sql security definer set search_path = public, pg_temp as $$
+  insert into public.pms_cart_quotes (cart_item_id, account_id, product_id, date, end_date,
+                                      nightly_unit_prices, min_available_cupos, quoted_at)
+  select ci.id, ci.account_id, ci.product_id, ci.date + p_shift, ci.end_date + p_shift,
+         (select jsonb_agg(jsonb_build_object('date', ci.date + p_shift + g, 'unit_price_cop', 50000 + 10000 * g) order by g)
+            from generate_series(0, ci.end_date - ci.date - 1) g),
+         p_min, now() - make_interval(mins => p_age_minutes)
+    from public.cart_items ci
+   where ci.account_id = auth.uid() and ci.end_date is not null;
+$$;
+-- test_parity, avec le devis posé entre le panier et les deux lectures (null : aucun devis).
+create function test_parity_devis(p_case text, p_lines jsonb, p_age_minutes int, p_min int, p_shift int default 0)
+returns void language plpgsql as $$
+declare
+  v_order jsonb;
+begin
+  perform test_set_cart(p_lines);
+  if p_age_minutes is not null then
+    perform test_devis(p_age_minutes, p_min, p_shift);
+  end if;
+  insert into test_r (k, avail)
+  select p_case, array_agg(coalesce(a.reason, 'ok') order by ci.created_at)
+    from public.cart_lines_availability() a
+    join public.cart_items ci on ci.id = a.id;
+  v_order := public.create_order('Cliente Paridad', p_holder_email => 'paridad@test.local');
+  update test_r
+     set ordered = case when (v_order->>'ok')::boolean then 'ok' else v_order->>'reason' end
+   where k = p_case;
+end;
+$$;
 create function test_case(p_case text) returns text[] language sql as $$
   select avail || ordered from test_r where k = p_case;
 $$;
@@ -66,6 +102,9 @@ insert into establishments (id, partner_id, name, lobby_connector_active, lobby_
   ('b1c70000-0000-4000-8000-000000000012', 'b1c70000-0000-4000-8000-000000000001', jsonb_build_object('es', 'Cart B'), false, null),
   ('b1c70000-0000-4000-8000-000000000013', 'b1c70000-0000-4000-8000-000000000001', jsonb_build_object('es', 'Cart C'), false, null),
   ('b1c70000-0000-4000-8000-000000000014', 'b1c70000-0000-4000-8000-000000000001', jsonb_build_object('es', 'Cart D'), false, null);
+-- 15 : connecteur actif, prix Lobby (lobby_dynamic_pricing, migration 20261024100000).
+insert into establishments (id, partner_id, name, lobby_connector_active, lobby_api_token, lobby_dynamic_pricing) values
+  ('b1c70000-0000-4000-8000-000000000015', 'b1c70000-0000-4000-8000-000000000001', jsonb_build_object('es', 'Cart E'), true, 'fake-token', true);
 insert into auth.users (id, email) values
   ('b1c70000-0000-4000-8000-000000000031', 'cart-availability@test.local'),
   ('b1c70000-0000-4000-8000-000000000032', 'cart-availability-other@test.local');
@@ -116,6 +155,11 @@ insert into products (id, partner_id, establishment_id, type, name, slug, sellab
   -- 37 : logement PMS-backed, connecteur ACTIF : aucune nuit contrôlée localement.
   ('b1c70000-0000-4000-8000-000000000037', 'b1c70000-0000-4000-8000-000000000001', 'b1c70000-0000-4000-8000-000000000011',
    'lodging', jsonb_build_object('es', 'Hotel Lobby activo'), 'cla-37', true, 100000, null, null, null, null, null, true, 36573, null),
+  -- 40 : logement Lobby à prix dynamique (établissement 15), paliers lacunaires (1-2 seulement).
+  ('b1c70000-0000-4000-8000-000000000040', 'b1c70000-0000-4000-8000-000000000001', 'b1c70000-0000-4000-8000-000000000015',
+   'lodging', jsonb_build_object('es', 'Hotel Lobby dinámico'), 'cla-40', true, 100000,
+   jsonb_build_array(jsonb_build_object('min_qty', 1, 'max_qty', 2, 'price_cop', 100000)),
+   null, null, null, null, true, 36574, null),
   -- 38 : camp d'un jour sur la ressource de l'établissement 14.
   ('b1c70000-0000-4000-8000-000000000038', 'b1c70000-0000-4000-8000-000000000001', 'b1c70000-0000-4000-8000-000000000014',
    'camp', jsonb_build_object('es', 'Campamento recurso'), 'cla-38', true, 90000, null, 10, null, null, null, true, null, 1);
@@ -270,6 +314,15 @@ select test_parity('full créneau', '[{"p":"28","d":3,"s":"09:00","q":3}]');
 select is(test_case('full créneau'), array['full', 'full'], 'full (créneau de 2 places)');
 select test_parity('resource_unavailable', '[{"p":"31","d":3}]');
 select is(test_case('resource_unavailable'), array['resource_unavailable', 'resource_unavailable'], 'resource_unavailable');
+-- Prix Lobby dynamique (migration 20261024110000).
+select test_parity_devis('pms_quote_missing', '[{"p":"40","d":10,"e":12}]', null, null);
+select is(test_case('pms_quote_missing'), array['pms_quote_missing', 'pms_quote_missing'], 'pms_quote_missing (aucun devis)');
+select test_parity_devis('pms_quote_missing dates', '[{"p":"40","d":10,"e":12}]', 1, 5, 1);
+select is(test_case('pms_quote_missing dates'), array['pms_quote_missing', 'pms_quote_missing'], 'pms_quote_missing (devis d''autres dates)');
+select test_parity_devis('pms_quote_expired', '[{"p":"40","d":10,"e":12}]', 16, 5);
+select is(test_case('pms_quote_expired'), array['pms_quote_expired', 'pms_quote_expired'], 'pms_quote_expired (devis de 16 min)');
+select test_parity_devis('pms_capacity_exceeded', '[{"p":"40","d":10,"e":12,"q":3}]', 1, 2);
+select is(test_case('pms_capacity_exceeded'), array['pms_capacity_exceeded', 'pms_capacity_exceeded'], 'pms_capacity_exceeded (3 demandés, 2 cotés)');
 
 -- ── Branches que les raisons seules ne couvrent pas (revue adversariale) ────
 select test_parity('rsvp', '[{"p":"35","d":5,"q":3}]');
@@ -278,6 +331,8 @@ select test_parity('gratuit', '[{"p":"36","d":5}]');
 select is(test_case('gratuit'), array['ok', 'ok'], 'evento gratuit et illimité : ni prix ni cupo exigés → disponible');
 select test_parity('lobby actif', '[{"p":"37","d":10,"e":12}]');
 select is(test_case('lobby actif'), array['ok', 'ok'], 'logement PMS-backed au connecteur actif : aucune nuit contrôlée localement → disponible');
+select test_parity_devis('devis paliers', '[{"p":"40","d":10,"e":12,"q":3}]', 14, 3);
+select is(test_case('devis paliers'), array['ok', 'ok'], 'sous devis valide (14 min), les paliers ne bornent plus la quantité : no_matching_tier sans objet');
 select test_parity('ressource à deux lignes', '[{"p":"38","d":3},{"p":"39","d":3}]');
 select is(test_case('ressource à deux lignes'), array['resource_unavailable', 'resource_unavailable', 'resource_unavailable'],
   'camp + evento occupant le même jour, une place : la ressource se somme sur le panier');

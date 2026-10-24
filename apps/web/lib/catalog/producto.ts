@@ -5,9 +5,12 @@ import {
   hasActiveRestriction,
   isPmsBacked,
   lastBookableDateIso,
+  lobbyOccupancyForUnit,
   pmsUnitsToCupos,
   resolveLocalizedField,
   todayInBogota,
+  unitPriceForOccupancy,
+  type LobbyNightPrices,
 } from "@hifago/domain";
 import { createPublicClient } from "@/lib/supabase/publicClient";
 import { resolverPrograma } from "@/lib/catalog/programa";
@@ -58,7 +61,7 @@ function recortarHora(hora: string | null): string | null {
 //
 // `establishment(...)` ne demande JAMAIS `photo_urls` : la colonne est hors du GRANT SELECT public
 // (20260819110000), et la demander ferait échouer la requête ENTIÈRE — pas seulement ce champ.
-const COLUMNAS_PRODUCTO = `id, slug, name, description, price_cop, price_tiers, min_qty, max_qty, unit, capacity, unit_count, lodging_kind, type, price_label, external_booking_url, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, duration_days, program, group_discount_threshold_qty, group_discount_pct, lobby_category_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, establishment:establishments(id, slug, is_place, name, description, address, lobby_last_synced_at, lobby_connector_active, lobby_has_token)`;
+const COLUMNAS_PRODUCTO = `id, slug, name, description, price_cop, price_tiers, min_qty, max_qty, unit, capacity, unit_count, lodging_kind, type, price_label, external_booking_url, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, duration_days, program, group_discount_threshold_qty, group_discount_pct, lobby_category_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, establishment:establishments(id, slug, is_place, name, description, address, lobby_last_synced_at, lobby_connector_active, lobby_has_token, lobby_dynamic_pricing)`;
 
 /**
  * ⚠️ Mémoïsé par `cache` de React, et ce n'est pas une optimisation : `generateMetadata` et le
@@ -152,7 +155,7 @@ export const getProductoPorSlug = cache(
           ? miroirFresco && conectorPmsActivo
             ? await supabase
                 .from("pms_availability_mirror")
-                .select("date, available_units, min_stay, max_stay, lead_days")
+                .select("date, available_units, min_stay, max_stay, lead_days, prices")
                 .eq("establishment_id", producto.establishment?.id ?? "")
                 .eq("lobby_category_id", producto.lobby_category_id ?? -1)
                 .gte("date", hoyIso)
@@ -270,6 +273,13 @@ export const getProductoPorSlug = cache(
 
     const amenidades = agruparAmenidadesPorCategoria((amenidadesRaw ?? []) as FilaAmenidad[], locale);
 
+    // Prix Lobby (2026-10-23) : l'établissement vend au prix Lobby, et le miroir n'est semé que s'il
+    // porte des prix — cf. `miroirSinPrecios`.
+    const precioLobby = esPmsBacked && Boolean(producto.establishment?.lobby_dynamic_pricing);
+    const disponibilidadSembrada = miroirSinPrecios(precioLobby, (disponibilidad ?? []) as { prices?: unknown }[])
+      ? []
+      : (disponibilidad ?? []);
+
     const modoReserva = resolverModoReserva({
       esEvento,
       esEventoReservable,
@@ -362,6 +372,7 @@ export const getProductoPorSlug = cache(
             maxQty,
             esPmsBacked,
             reservableEnLinea,
+            precioLobby,
             amenidades,
           }
         : null,
@@ -412,7 +423,7 @@ export const getProductoPorSlug = cache(
       // Vide sur tous les comptes observés à ce jour, et c'est précisément ce qui rend ce branchement
       // sûr à poser maintenant.
       restriccionesPms: esPmsBacked
-        ? (disponibilidad ?? [])
+        ? disponibilidadSembrada
             .map((fila) => {
               const brut = fila as {
                 date: string;
@@ -432,12 +443,18 @@ export const getProductoPorSlug = cache(
             .filter((fila) => hasActiveRestriction(fila.restrictions))
         : [],
       disponibilidad: esPmsBacked
-        ? (disponibilidad ?? []).map((fila) => {
-            const unites = (fila as { date: string; available_units: number }).available_units;
+        ? disponibilidadSembrada.map((fila) => {
+            const brut = fila as { date: string; available_units: number; prices: unknown };
             return {
               date: fila.date,
-              capacity: pmsUnitsToCupos(unites),
+              capacity: pmsUnitsToCupos(brut.available_units),
               booked: 0,
+              // Prix Lobby d'une unité (2026-10-23), à l'occupation du produit (per_two : 2, sinon
+              // 1) — affichage seulement, jamais lu par le formulaire si l'interrupteur est éteint.
+              unitPriceCop: unitPriceForOccupancy(
+                brut.prices as LobbyNightPrices | null,
+                lobbyOccupancyForUnit(producto.unit)
+              ),
             };
           })
         : ((disponibilidad ?? []) as FilaDisponibilidad[]),
@@ -520,6 +537,18 @@ const SEUIL_FRAICHEUR_MIROIR_MS = 6 * 60 * 60 * 1000;
 export function esMiroirFresco(lastSyncedAtIso: string | null, ahoraMs: number): boolean {
   if (lastSyncedAtIso == null) return false;
   return ahoraMs - new Date(lastSyncedAtIso).getTime() < SEUIL_FRAICHEUR_MIROIR_MS;
+}
+
+/**
+ * Vrai quand le miroir d'un logement au prix Lobby ne porte AUCUN prix — synchronisé par une version
+ * de `pms-sync-availability` d'avant le 2026-10-23, ou pas encore repassé depuis. Semé tel quel, il
+ * ferait désactiver l'ajout au panier sur toutes ses nuits (« sans prix ») jusqu'au prochain cron,
+ * jusqu'à 24 h. Même parade que `esMiroirFresco` : ne rien semer, le formulaire redemande les mois à
+ * `/api/pms/night-availability`, qui lit Lobby et reverse sa réponse — prix compris — dans le miroir.
+ * Une nuit sans prix parmi d'autres cotées est, elle, une vraie réponse : le miroir est semé.
+ */
+export function miroirSinPrecios(precioLobby: boolean, filas: readonly { prices?: unknown }[]): boolean {
+  return precioLobby && filas.length > 0 && filas.every((fila) => fila.prices == null);
 }
 
 export function resolverUrlContacto({
