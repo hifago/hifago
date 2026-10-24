@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { cuposPerUnit } from "./lodgingCupos";
+import { cuposPerUnit, pmsUnitsToCupos } from "./lodgingCupos";
 
-// Le vocabulaire vient du garde-fou `capacity_exceeds_physical` (migration 20260827250000), mais
-// les deux ne s'appliquent JAMAIS au même produit : cuposPerUnit ne sert que les PMS-backed, pour
-// lesquels create_order saute verrou et décrément. Ces cas figent donc le vocabulaire, pas une
-// cohérence entre deux chemins qui ne se croisent pas — cf. l'en-tête du module. Le vrai garde-fou
+// Le vocabulaire vient du garde-fou `capacity_exceeds_physical` (migration 20260827250000). Depuis
+// le 2026-10-23, un produit PMS-backed passe par pmsUnitsToCupos (facteur 1) et plus par
+// cuposPerUnit — cf. l'en-tête du module. Le vrai garde-fou
 // contre l'oubli est l'exhaustivité du `switch`, vérifiée par le typecheck (témoin rejoué le
 // 2026-08-28 : ajouter un 4e lodging_kind casse la compilation).
 describe("cuposPerUnit", () => {
@@ -39,5 +38,20 @@ describe("cuposPerUnit", () => {
     expect(cuposPerUnit("dorm", null)).toBe(1);
     expect(cuposPerUnit(null, 0)).toBe(1);
     expect(cuposPerUnit("dorm", -3)).toBe(1);
+  });
+});
+
+describe("pmsUnitsToCupos", () => {
+  it("VIDPOVO (capacity 8, 8 lits libres chez Lobby) vaut 8 cupos, pas 64", () => {
+    expect(pmsUnitsToCupos(8)).toBe(8);
+  });
+
+  it("GLAMPING (private, 3 tentes libres) vaut 3", () => {
+    expect(pmsUnitsToCupos(3)).toBe(3);
+  });
+
+  it("jamais de disponibilité fabriquée sur une valeur invalide", () => {
+    expect(pmsUnitsToCupos(-1)).toBe(0);
+    expect(pmsUnitsToCupos(Number.NaN)).toBe(0);
   });
 });

@@ -208,10 +208,25 @@ describe("le cache porte l'établissement et le mois, plus le produit", () => {
   });
 });
 
-describe("la conversion en cupos est PAR PRODUIT, après le cache", () => {
-  it("deux produits sur la MÊME catégorie et des capacités différentes ne se contaminent pas", async () => {
-    // Le risque que R1 crée : ce qui est en cache appartient à l'établissement, donc multiplier
-    // avant le cache écrirait la conversion du premier visiteur sur tous les suivants.
+describe("unités Lobby → cupos : facteur 1, quel que soit le produit (2026-10-23)", () => {
+  it("un dortoir à capacity 8 sur une catégorie à 8 lits vaut 8 cupos, pas 64 (VIDPOVO)", async () => {
+    // Lobby compte déjà des LITS pour une catégorie partagée (capacity 1 × quantity 8) : multiplier
+    // par `products.capacity` donnait 8 × 8 = 64, plafonné seulement par coalesce(max_qty, 20).
+    const establishmentId = freshEstablishment();
+    const month = monthAhead(4);
+    const nuit = `${month}-10`;
+    setPmsFixtureScenario({
+      catalogCategoryIds: [CATEGORY],
+      nightAvailabilityByDate: { [nuit]: { availableByCategory: { [CATEGORY]: 8 } } },
+    });
+    const vidpovo = addProduct(establishmentId, { lodging_kind: "dorm", capacity: 8 });
+    const body = (await (await call(vidpovo, month)).json()) as {
+      nights: { date: string; capacity: number }[];
+    };
+    expect(body.nights.find((n) => n.date === nuit)?.capacity).toBe(8);
+  });
+
+  it("dortoir et privée sur la MÊME catégorie rendent la même disponibilité, un seul appel Lobby", async () => {
     const establishmentId = freshEstablishment();
     const month = monthAhead(4);
     setPmsFixtureScenario({ catalogCategoryIds: [CATEGORY], nightAvailabilityByDate: {} });
@@ -222,12 +237,25 @@ describe("la conversion en cupos est PAR PRODUIT, après le cache", () => {
     const dortoirBody = (await (await call(dortoir, month)).json()) as { nights: { capacity: number }[] };
     const priveeBody = (await (await call(privee, month)).json()) as { nights: { capacity: number }[] };
 
-    // Lobby cote 5 unités (défaut de la fixture). Un dortoir se vend au LIT (5 × 4 = 20 cupos),
-    // une privée à l'UNITÉ (5).
-    expect(dortoirBody.nights[0].capacity).toBe(20);
+    expect(dortoirBody.nights[0].capacity).toBe(5);
     expect(priveeBody.nights[0].capacity).toBe(5);
-    // …et le second produit n'a rien redemandé à Lobby.
     expect(getPmsFixtureCalls("/api/v2/available-rooms")).toBe(1);
+  });
+
+  it("une nuit à 2 lits libres rend 2 cupos, les autres nuits gardent leur compte", async () => {
+    const establishmentId = freshEstablishment();
+    const month = monthAhead(4);
+    const nuit = `${month}-10`;
+    setPmsFixtureScenario({
+      catalogCategoryIds: [CATEGORY],
+      nightAvailabilityByDate: { [nuit]: { availableByCategory: { [CATEGORY]: 2 } } },
+    });
+    const dortoir = addProduct(establishmentId, { lodging_kind: "dorm", capacity: 8 });
+    const body = (await (await call(dortoir, month)).json()) as {
+      nights: { date: string; capacity: number }[];
+    };
+    expect(body.nights.find((n) => n.date === nuit)?.capacity).toBe(2);
+    expect(body.nights.find((n) => n.date === `${month}-11`)?.capacity).toBe(5);
   });
 });
 

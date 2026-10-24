@@ -3,7 +3,7 @@ id: refonte-cdc-socio
 titre: "Cahier des charges — portail socio (aujourd'hui /partner)"
 theme: cadrage
 statut: brouillon
-maj: 2026-10-19
+maj: 2026-10-23
 resume: >
   Comportement métier cible du portail partenaire (référent/prestataire), dérivé du comportement
   réel actuel et challengé section par section avec Jérôme avant reprise dans la refonte.
@@ -16,6 +16,7 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-10-23 — spec 19 retouchée, sans changement de périmètre** : la préférence Mercado Pago envoie désormais l'acheteur (prénom, nom, téléphone) et le détail des lignes pour le contrôle anti-fraude (§0 Tranche 1 « Contenu de la préférence ») ; le montant facturé et le parcours client ne changent pas, rien ne change pour ce cahier.
 - **2026-10-19 — spec 19 retouchée, barème de l'acompte révisé** : 17 % = 8 % référent + 9 % app
   (ex-10 + 7), auto-référence 9 % (ex-7 %), direct 17 % inchangé — migration
   `20261019180000_commission_referent_8_app_9.sql`, seules les commandes créées après prennent le

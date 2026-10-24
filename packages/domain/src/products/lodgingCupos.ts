@@ -3,25 +3,19 @@ import { type LodgingKind } from "./lodgingKind.ts";
 /**
  * Combien de « cupos » offre UNE unité physique d'un logement.
  *
- * POURQUOI ELLE EXISTE. LobbyPMS compte en UNITÉS : `available_rooms` de `/api/v2/available-rooms`
- * renvoie un nombre de chambres/tentes/lits-unités libres. hifago compte `qty` en CUPOS —
- * `order_lines.qty`, `min_qty`/`max_qty`, `price_tiers` et `product_availability.capacity` parlent
- * tous cette langue-là. Le calendrier public comparait directement les deux. Sur un dortoir de lits
- * à une place la confusion est invisible (1 unité = 1 cupo) ; dès que `capacity > 1` elle sous-vend.
- * Cas réel du 2026-08-28 : GLAMPING, `capacity=2`, `unit_count=3` — Lobby répond 3, l'écran refusait
- * toute demande de 4 cupos.
+ * hifago compte `qty` en CUPOS — `order_lines.qty`, `min_qty`/`max_qty`, `price_tiers` et
+ * `product_availability.capacity` parlent tous cette langue-là. Elle a été écrite le 2026-08-28 pour
+ * convertir `available_rooms` de Lobby, sur l'hypothèse que Lobby compte des unités physiques et
+ * qu'un dortoir se vend au lit (`unités × capacity`).
  *
- * D'OÙ VIENT LA RÈGLE, ET CE QU'ELLE N'EST PAS. Elle est REPRISE du garde-fou
- * `capacity_exceeds_physical` de `set_product_availability` (migration 20260827250000) : un dortoir
- * se vend au LIT (`unit_count × capacity`), une privée ou une maison entière à l'UNITÉ
- * (`unit_count`), et `lodging_kind` NULL suit le dortoir (borne haute, la plus permissive).
- *
- * ⚠️ Ce n'est PAS « le miroir » de ce garde-fou, contrairement à ce qu'affirmait la première version
- * de ce commentaire (corrigé le 2026-08-28 après revue). Les deux ne s'appliquent JAMAIS au même
- * produit : cette fonction ne sert que les produits PMS-backed, et c'est précisément pour eux que
- * `create_order` saute verrou et décrément de `product_availability` — le garde-fou SQL ne les voit
- * donc jamais. Il n'y a pas de cohérence à maintenir entre deux chemins qui ne se croisent pas ;
- * il y a un VOCABULAIRE commun à ne pas trahir, ce qui n'est pas la même exigence.
+ * ⚠️ CETTE FONCTION NE SERT PLUS LES PRODUITS PMS (corrigé le 2026-10-23). Une catégorie Lobby
+ * `compartida` compte DÉJÀ des lits : VIDPOVO = `capacity:1 × quantity:8` (spec 24 §11.1), donc
+ * `available_rooms` y est déjà un nombre de lits. Le multiplier encore par `products.capacity` (8)
+ * affichait 64 cupos, plafonnés seulement par `coalesce(max_qty, 20)`. Pour un PMS-backed, une unité
+ * Lobby = un cupo : `pmsUnitsToCupos`, plus bas. `cuposPerUnit` reste la règle du vocabulaire
+ * `unit_count × capacity` du garde-fou `capacity_exceeds_physical` (migration 20260827250000) :
+ * un dortoir se vend au LIT, une privée ou une maison à l'UNITÉ, `lodging_kind` NULL suit le dortoir.
+ * Les deux chemins ne se croisent pas : `create_order` saute verrou et décrément pour un produit PMS.
  *
  * CE QUI PROTÈGE VRAIMENT. Le `switch` ci-dessous est exhaustif sur `LodgingKind` : ajouter une
  * quatrième valeur casse la COMPILATION ici, et force à trancher explicitement. C'était le vrai
@@ -53,4 +47,18 @@ export function cuposPerUnit(kind: LodgingKind | null, capacity: number | null):
       return 1;
     }
   }
+}
+
+/**
+ * Unités Lobby → cupos hifago pour un produit PMS-backed : FACTEUR 1, quelle que soit
+ * `products.capacity`. `available_rooms` de Lobby compte déjà ce que hifago vend — une tente, une
+ * chambre, ou un lit pour une catégorie partagée (`capacity:1 × quantity:8`). Cf. l'en-tête de
+ * `cuposPerUnit` pour le défaut du 2026-10-23 (64 cupos au lieu de 8 sur VIDPOVO).
+ *
+ * Une fonction nommée plutôt qu'un `* 1` muet : les deux sites de lecture (route
+ * `night-availability`, semis SSR de la fiche) et le chat des réservations en vol s'accordent ici.
+ * Un nombre non fini ou négatif ne fabrique jamais de disponibilité : 0.
+ */
+export function pmsUnitsToCupos(units: number): number {
+  return Number.isFinite(units) && units > 0 ? units : 0;
 }

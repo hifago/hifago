@@ -42,7 +42,7 @@ export function asNonEmptyString(value: unknown): string | null {
  * chaîne, d'où la tolérance ; elle s'arrête à une chaîne qui a du contenu.
  *
  * Tronqué, pas arrondi : Lobby compte des unités physiques, et un `2.5` hypothétique deviendrait
- * une demi-place à vendre après multiplication par `cuposPerUnit`.
+ * une demi-place à vendre (une unité Lobby = un cupo, `pmsUnitsToCupos`).
  */
 export function asNonNegativeInt(value: unknown): number | null {
   const usable = typeof value === "number" || (typeof value === "string" && value.trim().length > 0);

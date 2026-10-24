@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { PreferenceLine } from "@/lib/mercadopago/preferenceData";
 
 // Spec 33 — CE FICHIER EXISTE POUR UNE RAISON PRÉCISE : la `back_url` envoyée à Mercado Pago est
 // invisible partout ailleurs. Elle part dans la préférence, jamais dans l'`init_point` que le
@@ -18,10 +19,22 @@ const ACCESS_TOKEN = "0123456789abcdef0123456789abcdef";
 const ORIGINAL_ENV = { ...process.env };
 
 let preferenceInput: Record<string, unknown> | null = null;
-type OrderRow = { access_token: string; created_at: string };
+type OrderRow = {
+  access_token: string;
+  created_at: string;
+  holder_name?: string | null;
+  holder_phone?: string | null;
+  reference?: string | null;
+};
 /** Commande créée il y a une minute : largement dans la fenêtre d'expiration de 30 min. */
 function commandeRecente(): OrderRow {
-  return { access_token: ACCESS_TOKEN, created_at: new Date(Date.now() - 60_000).toISOString() };
+  return {
+    access_token: ACCESS_TOKEN,
+    created_at: new Date(Date.now() - 60_000).toISOString(),
+    holder_name: "Camila Andrea Gómez",
+    holder_phone: "+573001234567",
+    reference: "HFG-000042",
+  };
 }
 let orderRow: OrderRow | null = commandeRecente();
 /** Ce que la route écrit sur `payments` après la création de la préférence (spec 39). */
@@ -30,6 +43,34 @@ let paymentUpdate: Record<string, unknown> | null = null;
 let signauxBase: AbortSignal[] = [];
 /** Erreur rendue par la lecture de `payments` (null = succès). */
 let lectureErreur: { message: string } | null = null;
+/** Les colonnes demandées à `payments` (l'embed `orders(…)` compris). */
+let colonnesLues: string | null = null;
+/** Ce que rend la lecture au mieux des lignes de la commande (null = panne ou délai dépassé). */
+let lignesLues: PreferenceLine[] | null = null;
+/** Les appels de la route au lecteur de lignes : jeton et délai passés. */
+let lecturesDeLignes: { token: string; timeoutMs: number }[] = [];
+
+/** Acompte total de la commande : celui que `payments.amount_cop` (17000) facture. */
+function ligneReserved(overrides: Partial<PreferenceLine> = {}): PreferenceLine {
+  return {
+    id: "line-1",
+    productName: { es: "Kayak al amanecer" },
+    productType: "activity",
+    establishmentName: { es: "Casa Kayam" },
+    date: "2026-11-12",
+    endDate: null,
+    durationDays: null,
+    slotStartTime: "09:00:00",
+    qty: 2,
+    acompteCop: 10000,
+    status: "reserved",
+    ...overrides,
+  };
+}
+/** Deux lignes dont les acomptes font 10 000 + 7 000 = 17 000, le montant facturé. */
+function deuxLignesJustes(): PreferenceLine[] {
+  return [ligneReserved(), ligneReserved({ id: "line-2", productType: "lodging", acompteCop: 7000 })];
+}
 
 // Le Route Handler lit `payments` AVEC l'embed PostgREST `orders(access_token)` — une seule
 // requête, via la FK `payments.order_id → orders.id`. Le mock rend donc la commande imbriquée,
@@ -46,7 +87,9 @@ vi.mock("@hifago/supabase/service", () => ({
           },
         }),
       }),
-      select: () => ({
+      select: (colonnes: string) => {
+        colonnesLues = colonnes;
+        return {
         eq: () => ({
           abortSignal: (signal: AbortSignal) => {
             signauxBase.push(signal);
@@ -68,9 +111,20 @@ vi.mock("@hifago/supabase/service", () => ({
             };
           },
         }),
-      }),
+        };
+      },
     }),
   }),
+}));
+
+// Le détail des lignes est lu par `get_order_by_token` (client de session) : ici on remplace
+// seulement ce lecteur, jamais le constructeur d'items (`preferenceData`), qui reste le VRAI — c'est
+// lui dont on prouve l'invariant de somme.
+vi.mock("@/lib/orders/getOrderLinesForPreference", () => ({
+  getOrderLinesForPreference: async (token: string, timeoutMs: number) => {
+    lecturesDeLignes.push({ token, timeoutMs });
+    return lignesLues;
+  },
 }));
 
 vi.mock("@/lib/mercadopago/client", () => ({
@@ -302,16 +356,21 @@ describe("POST /api/payments/create — URL configurée (NEXT_PUBLIC_WEB_APP_URL
 });
 
 describe("POST /api/payments/create — plafond de durée", () => {
-  it("tient lecture + Mercado Pago + écriture sous le plafond, avec de la marge pour répondre", async () => {
+  it("tient lecture + détail des lignes + Mercado Pago + écriture sous le plafond, avec de la marge pour répondre", async () => {
     const { PREFERENCE_DEADLINE_MS } =
       await vi.importActual<typeof import("@/lib/mercadopago/client")>("@/lib/mercadopago/client");
     const timeout = vi.spyOn(AbortSignal, "timeout");
     orderRow = commandeRecente();
+    lecturesDeLignes = [];
     await POST(requete());
     const delaisBase = timeout.mock.calls.map(([ms]) => ms);
     timeout.mockRestore();
+    // Deux accès base chronométrés par la route elle-même (lecture et écriture de `payments`)…
     expect(delaisBase).toHaveLength(2);
-    const pireCas = delaisBase[0] + PREFERENCE_DEADLINE_MS + delaisBase[1];
+    // …et le détail des lignes, chronométré par son lecteur : le délai que la route lui passe.
+    expect(lecturesDeLignes).toHaveLength(1);
+    const pireCas = delaisBase[0] + lecturesDeLignes[0].timeoutMs + PREFERENCE_DEADLINE_MS + delaisBase[1];
+    expect(pireCas).toBe(5_000 + 3_000 + 20_000 + 5_000); // 33 s
     expect(maxDuration * 1000 - pireCas).toBeGreaterThanOrEqual(5_000);
   });
 });
@@ -345,5 +404,105 @@ describe("POST /api/payments/create — accès base bornés", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ ok: false, reason: "db_unavailable" });
     expect(preferenceInput).toBeNull();
+  });
+});
+
+// Bug anti-fraude du 2026-10-23 : en prod, le paiement par carte était presque toujours refusé
+// (`cc_rejected_high_risk`) parce que la préférence partait presque vide. Ici : ce que la ROUTE lit et
+// transmet — l'enrichissement sans jamais toucher au montant facturé.
+describe("POST /api/payments/create — contenu de la préférence (anti-fraude)", () => {
+  beforeEach(() => {
+    preferenceInput = null;
+    lectureErreur = null;
+    colonnesLues = null;
+    lecturesDeLignes = [];
+    lignesLues = deuxLignesJustes();
+    orderRow = commandeRecente();
+    delete process.env.MERCADOPAGO_MOCK_MODE;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** Σ unit_price × quantity des items réellement transmis au client Mercado Pago. */
+  function sommeDesItems(): number {
+    const items = preferenceInput?.items as { unit_price: number; quantity: number }[];
+    return items.reduce((total, item) => total + item.unit_price * item.quantity, 0);
+  }
+
+  it("niveau 1 : demande le titulaire et la référence dans le même embed, jamais un embed order_lines", async () => {
+    await POST(requete());
+    expect(colonnesLues).toContain("orders(access_token, created_at, holder_name, holder_phone, reference)");
+    expect(colonnesLues).not.toContain("order_lines");
+  });
+
+  it("transmet prénom, nom et téléphone du titulaire, et la référence", async () => {
+    await POST(requete());
+    expect(preferenceInput?.payerIdentity).toEqual({
+      name: "Camila",
+      surname: "Andrea Gómez",
+      phone: { area_code: "57", number: "3001234567" },
+    });
+    expect(preferenceInput?.reference).toBe("HFG-000042");
+    expect(preferenceInput?.payerEmail).toBe("cliente@test.local");
+  });
+
+  it("niveau 2 : lit les lignes par le jeton de la commande, avec un délai de 3 s", async () => {
+    await POST(requete());
+    expect(lecturesDeLignes).toEqual([{ token: ACCESS_TOKEN, timeoutMs: 3_000 }]);
+  });
+
+  it("transmet un item par ligne reserved, et Σ items = amount_cop", async () => {
+    await POST(requete());
+    const items = preferenceInput?.items as { id: string; category_id: string }[];
+    expect(items.map((item) => item.id)).toEqual(["line-1", "line-2"]);
+    expect(items.map((item) => item.category_id)).toEqual(["tickets", "travels"]);
+    expect(sommeDesItems()).toBe(17000);
+    expect(preferenceInput?.amountCop).toBe(17000);
+  });
+
+  it("une lecture qui échoue (null) n'empêche pas de payer : item agrégé, MÊME montant", async () => {
+    lignesLues = null;
+    const response = await POST(requete());
+    expect(response.status).toBe(200);
+    const items = preferenceInput?.items as { id: string; unit_price: number }[];
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ id: PAYMENT_ID, unit_price: 17000 });
+    expect(sommeDesItems()).toBe(17000);
+  });
+
+  it("un détail qui ne tombe pas juste (ligne annulée entre-temps) retombe sur l'item agrégé", async () => {
+    lignesLues = [ligneReserved({ acompteCop: 10000 }), ligneReserved({ id: "line-2", acompteCop: 7000, status: "cancelled_by_client" })];
+    await POST(requete());
+    expect((preferenceInput?.items as unknown[]).length).toBe(1);
+    expect(sommeDesItems()).toBe(17000);
+  });
+
+  it("un titulaire absent ou un téléphone illisible n'empêche pas non plus de payer", async () => {
+    orderRow = { ...commandeRecente(), holder_name: null, holder_phone: "no-es-un-telefono", reference: null };
+    const response = await POST(requete());
+    expect(response.status).toBe(200);
+    expect(preferenceInput?.payerIdentity).toEqual({});
+    expect(sommeDesItems()).toBe(17000);
+  });
+
+  it("en mode mock : aucun détail lu, aucune préférence", async () => {
+    process.env.MERCADOPAGO_MOCK_MODE = "true";
+    delete process.env.VERCEL_ENV;
+    await POST(requete());
+    expect(lecturesDeLignes).toEqual([]);
+    expect(preferenceInput).toBeNull();
+    delete process.env.MERCADOPAGO_MOCK_MODE;
+  });
+
+  it("n'altère ni l'expiration, ni les retours, ni la notification", async () => {
+    await POST(requete());
+    expect(preferenceInput).toMatchObject({
+      paymentId: PAYMENT_ID,
+      successUrl: `https://hifago.test/reserva/${ACCESS_TOKEN}?payment=approved`,
+      notificationUrl: "https://hifago.test/api/payments/webhook?source_news=webhooks",
+    });
   });
 });
