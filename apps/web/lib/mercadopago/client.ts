@@ -1,4 +1,10 @@
 import { MercadoPagoConfig, Payment, Preference } from "mercadopago";
+import {
+  aggregatedItem,
+  sumOfItems,
+  type PreferenceItem,
+  type PreferencePayerIdentity,
+} from "./preferenceData";
 
 // Spec 19 §0 Tranche 1 — wrapper SDK Mercado Pago. Reste dans apps/web (jamais @hifago/domain, qui
 // n'a aucune dépendance runtime aujourd'hui) : appelle un service externe avec un secret serveur,
@@ -74,6 +80,18 @@ export interface CreateCheckoutPreferenceInput {
   paymentId: string;
   amountCop: number;
   payerEmail: string | null;
+  /**
+   * Prénom, nom et téléphone de l'acheteur (`buildPayerIdentity`) : Mercado Pago les recoupe avec la
+   * carte pour son contrôle de risque. Jamais de document ni d'adresse — cf. `preferenceData.ts`.
+   */
+  payerIdentity?: PreferencePayerIdentity;
+  /**
+   * Le détail de ce qui est acheté (`buildPreferenceItems`). Absent, ou de somme différente de
+   * `amountCop` : l'item agrégé. Le montant facturé, lui, est toujours `amountCop`.
+   */
+  items?: PreferenceItem[];
+  /** `orders.reference` (HFG-…), pour l'item agrégé. */
+  reference?: string | null;
   successUrl: string;
   pendingUrl: string;
   failureUrl: string;
@@ -113,23 +131,33 @@ export async function createCheckoutPreference(
   const preference = new Preference(
     new MercadoPagoConfig({ accessToken: getAccessToken(), options: { ...PREFERENCE_REQUEST_BOUNDS } })
   );
+  // Dernier rempart de l'invariant de `buildPreferenceItems`, pour qu'aucun futur appelant ne puisse
+  // facturer un autre montant que `amountCop` par un détail qui ne tombe pas juste.
+  const items =
+    input.items && input.items.length > 0 && sumOfItems(input.items) === input.amountCop
+      ? input.items
+      : [aggregatedItem({ paymentId: input.paymentId, amountCop: input.amountCop, reference: input.reference })];
+  const payer = {
+    ...(input.payerEmail ? { email: input.payerEmail } : {}),
+    ...input.payerIdentity,
+  };
   const response = await withDeadline(preference.create({
     body: {
-      items: [
-        {
-          id: input.paymentId,
-          title: "Anticipo de reserva Hifago",
-          quantity: 1,
-          currency_id: "COP",
-          unit_price: input.amountCop,
-        },
-      ],
+      items,
       external_reference: input.paymentId,
       // Voir PREFERENCE_EXPIRY_MARGIN_MINUTES : sans ces deux champs, le lien de paiement survit à
       // l'annulation de la commande et produit un encaissement irrattrapable.
       expires: true,
       expiration_date_to: input.expiresAt,
-      payer: input.payerEmail ? { email: input.payerEmail } : undefined,
+      payer: Object.keys(payer).length > 0 ? payer : undefined,
+      // Ce qui figure sur le relevé de carte du client : un nom qu'il reconnaît évite la
+      // contestation. 13 caractères au plus (doc Mercado Pago « invoice-description »).
+      statement_descriptor: "HIFAGO",
+      // ⚠️ `binary_mode` reste ABSENT (donc `false`), et c'est voulu : activé, il force Mercado Pago
+      // à approuver ou rejeter sans jamais laisser un paiement `pending`/`in_process`, ce qui lui
+      // retire la revue manuelle et FAIT BAISSER l'approbation (doc « binary-mode »). `pending` reste
+      // géré de bout en bout (bandeau d'attente d'`OrderResult`, rattrapage par le job de
+      // réconciliation). Ne pas l'ajouter « pour simplifier les états ».
       back_urls: {
         success: input.successUrl,
         pending: input.pendingUrl,

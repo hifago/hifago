@@ -150,6 +150,118 @@ describe("createCheckoutPreference — bornes explicites (SDK réel)", () => {
   });
 });
 
+// Bug anti-fraude du 2026-10-23 (`cc_rejected_high_risk`) : on prouve ici le CORPS réellement posté à
+// Mercado Pago par le vrai SDK — c'est la seule trace de ce que la préférence contient, l'`init_point`
+// que reçoit le navigateur n'en dit rien.
+describe("createCheckoutPreference — corps de la préférence (SDK réel)", () => {
+  const ITEMS = [
+    { id: "line-a", title: "Anticipo – Kayak · Casa Kayam", description: "2026-11-12 · cantidad 2", category_id: "tickets", quantity: 1, currency_id: "COP" as const, unit_price: 10000, category_descriptor: { event_date: "2026-11-12T09:00:00.000-05:00" } },
+    { id: "line-b", title: "Anticipo – Cabaña · Casa Kayam", description: "2026-11-20 al 2026-11-23 · cantidad 1", category_id: "travels", quantity: 1, currency_id: "COP" as const, unit_price: 7000 },
+  ];
+
+  async function corpsEnvoye(input: Parameters<typeof createCheckoutPreference>[0]) {
+    fetchMock.mockResolvedValueOnce(preferenceCreee());
+    await createCheckoutPreference(input);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    return JSON.parse(String(init.body)) as Record<string, unknown>;
+  }
+
+  it("envoie le détail des items tel que construit, au montant facturé", async () => {
+    const corps = await corpsEnvoye({ ...INPUT, items: ITEMS });
+    const items = corps.items as { unit_price: number; quantity: number }[];
+    expect(items).toEqual(ITEMS);
+    expect(items.reduce((total, item) => total + item.unit_price * item.quantity, 0)).toBe(INPUT.amountCop);
+  });
+
+  it("sans détail : UN item agrégé au montant facturé, avec la référence de la commande", async () => {
+    const corps = await corpsEnvoye({ ...INPUT, reference: "HFG-000042" });
+    expect(corps.items).toEqual([
+      {
+        id: INPUT.paymentId,
+        title: "Anticipo de reserva Hifago",
+        description: "Reserva HFG-000042",
+        category_id: "travels",
+        quantity: 1,
+        currency_id: "COP",
+        unit_price: INPUT.amountCop,
+      },
+    ]);
+  });
+
+  // Défense en profondeur : un futur appelant qui passerait un détail de somme différente ne doit
+  // jamais faire payer un autre montant que celui de `payments.amount_cop`.
+  it("ignore un détail dont la somme n'égale pas le montant facturé", async () => {
+    const corps = await corpsEnvoye({ ...INPUT, amountCop: 99000, items: ITEMS });
+    const items = corps.items as { id: string; unit_price: number }[];
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ id: INPUT.paymentId, unit_price: 99000 });
+  });
+
+  it("ignore un détail vide", async () => {
+    const corps = await corpsEnvoye({ ...INPUT, items: [] });
+    expect(corps.items as unknown[]).toHaveLength(1);
+  });
+
+  it("envoie l'e-mail, le prénom, le nom et le téléphone de l'acheteur", async () => {
+    const corps = await corpsEnvoye({
+      ...INPUT,
+      payerIdentity: { name: "Camila", surname: "Gómez", phone: { area_code: "57", number: "3001234567" } },
+    });
+    expect(corps.payer).toEqual({
+      email: "cliente@test.local",
+      name: "Camila",
+      surname: "Gómez",
+      phone: { area_code: "57", number: "3001234567" },
+    });
+  });
+
+  it("envoie le titulaire même sans e-mail — avant ce lot, le payer disparaissait avec lui", async () => {
+    const corps = await corpsEnvoye({ ...INPUT, payerEmail: null, payerIdentity: { name: "Camila" } });
+    expect(corps.payer).toEqual({ name: "Camila" });
+  });
+
+  it("n'envoie aucun payer quand on ne sait rien de l'acheteur", async () => {
+    const corps = await corpsEnvoye({ ...INPUT, payerEmail: null });
+    expect(corps).not.toHaveProperty("payer");
+  });
+
+  it("n'envoie jamais de document, d'adresse ni de date de création du payer", async () => {
+    const corps = await corpsEnvoye({
+      ...INPUT,
+      payerIdentity: { name: "Camila", surname: "Gómez", phone: { area_code: "57", number: "3001234567" } },
+    });
+    for (const champ of ["identification", "address", "date_created"]) {
+      expect(corps.payer).not.toHaveProperty(champ);
+    }
+  });
+
+  it("pose le libellé du relevé de carte, sous les 13 caractères permis", async () => {
+    const corps = await corpsEnvoye(INPUT);
+    expect(corps.statement_descriptor).toBe("HIFAGO");
+    expect(String(corps.statement_descriptor).length).toBeLessThanOrEqual(13);
+  });
+
+  // `binary_mode: true` retire à Mercado Pago la revue manuelle et fait baisser l'approbation.
+  it("n'active jamais binary_mode et n'envoie pas d'additional_info", async () => {
+    const corps = await corpsEnvoye(INPUT);
+    expect(corps).not.toHaveProperty("binary_mode");
+    expect(corps).not.toHaveProperty("additional_info");
+  });
+
+  it("garde expiration, retours, notification et exclusion des paiements hors ligne", async () => {
+    const corps = await corpsEnvoye(INPUT);
+    expect(corps).toMatchObject({
+      external_reference: INPUT.paymentId,
+      expires: true,
+      expiration_date_to: INPUT.expiresAt,
+      auto_return: "approved",
+      notification_url: INPUT.notificationUrl,
+      back_urls: { success: INPUT.successUrl, pending: INPUT.pendingUrl, failure: INPUT.failureUrl },
+      payment_methods: { excluded_payment_types: [{ id: "ticket" }, { id: "atm" }] },
+    });
+  });
+});
+
 // Le GET de re-confirmation du webhook (P5a) : borné comme la préférence, plus serré — Mercado Pago
 // n'attend pas longtemps la réponse d'un webhook, et un 502 rapide le fait retenter proprement.
 describe("getMercadoPagoPayment — bornes explicites (SDK réel)", () => {
