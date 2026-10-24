@@ -100,6 +100,19 @@ export async function loadReconciliationPage(): Promise<{
   if (summariesError) throw summariesError;
   const summaryByLineId = new Map((summaries ?? []).map((summary) => [summary.order_line_id, summary]));
 
+  // Lobby APRÈS l'acompte : les demandes de booking BLOQUÉES des commandes de ces entrées (table
+  // RPC-only, lue par une RPC admin) — ce qui décide si l'écran propose Reintentar / Confirmar / Anular.
+  const orderIds = [...new Set((summaries ?? []).map((summary) => summary.order_id))];
+  const { data: requests, error: requestsError } = await supabase.rpc("admin_pms_booking_requests", {
+    p_order_ids: orderIds,
+  });
+  if (requestsError) throw requestsError;
+  const blockedRequestByOrderId = new Map(
+    (requests ?? [])
+      .filter((request) => request.status === "failed" || request.status === "needs_human")
+      .map((request) => [request.order_id, { id: request.request_id, status: request.status }])
+  );
+
   const rows: ReconciliationEntryRow[] = (entries ?? []).map((entry) => {
     const summary = summaryByLineId.get(entry.order_line_id);
     return {
@@ -108,6 +121,8 @@ export async function loadReconciliationPage(): Promise<{
       status: entry.status,
       attempts: entry.attempts,
       orderId: summary?.order_id ?? "",
+      orderLineId: entry.order_line_id,
+      pmsRequest: (summary && blockedRequestByOrderId.get(summary.order_id)) || null,
       holderName: summary?.holder_name ?? "—",
       establishmentName: resolveLocalizedField(asLocalizedField(summary?.establishment_name), "es") ?? "—",
     };

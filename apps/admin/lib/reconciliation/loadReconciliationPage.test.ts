@@ -5,7 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // exactement le message qu'il ne faut jamais donner à tort : une exception de paiement ou de PMS
 // non traitée, c'est un client payé sans réservation. Chaque lecture en erreur lève.
 
-const state = vi.hoisted(() => ({ erreurs: {} as Record<string, { message: string }> }));
+const state = vi.hoisted(() => ({
+  erreurs: {} as Record<string, { message: string }>,
+  demandes: [] as { request_id: string; order_id: string; status: string }[],
+}));
 
 const ENTREE_PAIEMENT = {
   id: "pe1",
@@ -39,7 +42,9 @@ vi.mock("@hifago/supabase/server", () => ({
     },
     rpc: async (nom: string) => {
       const error = state.erreurs[nom] ?? null;
-      return error ? { data: null, error } : { data: [RESUME], error: null };
+      if (error) return { data: null, error };
+      if (nom === "admin_pms_booking_requests") return { data: state.demandes, error: null };
+      return { data: [RESUME], error: null };
     },
   }),
 }));
@@ -49,6 +54,7 @@ const { loadReconciliationPage } = await import("./loadReconciliationPage");
 describe("loadReconciliationPage — panne ≠ rien à réconcilier", () => {
   beforeEach(() => {
     state.erreurs = {};
+    state.demandes = [];
   });
 
   it("rend les deux listes", async () => {
@@ -56,11 +62,26 @@ describe("loadReconciliationPage — panne ≠ rien à réconcilier", () => {
     expect(page.paymentRows).toHaveLength(1);
     expect(page.paymentRows[0]).toMatchObject({ orderReference: "HFG-000001", amountCop: 17000 });
     expect(page.rows).toEqual([
-      { id: "e1", detail: null, status: "open", attempts: 2, orderId: "o1", holderName: "Ana", establishmentName: "Casa" },
+      {
+        id: "e1", detail: null, status: "open", attempts: 2, orderId: "o1", orderLineId: "l1",
+        holderName: "Ana", establishmentName: "Casa", pmsRequest: null,
+      },
     ]);
   });
 
-  it.each([["payment_reconciliation_entries"], ["pms_reconciliation_entries"], ["admin_order_line_summaries"]])(
+  it.each([["failed"], ["needs_human"]])("joint la demande de booking BLOQUÉE (%s) à l'entrée de sa commande", async (status) => {
+    state.demandes = [{ request_id: "r1", order_id: "o1", status }];
+    const page = await loadReconciliationPage();
+    expect(page.rows[0].pmsRequest).toEqual({ id: "r1", status });
+  });
+
+  it.each([["pending"], ["done"], ["cancelled"]])("une demande %s n'ouvre aucun levier admin", async (status) => {
+    state.demandes = [{ request_id: "r1", order_id: "o1", status }];
+    const page = await loadReconciliationPage();
+    expect(page.rows[0].pmsRequest).toBeNull();
+  });
+
+  it.each([["payment_reconciliation_entries"], ["pms_reconciliation_entries"], ["admin_order_line_summaries"], ["admin_pms_booking_requests"]])(
     "lève si la lecture %s échoue",
     async (cle) => {
       state.erreurs = { [cle]: { message: "panne" } };
