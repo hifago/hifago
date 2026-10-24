@@ -122,6 +122,11 @@ insert into tmp_grant_only (name) values
   -- issue inconnue rouvrirait un second booking payé chez Lobby.
   ('mark_pms_booking_attempt'),
   ('clear_pms_booking_attempt'),
+  -- Prix Lobby (migration 20261024100000) : le devis d'un panier, écrit sur simple UUID de compte par
+  -- la page /pago (quoteCart.ts) ; son helper de validation, interne (create_order,
+  -- cart_lines_availability, record_pms_cart_quotes l'appellent en propriétaire).
+  ('record_pms_cart_quotes'),
+  ('pms_quote_unit_sum'),
   -- Helpers INTERNES des e-mails de confirmation (appelés en propriétaire par apply_payment_webhook,
   -- resolve_pms_booking_request et create_order) : fermés à tous, service_role compris.
   ('notify_order_confirmed'),
