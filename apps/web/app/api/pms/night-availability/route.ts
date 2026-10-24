@@ -16,12 +16,12 @@ import {
 import { createServiceRoleClient } from "@hifago/supabase/service";
 
 // Spec 21 §13 (gap comblé) — alimente le calendrier de sélection de dates de LodgingReservationForm.tsx
-// pour un logement PMS-backed (Casa Kayam). Précédent direct : apps/web/app/api/pms/reserve-nights/
+// pour un logement PMS-backed (Casa Kayam). Précédent direct : apps/web/app/api/pms/check-nights/
 // route.ts (service_role, relit AUTORITATIVEMENT product/establishment par id, jamais un champ
 // métier envoyé par le client). Différences volontaires par rapport à ce précédent : cette route est
 // un GET public (fiche produit visible par un visiteur anonyme, même niveau d'exposition que
 // product_availability déjà public pour un produit non-PMS — aucune auth.getUser() nécessaire), et
-// remonte un vrai code d'erreur HTTP (jamais "toujours 200" comme reserve-nights, dont l'invariant
+// remonte un vrai code d'erreur HTTP (jamais "toujours 200" comme check-nights, dont l'invariant
 // "un échec PMS ne défait jamais la commande" ne s'applique pas ici : rien n'est encore réservé, la
 // page doit pouvoir dégrader son affichage proprement en cas d'échec Lobby).
 //
@@ -55,7 +55,7 @@ interface EstablishmentRow {
 //   - `2026-00` : toutes les nuits étaient filtrées par la comparaison avec « aujourd'hui », donc
 //     `{ok:true, nights:[]}` — un SUCCÈS sur un mois qui n'existe pas, mis en cache par-dessus.
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
-// Même motif que reserve-nights/route.ts : un identifiant malformé est une requête invalide (400),
+// Même motif que check-nights/route.ts : un identifiant malformé est une requête invalide (400),
 // jamais transmis à PostgREST — qui répondrait une ERREUR (22P02), lue sinon comme une panne.
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -68,7 +68,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 // un garde d'abus n'a aucune raison d'être plus large que ce qu'on accepte de vendre.
 
 // Cache 60s en mémoire, une seule instance par process serverless (spec 21 §0 : "cache 60s autorisé
-// uniquement pour l'affichage" — jamais au moment de réserver, reserve-nights relit toujours à
+// uniquement pour l'affichage" — jamais au moment de réserver, check-nights relit toujours à
 // chaud). Best-effort, non partagé entre instances Vercel concurrentes — acceptable, ce cache n'a
 // qu'une valeur de réduction de charge sur Lobby, jamais de correction.
 //

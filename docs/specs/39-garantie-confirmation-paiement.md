@@ -101,6 +101,17 @@ annulés par trigger). À trancher en même temps. Sinon : comportement actuel, 
 5. E-mail admin : lien absolu (Vault `admin_app_public_url`), numéro + montant, sujet dédié.
 6. Écran `/admin/reconciliation` : section « Pagos » (lecture + « Resolver ») et compteur d'accueil.
 
+> **Retourné le 2026-10-23 (spec 21 §8.2) — la garde `pms_booking_missing`.** Le webhook `approved`
+> refusait d'appliquer un paiement dont une nuit PMS n'avait pas de booking Lobby
+> (`refund_required/pms_booking_missing`, migration `20261002185102`), puisque le booking précédait
+> toujours le paiement. Depuis que Lobby se réserve APRÈS l'acompte, cette situation est le cas
+> NORMAL : le webhook passe la commande `paid`, pose une demande dans `pms_booking_requests` et DIFFÈRE
+> les e-mails 5/6/7 jusqu'au booking (`notify_order_confirmed`). La garde disparaît ; aucune entrée
+> `refund_required` n'est plus créée pour ce motif (les anciennes restent lisibles). Si Lobby refuse
+> ensuite, l'argent n'est pas rendu automatiquement : la commande va en file « à traiter »
+> (`pms_reconciliation_entries`), les remboursements restant suspendus. `create_payment_intent`
+> garde `pms_booking_missing`, mais seulement sans booking NI hold de moins de 5 minutes.
+
 ## Sommaire et statut
 
 | # | Section | Statut |

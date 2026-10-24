@@ -105,6 +105,27 @@ insert into tmp_grant_only (name) values
   ('order_jsonb_with_client_cancellable'),
   -- L'acompte encaissé (migration 20261007003627) : lu par close_order_line_locked et list_my_orders.
   ('order_deposit_collected'),
+  -- Lobby après l'acompte (migration 20261023120000). get_pms_check_payload et
+  -- claim_paid_order_for_pms_booking renvoient le JETON LOBBY en clair ; hold_pms_nights tient des
+  -- places (anti-survente) ; la file (claim, resolve) écrit des commandes payées et des entrées de
+  -- réconciliation sur simple UUID ; resolve_pms_cancellation_restricted ferme une annulation. Route
+  -- check-nights et Edge Functions pms-book-paid-orders / pms-cancel-bookings, jamais un client.
+  ('get_pms_check_payload'),
+  ('hold_pms_nights'),
+  ('claim_paid_order_for_pms_booking'),
+  ('claim_pms_booking_requests'),
+  ('resolve_pms_booking_request'),
+  ('resolve_pms_cancellation_restricted'),
+  ('invoke_pms_book_paid_orders'),        -- cron pms-book-paid-orders et trigger de la file
+  -- Marqueur de tentative (migration 20261023150000) : posé avant chaque POST /bookings, effacé quand
+  -- l'appel n'a pas pu créer de booking — par pms-book-paid-orders seule. Effacer le marqueur d'une
+  -- issue inconnue rouvrirait un second booking payé chez Lobby.
+  ('mark_pms_booking_attempt'),
+  ('clear_pms_booking_attempt'),
+  -- Helpers INTERNES des e-mails de confirmation (appelés en propriétaire par apply_payment_webhook,
+  -- resolve_pms_booking_request et create_order) : fermés à tous, service_role compris.
+  ('notify_order_confirmed'),
+  ('notify_partner_camp_evento_blocked'),
   -- Helpers INTERNES (audit P12c, 2026-10-06) : appelés uniquement par d'autres fonctions SECURITY
   -- DEFINER (exécutées en propriétaire) ou par des triggers, jamais par un client. Aucun garde
   -- propre : leur seule barrière est le grant, exactement comme les RPC ci-dessus.

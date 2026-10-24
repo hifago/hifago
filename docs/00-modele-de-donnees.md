@@ -24,6 +24,7 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-10-23 — Lobby se réserve APRÈS l'acompte** (spec 21 §8.2, notes en spec 24 §11.2) : le modèle gagne `pms_booking_requests` (une demande de booking par commande payée), `pms_category_locks` (verrou de tenue des places), `orders.pms_checked_at`, `order_lines.pms_held_at` / `pms_recorded_at`. Rien d'autre ne change dans ce cahier : `order_lines.pms_booking_id` garde son sens (le booking Lobby de la ligne, désormais écrit après le paiement).
 Relevés par la relecture intégrale du 2026-09-07. Les sections ci-dessous ne sont pas réécrites —
 ces lignes en tiennent lieu. §2 fait exception : il a bien été réécrit le 2026-08-27.
 

@@ -16,6 +16,7 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-10-23 — nouvelle file « commande payée, Lobby n'a pas confirmé »** (spec 21 §8.2, §3c) : un refus ou une issue inconnue de Lobby APRÈS paiement apparaît dans les exceptions de réconciliation PMS (« commande PAYÉE — reloger ou rembourser à la main »), avec l'e-mail admin habituel ; une annulation de booking refusée par Lobby (`RESTRICTED_RESERVATION`, booking payé) y apparaît aussi (« annuler à la main dans Lobby »). Sur la ligne de réconciliation PMS d'une commande payée bloquée, l'admin dispose de « Reintentar con Lobby », « Confirmar » (avec l'id de booking saisi à la main, facultatif) et « Anular solicitud » (spec 21 §8.2 points 11-12) ; le rattachement guidé d'un booking est au backlog.
 - **2026-10-23 — spec 19 retouchée, sans changement de périmètre** : la préférence Mercado Pago envoie désormais l'acheteur (prénom, nom, téléphone) et le détail des lignes pour le contrôle anti-fraude (§0 Tranche 1 « Contenu de la préférence ») ; le montant facturé et le parcours client ne changent pas, rien ne change pour ce cahier.
 - **2026-10-01 — spec 19 retouchée, sans changement de périmètre** : la route de poll `apps/web/app/api/payments/[orderId]/status` est supprimée (aucun appelant, spec 33 §10) ; rien ne change pour ce cahier.
 Relevés par la relecture intégrale du 2026-09-07. Les sections ci-dessous ne sont pas réécrites —

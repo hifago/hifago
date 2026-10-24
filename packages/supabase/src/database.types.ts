@@ -846,9 +846,12 @@ export type Database = {
           holder_phone: string | null
           id: string
           order_id: string
+          pms_attempt_started_at: string | null
           pms_booked_at: string | null
           pms_booking_id: string | null
+          pms_held_at: string | null
           pms_last_polled_at: string | null
+          pms_recorded_at: string | null
           price_cop: number
           product_id: string
           qty: number
@@ -875,9 +878,12 @@ export type Database = {
           holder_phone?: string | null
           id?: string
           order_id: string
+          pms_attempt_started_at?: string | null
           pms_booked_at?: string | null
           pms_booking_id?: string | null
+          pms_held_at?: string | null
           pms_last_polled_at?: string | null
+          pms_recorded_at?: string | null
           price_cop: number
           product_id: string
           qty: number
@@ -904,9 +910,12 @@ export type Database = {
           holder_phone?: string | null
           id?: string
           order_id?: string
+          pms_attempt_started_at?: string | null
           pms_booked_at?: string | null
           pms_booking_id?: string | null
+          pms_held_at?: string | null
           pms_last_polled_at?: string | null
+          pms_recorded_at?: string | null
           price_cop?: number
           product_id?: string
           qty?: number
@@ -969,6 +978,7 @@ export type Database = {
           id: string
           marketing_consent: boolean
           payment_status: string
+          pms_checked_at: string | null
           pms_reserve_claimed_at: string | null
           reconcile_checked_at: string | null
           reconcile_claimed_at: string | null
@@ -988,6 +998,7 @@ export type Database = {
           id?: string
           marketing_consent?: boolean
           payment_status?: string
+          pms_checked_at?: string | null
           pms_reserve_claimed_at?: string | null
           reconcile_checked_at?: string | null
           reconcile_claimed_at?: string | null
@@ -1007,6 +1018,7 @@ export type Database = {
           id?: string
           marketing_consent?: boolean
           payment_status?: string
+          pms_checked_at?: string | null
           pms_reserve_claimed_at?: string | null
           reconcile_checked_at?: string | null
           reconcile_claimed_at?: string | null
@@ -1715,6 +1727,50 @@ export type Database = {
           },
         ]
       }
+      pms_booking_requests: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          order_id: string
+          processed_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          order_id: string
+          processed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          order_id?: string
+          processed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pms_booking_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pms_cancellation_queue: {
         Row: {
           attempts: number
@@ -1755,6 +1811,32 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "pms_cancellation_queue_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pms_category_locks: {
+        Row: {
+          created_at: string
+          establishment_id: string
+          lobby_category_id: number
+        }
+        Insert: {
+          created_at?: string
+          establishment_id: string
+          lobby_category_id: number
+        }
+        Update: {
+          created_at?: string
+          establishment_id?: string
+          lobby_category_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pms_category_locks_establishment_id_fkey"
             columns: ["establishment_id"]
             isOneToOne: false
             referencedRelation: "establishments"
@@ -2634,7 +2716,10 @@ export type Database = {
           revenue_cop: number
         }[]
       }
-      admin_delete_catalog_amenity: { Args: { p_amenity_id: string }; Returns: Json }
+      admin_delete_catalog_amenity: {
+        Args: { p_amenity_id: string }
+        Returns: Json
+      }
       admin_delete_partner: { Args: { p_partner_id: string }; Returns: Json }
       admin_jobs_status: {
         Args: never
@@ -2734,6 +2819,18 @@ export type Database = {
         Args: { p_partner_id: string }
         Returns: Json
       }
+      admin_pms_booking_requests: {
+        Args: { p_order_ids: string[] }
+        Returns: {
+          attempts: number
+          last_error: string
+          lines: Json
+          order_id: string
+          request_id: string
+          status: string
+          updated_at: string
+        }[]
+      }
       admin_rename_catalog_amenity: {
         Args: { p_amenity_id: string; p_label_en: string; p_label_es: string }
         Returns: Json
@@ -2744,6 +2841,10 @@ export type Database = {
       }
       admin_rename_partner: {
         Args: { p_display_name: string; p_note?: string; p_partner_id: string }
+        Returns: Json
+      }
+      admin_resolve_pms_booking_request: {
+        Args: { p_action: string; p_bookings?: Json; p_request_id: string }
         Returns: Json
       }
       admin_update_partner_profile: {
@@ -2832,6 +2933,10 @@ export type Database = {
           payments: Json
         }[]
       }
+      claim_paid_order_for_pms_booking: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
       claim_payment_refunds: {
         Args: { p_limit?: number }
         Returns: {
@@ -2848,6 +2953,14 @@ export type Database = {
           claimed_at: string
           order_id: string
           payment_id: string
+        }[]
+      }
+      claim_pms_booking_requests: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempts: number
+          order_id: string
+          request_id: string
         }[]
       }
       claim_pms_cancellation_batch: {
@@ -2882,6 +2995,14 @@ export type Database = {
           lobby_api_token: string
           month: string
         }[]
+      }
+      clear_pms_booking_attempt: {
+        Args: {
+          p_claimed_at: string
+          p_order_id: string
+          p_order_line_id: string
+        }
+        Returns: Json
       }
       client_key_for_order: {
         Args: {
@@ -3068,6 +3189,7 @@ export type Database = {
         }[]
       }
       get_order_by_token: { Args: { p_token: string }; Returns: Json }
+      get_pms_check_payload: { Args: { p_order_id: string }; Returns: Json }
       get_product_slots: {
         Args: { p_from: string; p_product_id: string; p_to: string }
         Returns: {
@@ -3113,12 +3235,17 @@ export type Database = {
         }
         Returns: undefined
       }
+      hold_pms_nights: {
+        Args: { p_order_id: string; p_read_at: string; p_snapshot: Json }
+        Returns: Json
+      }
       html_text: { Args: { p_value: string }; Returns: string }
       interleave_by_category: {
         Args: { p_categories: string[] }
         Returns: number[]
       }
       invoke_payments_reconcile: { Args: never; Returns: undefined }
+      invoke_pms_book_paid_orders: { Args: never; Returns: undefined }
       invoke_pms_cancel_bookings: { Args: never; Returns: undefined }
       invoke_pms_nightly_contract_check: { Args: never; Returns: undefined }
       invoke_pms_poll_bookings: { Args: never; Returns: undefined }
@@ -3263,6 +3390,14 @@ export type Database = {
         Args: { p_id: string; p_provider_message_id: string }
         Returns: undefined
       }
+      mark_pms_booking_attempt: {
+        Args: {
+          p_claimed_at: string
+          p_order_id: string
+          p_order_line_id: string
+        }
+        Returns: Json
+      }
       mark_pms_sync_due: {
         Args: { p_establishment_id: string; p_from: string; p_to: string }
         Returns: undefined
@@ -3323,8 +3458,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      notify_order_confirmed: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
       notify_order_line_cancelled: {
         Args: { p_by: string; p_line_id: string }
+        Returns: undefined
+      }
+      notify_partner_camp_evento_blocked: {
+        Args: { p_order_id: string }
         Returns: undefined
       }
       offboarding_attest_payments: {
@@ -3379,6 +3522,7 @@ export type Database = {
           status: string
         }[]
       }
+      partner_code_is_active: { Args: { p_code: string }; Returns: boolean }
       partner_commission_totals: {
         Args: { p_date_from?: string; p_date_to?: string; p_status?: string }
         Returns: {
@@ -3386,7 +3530,6 @@ export type Database = {
           status: string
         }[]
       }
-      partner_code_is_active: { Args: { p_code: string }; Returns: boolean }
       partner_commissions_list: {
         Args: {
           p_date_from?: string
@@ -3410,6 +3553,10 @@ export type Database = {
           total_cop: number
           total_count: number
         }[]
+      }
+      partner_deletion_blocker: {
+        Args: { p_partner_id: string }
+        Returns: string
       }
       partner_id_for_account:
         | { Args: never; Returns: string }
@@ -3575,12 +3722,31 @@ export type Database = {
         Args: { p_entry_id: string; p_note: string }
         Returns: Json
       }
+      resolve_pms_booking_request: {
+        Args: {
+          p_error?: string
+          p_keep_attempt?: boolean
+          p_order_line_id?: string
+          p_outcome: string
+          p_request_id: string
+          p_retry_after?: string
+        }
+        Returns: Json
+      }
       resolve_pms_cancellation: {
         Args: {
           p_entry_id: string
           p_error?: string
           p_lobby_status_code?: number
           p_outcome: string
+        }
+        Returns: undefined
+      }
+      resolve_pms_cancellation_restricted: {
+        Args: {
+          p_entry_id: string
+          p_error: string
+          p_lobby_status_code: number
         }
         Returns: undefined
       }
@@ -3863,12 +4029,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3892,11 +4058,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3917,11 +4083,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3942,11 +4108,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3959,11 +4125,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

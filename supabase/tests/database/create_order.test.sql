@@ -57,7 +57,7 @@
 -- (plafond par ligne d'un logement, plage obligatoire, ressource partagée sommée sur le panier,
 -- e-mail camp échappé).
 begin;
-select plan(137);
+select plan(138);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -2358,6 +2358,10 @@ select is(
 -- Cas 24k : e-mail « recurso bloqueado » — le nom du produit est échappé avant d'entrer dans le
 -- HTML. L'envoi est isolé dans un bloc exception qui avale toute erreur : l'existence de la ligne
 -- est vérifiée AVANT son contenu, sans quoi un échec avalé passerait pour un échappement réussi.
+-- ADAPTÉ (migration 20261023120000, Lobby après l'acompte) : create_order n'envoie plus cet e-mail
+-- pour une commande qui a un acompte à payer — il part à la confirmation (notify_order_confirmed →
+-- notify_partner_camp_evento_blocked, même corps). Le cas prouve désormais les deux : rien à la
+-- création, puis l'échappement à l'envoi, déclenché ici comme le fait la confirmation.
 select test_set_cart(jsonb_build_array(jsonb_build_object(
   'product_id', '88880000-0000-4000-8000-000000000338', 'date', '2029-10-14', 'qty', 1
 )));
@@ -2367,6 +2371,16 @@ select is(
   'cas 24k : camp au nom porteur de HTML → commande acceptée'
 );
 reset role;
+select is(
+  (select count(*)::int from notification_emails n
+     join order_lines ol on ol.id = n.related_id
+    where n.event_type = 'partner_camp_evento_blocked' and n.related_table = 'order_lines'
+      and ol.product_id = '88880000-0000-4000-8000-000000000338'),
+  0,
+  'cas 24k : un camp à payer → AUCUN e-mail « recurso bloqueado » à la création (avant paiement)'
+);
+select notify_partner_camp_evento_blocked(ol.order_id)
+  from order_lines ol where ol.product_id = '88880000-0000-4000-8000-000000000338';
 select is(
   (select count(*)::int from notification_emails n
      join order_lines ol on ol.id = n.related_id

@@ -1,6 +1,8 @@
 -- Spec 23 Tranche 2 — les 3 notifications branchées dans apply_payment_webhook (commission
 -- attribuée, paiement effectué, confirmation client) + le blocage camp/evento branché dans
 -- create_order. Migrations 20260824110000/120000, seules sources de vérité pour la logique.
+-- Depuis la migration 20261023120000 (Lobby après l'acompte), les quatre partent de
+-- notify_order_confirmed — le blocage camp/evento à la confirmation du paiement, plus à la création.
 --
 -- Contient LE test le plus important de toute la spec 23 (cas 5) : fault-injection prouvant que
 -- l'invariant §8.1 tient VRAIMENT sur apply_payment_webhook — pas une supposition sur le
@@ -9,7 +11,7 @@
 -- recommandée par le challenge adversarial du 2026-08-24, appliquée ici sur la RPC pour laquelle
 -- elle compte le plus).
 begin;
-select plan(9);
+select plan(10);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -238,12 +240,33 @@ select is(
   'true',
   'cas 8 : create_order (camp) réussit'
 );
+-- ADAPTÉ (migration 20261023120000, Lobby après l'acompte) : ce cas affirmait l'e-mail « recurso
+-- bloqueado » AVANT tout paiement (spec 23 §10 point 3, branché dans create_order). Décision du
+-- 2026-10-23 : « si pas payé, pas réservé » — il annonçait « Reserva confirmada » pour une commande
+-- peut-être jamais payée. Le blocage, lui, reste posé à la création ; l'e-mail part à la
+-- confirmation (notify_order_confirmed), sauf commande sans rien à payer en ligne
+-- (lobby_apres_acompte_paiement.test.sql).
+select is(
+  (select count(*)::int from notification_emails
+    where event_type = 'partner_camp_evento_blocked' and related_table = 'order_lines'
+      and recipient_email = 'notif-camp-owner@test.local'),
+  0,
+  'cas 9 : blocage camp → AUCUN e-mail « recurso bloqueado » à la création, avant tout paiement'
+);
+insert into payments (id, order_id, status, amount_cop)
+values ('99992000-0000-4000-8000-000000000053', ((:'v_create_order_result')::jsonb ->> 'order_id')::uuid, 'pending', 1);
+set local role service_role;
+select apply_payment_webhook(
+  'mp-notif-camp', '99992000-0000-4000-8000-000000000053'::uuid, 'approved',
+  jsonb_build_object('id', 'mp-notif-camp', 'status', 'approved')
+);
+reset role;
 select is(
   (select count(*)::int from notification_emails
     where event_type = 'partner_camp_evento_blocked' and related_table = 'order_lines'
       and recipient_email = 'notif-camp-owner@test.local'),
   1,
-  'cas 9 : blocage camp → notifie le compte du partenaire propriétaire, AVANT tout paiement (spec 23 §10 point 3)'
+  'cas 10 : paiement approuvé → l''e-mail « recurso bloqueado » part, au compte du partenaire propriétaire'
 );
 
 select * from finish();

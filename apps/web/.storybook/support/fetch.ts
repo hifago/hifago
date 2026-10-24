@@ -26,9 +26,9 @@ export type RutasSimuladas = Record<string, RespuestaSimulada | ((url: URL, init
 // toute story qui remplit le panier salirait la console d'un 404 sans rapport avec ce qu'elle montre.
 const POR_DEFECTO: RutasSimuladas = {
   "/api/cart/attribution": { status: 204 },
-  // Après `create_order`, `CheckoutForm` réserve les nuits PMS : la commande sans ligne PMS répond
+  // Après `create_order`, `CheckoutForm` vérifie les nuits PMS : la commande sans ligne PMS répond
   // `{ ok: true }`, c'est le cas courant.
-  "/api/pms/reserve-nights": { body: { ok: true } },
+  "/api/pms/check-nights": { body: { ok: true } },
   // ⚠️ PENDANTE par défaut, et c'est voulu : une réponse avec `init_point` ferait
   // `window.location.href = …` et ferait quitter le Storybook à l'iframe. Cliquer « Payer » montre
   // donc « Redirigiendo a Mercado Pago… », ce que voit le client juste avant de partir.

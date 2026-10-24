@@ -74,6 +74,8 @@ export type OrderForDisplay = {
   /** Spec 39 D3 — cf. `OrderStateInput`. */
   paymentReceivedNotHonored: boolean;
   refundStatus: string | null;
+  /** Cf. `OrderStateInput.pmsConfirmation`. */
+  pmsConfirmation?: "pending" | "failed" | null;
 };
 
 // Miroir local de ce que la RPC construit (`jsonb_build_object`), parce que `Returns: Json` est
@@ -115,8 +117,13 @@ type RpcResult = {
     lines: RpcLine[];
     payment_received_not_honored?: boolean;
     refund_status?: string | null;
+    pms_confirmation?: string | null;
   };
 };
+
+function asPmsConfirmation(value: string | null | undefined): "pending" | "failed" | null {
+  return value === "pending" || value === "failed" ? value : null;
+}
 
 /**
  * Rend `null` pour un jeton inconnu, malformé ou absent — la RPC ne distingue jamais les trois
@@ -147,6 +154,7 @@ export async function getOrderByToken(
     acompteCop: order.acompte_cop,
     paymentReceivedNotHonored: order.payment_received_not_honored === true,
     refundStatus: order.refund_status ?? null,
+    pmsConfirmation: asPmsConfirmation(order.pms_confirmation),
     lines: (order.lines ?? []).map((line) => ({
       id: line.id,
       productName: resolveLocalizedField(asLocalizedField(line.product_name), locale) ?? "",

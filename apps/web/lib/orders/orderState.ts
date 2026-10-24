@@ -27,7 +27,7 @@ export function isDeadLine(status: string): boolean {
 }
 
 /**
- * Les six états qu'une commande peut porter d'elle-même. `failed` n'en est pas un : cf. l'en-tête.
+ * Les états qu'une commande peut porter d'elle-même. `failed` n'en est pas un : cf. l'en-tête.
  *
  * `confirmed` (2026-09-15, evento réservable en ligne) — distinct d'`unpaid` : des lignes vivantes
  * existent, mais aucune n'a d'acompte réellement dû EN LIGNE (evento gratuit, ou payable sur place
@@ -37,6 +37,8 @@ export function isDeadLine(status: string): boolean {
  */
 export type OrderState =
   | "paid"
+  | "confirming"
+  | "paid_unconfirmed"
   | "refunded"
   | "paid_not_honored"
   | "awaiting"
@@ -60,6 +62,13 @@ export type OrderStateInput = {
   paymentReceivedNotHonored?: boolean;
   /** Dernier remboursement lié : `pending` | `approved` | `rejected` | null. */
   refundStatus?: string | null;
+  /**
+   * Retournement du 2026-10-23 (Lobby après l'acompte) — l'état de la réservation chez le prestataire
+   * d'une commande PAYÉE (`order_for_client_jsonb.pms_confirmation`) : `pending` = le client a payé,
+   * le booking Lobby est en cours ; `failed` = le prestataire n'a pas pu le confirmer (l'admin
+   * reprend la main). Absent ou null = rien à dire (pas de nuit PMS, ou tout est réservé).
+   */
+  pmsConfirmation?: "pending" | "failed" | null;
 };
 
 /**
@@ -73,7 +82,13 @@ export type OrderStateInput = {
  * avec l'état `"confirmed"` DÉRIVÉ ci-dessus, qui ne dépend jamais de cette colonne.
  */
 export function deriveOrderState(order: OrderStateInput): OrderState {
-  if (order.paymentStatus === "paid") return "paid";
+  if (order.paymentStatus === "paid") {
+    // PAYÉ n'est pas CONFIRMÉ tant que le prestataire n'a pas son booking : jamais « confirmada » ici
+    // (le mot promettrait un séjour que Lobby n'a pas encore accepté), et aucun contact WhatsApp.
+    if (order.pmsConfirmation === "pending") return "confirming";
+    if (order.pmsConfirmation === "failed") return "paid_unconfirmed";
+    return "paid";
+  }
   // Spec 39 D3 : l'argent est rendu (par le job ou hors hifago) — dit AVANT tout le reste.
   if (order.paymentStatus === "refunded" || order.refundStatus === "approved") return "refunded";
   // Spec 39 D3 : payé mais rien à honorer — jamais « esta reserva expiró, no se completó el pago ».

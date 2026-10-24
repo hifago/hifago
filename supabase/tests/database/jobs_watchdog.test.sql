@@ -28,7 +28,8 @@ create temp view alertes as
 
 -- ── job_watchdog ─────────────────────────────────────────────────────────
 delete from job_heartbeats where job_name in ('pms-poll-bookings', 'pms-cancel-bookings', 'pms-sync-availability',
-                                                'send-notification-emails', 'pms-nightly-contract-check');
+                                                'send-notification-emails', 'pms-nightly-contract-check',
+                                                'pms-book-paid-orders');
 -- Les attentes sont déclarées MAINTENANT : sur une base dont la migration date, un job sans
 -- heartbeat serait déjà hors de sa grâce, et jobs_watchdog (W7) alerterait ceux que ce fichier vide.
 update job_expectations set created_at = now();

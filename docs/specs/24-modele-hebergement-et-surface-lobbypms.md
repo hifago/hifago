@@ -406,6 +406,13 @@ Couverture réelle sur les 6 catégories du compte : **6/6** portent `type`, `ca
 
 ### 11.2 Ce que ça tranche
 
+> **Conséquence retenue le 2026-10-23 (spec 21 §8.2).** Que 49823 et 18013 soient annoncées libres
+> puis refusées en 422 avait fait écrire chez Lobby AVANT le paiement (2026-08-29). Ce choix laissait
+> un booking vivant sur tout paiement refusé. Gabriel a tranché : le booking se crée APRÈS l'acompte,
+> et le risque devient un 422 APRÈS paiement — la commande payée va alors dans la file « à traiter »
+> (reloger ou rembourser à la main, aucun remboursement automatique). Le fait ci-dessous (C1 réfuté)
+> reste vrai ; seul le moment où on le découvre change.
+
 - **`capacity` × `quantity` a une sémantique nette**, et elle valide la section 4 : `capacity` =
   occupants **d'une unité**, `quantity` = **nombre d'unités**. Un dortoir est `capacity: 1` (une
   personne par lit) × `quantity: 8` (huit lits) ; une privée est `capacity: 2` × `quantity: 3`

@@ -59,8 +59,9 @@ select test_login('6c100000-0000-4000-8000-000000000001');
 select is(
   (select array_agg(job_name || ':' || stale_after_minutes || ':' || state || ':' || alert_active order by job_name)
      from admin_jobs_status()),
-  array['payments-reconcile:15:never:false', 'pms-cancel-bookings:40:never:false', 'pms-nightly-contract-check:2160:never:false',
-        'pms-poll-bookings:45:never:false', 'pms-sync-availability:20:never:false', 'send-notification-emails:20:never:false'],
+  array['payments-reconcile:15:never:false', 'pms-book-paid-orders:10:never:false', 'pms-cancel-bookings:40:never:false',
+        'pms-nightly-contract-check:2160:never:false', 'pms-poll-bookings:45:never:false', 'pms-sync-availability:20:never:false',
+        'send-notification-emails:20:never:false'],
   'S5 : une ligne par job attendu même sans heartbeat — jamais exécutés, dans leur grâce, seuils en minutes');
 select is((select bool_and(checked_at = now() and last_run_at is null) from admin_jobs_status()), true,
   'S6 : checked_at = now() (l''horloge de la base), aucun passage');
@@ -80,8 +81,9 @@ select is((select count(*)::int from alertes), 1,
   'S9 : une seule alerte : les jobs jamais vus encore dans leur grâce ne déclenchent rien');
 select is(
   (select array_agg(job_name || ':' || state || ':' || alert_active order by job_name) from admin_jobs_status()),
-  array['payments-reconcile:never:false', 'pms-cancel-bookings:never:false', 'pms-nightly-contract-check:never:false',
-        'pms-poll-bookings:stale:true', 'pms-sync-availability:never:false', 'send-notification-emails:never:false'],
+  array['payments-reconcile:never:false', 'pms-book-paid-orders:never:false', 'pms-cancel-bookings:never:false',
+        'pms-nightly-contract-check:never:false', 'pms-poll-bookings:stale:true', 'pms-sync-availability:never:false',
+        'send-notification-emails:never:false'],
   'S8b : lignes créées par le watchdog, jamais exécutées, dans leur grâce → never ; seul le hors-grâce est stale');
 
 -- ── Le seuil est lu dans la table ────────────────────────────────────────

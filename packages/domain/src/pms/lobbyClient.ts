@@ -190,6 +190,13 @@ export interface CreateLobbyBookingInput {
   holderName: string;
   ratesPerDay: { date: string; price: number }[];
   note?: string;
+  /**
+   * Montant DÉJÀ ENCAISSÉ par hifago (l'acompte), en COP. L'API Lobby n'a aucun champ de remise : son
+   * seul champ d'argent est `payment` (« Payment amount, less than or equal to reservation total »,
+   * docs/3-integrations/lobby_pms_api.md l.375-399, racine du dépôt legacy). Absent = champ omis.
+   * Un booking qui porte un paiement ne s'annule plus par API (RESTRICTED_RESERVATION).
+   */
+  payment?: number;
 }
 
 // rates_per_day[].price est le tarif DÉJÀ NET (remise appliquée, quantité encodée) — Lobby ne
@@ -212,6 +219,7 @@ export function createLobbyBooking(
       holder_name: input.holderName,
       rates_per_day: input.ratesPerDay,
       note: input.note,
+      payment: input.payment,
     },
     relaySecret,
     timeoutMs,

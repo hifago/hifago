@@ -142,7 +142,7 @@ export const getProductoPorSlug = cache(
     // le même `Promise.all` que le reste de la fiche, donc AUCUN appel réseau supplémentaire et
     // aucune latence ajoutée. Le calendrier est juste dès la première image.
     //
-    // La barrière de réservation, elle, ne change pas d'un iota : `POST /api/pms/reserve-nights`
+    // La barrière de réservation, elle, ne change pas d'un iota : `POST /api/pms/check-nights`
     // interroge Lobby À CHAUD avant toute confirmation et refuse si ça ne colle plus (spec 24 §0 —
     // ce miroir sert à AFFICHER, jamais à décider).
     const leerDisponibilidad = async () =>

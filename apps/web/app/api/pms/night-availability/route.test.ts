@@ -104,7 +104,7 @@ function call(productId: string, month: string) {
 
 let seq = 0;
 // Identifiants au format UUID : la route refuse (400) tout `productId` qui n'en est pas un, comme
-// reserve-nights. Le préfixe distingue établissements (e…) et produits (b…) à la lecture des logs.
+// check-nights. Le préfixe distingue établissements (e…) et produits (b…) à la lecture des logs.
 const uuidDeTest = (prefixe: "e" | "b", n: number) =>
   `${prefixe}0000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 function freshEstablishment(token = "fake-token"): string {
