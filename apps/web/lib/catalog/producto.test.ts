@@ -4,7 +4,7 @@ import {
   getProductoPorSlug,
   resolverModoReserva,
   resolverUrlContacto,
-} from "./producto";
+ miroirSinPrecios } from "./producto";
 import { TELEFONO_HIFAGO, urlDeContacto } from "@/lib/contacto/whatsapp";
 
 // Lot B (20260918170000) : le miroir de disponibilité LobbyPMS ne doit JAMAIS être semé côté
@@ -288,3 +288,16 @@ describe("getProductoPorSlug — logement PMS et état du connecteur", () => {
   });
 });
 
+
+describe("miroirSinPrecios — un miroir d'avant les prix Lobby n'est jamais semé (2026-10-23)", () => {
+  it("prix Lobby et AUCUN prix dans le miroir : ne pas semer (le client redemande à Lobby)", () => {
+    expect(miroirSinPrecios(true, [{ prices: null }, { prices: null }])).toBe(true);
+  });
+  it("au moins une nuit cotée : le miroir est à jour, une nuit sans prix est une vraie réponse", () => {
+    expect(miroirSinPrecios(true, [{ prices: { 1: 45000 } }, { prices: null }])).toBe(false);
+  });
+  it("prix fixe hifago, ou miroir vide : sans objet", () => {
+    expect(miroirSinPrecios(false, [{ prices: null }])).toBe(false);
+    expect(miroirSinPrecios(true, [])).toBe(false);
+  });
+});

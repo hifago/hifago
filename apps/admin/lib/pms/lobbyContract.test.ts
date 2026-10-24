@@ -164,8 +164,9 @@ describe("Sonde de contrat — GET /available-rooms sans category_id", () => {
   // Constat non cherché, et qui vaut d'être gelé : Lobby cote UN plan, avec autant de prix que la
   // capacité d'une unité — GLAMPING (capacity 2) → 2 prix, CAMPER Van (capacity 4) → 4, les
   // dortoirs (capacity 1) → 1. Ses prix sont donc par NIVEAU D'OCCUPATION, un modèle que hifago
-  // n'a pas (unit = per_person | per_two | per_house). Ça confirme « Lobby n'est jamais la source
-  // du prix » au lieu de l'infirmer — et le parseur COMPTE ces prix sans jamais les lire.
+  // n'a pas (unit = per_person | per_two | per_house). Ce constat fondait « Lobby n'est jamais la
+  // source du prix », révisé le 2026-10-23 (prix public = prix Lobby, au niveau d'occupation exact :
+  // spec 24 §0) ; le contrat nocturne, lui, COMPTE toujours ces prix sans les lire.
   it("expose un plan par catégorie, avec un prix par niveau d'occupation", async () => {
     const contract = await probe();
     const byId = new Map(contract.categories.map((c) => [c.categoryId, c]));

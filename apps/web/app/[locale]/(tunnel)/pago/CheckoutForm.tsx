@@ -48,13 +48,13 @@ function resolveKnownReason(raw: string | undefined): (typeof KNOWN_REASONS)[num
     : "unknown";
 }
 
-// Message d'un échec de /api/pms/reserve-nights, d'après son `reason` et son `released` (contrat de
+// Message d'un échec de /api/pms/check-nights, d'après son `reason` et son `released` (contrat de
 // la route depuis la migration 20260930221837). « Libéré » n'est dit QUE si la route l'a confirmé :
 // un corps illisible (500/504 de la plateforme), une erreur de base ou un relâchement impossible
 // laissent la commande en attente — elle expire d'elle-même, rien n'est encaissé. `order_paid` n'a
 // pas de message propre : inatteignable ici, la commande vient d'être créée et aucun paiement n'est
 // possible avant cette étape (à traiter par tout autre appelant de la route).
-type ReserveNightsErrorKey =
+type CheckNightsErrorKey =
   | "pms_refused"
   | "pms_refused_pending"
   | "pms_unavailable"
@@ -62,7 +62,7 @@ type ReserveNightsErrorKey =
   | "pms_unconfirmed_pending"
   | "pms_claim_in_progress";
 
-export function reserveNightsErrorKey(result: { reason?: string; released?: boolean } | null): ReserveNightsErrorKey {
+export function checkNightsErrorKey(result: { reason?: string; released?: boolean } | null): CheckNightsErrorKey {
   if (result === null) return "pms_unconfirmed_pending";
   if (result.reason === "pms_claim_in_progress") return "pms_claim_in_progress";
   if (result.released !== true) {
@@ -160,7 +160,7 @@ export function CheckoutForm({
       return;
     }
 
-    // ⚠️ Le bouton reste désactivé jusqu'à la FIN : create_order PUIS reserve-nights, qui peut
+    // ⚠️ Le bouton reste désactivé jusqu'à la FIN : create_order PUIS check-nights (lecture de Lobby), qui peut
     // attendre Lobby près d'une minute. Le rendre dès le retour de create_order laissait un second
     // clic relancer create_order sur un panier déjà vidé — « empty_cart » affiché pendant que la
     // première commande se confirmait encore. Un refus de create_order le rend via `fail` ; après
@@ -200,36 +200,33 @@ export function CheckoutForm({
     // soit l'issue de Lobby.
     void refresh();
 
-    // ⚠️ LOBBY D'ABORD — RÉORDONNÉ LE 2026-08-29, et ce n'est pas « un await de plus ».
+    // ⚠️ LOBBY EST LU AVANT LE PAIEMENT, JAMAIS ÉCRIT (retournement du 2026-10-23, spec 21 §8.1).
     //
-    // Séquence précédente : create_order (qui CONFIRME) → `void reserve-nights` → `void
-    // startPayment`. Les deux `void` étaient délibérés et documentés (« un échec PMS ne défait
-    // jamais une réservation déjà confirmée »), mais la prémisse était fausse : sur le compte réel,
-    // deux catégories refusent `POST /bookings` en 422 TOUT EN affichant une disponibilité non
-    // nulle (spec 24 §11.2, C1 réfuté — rien dans `available-rooms` ne distingue une catégorie
-    // réservable). Le client payait donc son acompte, l'écran disait « réservé », et le partenaire
-    // ne recevait rien — sans même une annulation à compenser, puisque rien n'avait été créé.
+    // Du 29/08 au 23/10, cette étape créait le booking Lobby AVANT l'encaissement (les catégories
+    // 49823 et 18013 sont annoncées libres puis refusées en 422 : seule l'écriture le révélait). Le
+    // prix : un paiement refusé laissait un booking vivant chez le partenaire, et un e-mail
+    // « réservé » partait sans argent. Décision de Gabriel : le booking se crée APRÈS l'acompte.
     //
-    // Désormais : Lobby → confirmation visible → encaissement. C'est ce qu'exige la spec 21 §8
-    // (« échec fermé uniquement AVANT confirmation »), que le code violait en silence. Le succès
-    // n'est affiché QU'APRÈS l'accord de Lobby, et `startPayment` n'est jamais atteint sans lui.
+    // /api/pms/check-nights LIT la disponibilité à chaud et TIENT la place dans hifago pendant le
+    // paiement (hold_pms_nights) ; aucune écriture chez Lobby. Risque accepté : un 422 après paiement
+    // envoie la commande dans la file « à traiter » de l'admin (jamais un dé-paiement).
     //
     // ⚠️ La redirection vers `/reserva/<jeton>` n'est atteinte qu'APRÈS cet appel, et c'est le geste
     // central : c'est elle qui annonce la commande au client. La remonter au-dessus rendrait tout
     // le reste décoratif.
     let pmsResponse: Response;
     try {
-      pmsResponse = await fetch("/api/pms/reserve-nights", {
+      pmsResponse = await fetch("/api/pms/check-nights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId }),
       });
     } catch {
-      // Réseau coupé pendant l'appel : on ne sait pas si Lobby a réservé. Échec fermé — rien n'est
-      // encaissé, et expire_stale_payment_orders reprendra la commande dans les 30 minutes (avec,
-      // au passage, l'annulation d'un booking qui aurait malgré tout été créé). Même message qu'un
-      // corps illisible : la commande n'est PAS libérée, réessayer tout de suite n'a pas de sens.
-      fail(t(`errors.${reserveNightsErrorKey(null)}`));
+      // Réseau coupé pendant l'appel : on ne sait pas si la place est tenue. Échec fermé — rien n'est
+      // encaissé, et expire_stale_payment_orders reprendra la commande dans les 30 minutes. Même
+      // message qu'un corps illisible : la commande n'est PAS libérée, réessayer tout de suite n'a
+      // pas de sens.
+      fail(t(`errors.${checkNightsErrorKey(null)}`));
       setCanResumeOrder(true);
       return;
     }
@@ -238,7 +235,7 @@ export function CheckoutForm({
       const pmsResult = (await pmsResponse.json().catch(() => null)) as
         | { reason?: string; released?: boolean }
         | null;
-      const key = reserveNightsErrorKey(pmsResult);
+      const key = checkNightsErrorKey(pmsResult);
       fail(t(`errors.${key}`));
       setCanResumeOrder(key === "pms_unconfirmed_pending" || key === "pms_claim_in_progress");
       // Commande DÉFAITE (`released`) : release_order_after_pms_refusal a remis ses lignes dans le

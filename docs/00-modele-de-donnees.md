@@ -24,6 +24,8 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-10-23 — prix Lobby et plafond de lits** (spec 24 §0, migrations 20261024100000/110000) : le modèle gagne `pms_cart_quotes` (le devis Lobby d'une ligne de panier, RPC-only, effacé avec elle), `establishments.lobby_dynamic_pricing` (l'établissement vend au prix Lobby), `order_lines.pms_nightly_unit_prices` (ventilation par nuit figée à la commande) et `pms_availability_mirror.prices` (affichage). Pour un produit PMS, une unité Lobby vaut un cupo : plus de multiplication par `products.capacity`.
+- **2026-10-23 — Lobby se réserve APRÈS l'acompte** (spec 21 §8.2, notes en spec 24 §11.2) : le modèle gagne `pms_booking_requests` (une demande de booking par commande payée), `pms_category_locks` (verrou de tenue des places), `orders.pms_checked_at`, `order_lines.pms_held_at` / `pms_recorded_at`. Rien d'autre ne change dans ce cahier : `order_lines.pms_booking_id` garde son sens (le booking Lobby de la ligne, désormais écrit après le paiement).
 Relevés par la relecture intégrale du 2026-09-07. Les sections ci-dessous ne sont pas réécrites —
 ces lignes en tiennent lieu. §2 fait exception : il a bien été réécrit le 2026-08-27.
 

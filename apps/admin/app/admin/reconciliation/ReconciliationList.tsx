@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Button, Card, Chip } from "@hifago/ui";
 import { statusChip, type ChipStyle } from "@/components/status-chip";
 import { ResolveEntryDialog } from "./ResolveEntryDialog";
+import { ResolvePmsRequestDialog, type PmsRequestAction } from "./ResolvePmsRequestDialog";
 
 export type ReconciliationEntryRow = {
   id: string;
@@ -13,9 +15,28 @@ export type ReconciliationEntryRow = {
   /** Motif machine de l'échec (statut + corps LobbyPMS). `null` sur les entrées d'avant 2026-08-27. */
   detail: string | null;
   orderId: string;
+  /** La ligne de la commande que l'entrée concerne (id de booking saisi à la main, confirm). */
+  orderLineId: string;
   holderName: string;
   establishmentName: string;
+  /**
+   * Lobby APRÈS l'acompte : la demande de booking de la commande, quand elle est BLOQUÉE (`failed` ou
+   * `needs_human`) — seule situation où l'admin dispose de « Reintentar / Confirmar / Anular ». Absente
+   * (null) pour toute autre entrée.
+   */
+  pmsRequest: { id: string; status: string; lines: PendingPmsLine[] } | null;
 };
+
+/** Une nuit PMS de la commande encore sans booking : un champ « ID de la reserva en Lobby » du dialogue. */
+export type PendingPmsLine = { orderLineId: string; productName: string; date: string | null; endDate: string | null };
+
+/**
+ * Le détail de l'entrée née de la demande elle-même (resolve_pms_booking_request, issue `failed`) : la
+ * SEULE que confirm / cancel résolvent côté base. « remise à saisir », « issue inconnue » et « booking
+ * NON enregistré » sont des tâches à part et restent affichées. Doit rester aligné sur le filtre de
+ * admin_resolve_pms_booking_request (pgTAP C6).
+ */
+export const RESOLVED_BY_REQUEST_PREFIX = "commande PAYÉE — Lobby a refusé";
 
 // Vocabulaire de la feature 22 (check constraint pms_reconciliation_entries.status) — "resolved"
 // n'apparaît dans aucun des deux groupes affichés (ni actionnable ni échec permanent) : une entrée
@@ -34,12 +55,20 @@ const STATUS_CHIP_STYLE: Record<string, ChipStyle> = {
   permanently_failed: { color: "danger", variant: "primary" },
 };
 
+const PMS_REQUEST_ACTIONS: { action: PmsRequestAction; label: string }[] = [
+  { action: "retry", label: "Reintentar con Lobby" },
+  { action: "confirm", label: "Confirmar" },
+  { action: "cancel", label: "Anular solicitud" },
+];
+
 function EntryCard({
   entry,
   onResolveClick,
+  onPmsRequestClick,
 }: {
   entry: ReconciliationEntryRow;
   onResolveClick?: (entryId: string) => void;
+  onPmsRequestClick?: (entryId: string, action: PmsRequestAction) => void;
 }) {
   const chipStyle = statusChip(STATUS_CHIP_STYLE, entry.status);
 
@@ -65,10 +94,24 @@ function EntryCard({
           </p>
         ) : null}
       </div>
-      <div className="flex items-center gap-3">
+      {/* Responsive : les boutons passent à la ligne sous 390 px au lieu de déborder. */}
+      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
         <Chip color={chipStyle.color} variant={chipStyle.variant}>
           {STATUS_LABELS[entry.status] ?? entry.status}
         </Chip>
+        {onPmsRequestClick && entry.pmsRequest
+          ? PMS_REQUEST_ACTIONS.map(({ action, label }) => (
+              <Button
+                key={action}
+                size="sm"
+                variant={action === "confirm" ? "primary" : "outline"}
+                data-testid={`pms-request-${action}-button`}
+                onPress={() => onPmsRequestClick(entry.id, action)}
+              >
+                {label}
+              </Button>
+            ))
+          : null}
         {onResolveClick ? (
           <Button
             size="sm"
@@ -85,8 +128,17 @@ function EntryCard({
 }
 
 export function ReconciliationList({ rows: initialRows }: { rows: ReconciliationEntryRow[] }) {
+  const router = useRouter();
   const [rows, setRows] = useState(initialRows);
+  // Resynchronisation avec le serveur après `router.refresh()` (« adjust state during render », pas un
+  // effet) : un cancel OUVRE une entrée neuve côté base, qu'un état purement local ne verrait jamais.
+  const [seenInitialRows, setSeenInitialRows] = useState(initialRows);
+  if (seenInitialRows !== initialRows) {
+    setSeenInitialRows(initialRows);
+    setRows(initialRows);
+  }
   const [dialogEntryId, setDialogEntryId] = useState<string | null>(null);
+  const [pmsDialog, setPmsDialog] = useState<{ entryId: string; action: PmsRequestAction } | null>(null);
 
   // open/retrying = actionnable (un admin peut résolver) ; permanently_failed = échec permanent
   // (transition système, jamais un geste admin, cf. plan feature 22 — donc aucun bouton dessus).
@@ -108,7 +160,12 @@ export function ReconciliationList({ rows: initialRows }: { rows: Reconciliation
         <Card.Content className="flex flex-col gap-3">
           {actionableEntries.length > 0 ? (
             actionableEntries.map((entry) => (
-              <EntryCard key={entry.id} entry={entry} onResolveClick={setDialogEntryId} />
+              <EntryCard
+                key={entry.id}
+                entry={entry}
+                onResolveClick={setDialogEntryId}
+                onPmsRequestClick={(entryId, action) => setPmsDialog({ entryId, action })}
+              />
             ))
           ) : (
             <p className="text-sm text-muted">Ninguna entrada por resolver.</p>
@@ -147,6 +204,48 @@ export function ReconciliationList({ rows: initialRows }: { rows: Reconciliation
           }}
         />
       ) : null}
+
+      {pmsDialog
+        ? (() => {
+            const target = rows.find((row) => row.id === pmsDialog.entryId);
+            if (!target?.pmsRequest) return null;
+            return (
+              <ResolvePmsRequestDialog
+                requestId={target.pmsRequest.id}
+                lines={target.pmsRequest.lines}
+                action={pmsDialog.action}
+                open
+                onOpenChange={(open) => {
+                  if (!open) setPmsDialog(null);
+                }}
+                onSuccess={(action) => {
+                  // La demande n'est plus bloquée : plus de boutons sur AUCUNE entrée de cette commande.
+                  // `confirm` et `cancel` ne résolvent côté base QUE l'entrée « commande PAYÉE — Lobby a
+                  // refusé » : les autres (« remise à saisir », « issue inconnue »…) restent affichées.
+                  const orderId = target.orderId;
+                  setRows((prev) =>
+                    prev.map((row) =>
+                      row.orderId !== orderId
+                        ? row
+                        : {
+                            ...row,
+                            pmsRequest: null,
+                            status:
+                              action === "retry" ||
+                              row.status === "permanently_failed" ||
+                              !row.detail?.startsWith(RESOLVED_BY_REQUEST_PREFIX)
+                                ? row.status
+                                : "resolved",
+                          }
+                    )
+                  );
+                  // Un cancel ouvre une entrée neuve (annuler ou rembourser à la main) : on relit le serveur.
+                  router.refresh();
+                }}
+              />
+            );
+          })()
+        : null}
     </div>
   );
 }

@@ -70,9 +70,16 @@ function lobbyErrorCode(body: unknown): string | null {
 // À distinguer absolument d'INPUT_PARAMETERS, qui signale un bug de NOTRE côté (cf. plus bas).
 // (RECORD_NOT_FOUND, « déjà annulé », est traité à part : c'est l'objectif atteint.)
 const TERMINAL_LOBBY_ERRORS = new Set([
-  "RESTRICTED_RESERVATION",   // le booking porte déjà une charge — spec 21 §0
   "BOOKING_CHECK_IN_COMPLETE", // le client est arrivé, la réservation ne s'annule plus
 ]);
+
+// RESTRICTED_RESERVATION (« Booking has extra payments or charges ») sortait de l'ensemble ci-dessus
+// le 2026-10-23. Elle n'est plus un cas rare : depuis que le booking est écrit APRÈS l'acompte, il
+// porte le `payment` de hifago (D1) — et donc TOUTE annulation par API d'un booking payé est refusée.
+// La clore en silence laissait la chambre bloquée chez le partenaire sans que personne le sache :
+// l'entrée de file est close, MAIS une entrée de réconciliation « annuler à la main dans Lobby »
+// (et l'e-mail admin que son trigger envoie) est écrite par resolve_pms_cancellation_restricted.
+const RESTRICTED_LOBBY_ERROR = "RESTRICTED_RESERVATION";
 
 // Au-delà, l'entrée est close en 'failed' plutôt que réessayée indéfiniment. Trois passages du cron
 // suffisent à absorber une indisponibilité passagère du relais ou de Lobby ; au-delà c'est une
@@ -168,6 +175,17 @@ serveJob("pms-cancel-bookings", async (ctx): Promise<JobOutcome> => {
       // déclencherait notify_all_admins sans dédup, soit un e-mail à chaque admin à chaque
       // annulation — le défaut C9, corrigé le 2026-08-26 sur le chemin jumeau.
       const code = lobbyErrorCode(response.body);
+      if (response.status === 422 && code === RESTRICTED_LOBBY_ERROR) {
+        summary.restricted++;
+        console.warn(`pms-cancel-bookings : booking ${row.pms_booking_id} non annulable par API (422 ${code}) — annulation à la main`);
+        const { error: restrictedError } = await supabase.rpc("resolve_pms_cancellation_restricted", {
+          p_entry_id: row.entry_id,
+          p_lobby_status_code: 422,
+          p_error: `422 ${code}`,
+        });
+        if (restrictedError) writeFailed(row, "resolve_pms_cancellation_restricted", restrictedError);
+        continue;
+      }
       if (response.status === 422 && TERMINAL_LOBBY_ERRORS.has(code ?? "")) {
         summary.restricted++;
         console.warn(`pms-cancel-bookings : booking ${row.pms_booking_id} non annulable par API (422 ${code})`);

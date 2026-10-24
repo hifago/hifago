@@ -34,18 +34,21 @@ repond_a:
 | 2 | `admin_new_proposal` | Un socio soumet une proposition de produit ou d'établissement | **Tous les admins actifs**, un email chacun | `Nueva propuesta de producto pendiente de moderación` / `…de establecimiento…` |
 | 3 | `admin_new_reconciliation_exception` | Une exception de réconciliation est créée (PMS ou paiement) | **Tous les admins actifs**, un email chacun | `Nueva excepción de reconciliación PMS` / `…de pago` / `Pago recibido sin reserva que honrar — reembolso requerido` (entrée `kind = 'refund_required'`, 2026-09-20) |
 | 4 | `partner_proposal_decided` | Un admin approuve ou rejette une proposition | Le compte socio qui l'a soumise | `Tu propuesta fue aprobada` / `Tu propuesta fue rechazada` |
-| 5 | `partner_commission_earned` | Le paiement d'une commande est confirmé | Chaque **compte référent distinct** ayant une ligne en `commission_case = 'external_referrer'` | `Nueva comisión asignada` |
-| 6 | `partner_payment_confirmed` | Le paiement d'une commande est confirmé | Chaque **compte propriétaire distinct** des produits commandés | `Pago confirmado` |
-| 7 | `client_order_confirmed` | Le paiement d'une commande est confirmé | Le client, sur `orders.holder_email` — un seul email par commande | `Reserva confirmada` |
-| 8 | `partner_camp_evento_blocked` | Une commande contenant une ligne `camp` est créée — **à la réservation, avant le paiement** | Chaque compte du partenaire propriétaire du camp/evento | `Reserva confirmada — recurso bloqueado` |
+| 5 | `partner_commission_earned` | Le paiement d'une commande est confirmé — **et, depuis le 2026-10-23, la réservation chez le prestataire PMS aussi** (`notify_order_confirmed`, différé jusqu'au booking Lobby) | Chaque **compte référent distinct** ayant une ligne en `commission_case = 'external_referrer'` | `Nueva comisión asignada` |
+| 6 | `partner_payment_confirmed` | Idem 5 | Chaque **compte propriétaire distinct** des produits commandés | `Pago confirmado` |
+| 7 | `client_order_confirmed` | Idem 5 — jamais avant que toutes les nuits PMS aient leur booking | Le client, sur `orders.holder_email` — un seul email par commande | `Reserva confirmada` |
+| 8 | `partner_camp_evento_blocked` | Une commande contenant une ligne `camp`/`evento` occupant la ressource est **confirmée** (`notify_order_confirmed`) — **depuis le 2026-10-23 plus à la création** : « si pas payé, pas réservé ». Exception : une commande sans acompte à payer (evento gratuit / sur place) l'envoie dès `create_order` | Chaque compte du partenaire propriétaire du camp/evento | `Reserva confirmada — recurso bloqueado` |
 | 9 | `client_payment_received_not_honored` | Une entrée `refund_required` de `reason_code` `paid_after_expiry` ou `amount_mismatch` est créée (le client a payé, rien n'est honoré) — spec 39 D3, 2026-09-22 | Le client, sur `orders.holder_email` — **un seul e-mail par entrée** (dédup sur `related_id`) | `Recibimos tu pago — tu reserva <HFG-n> no pudo confirmarse` |
 | 10 | `client_duplicate_payment_refund` | Une entrée `refund_required` de `reason_code` `double_payment` est créée (la réservation EST confirmée, le doublon sera remboursé) | Le client, un e-mail par entrée | `Recibimos un pago duplicado para tu reserva <HFG-n>` |
 | 11 | `admin_job_stalled` | Un watchdog constate qu'un job attendu n'a pas réussi depuis son seuil (`job_expectations`, un seuil par job) — ou n'a **jamais été exécuté** passé ce seuil — une seule fois par panne tant qu'il ne repart pas | **Tous les admins actifs**, un email chacun | `El job <job> no responde (sin ejecución exitosa desde hace más de <seuil>)` ; `payments-reconcile` garde le sien : `El job de conciliación de pagos no responde desde hace <seuil>` |
 | 12 | `client_order_line_cancelled` | Une prestation est annulée (`cancelled_by_client` ou `cancelled_by_provider`), par le client, l'admin ou l'établissement — jamais pour `expired` | Le client, sur `orders.holder_email` — jamais une adresse sentinelle `@hifago.local` | `Anulación en tu reserva <HFG-n>` |
 | 13 | `partner_order_line_cancelled` | Même événement que le 12 | Chaque compte de connexion du partenaire propriétaire du produit | `Reserva anulada: <produit>` |
 
-Les emails 5, 6 et 7 partent tous les trois du **même événement** : `apply_payment_webhook` en
-branche `approved`. Un paiement confirmé peut donc générer plusieurs emails d'un coup.
+Les emails 5, 6, 7 (et 8) partent tous du **même événement** : `notify_order_confirmed`, appelée
+par `apply_payment_webhook` en branche `approved` — ou, pour une commande avec une nuit PMS, par
+`resolve_pms_booking_request` quand `pms-book-paid-orders` a obtenu tous les bookings Lobby
+(retournement du 2026-10-23, spec 21 §8.2). Un paiement confirmé peut donc générer plusieurs
+emails d'un coup, mais jamais avant que le prestataire ait sa réservation.
 
 ## Où c'est branché
 
@@ -58,7 +61,7 @@ branche `approved`. Un paiement confirmé peut donc générer plusieurs emails d
 | 5 | `apply_payment_webhook` | `supabase/migrations/20260824120000_notify_payment_confirmed.sql` |
 | 6 | `apply_payment_webhook` | idem |
 | 7 | `apply_payment_webhook` | idem |
-| 8 | `create_order`, branche `camp` | `supabase/migrations/20260824110000_notify_partner_camp_evento_blocked.sql` |
+| 8 | `notify_order_confirmed` / `notify_partner_camp_evento_blocked` (ex-`create_order`, branche `camp`) | `supabase/migrations/20260824110000_notify_partner_camp_evento_blocked.sql` |
 | 9-10 | trigger `notify_client_refund_required` sur `payment_reconciliation_entries` (`when new.kind = 'refund_required'`) | `supabase/migrations/20260922100000_payment_refunds.sql` |
 | 11 | `jobs_watchdog` → `job_watchdog` (pg_cron `jobs-watchdog`, `*/15`) et `payments_reconcile_watchdog` (pg_cron `*/15`), seuils lus dans `job_expectations` | `supabase/migrations/20261003223900_pms_jobs_supervision.sql`, `20261006143045_job_expectations.sql` (et `20260921100000_payments_reconcile.sql`) |
 | 12-13 | `notify_order_line_cancelled`, appelée par `close_order_line_locked` (`cancel_order_line`, `set_order_line_status`) | `supabase/migrations/20261006192424_order_line_cancellations.sql` (redéfinie par `20261006235357_pms_booking_identity.sql`) |

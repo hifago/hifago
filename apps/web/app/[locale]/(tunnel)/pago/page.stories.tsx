@@ -167,7 +167,7 @@ export const DisponibilidadDesconocida: StoryObj = {
 
 export const PmsRechazo: StoryObj = {
   ...pagina(invitado(), {
-    "/api/pms/reserve-nights": { status: 409, body: { ok: false, reason: "pms_refused", released: true } },
+    "/api/pms/check-nights": { status: 409, body: { ok: false, reason: "pms_refused", released: true } },
   }),
   name: "Refus de l'hôtel (PMS), réservation libérée",
   play: async ({ canvasElement }) => {

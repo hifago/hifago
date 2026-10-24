@@ -20,6 +20,25 @@ describe("buildLobbyBookingNote", () => {
     );
   });
 
+  it("dit ce que le client a déjà payé, juste après l'identifiant technique", () => {
+    expect(
+      buildLobbyBookingNote({
+        orderLineId: "x",
+        advancePaidCop: 150000,
+        balanceCop: 1350000,
+        promoCode: "GUABANIA",
+      })
+    ).toBe("hifago order_line x | Anticipo pagado en hifago: $150.000 — saldo: $1.350.000 | PROMO:GUABANIA");
+  });
+
+  it("n'écrit aucune mention d'acompte s'il est nul, absent ou sans solde connu", () => {
+    expect(buildLobbyBookingNote({ orderLineId: "x", advancePaidCop: 0, balanceCop: 100 })).toBe("hifago order_line x");
+    expect(buildLobbyBookingNote({ orderLineId: "x", advancePaidCop: 100 })).toBe("hifago order_line x");
+    expect(buildLobbyBookingNote({ orderLineId: "x", advancePaidCop: null, balanceCop: null })).toBe(
+      "hifago order_line x"
+    );
+  });
+
   it("omet un champ absent, vide ou blanc — jamais un libellé sans valeur", () => {
     expect(
       buildLobbyBookingNote({ orderLineId: "x", promoCode: null, phone: "   ", email: undefined })

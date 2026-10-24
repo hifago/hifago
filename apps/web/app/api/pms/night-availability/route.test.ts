@@ -28,6 +28,7 @@ interface FakeProduct {
   establishment_id: string;
   lodging_kind: string | null;
   capacity: number | null;
+  unit?: string | null;
   sellable?: boolean;
 }
 interface FakeEstablishment {
@@ -104,7 +105,7 @@ function call(productId: string, month: string) {
 
 let seq = 0;
 // Identifiants au format UUID : la route refuse (400) tout `productId` qui n'en est pas un, comme
-// reserve-nights. Le préfixe distingue établissements (e…) et produits (b…) à la lecture des logs.
+// check-nights. Le préfixe distingue établissements (e…) et produits (b…) à la lecture des logs.
 const uuidDeTest = (prefixe: "e" | "b", n: number) =>
   `${prefixe}0000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 function freshEstablishment(token = "fake-token"): string {
@@ -256,6 +257,55 @@ describe("unités Lobby → cupos : facteur 1, quel que soit le produit (2026-10
     };
     expect(body.nights.find((n) => n.date === nuit)?.capacity).toBe(2);
     expect(body.nights.find((n) => n.date === `${month}-11`)?.capacity).toBe(5);
+  });
+});
+
+describe("les prix Lobby par nuit (prix public = prix Lobby, 2026-10-23)", () => {
+  it("chaque nuit porte le prix Lobby d'une unité — semaine et samedi — tiré du même catalogue", async () => {
+    const establishmentId = freshEstablishment();
+    const month = monthAhead(4);
+    const samedi = `${month}-14`;
+    setPmsFixtureScenario({
+      catalogCategoryIds: [CATEGORY],
+      pricesByCategory: { [CATEGORY]: [{ people: 1, value: 45000 }] },
+      nightAvailabilityByDate: {
+        [samedi]: {
+          availableByCategory: { [CATEGORY]: 2 },
+          pricesByCategory: { [CATEGORY]: [{ people: 1, value: "60000.00" }] },
+        },
+      },
+    });
+    const dortoir = addProduct(establishmentId, { lodging_kind: "dorm", capacity: 8, unit: "per_person" });
+    const body = (await (await call(dortoir, month)).json()) as {
+      nights: { date: string; capacity: number; unitPriceCop: number | null }[];
+    };
+    expect(body.nights.find((n) => n.date === `${month}-13`)).toMatchObject({ capacity: 5, unitPriceCop: 45000 });
+    // Le samedi : 2 lits libres, et le prix du samedi, lu en chaîne.
+    expect(body.nights.find((n) => n.date === samedi)).toMatchObject({ capacity: 2, unitPriceCop: 60000 });
+    expect(getPmsFixtureCalls("/api/v2/available-rooms")).toBe(1);
+  });
+
+  it("per_two lit le prix à deux personnes ; un niveau non coté rend null, jamais un autre prix", async () => {
+    const establishmentId = freshEstablishment();
+    const month = monthAhead(4);
+    setPmsFixtureScenario({
+      catalogCategoryIds: [CATEGORY],
+      pricesByCategory: { [CATEGORY]: [{ people: 1, value: 120000 }, { people: 2, value: 180000 }] },
+      nightAvailabilityByDate: {},
+    });
+    const tente = addProduct(establishmentId, { lodging_kind: "private", unit: "per_two" });
+    const tenteBody = (await (await call(tente, month)).json()) as { nights: { unitPriceCop: number | null }[] };
+    expect(tenteBody.nights[0].unitPriceCop).toBe(180000);
+
+    const autre = freshEstablishment();
+    setPmsFixtureScenario({
+      catalogCategoryIds: [CATEGORY],
+      pricesByCategory: { [CATEGORY]: [{ people: 1, value: 120000 }] },
+      nightAvailabilityByDate: {},
+    });
+    const tenteSansPrixADeux = addProduct(autre, { lodging_kind: "private", unit: "per_two" });
+    const body = (await (await call(tenteSansPrixADeux, month)).json()) as { nights: { unitPriceCop: number | null }[] };
+    expect(body.nights[0].unitPriceCop).toBeNull();
   });
 });
 

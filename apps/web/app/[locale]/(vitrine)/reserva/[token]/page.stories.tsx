@@ -80,7 +80,7 @@ export const ConfirmandoAlojamiento: StoryObj = {
       preparar: () =>
         simularRpc("create_payment_intent", { data: { ok: false, reason: "pms_booking_missing" }, error: null }),
     }),
-    { "/api/pms/reserve-nights": { demora: "nunca" } }
+    { "/api/pms/check-nights": { demora: "nunca" } }
   ),
   name: "Logement en cours de confirmation avant paiement",
   play: async ({ canvasElement }) => {
@@ -99,7 +99,7 @@ const logementRefuse = (released: boolean): StoryObj =>
       preparar: () =>
         simularRpc("create_payment_intent", { data: { ok: false, reason: "pms_booking_missing" }, error: null }),
     }),
-    { "/api/pms/reserve-nights": { status: 409, body: { ok: false, reason: "pms_refused", released } } }
+    { "/api/pms/check-nights": { status: 409, body: { ok: false, reason: "pms_refused", released } } }
   );
 
 export const AlojamientoNoConfirmado: StoryObj = {
@@ -137,6 +137,13 @@ export const ConfirmadoSinPago: StoryObj = { ...pedido("token-gratis"), name: "C
 // Payée mais non honorée : UN écran pour les quatre motifs de la base (payé après expiration ou
 // annulation, écart de montant, nuit PMS sans booking, intent remplacé — P5d). Le motif n'est pas
 // transmis au client ; le texte du détail, exact pour le premier seulement, attend Jérôme (G33).
+// Lobby APRÈS l'acompte : le client a payé, le prestataire n'a pas encore (ou n'a pas pu) confirmer.
+export const ConfirmandoReserva: StoryObj = { ...pedido("token-reservando-alojamiento"), name: "Payée, booking Lobby en cours" };
+export const PagoSinConfirmarAlojamiento: StoryObj = {
+  ...pedido("token-alojamiento-sin-confirmar"),
+  name: "Payée, le prestataire n'a pas pu confirmer",
+};
+
 export const PagoNoHonrado: StoryObj = { ...pedido("token-no-honrado"), name: "Payée mais non honorée" };
 
 export const Reembolsado: StoryObj = { ...pedido("token-reembolsado"), name: "Remboursée" };

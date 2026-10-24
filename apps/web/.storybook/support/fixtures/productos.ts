@@ -203,6 +203,7 @@ export const ALOJAMIENTO_GLAMPING: FichaProducto = {
     priceTiers: null,
     maxQty: 3,
     esPmsBacked: false,
+    precioLobby: false,
     reservableEnLinea: true,
     amenidades: [
       { categoria: "Baño", items: ["Baño privado", "Agua caliente", "Toallas"] },
@@ -242,6 +243,7 @@ export const ALOJAMIENTO_DORM_PMS: FichaProducto = {
     ],
     maxQty: 6,
     esPmsBacked: true,
+    precioLobby: false,
     reservableEnLinea: true,
     amenidades: [{ categoria: "Dormitorio", items: ["Cortina de privacidad", "Locker", "Enchufe propio"] }],
   },

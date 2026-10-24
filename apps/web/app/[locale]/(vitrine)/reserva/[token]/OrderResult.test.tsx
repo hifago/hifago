@@ -9,7 +9,7 @@ import { bookingRecovery, OrderResult } from "./OrderResult";
 // Depuis la migration 20260930221837, `create_payment_intent` refuse `pms_booking_missing` tant
 // qu'une nuit PMS n'a pas son booking (client parti avant la fin du tunnel, onglet fermé pendant
 // l'appel à Lobby). Sans ce lot, l'écran affichait « unknown » et le client restait bloqué : ce
-// fichier prouve qu'il relance reserve-nights UNE fois, puis redemande UN intent, sans boucle.
+// fichier prouve qu'il relance check-nights UNE fois, puis redemande UN intent, sans boucle.
 
 const refreshMock = vi.fn();
 vi.mock("@/i18n/navigation", () => ({
@@ -84,7 +84,7 @@ beforeEach(() => {
   // payments/create répond 503 : le test s'arrête avant la redirection vers Mercado Pago, et
   // regarde seulement avec quel paiement elle a été demandée.
   fetchMock.mockImplementation((url: string) =>
-    url === "/api/pms/reserve-nights"
+    url === "/api/pms/check-nights"
       ? reserveNightsResponse()
       : Promise.resolve(
           json(503, { ok: false, reason: "mercadopago_unavailable" }),
@@ -132,7 +132,7 @@ async function payer(container: HTMLElement) {
 }
 
 const appelsReserveNights = () =>
-  fetchMock.mock.calls.filter(([url]) => url === "/api/pms/reserve-nights");
+  fetchMock.mock.calls.filter(([url]) => url === "/api/pms/check-nights");
 const appelsPaymentsCreate = () =>
   fetchMock.mock.calls.filter(([url]) => url === "/api/payments/create");
 const manquant = {
@@ -202,7 +202,7 @@ describe("OrderResult — charte P7", () => {
   });
 });
 
-describe("OrderResult — pms_booking_missing : reserve-nights, puis UN seul nouvel intent", () => {
+describe("OrderResult — pms_booking_missing : check-nights, puis UN seul nouvel intent", () => {
   it("booking posé → un second intent, et le paiement part avec SON payment_id", async () => {
     intentResponses = [
       manquant,
@@ -461,7 +461,7 @@ describe("OrderResult — pms_booking_missing : reserve-nights, puis UN seul nou
     ).toBe(es.errors.pms_unknown_outcome);
   });
 
-  it("un intent ordinaire ne passe jamais par reserve-nights", async () => {
+  it("un intent ordinaire ne passe jamais par check-nights", async () => {
     intentResponses = [
       { data: { ok: true, payment_id: "paiement-1" }, error: null },
     ];
@@ -477,7 +477,7 @@ describe("OrderResult — pms_booking_missing : reserve-nights, puis UN seul nou
 });
 
 // Migration 20261001194704 : passé la limite de paiement (28 min ; 23 min pour un claim), le refus
-// `order_expiring` peut venir de l'intent, de payments/create ou de reserve-nights. Jamais l'état
+// `order_expiring` peut venir de l'intent, de payments/create ou de check-nights. Jamais l'état
 // « failed » (« Tu reserva sigue guardada. Puedes intentar el pago de nuevo ») : notice, plus de
 // bouton, écran relu.
 describe("OrderResult — trop tard pour payer (order_expiring)", () => {
@@ -490,7 +490,7 @@ describe("OrderResult — trop tard pour payer (order_expiring)", () => {
     expect(container.textContent).not.toContain(es.status.unpaidDetail);
   }
 
-  it("refusé par l'intent : ni reserve-nights ni payments/create", async () => {
+  it("refusé par l'intent : ni check-nights ni payments/create", async () => {
     intentResponses = [{ data: { ok: false, reason: "order_expiring" }, error: null }];
     const container = rendre();
     await payer(container);
@@ -544,6 +544,8 @@ describe("OrderResult — trop tard pour payer (order_expiring)", () => {
   it.each([
     ["paiement en cours", { paymentStatus: "pending" }, "order-state-awaiting"],
     ["payée", { paymentStatus: "paid" }, "order-state-paid"],
+    ["payée, booking Lobby en cours", { paymentStatus: "paid", pmsConfirmation: "pending" }, "order-state-confirming"],
+    ["payée, Lobby n'a pas confirmé", { paymentStatus: "paid", pmsConfirmation: "failed" }, "order-state-paid_unconfirmed"],
     ["remboursée", { paymentStatus: "refunded" }, "order-state-refunded"],
     ["payée sans rien à honorer", { paymentReceivedNotHonored: true }, "order-state-paid_not_honored"],
   ] as const)("claim tenu ailleurs, puis commande %s : la notice se tait", async (_cas, relue, etat) => {
@@ -603,7 +605,7 @@ describe("OrderResult — trop tard pour payer (order_expiring)", () => {
   });
 });
 
-describe("bookingRecovery — chaque réponse de reserve-nights", () => {
+describe("bookingRecovery — chaque réponse de check-nights", () => {
   const arret = (notice: string | null, blockPayment = false) => ({
     kind: "stop",
     notice,
@@ -721,4 +723,46 @@ describe("bookingRecovery — chaque réponse de reserve-nights", () => {
       }
     },
   );
+});
+
+// Retournement du 2026-10-23 : « confirming » (payé, booking Lobby en cours) se relit plus longtemps
+// que « awaiting » — deux minutes contre une — puis l'écran cesse de sonder.
+describe("OrderResult — rafraîchissement automatique", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const avancer = async (ms: number) => {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  };
+
+  it("« confirming » : l'écran dit « Pago recibido » sans jamais écrire « confirmada », et se relit ~2 minutes", async () => {
+    const { container } = render(ecran({ ...ORDER, paymentStatus: "paid", pmsConfirmation: "pending" }));
+
+    const etat = container.querySelector('[data-testid="order-state-confirming"]');
+    expect(etat?.textContent).toContain("Pago recibido");
+    expect(etat?.textContent?.toLowerCase()).not.toContain("confirmada");
+    expect(container.querySelector('[data-testid="pay-button"]')).toBeNull();
+
+    await avancer(3000 * 100);
+    expect(refreshMock).toHaveBeenCalledTimes(40);
+  });
+
+  it("« awaiting » garde son plafond d'une minute (20 relectures)", async () => {
+    render(ecran({ ...ORDER, paymentStatus: "pending" }));
+    await avancer(3000 * 100);
+    expect(refreshMock).toHaveBeenCalledTimes(20);
+  });
+
+  it("« paid_unconfirmed » : jamais « confirmada », aucune promesse de remboursement, aucune relecture", async () => {
+    const { container } = render(ecran({ ...ORDER, paymentStatus: "paid", pmsConfirmation: "failed" }));
+
+    const texte = container.querySelector('[data-testid="order-state-paid_unconfirmed"]')?.textContent ?? "";
+    expect(texte).toContain("Recibimos tu pago");
+    expect(texte.toLowerCase()).not.toMatch(/confirmada|reembols/);
+
+    await avancer(3000 * 100);
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
 });

@@ -70,6 +70,7 @@ const ligne = (id: string, availability: CartLineAvailability): CartLineForDispl
   availability,
   durationDays: null,
   priceTiers: null,
+  pmsPrice: null,
 });
 
 function rendre(lines: CartLineForDisplay[], editable = true) {
@@ -221,5 +222,37 @@ describe("CartSummary — eventos notés sans réservation (spec 42)", () => {
     });
     await waitFor(() => expect(sequence).toEqual(["suppression:x", "pastille", "relecture"]));
     expect(tablesSupprimees).toEqual(["trip_events"]);
+  });
+});
+
+describe("CartSummary — prix Lobby (2026-10-23)", () => {
+  const nuitee = (id: string, pmsPrice: CartLineForDisplay["pmsPrice"]): CartLineForDisplay => ({
+    ...ligne(id, { status: "available" }),
+    productType: "lodging",
+    endDate: "2026-11-07",
+    qty: 2,
+    pmsPrice,
+  });
+
+  it("non estimable : « precio confirmado en el pago » à la place d'un prix, et le total le dit", () => {
+    const racine = rendre([nuitee("a", { kind: "pending" })]);
+    expect(racine.querySelector('[data-testid="pms-price-pending-a"]')?.textContent).toBe(es.CartPage.pmsPricePending);
+    expect(racine.querySelector('[data-testid="pms-total-pending"]')?.textContent).toBe(es.CartPage.pmsTotalPending);
+  });
+
+  it("le devis de /pago diffère de l'estimation : le nouveau prix s'affiche, l'ancien est rappelé", () => {
+    const racine = rendre([nuitee("a", { kind: "quoted", totalCop: 230000, estimateCop: 210000 })], false);
+    expect(racine.querySelector('[data-testid="cart-line-a"]')?.textContent).toMatch(/230\.000/);
+    expect(racine.querySelector('[data-testid="pms-price-updated-a"]')?.textContent).toMatch(/210\.000/);
+  });
+
+  it("devis égal à l'estimation : aucun avis de changement", () => {
+    const racine = rendre([nuitee("a", { kind: "quoted", totalCop: 210000, estimateCop: 210000 })], false);
+    expect(racine.querySelector('[data-testid="pms-price-updated-a"]')).toBeNull();
+  });
+
+  it("/mi-viaje : l'estimation est dite comme telle", () => {
+    const racine = rendre([nuitee("a", { kind: "estimated", totalCop: 210000 })]);
+    expect(racine.querySelector('[data-testid="pms-price-estimated-a"]')?.textContent).toBe(es.CartPage.pmsPriceEstimated);
   });
 });

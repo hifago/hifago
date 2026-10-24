@@ -69,6 +69,9 @@ export const PEDIDOS_POR_TOKEN: Record<string, OrderForDisplay> = {
   "token-por-pagar": pedido({ id: "o-50", reference: "HFG-000050", lines: LINEAS_VIAJE }),
   "token-o-nueva": pedido({ id: "o-nueva", reference: "HFG-000051", lines: LINEAS_VIAJE }),
   "token-pagado": pedido({ id: "o-52", reference: "HFG-000052", paymentStatus: "paid", lines: LINEAS_VIAJE }),
+  // Lobby APRÈS l'acompte (2026-10-23) : payée, le booking du prestataire est en cours / refusé.
+  "token-reservando-alojamiento": pedido({ id: "o-59", reference: "HFG-000059", paymentStatus: "paid", pmsConfirmation: "pending", lines: LINEAS_VIAJE }),
+  "token-alojamiento-sin-confirmar": pedido({ id: "o-60", reference: "HFG-000060", paymentStatus: "paid", pmsConfirmation: "failed", lines: LINEAS_VIAJE }),
   "token-confirmando": pedido({ id: "o-53", reference: "HFG-000053", paymentStatus: "pending", lines: LINEAS_VIAJE }),
   "token-gratis": pedido({
     id: "o-54",

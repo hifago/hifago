@@ -3,6 +3,7 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { createClient } from "@hifago/supabase/server";
 import { isRealAccount } from "@hifago/supabase/identity";
 import { getCartLines, hasUnavailableLine } from "@/lib/cart/getCartLines";
+import { quoteCart, type PmsCartQuote } from "@/lib/pms/quoteCart";
 import { getPendingOrdersForViewer } from "@/lib/orders/getPendingOrdersForViewer";
 import { getPartnerAccountProfileFields } from "@/lib/account/getMyProfile";
 import { CartSummary } from "@/components/organisms/CartSummary";
@@ -40,7 +41,12 @@ export default async function CheckoutPage({
   // Spec 32 (panier en base) : l'attribution est désormais capturée dans carts.attribution_code
   // dès le premier ajout au panier (CartContext, via /api/cart/attribution) — create_order la lit
   // lui-même côté serveur, plus besoin de relire le cookie hifago_ref ici pour la lui transmettre.
-  const lines = await getCartLines(locale as Locale);
+  //
+  // Prix Lobby (2026-10-23, migration 20261024110000) : le devis frais de chaque ligne Lobby à prix
+  // dynamique, pris AVANT getCartLines — create_order l'exige (moins de 15 min) et
+  // cart_lines_availability le lit. Le compte est celui de la session vérifiée juste au-dessus.
+  const pmsQuotes: Map<string, PmsCartQuote> = user ? await quoteCart(user.id) : new Map();
+  const lines = await getCartLines(locale as Locale, { pmsQuotes });
   const tripLabel =
     lines.length > 0
       ? formatTripLabel(computeTripRange(lines), locale, (key, values) =>

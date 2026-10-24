@@ -5,6 +5,10 @@
   "status": {
     "paid": "Payment confirmed!",
     "paidDetail": "Your booking is confirmed. We have emailed you the details.",
+    "confirming": "Payment received, we are confirming your booking with the accommodation…",
+    "confirmingDetail": "This can take a couple of minutes. This page updates by itself; we will email you the details as soon as the accommodation accepts it.",
+    "paid_unconfirmed": "We received your payment, the accommodation could not confirm your booking",
+    "paid_unconfirmedDetail": "We have your payment and we are sorting out your booking with the accommodation. We will contact you within a few hours; you do not need to do anything.",
     "paid_not_honored": "We received your payment, but the booking could not be confirmed",
     "paid_not_honoredDetail": "Your payment arrived after the booking had expired or been cancelled. We will contact you within a few hours to refund you or book again; you don't need to do anything.",
     "refunded": "Your deposit has been refunded",

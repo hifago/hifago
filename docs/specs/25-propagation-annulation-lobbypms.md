@@ -37,7 +37,7 @@ repond_a:
 
 ## 1. Le problème
 
-`reserve-nights` crée un booking chez LobbyPMS après confirmation d'une commande, et écrit son
+`reserve-nights` (remplacé le 2026-10-23 par `pms-book-paid-orders`) crée un booking chez LobbyPMS après confirmation d'une commande, et écrit son
 identifiant dans `order_lines.pms_booking_id`. **Rien n'annule jamais ce booking.** Une commande
 annulée côté hifago laisse donc, chez Lobby, une chambre bloquée pour un client qui ne viendra pas —
 invisible depuis hifago, et visible chez le partenaire comme une réservation valide.
@@ -68,6 +68,13 @@ les trois autres produire des bookings orphelins. C'est l'inverse de ce qu'on ve
 > ⚠️ Cas particulier de `expired` : `reserve-nights` tourne **avant** le paiement. Une commande
 > abandonnée au paiement a donc déjà un booking chez Lobby quand elle expire — c'est probablement
 > le cas le plus fréquent en volume, et il n'est couvert par rien aujourd'hui.
+>
+> **Mis à jour le 2026-10-23 (spec 21 §8.2).** Ce cas n'existe plus : le booking est créé APRÈS
+> l'acompte (`pms-book-paid-orders`), plus jamais avant. Une commande abandonnée ou refusée au
+> paiement n'a plus de booking à annuler. La file reste utile pour les annulations d'une commande
+> payée — et ces bookings portent désormais un `payment` : Lobby refuse leur annulation par API
+> (`RESTRICTED_RESERVATION`), ce qui n'est plus clos en silence mais envoyé en réconciliation
+> (« annuler à la main dans Lobby », `resolve_pms_cancellation_restricted`).
 
 ### (b) `pms_booking_id` est partagé entre plusieurs lignes
 

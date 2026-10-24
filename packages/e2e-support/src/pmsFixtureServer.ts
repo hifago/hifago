@@ -8,6 +8,13 @@ import { createServer, type Server } from "node:http";
 // (via LOBBY_API_BASE_URL) ET une Edge Function Deno (via supabase/functions/.env,
 // LOBBY_API_BASE_URL=http://host.docker.internal:<port>) — ce qu'aucune lib de mock JS ne peut
 // faire, pg_net émettant un vrai appel HTTP depuis Postgres.
+// Un prix tel que Lobby l'écrit dans `plans[].prices[]` (docs/3-integrations/lobby_pms_api.md du
+// dépôt legacy) : `value`, jamais `price` — la fixture écrivait `price` jusqu'au 2026-10-23.
+export interface FixtureLobbyPrice {
+  people: number;
+  value: number | string;
+}
+
 export interface PmsFixtureScenario {
   rooms?: unknown;
   createBookingStatus?: number;
@@ -31,10 +38,24 @@ export interface PmsFixtureScenario {
   // PREMIÈRE nuit de la plage qui en déclare un l'emporte pour toute la réponse.
   // `availableByCategory` : le catalogue de cette nuit-là (categoryId → unités). C'est ce que Lobby
   // rend quand on ne lui passe PAS `category_id`, et donc ce dont le chemin R1 a besoin.
+  //
+  // `pricesByCategory` (2026-10-23) : les prix Lobby de cette nuit, catégorie → `prices[]` du plan
+  // STANDARD_RATE. Prime sur le `pricesByCategory` du scénario (ci-dessous) pour cette nuit-là.
   nightAvailabilityByDate?: Record<
     string,
-    { status?: number; availableRooms?: number; availableByCategory?: Record<number, number> }
+    {
+      status?: number;
+      availableRooms?: number;
+      availableByCategory?: Record<number, number>;
+      pricesByCategory?: Record<number, FixtureLobbyPrice[]>;
+    }
   >;
+  // Prix par défaut de chaque nuit, catégorie → `prices[]` (forme réelle : `{people, value}`, `value`
+  // nombre ou chaîne). SANS valeur par défaut, comme les catégories : une catégorie sans prix rend
+  // `plans: []`, et un devis échoue fermé (`price_missing`) au lieu de passer sur un prix inventé.
+  pricesByCategory?: Record<number, FixtureLobbyPrice[]>;
+  // Délai avant toute réponse de GET /api/v2/available-rooms (ms), pour les tests de timeout.
+  availableRoomsDelayMs?: number;
   // Catégories cotées par défaut quand la requête ne filtre pas sur `category_id`. Volontairement
   // SANS valeur par défaut : un scénario en mode catalogue doit dire quelles catégories existent,
   // sinon la réponse ne cote rien — un test mal câblé échoue bruyamment au lieu de passer sur une
@@ -181,31 +202,34 @@ export const LOBBY_SERVICES_OBSERVED_2026_08_26 = {
 // Troisième constat, non cherché : `plans[].prices[]` compte AUTANT D'ENTRÉES QUE LA CAPACITÉ
 // d'une unité — GLAMPING (capacity 2) → 2 prix, CAMPER Van (capacity 4) → 4 prix, les dortoirs
 // (capacity 1) → 1 prix. Les prix Lobby sont donc par NIVEAU D'OCCUPATION, un modèle que hifago
-// n'a pas (unit = per_person | per_two | per_house). Confirme, plutôt qu'il ne l'infirme,
-// « Lobby n'est jamais la source du prix ».
+// n'a pas (unit = per_person | per_two | per_house). Ce constat fondait « Lobby n'est jamais la
+// source du prix », RÉVISÉ le 2026-10-23 : le prix public est le prix Lobby, lu au niveau
+// d'occupation exact du produit (per_two : 2, sinon 1 — quoteLobbyStay.ts, spec 24 §0).
 //
 // ⚠️ Ce qui est OBSERVÉ ici : les identifiants, `available_rooms`, `restrictions`, la liste des
 // clés, et le NOMBRE de plans et de prix. Ce qui ne l'est PAS : les valeurs de prix, les
-// identifiants de plan et les noms de catégorie ci-dessous — reconstruits pour donner un objet
-// complet. Le parseur ne lit que ce qui est observé (il compte les prix, ne les lit jamais), donc
-// la fixture reste opposable sur exactement ce dont elle témoigne.
+// identifiants et noms de plan, et les noms de catégorie ci-dessous — reconstruits pour donner un
+// objet complet. Depuis le 2026-10-23 le parseur de réservation LIT les prix (prix public = prix
+// Lobby) : la clé est donc celle de la doc, `value` (la fixture écrivait `price`, que personne ne
+// lisait), et le plan porte le nom `STANDARD_RATE` de la doc. Le contrat nocturne, lui, ne fait
+// toujours que compter les prix.
 export const LOBBY_AVAILABILITY_OBSERVED_2026_08_27 = {
   date: "2026-09-26",
   categories: [
     { category_id: 9629, name: "Dormitorio A", available_rooms: 4, restrictions: { min_stay: 0, max_stay: 0, lead_days: 0 },
-      plans: [{ plan_id: 1, prices: [{ people: 1, price: 45000 }] }] },
+      plans: [{ plan_id: 1, name: "STANDARD_RATE", prices: [{ people: 1, value: 45000 }] }] },
     { category_id: 9631, name: "VIDPOVO", available_rooms: 8, restrictions: { min_stay: 0, max_stay: 0, lead_days: 0 },
-      plans: [{ plan_id: 1, prices: [{ people: 1, price: 45000 }] }] },
+      plans: [{ plan_id: 1, name: "STANDARD_RATE", prices: [{ people: 1, value: 45000 }] }] },
     { category_id: 18013, name: "Dormitorio B", available_rooms: 12, restrictions: { min_stay: 0, max_stay: 0, lead_days: 0 },
-      plans: [{ plan_id: 1, prices: [{ people: 1, price: 45000 }] }] },
+      plans: [{ plan_id: 1, name: "STANDARD_RATE", prices: [{ people: 1, value: 45000 }] }] },
     { category_id: 29376, name: "GLAMPING", available_rooms: 3, restrictions: { min_stay: 0, max_stay: 0, lead_days: 0 },
-      plans: [{ plan_id: 1, prices: [{ people: 1, price: 120000 }, { people: 2, price: 180000 }] }] },
+      plans: [{ plan_id: 1, name: "STANDARD_RATE", prices: [{ people: 1, value: 120000 }, { people: 2, value: 180000 }] }] },
     { category_id: 36572, name: "Dormitorio C", available_rooms: 6, restrictions: { min_stay: 0, max_stay: 0, lead_days: 0 },
-      plans: [{ plan_id: 1, prices: [{ people: 1, price: 45000 }] }] },
+      plans: [{ plan_id: 1, name: "STANDARD_RATE", prices: [{ people: 1, value: 45000 }] }] },
     { category_id: 49823, name: "CAMPER Van", available_rooms: 2, restrictions: { min_stay: 0, max_stay: 0, lead_days: 0 },
-      plans: [{ plan_id: 1, prices: [
-        { people: 1, price: 90000 }, { people: 2, price: 140000 },
-        { people: 3, price: 180000 }, { people: 4, price: 210000 },
+      plans: [{ plan_id: 1, name: "STANDARD_RATE", prices: [
+        { people: 1, value: 90000 }, { people: 2, value: 140000 },
+        { people: 3, value: 180000 }, { people: 4, value: 210000 },
       ] }] },
   ],
 };
@@ -280,26 +304,31 @@ function enumerateNights(startDate: string, endDate: string, endDateInclusive: b
 // c'est cette seconde forme que le chemin R1 consomme depuis le 2026-08-28.
 function categoriesForNight(night: string, categoryId: number | null): unknown[] {
   const entry = scenario.nightAvailabilityByDate?.[night];
+  // Les prix de la nuit, sinon ceux du scénario ; sans eux, `plans: []` comme avant le 2026-10-23.
+  const plansFor = (id: number) => {
+    const prices = entry?.pricesByCategory?.[id] ?? scenario.pricesByCategory?.[id];
+    return prices ? [{ id: null, name: "STANDARD_RATE", prices }] : [];
+  };
 
   if (entry?.availableByCategory) {
     const quoted = Object.entries(entry.availableByCategory).map(([id, available]) => ({
       category_id: Number(id),
       available_rooms: available,
-      plans: [],
+      plans: plansFor(Number(id)),
     }));
     return categoryId === null ? quoted : quoted.filter((c) => c.category_id === categoryId);
   }
 
   const availableRooms = entry?.availableRooms ?? 5;
   if (categoryId !== null) {
-    return [{ category_id: categoryId, available_rooms: availableRooms, plans: [] }];
+    return [{ category_id: categoryId, available_rooms: availableRooms, plans: plansFor(categoryId) }];
   }
   // Sans `catalogCategoryIds`, la réponse ne cote RIEN plutôt qu'une catégorie inventée : un test
   // en mode catalogue mal câblé doit échouer, pas passer sur une disponibilité fabriquée.
   return (scenario.catalogCategoryIds ?? []).map((id) => ({
     category_id: id,
     available_rooms: availableRooms,
-    plans: [],
+    plans: plansFor(id),
   }));
 }
 
@@ -346,6 +375,12 @@ export function startPmsFixtureServer(port: number): Promise<{ url: string; clos
       }
 
       if (req.method === "GET" && url.pathname === "/api/v2/available-rooms") {
+        // `availableRoomsDelayMs` (2026-10-23) : une réponse qui tarde, pour prouver qu'un devis de
+        // /pago échoue fermé sur un délai dépassé au lieu de bloquer la page.
+        const reply = (status: number, body: unknown) => {
+          if (scenario.availableRoomsDelayMs) setTimeout(() => send(res, status, body), scenario.availableRoomsDelayMs);
+          else send(res, status, body);
+        };
         const startDate = url.searchParams.get("start_date") ?? "";
         const endDate = url.searchParams.get("end_date") ?? "";
         const categoryId = url.searchParams.has("category_id")
@@ -357,7 +392,7 @@ export function startPmsFixtureServer(port: number): Promise<{ url: string; clos
         // la démultiplier sur une plage fabriquerait une observation qui n'a jamais eu lieu.
         // Réservée au mode catalogue, comme l'appel qui l'a produite.
         if (categoryId === null && scenario.availableRoomsCatalog !== undefined) {
-          send(res, 200, scenario.availableRoomsCatalog);
+          reply(200, scenario.availableRoomsCatalog);
           return;
         }
 
@@ -374,7 +409,7 @@ export function startPmsFixtureServer(port: number): Promise<{ url: string; clos
         // genre de complaisance qui a laissé passer deux bugs le 2026-08-27.
         const failing = nights.find((night) => scenario.nightAvailabilityByDate?.[night]?.status !== undefined);
         if (failing !== undefined) {
-          send(res, scenario.nightAvailabilityByDate?.[failing]?.status ?? 500, {
+          reply(scenario.nightAvailabilityByDate?.[failing]?.status ?? 500, {
             message: `fixture: nuit ${failing} en erreur`,
           });
           return;
@@ -387,7 +422,7 @@ export function startPmsFixtureServer(port: number): Promise<{ url: string; clos
         // jamais essayé. C'est exactement ce que la sonde de pms-nightly-contract-check doit
         // trancher — jusque-là, aucun code de production ne s'appuie sur cette forme-ci.
         if (records.length === 1) {
-          send(res, 200, records[0]);
+          reply(200, records[0]);
           return;
         }
         // `meta` reproduit la forme OBSERVÉE le 2026-08-28 : { total_records, current_page,
@@ -402,7 +437,7 @@ export function startPmsFixtureServer(port: number): Promise<{ url: string; clos
         // été VERTE ici et cassée en production. Elle tronque désormais comme LobbyPMS le ferait ;
         // c'est la vérification de couverture, côté domaine, qui doit alors échouer bruyamment.
         const page = records.slice(0, RECORDS_PER_PAGE);
-        send(res, 200, {
+        reply(200, {
           data: page,
           meta: {
             total_records: records.length,

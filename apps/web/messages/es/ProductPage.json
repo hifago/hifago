@@ -39,6 +39,7 @@
   "clearCalendar": "Borrar",
   "nightsCount": "{count, plural, one {# noche} other {# noches}}",
   "rangeUnavailable": "Alguna noche de este rango ya no está disponible.",
+  "lobbyPriceMissing": "El alojamiento no publica precio para alguna de estas noches. Elige otras fechas.",
   "pmsAvailabilityLoading": "Consultando disponibilidad real...",
   "pmsAvailabilityError": "No se pudo consultar la disponibilidad en este momento. Intenta de nuevo más tarde.",
   "pmsAvailabilityRetry": "Reintentar",
