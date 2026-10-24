@@ -53,7 +53,7 @@ function afficher(rows: OrderLineRow[]) {
       page={1}
       pageSize={25}
       totalCount={rows.length}
-      sort={{ column: "date", direction: "desc" }}
+      sort={{ key: "date", direction: "desc" }}
       filterValues={{}}
       extraParams={{}}
     />
