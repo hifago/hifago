@@ -31,6 +31,7 @@ import {
   type BookResult,
   type BookStore,
   type ClaimedOrder,
+  type MarkOutcome,
   type RecordOutcome,
 } from "../../../packages/domain/src/pms/bookClaimedOrder.ts";
 
@@ -42,7 +43,7 @@ interface RequestRow {
 
 type OrderClaim =
   | { ok: true; claimed_at: string | null; attribution_code?: string | null; attribution_source?: string | null; groups: ClaimedOrder["groups"] }
-  | { ok: false; reason: string };
+  | { ok: false; reason: string; order_line_id?: string };
 
 // Délai avant le nouvel essai d'une PANNE, d'après le numéro de la tentative qui vient d'échouer :
 // 1, 2, 4, 8 puis 15 minutes — six essais en ~30 minutes (décision D7).
@@ -108,6 +109,18 @@ serveJob("pms-book-paid-orders", async (ctx): Promise<JobOutcome> => {
           stats.deferred++;
           await resolve(row, { p_outcome: "retry", p_retry_after: "1 minute", p_keep_attempt: false });
           break;
+        case "attempt_unresolved": {
+          // Un POST /bookings précédent n'a jamais eu d'issue connue (marqueur durable posé avant
+          // l'appel, jamais effacé) : le booking a PEUT-ÊTRE été créé chez Lobby. JAMAIS retenté — un
+          // second POST serait un second booking payé, non annulable par API. Un humain vérifie.
+          stats.needs_human++;
+          await resolve(row, {
+            p_outcome: "needs_human",
+            p_order_line_id: claim.order_line_id ?? null,
+            p_error: `tentative de booking précédente sans issue connue — booking PEUT-ÊTRE créé chez Lobby, à vérifier par la note « hifago order_line ${claim.order_line_id ?? "?"} »`,
+          });
+          break;
+        }
         case "pms_unavailable":
           // Connecteur coupé : traité comme une panne (il peut être rebranché dans les 30 minutes).
           stats.retried++;
@@ -155,6 +168,42 @@ serveJob("pms-book-paid-orders", async (ctx): Promise<JobOutcome> => {
           return "not_recorded";
         }
         return "not_recorded";
+      },
+      async markAttempt(orderLineId): Promise<MarkOutcome> {
+        const { data, error: markError } = await supabase.rpc("mark_pms_booking_attempt", {
+          p_order_id: row.order_id,
+          p_claimed_at: claimedAt,
+          p_order_line_id: orderLineId,
+        });
+        if (markError) {
+          console.error(`pms-book-paid-orders : mark_pms_booking_attempt a échoué (ligne ${orderLineId}) — ${ctx.describe(markError)}`);
+          return "error";
+        }
+        const result = data as { ok?: boolean; reason?: string } | null;
+        if (result?.ok === true) return "ok";
+        switch (result?.reason) {
+          case "already_attempted":
+            return "already_attempted";
+          case "claim_stale":
+            return "claim_lost";
+          case "already_booked":
+          case "line_not_reserved":
+            return "skip";
+          default:
+            return "error";
+        }
+      },
+      async clearAttempt(orderLineId) {
+        // Best-effort : un marqueur non effacé après une panne FRANCHE bloque seulement la ligne
+        // (needs_human au prochain passage) — jamais un rejeu.
+        const { error: clearError } = await supabase.rpc("clear_pms_booking_attempt", {
+          p_order_id: row.order_id,
+          p_claimed_at: claimedAt,
+          p_order_line_id: orderLineId,
+        });
+        if (clearError) {
+          console.error(`pms-book-paid-orders : clear_pms_booking_attempt a échoué (ligne ${orderLineId}) — ${ctx.describe(clearError)}`);
+        }
       },
       async recordReconciliation(orderLineId, detail) {
         const entry = { order_line_id: orderLineId, detail: ctx.redactLong(detail) };

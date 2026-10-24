@@ -72,9 +72,25 @@ export interface ClaimedOrder {
 
 export type RecordOutcome = "ok" | "claim_stale" | "already_booked" | "line_not_reserved" | "not_recorded";
 
+// Le marqueur de tentative (order_lines.pms_attempt_started_at), posé EN BASE avant chaque POST
+// /bookings : seule garantie DURABLE qu'une issue inconnue n'est jamais rejouée. Sans lui, si la
+// résolution de la demande échoue après un POST sans réponse (erreur passagère, fonction tuée), la
+// demande reste `pending` et repart 5 minutes plus tard — second booking payé chez Lobby, non
+// annulable par API.
+//   ok                : marqueur posé, on peut appeler Lobby ;
+//   already_attempted : un appel précédent n'a jamais eu d'issue connue — JAMAIS un second POST ;
+//   claim_lost        : le bail a été repris par un autre appel ;
+//   skip              : la ligne porte déjà un booking ou n'est plus réservée — rien à appeler ;
+//   error             : la base n'a pas répondu — on n'appelle pas Lobby sans marqueur (échec fermé).
+export type MarkOutcome = "ok" | "already_attempted" | "claim_lost" | "skip" | "error";
+
 /** Les écritures en base du passage — le claim (orderId, claimedAt) est déjà capturé par l'appelant. */
 export interface BookStore {
   recordBooking(orderLineId: string, bookingId: string): Promise<RecordOutcome>;
+  /** Pose le marqueur de tentative AVANT l'appel Lobby (cf. MarkOutcome). */
+  markAttempt(orderLineId: string): Promise<MarkOutcome>;
+  /** Efface le marqueur quand l'appel n'a PAS pu créer de booking (connexion jamais établie, 4xx, refus explicite). */
+  clearAttempt(orderLineId: string): Promise<void>;
   /** Une entrée pms_reconciliation_entries (et l'e-mail admin que son trigger envoie). */
   recordReconciliation(orderLineId: string, detail: string): Promise<void>;
 }
@@ -122,7 +138,8 @@ function describeResponse(ctx: BookContext, status: number, body: unknown): stri
 
 type NightAttempt =
   | { ok: true; bookingId: number; withoutPayment: boolean }
-  | { ok: false; kind: "refused" | "outage" | "unknown"; detail: string };
+  | { ok: false; kind: "refused" | "outage" | "unknown"; detail: string }
+  | { ok: false; kind: "claim_lost" | "skip"; detail: string };
 
 // Un POST /bookings, avec son éventuel second essai sans `payment`. La note ne porte que la clé de la
 // ligne dans les détails d'erreur — la note complète porte les coordonnées du client.
@@ -131,6 +148,7 @@ async function bookNight(
   group: ClaimedGroup,
   line: ClaimedLodgingLine,
   order: ClaimedOrder,
+  store: BookStore,
   timeouts: () => number | null
 ): Promise<NightAttempt | { ok: false; kind: "not_attempted"; detail: string }> {
   const payment = Math.min(Math.max(Math.round(line.acompte_cop), 0), line.total_cop);
@@ -157,6 +175,21 @@ async function bookNight(
     const timeoutMs = timeouts();
     if (timeoutMs === null) return { ok: false, kind: "not_attempted", detail: "nuit non tentée : budget de temps épuisé" };
 
+    // Le marqueur AVANT le POST (et re-posé pour le second essai, le premier l'ayant effacé sur refus).
+    const marked = await store.markAttempt(line.id);
+    if (marked === "already_attempted") {
+      return {
+        ok: false,
+        kind: "unknown",
+        detail: `booking PEUT-ÊTRE créé chez Lobby, à vérifier par la note « hifago order_line ${line.id} » — une tentative précédente n'a jamais eu d'issue connue : aucun nouvel appel`,
+      };
+    }
+    if (marked === "claim_lost") return { ok: false, kind: "claim_lost", detail: "claim perdu avant l'appel Lobby" };
+    if (marked === "skip") return { ok: false, kind: "skip", detail: "ligne déjà bookée ou plus réservée" };
+    if (marked === "error") {
+      return { ok: false, kind: "outage", detail: "marqueur de tentative impossible à poser (base indisponible) — Lobby n'est pas appelé" };
+    }
+
     let response: Awaited<ReturnType<typeof createLobbyBooking>>;
     try {
       response = await createLobbyBooking(
@@ -169,6 +202,7 @@ async function bookNight(
     } catch (error) {
       const code = error instanceof Error ? (error.cause as { code?: string } | undefined)?.code : undefined;
       if (code && CONNECT_ERROR_CODES.has(code)) {
+        await store.clearAttempt(line.id); // la requête n'est jamais partie : aucun booking possible
         return { ok: false, kind: "outage", detail: `POST /bookings jamais envoyé (${ctx.redact(describeError(error))})` };
       }
       return {
@@ -185,10 +219,12 @@ async function bookNight(
     const described = describeResponse(ctx, response.status, response.body);
     if (response.status === 400 || response.status === 422) {
       // Refus explicite : aucun booking n'a été créé. Avec `payment`, UN nouvel essai sans lui.
+      await store.clearAttempt(line.id);
       if (withPayment) continue;
       return { ok: false, kind: "refused", detail: `POST /bookings refusé — ${described}` };
     }
     if (response.status >= 400 && response.status < 500) {
+      await store.clearAttempt(line.id); // rejeté avant Lobby (relais, quota, jeton) : aucun booking
       return { ok: false, kind: "outage", detail: `POST /bookings rejeté avant Lobby — ${described}` };
     }
     return {
@@ -224,8 +260,12 @@ export async function bookClaimedOrder(
         };
       }
 
-      const attempt = await bookNight(ctx, group, line, order, ctx.nextCallTimeout);
+      const attempt = await bookNight(ctx, group, line, order, store, ctx.nextCallTimeout);
       if (!attempt.ok) {
+        if (attempt.kind === "skip") {
+          warnings.push(`ligne ${line.id} : ${attempt.detail}`);
+          continue;
+        }
         if (attempt.kind === "unknown") {
           // TOUT DE SUITE, avant de rendre la main : si la plateforme coupait la fonction avant la
           // résolution de la demande, cette entrée serait la SEULE trace du booking peut-être créé

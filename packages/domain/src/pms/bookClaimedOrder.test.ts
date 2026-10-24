@@ -1,6 +1,13 @@
 import { createServer, type Server } from "node:http";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { bookClaimedOrder, type BookContext, type BookStore, type ClaimedOrder, type RecordOutcome } from "./bookClaimedOrder";
+import {
+  bookClaimedOrder,
+  type BookContext,
+  type BookStore,
+  type ClaimedOrder,
+  type MarkOutcome,
+  type RecordOutcome,
+} from "./bookClaimedOrder";
 
 // Faux Lobby « impoli » : chaque scénario programme la réponse de POST /bookings par catégorie.
 type Behaviour = (call: number, body: Record<string, unknown>) => { status: number; body?: unknown; hang?: boolean; drop?: boolean };
@@ -49,6 +56,10 @@ afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 let recorded: { lineId: string; bookingId: string }[] = [];
 let reconciliations: { lineId: string; detail: string }[] = [];
 let recordOutcome: (lineId: string) => RecordOutcome = () => "ok";
+// Le marqueur de tentative : l'ordre des événements (marque → POST → efface) est ce qui est prouvé.
+let markOutcome: (lineId: string) => MarkOutcome = () => "ok";
+let marker: string[] = []; // lignes actuellement marquées
+let journal: string[] = []; // mark:<id> / post / clear:<id>
 
 const store: BookStore = {
   async recordBooking(lineId, bookingId) {
@@ -57,6 +68,16 @@ const store: BookStore = {
   },
   async recordReconciliation(lineId, detail) {
     reconciliations.push({ lineId, detail });
+  },
+  async markAttempt(lineId) {
+    const outcome = markOutcome(lineId);
+    journal.push(`mark:${lineId}:${outcome}`);
+    if (outcome === "ok") marker.push(lineId);
+    return outcome;
+  },
+  async clearAttempt(lineId) {
+    journal.push(`clear:${lineId}`);
+    marker = marker.filter((id) => id !== lineId);
   },
 };
 
@@ -74,6 +95,9 @@ beforeEach(() => {
   recorded = [];
   reconciliations = [];
   recordOutcome = () => "ok";
+  markOutcome = () => "ok";
+  marker = [];
+  journal = [];
   callTimeout = () => 2_000;
   nextBookingId = 1000;
 });
@@ -280,5 +304,74 @@ describe("bookClaimedOrder", () => {
     expect(result.kind).toBe("booked");
     expect(serviceCalls).toHaveLength(0);
     expect(reconciliations).toEqual([]);
+  });
+
+  // ── Le marqueur durable (point 2 de la revue du 2026-10-23) ─────────────────────────────────────
+  it("pose le marqueur AVANT le POST ; un booking obtenu le laisse (la ligne est bookée)", async () => {
+    // Le faux Lobby note l'état du marqueur au moment où le POST arrive.
+    const vuAuPost: string[][] = [];
+    behaviours.set(10, () => {
+      vuAuPost.push([...marker]);
+      return { status: 200, body: { booking: { booking_id: 4001, room_id: 1 } } };
+    });
+    await bookClaimedOrder(orderOf(lodging("l1", 10)), store, ctx());
+    expect(vuAuPost).toEqual([["l1"]]);
+    expect(journal[0]).toBe("mark:l1:ok");
+  });
+
+  it("issue inconnue : le marqueur RESTE posé (jamais effacé) — c'est lui qui interdit le rejeu", async () => {
+    behaviours.set(10, () => ({ status: 200, drop: true }));
+    const result = await bookClaimedOrder(orderOf(lodging("l1", 10)), store, ctx());
+    expect(result.kind).toBe("unknown");
+    expect(marker).toEqual(["l1"]);
+    expect(journal.some((entry) => entry.startsWith("clear:"))).toBe(false);
+  });
+
+  it("marqueur déjà posé (tentative précédente sans issue) : AUCUN POST, issue inconnue + entrée", async () => {
+    markOutcome = () => "already_attempted";
+    const result = await bookClaimedOrder(orderOf(lodging("l1", 10)), store, ctx());
+    expect(result).toMatchObject({ kind: "unknown", lineId: "l1" });
+    expect(bookingCalls).toHaveLength(0);
+    expect(reconciliations[0].detail).toContain("hifago order_line l1");
+  });
+
+  it("marqueur impossible à poser (base) : Lobby n'est PAS appelé, panne à retenter", async () => {
+    markOutcome = () => "error";
+    const result = await bookClaimedOrder(orderOf(lodging("l1", 10)), store, ctx());
+    expect(result.kind).toBe("outage");
+    expect(bookingCalls).toHaveLength(0);
+  });
+
+  it("refus explicite : le marqueur est effacé, puis RE-posé pour le second essai sans payment", async () => {
+    behaviours.set(10, (call) =>
+      call === 1 ? { status: 422, body: {} } : { status: 200, body: { booking: { booking_id: 777, room_id: 1 } } }
+    );
+    await bookClaimedOrder(orderOf(lodging("l1", 10)), store, ctx());
+    expect(journal.filter((entry) => entry.startsWith("mark:") || entry.startsWith("clear:"))).toEqual([
+      "mark:l1:ok",
+      "clear:l1",
+      "mark:l1:ok",
+    ]);
+  });
+
+  it("connexion jamais établie ou 4xx de relais : le marqueur est effacé (aucun booking possible)", async () => {
+    behaviours.set(10, () => ({ status: 429, body: {} }));
+    const result = await bookClaimedOrder(orderOf(lodging("l1", 10)), store, ctx());
+    expect(result.kind).toBe("outage");
+    expect(marker).toEqual([]);
+  });
+
+  it("ligne déjà bookée ou plus réservée (skip) : aucun appel, avertissement, les autres lignes suivent", async () => {
+    markOutcome = (lineId) => (lineId === "l1" ? "skip" : "ok");
+    const result = await bookClaimedOrder(orderOf(lodging("l1", 10), lodging("l2", 11)), store, ctx());
+    expect(result.kind).toBe("booked");
+    expect(bookingCalls).toHaveLength(1);
+  });
+
+  it("bail repris pendant la pose du marqueur : on s'arrête sans appeler Lobby", async () => {
+    markOutcome = () => "claim_lost";
+    const result = await bookClaimedOrder(orderOf(lodging("l1", 10)), store, ctx());
+    expect(result.kind).toBe("claim_lost");
+    expect(bookingCalls).toHaveLength(0);
   });
 });
