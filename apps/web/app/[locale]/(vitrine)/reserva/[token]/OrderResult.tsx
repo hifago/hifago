@@ -23,7 +23,7 @@ import { MontantsLigne } from "@/components/molecules/MontantsLigne";
 import { Title } from "@/components/atoms/Title";
 import { BandeauPagina } from "@/components/organisms/BandeauPagina";
 import { formatLineSchedule } from "@/lib/orders/formatLineSchedule";
-import { deriveOrderState, isDeadLine } from "@/lib/orders/orderState";
+import { deriveOrderState, displayLineStatus, isDeadLine } from "@/lib/orders/orderState";
 import { computeTripRange, formatTripLabel } from "@/lib/orders/tripRange";
 import type { OrderForDisplay } from "@/lib/orders/getOrderByToken";
 import type { Locale } from "@/messages";
@@ -501,10 +501,10 @@ export function OrderResult({
                         {line.productName}
                       </span>
                       <PuceEstado
-                        tono={tonoDeLinea(line.status)}
+                        tono={tonoDeLinea(displayLineStatus(state, line.status))}
                         testId={`line-status-${line.id}`}
                       >
-                        {t(`lineStatus.${line.status}`)}
+                        {t(`lineStatus.${displayLineStatus(state, line.status)}`)}
                       </PuceEstado>
                     </div>
                     <span className="text-muted">

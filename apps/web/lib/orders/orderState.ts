@@ -104,3 +104,16 @@ export function deriveOrderState(order: OrderStateInput): OrderState {
   if (order.lines.some((line) => line.status === "expired")) return "expired";
   return "cancelled";
 }
+
+/**
+ * Le statut de ligne à AFFICHER à un client (2026-10-24). `reserved` tient la place pendant le paiement :
+ * d'une commande qui attend encore son paiement (à payer, paiement en cours, paiement refusé), la
+ * ligne ne doit pas se lire « Reservada » sous un en-tête « Tu reserva aún no está pagada ». Les autres
+ * statuts ne sont jamais réécrits ; une commande ferme (payée, ou sans acompte dû : `confirmed`) garde
+ * « Reservada ». `state` accepte `failed`, l'état d'ÉCRAN d'un paiement refusé.
+ */
+export function displayLineStatus(state: OrderState | "failed", lineStatus: string): string {
+  return lineStatus === "reserved" && (state === "unpaid" || state === "awaiting" || state === "failed")
+    ? "pending_payment"
+    : lineStatus;
+}

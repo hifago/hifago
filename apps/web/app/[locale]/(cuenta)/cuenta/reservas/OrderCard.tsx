@@ -6,7 +6,7 @@ import { EnlaceGo } from "@/components/atoms/EnlaceGo";
 import { PuceEstado, TONO_POR_ESTADO_PEDIDO, tonoDeLinea } from "@/components/atoms/PuceEstado";
 import { formatLineScheduleLisible } from "@/lib/orders/formatLineSchedule";
 import { computeTripRange, formatTripLabel } from "@/lib/orders/tripRange";
-import { deriveOrderState, isDeadLine } from "@/lib/orders/orderState";
+import { deriveOrderState, displayLineStatus, isDeadLine } from "@/lib/orders/orderState";
 import { CancelLineButton } from "./CancelLineButton";
 import type { MyOrder } from "@/lib/orders/getMyOrders";
 import type { Locale } from "@/messages";
@@ -113,8 +113,8 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
                     {t("lineQty", { count: line.qty })}
                   </span>
                   <span className="pt-1">
-                    <PuceEstado tono={tonoDeLinea(line.status)} testId={`line-status-${line.id}`}>
-                      {tEtat(`lineStatus.${line.status}`)}
+                    <PuceEstado tono={tonoDeLinea(displayLineStatus(state, line.status))} testId={`line-status-${line.id}`}>
+                      {tEtat(`lineStatus.${displayLineStatus(state, line.status)}`)}
                     </PuceEstado>
                   </span>
                 </div>

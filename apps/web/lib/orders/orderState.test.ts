@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveOrderState, isDeadLine, DEAD_LINE_STATUSES } from "./orderState";
+import { deriveOrderState, displayLineStatus, isDeadLine, DEAD_LINE_STATUSES } from "./orderState";
 
 // Pas de @testing-library ici : fonction pure, aucun composant à monter.
 describe("deriveOrderState", () => {
@@ -176,4 +176,24 @@ describe("isDeadLine", () => {
     // exactement comme la RPC les y compte.
     expect(["reserved", "fulfilled", "no_show"].some(isDeadLine)).toBe(false);
   });
+});
+
+describe("displayLineStatus — une ligne `reserved` ne se lit pas « Reservada » sur une commande impayée", () => {
+  it.each(["unpaid", "awaiting", "failed"] as const)("commande %s → pending_payment", (state) => {
+    expect(displayLineStatus(state, "reserved")).toBe("pending_payment");
+  });
+
+  it.each(["paid", "confirming", "paid_unconfirmed", "confirmed", "refunded", "paid_not_honored"] as const)(
+    "commande %s → la ligne reste reserved",
+    (state) => {
+      expect(displayLineStatus(state, "reserved")).toBe("reserved");
+    }
+  );
+
+  it.each(["fulfilled", "no_show", "cancelled_by_client", "cancelled_by_provider", "expired", "superseded"])(
+    "le statut %s n'est jamais réécrit, même sur une commande à payer",
+    (status) => {
+      expect(displayLineStatus("unpaid", status)).toBe(status);
+    }
+  );
 });

@@ -140,6 +140,27 @@ const manquant = {
   error: null,
 };
 
+describe("OrderResult — le statut d'une ligne suit le paiement de sa commande", () => {
+  const puce = (order: OrderForDisplay) =>
+    render(ecran(order)).container.querySelector('[data-testid="line-status-ligne-1"]');
+
+  it.each([
+    ["payée", { paymentStatus: "paid" }, "Reservada", "neutro"],
+    ["payée, booking Lobby en cours", { paymentStatus: "paid", pmsConfirmation: "pending" }, "Reservada", "neutro"],
+    ["paiement en cours", { paymentStatus: "pending" }, "Pendiente de pago", "alerta"],
+    ["sans acompte dû (evento gratuit / sur place)", { paymentStatus: "unpaid", acompteCop: 0 }, "Reservada", "neutro"],
+  ] as const)("commande %s → ligne « %s »", (_cas, relue, libelle, tono) => {
+    const element = puce({ ...ORDER, ...relue });
+    expect(element?.textContent).toBe(libelle);
+    expect(element?.getAttribute("data-tono")).toBe(tono);
+  });
+
+  it("une ligne expirée d'une commande à payer garde son statut", () => {
+    const element = puce({ ...ORDER, lines: ORDER.lines.map((l) => ({ ...l, status: "expired" })) });
+    expect(element?.textContent).toBe("Expirada");
+  });
+});
+
 describe("OrderResult — charte P7", () => {
   it("rend le bandeau, les états, les dates et les montants sans perdre les sélecteurs du parcours", () => {
     const container = render(ecran(ORDER, false)).container;
@@ -163,11 +184,11 @@ describe("OrderResult — charte P7", () => {
       container.querySelector('[data-testid="pay-button"]'),
     ).not.toBeNull();
 
-    expect(
-      container
-        .querySelector('[data-testid="line-status-ligne-1"]')
-        ?.getAttribute("data-tono"),
-    ).toBe("neutro");
+    // ADAPTÉ le 2026-10-24 : la ligne `reserved` d'une commande À PAYER ne se lit plus « Reservada »
+    // (neutre) sous un en-tête « aún no está pagada » : « Pendiente de pago » (alerte).
+    const puceLigne = container.querySelector('[data-testid="line-status-ligne-1"]');
+    expect(puceLigne?.getAttribute("data-tono")).toBe("alerta");
+    expect(puceLigne?.textContent).toBe("Pendiente de pago");
     expect(
       container.querySelector('[data-testid="order-line-ligne-1"]')
         ?.textContent,

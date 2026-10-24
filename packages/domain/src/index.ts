@@ -24,6 +24,7 @@ export * from "./pms/buildLobbyBookingNote";
 export * from "./pms/fetchLobbyPhoto";
 export * from "./pms/toMirrorRows";
 export * from "./pms/lobbyOutcomes";
+export * from "./orders/paymentDisplay";
 export * from "./pms/bookClaimedOrder";
 export * from "./pms/checkOrderNights";
 export * from "./pms/quoteLobbyStay";

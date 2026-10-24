@@ -1,6 +1,7 @@
 import { asLocalizedField, resolveLocalizedField, resolveListParams } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/server";
 import { checkedRead } from "@/lib/supabase/checkedRead";
+import { loadOrderPaymentStates } from "@/lib/orders/loadOrderPaymentStates";
 import { OrdersTable, type OrderLineRow } from "./OrdersTable";
 import { ORDERS_FILTER_DEFINITIONS } from "@/lib/lists/filters";
 import { ORDERS_DEFAULT_SORT, ORDERS_SORT_WHITELIST } from "@/lib/lists/sortable-columns";
@@ -47,6 +48,13 @@ export default async function AdminOrdersPage({
   );
   const count = !lines || lines.length === 0 ? 0 : lines[0].total_count;
 
+  // Le paiement de la COMMANDE de chaque ligne : le statut `reserved` d'une ligne tient la place
+  // pendant le paiement, il ne dit pas que la commande est payée.
+  const paymentStates = await loadOrderPaymentStates(
+    supabase,
+    (lines ?? []).map((line) => line.order_id)
+  );
+
   const rows: OrderLineRow[] = (lines ?? []).map((line) => ({
     id: line.id,
     orderId: line.order_id,
@@ -54,6 +62,7 @@ export default async function AdminOrdersPage({
     endDate: line.end_date,
     qty: line.qty,
     status: line.status,
+    paymentState: paymentStates.get(line.order_id) ?? null,
     productName: resolveLocalizedField(asLocalizedField(line.product_name), "es") ?? "—",
     establishmentName: resolveLocalizedField(asLocalizedField(line.establishment_name), "es") ?? "—",
     holderName: line.holder_name ?? "—",

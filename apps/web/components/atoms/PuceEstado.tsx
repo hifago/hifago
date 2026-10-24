@@ -59,6 +59,7 @@ export const TONO_POR_ESTADO_PEDIDO: Record<OrderState | "failed", PuceEstadoTon
 /** L'état d'une ligne de commande (`order_lines.status`, messages `lineStatus.*`). */
 export const TONO_POR_ESTADO_LINEA = {
   reserved: "neutro",
+  pending_payment: "alerta",
   fulfilled: "exito",
   no_show: "alerta",
   cancelled_by_client: "error",
