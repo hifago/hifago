@@ -26,6 +26,7 @@ export * from "./pms/toMirrorRows";
 export * from "./pms/lobbyOutcomes";
 export * from "./pms/bookClaimedOrder";
 export * from "./pms/checkOrderNights";
+export * from "./pms/quoteLobbyStay";
 export * from "./products/lodgingKind";
 export * from "./products/lodgingUnit";
 export * from "./products/lodgingCupos";

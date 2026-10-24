@@ -1,4 +1,4 @@
-import type { LobbyCatalogEntry, LobbyNightRestrictions } from "./parseLobbyNightCatalog.ts";
+import type { LobbyCatalogEntry, LobbyNightPrices, LobbyNightRestrictions } from "./parseLobbyNightCatalog.ts";
 
 export interface NightCatalogRow {
   date: string;
@@ -6,6 +6,8 @@ export interface NightCatalogRow {
   availableByCategory: Map<number, number>;
   /** categoryId → `restrictions` relevées (jamais appliquées). Absente = Lobby n'en pose aucune. */
   restrictionsByCategory: Map<number, LobbyNightRestrictions>;
+  /** categoryId → prix Lobby par occupation (2026-10-23). Absente = aucun prix lisible cette nuit-là. */
+  pricesByCategory: Map<number, LobbyNightPrices>;
 }
 
 export type CatalogAlignment =
@@ -66,6 +68,7 @@ export function alignLobbyCatalogEntries(
           date: requestedNights[0],
           availableByCategory: entries[0].availableByCategory,
           restrictionsByCategory: entries[0].restrictionsByCategory,
+          pricesByCategory: entries[0].pricesByCategory,
         },
       ],
     };
@@ -118,6 +121,7 @@ export function alignLobbyCatalogEntries(
         date,
         availableByCategory: entry.availableByCategory,
         restrictionsByCategory: entry.restrictionsByCategory,
+        pricesByCategory: entry.pricesByCategory,
       };
     }),
   };

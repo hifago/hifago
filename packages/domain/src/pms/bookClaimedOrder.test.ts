@@ -136,6 +136,34 @@ describe("bookClaimedOrder", () => {
     expect(recorded).toEqual([{ lineId: "l1", bookingId: "1000" }]);
   });
 
+  it("envoie à Lobby le prix de CHAQUE nuit figé par create_order (prix Lobby, 2026-10-23), × qty", async () => {
+    // Semaine 100 000, samedi 150 000 par unité, 2 lits : 200 000 + 300 000 = le total facturé.
+    await bookClaimedOrder(
+      orderOf(
+        lodging("l1", 10, {
+          pms_nightly_unit_prices: [
+            { date: "2028-09-01", unit_price_cop: 100_000 },
+            { date: "2028-09-02", unit_price_cop: 150_000 },
+          ],
+        })
+      ),
+      store,
+      ctx()
+    );
+    expect(bookingCalls[0].rates_per_day).toEqual([
+      { date: "2028-09-01", price: 200_000 },
+      { date: "2028-09-02", price: 300_000 },
+    ]);
+  });
+
+  it("une ligne sans ventilation (ancienne, ou prix fixe) garde le partage égal du total", async () => {
+    await bookClaimedOrder(orderOf(lodging("l1", 10, { pms_nightly_unit_prices: null })), store, ctx());
+    expect(bookingCalls[0].rates_per_day).toEqual([
+      { date: "2028-09-01", price: 250_000 },
+      { date: "2028-09-02", price: 250_000 },
+    ]);
+  });
+
   it("n'envoie pas `payment` quand aucun acompte n'a été encaissé, et jamais plus que le total", async () => {
     await bookClaimedOrder(orderOf(lodging("l1", 10, { acompte_cop: 0 })), store, ctx());
     expect("payment" in bookingCalls[0]).toBe(false);
