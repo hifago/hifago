@@ -71,7 +71,9 @@ repond_a:
 | Nom | Type | Rôle |
 |---|---|---|
 | `create_order` (existant, à étendre) | RPC `SECURITY DEFINER` | Pour une ligne dont le produit est PMS-backed (`isPmsBacked`, cf. ci-dessous) : **ne verrouille ni ne décrémente `product_availability`** (Lobby est source de vérité) — insère `order_lines` avec un statut provisoire, sans appel réseau dans la transaction. Skeleton anti-survente réutilisé tel quel (`hifago/docs/05-reference-technique.md`) pour les lignes NON PMS-backed de la même commande. |
-| `POST /api/pms/reserve-nights` (nouveau, Route Handler `service_role`) | Séquentiel, hors transaction Postgres | Appelé juste après un `create_order` réussi contenant au moins une ligne PMS-backed. Pour chaque établissement PMS-backed de la commande (une commande peut en contenir plusieurs, cf. §3) : relit dispo fraîche Lobby → `POST /bookings` → si activité éligible (provider avec connecteur actif + `lobby_product_id` renseigné) → `POST /booking/add-product-service`. Échec à n'importe quelle étape → insert dans `pms_reconciliation_entries` (**déjà scaffoldé**, migration `20260814210000`) + `orders.status='needs_reconciliation'` (proposé, §10 point 4) — jamais un rollback de la commande déjà confirmée côté portail. |
+| `POST /api/pms/check-nights` (Route Handler `service_role`, **remplace `reserve-nights` le 2026-10-23** — §8.2) | Lecture seule chez Lobby, hors transaction Postgres | Appelé juste après `create_order` (et par « Pagar » quand la lecture a plus de 5 min). Lit la disponibilité Lobby À CHAUD, puis `hold_pms_nights` tient la place dans hifago. **Aucune écriture chez Lobby avant le paiement.** Nuit pleine, non cotée ou Lobby injoignable → `release_order_after_pms_refusal`. |
+| Edge Function `pms-book-paid-orders` (§8.2) | Après le webhook `approved`, `pg_net` + cron 1 min | Réserve chez Lobby (`POST /bookings` avec `payment` = acompte encaissé, puis `add-product-service`) les commandes PAYÉES. Un refus ne défait rien : file « à traiter ». |
+| ~~`POST /api/pms/reserve-nights`~~ (ancien, supprimé) | — | Voir §8.1 (séquence du 2026-08-29) : remplacé par les deux lignes ci-dessus. |
 | `test_pms_connection` (nouveau, Route Handler admin `service_role`) | Ponctuel, écran établissement | `GET /rooms?api_token=…` avec le token saisi, avant activation — ne persiste rien si l'appel échoue. |
 | `resolve_reconciliation_entry` (existant, feature 22) | RPC | **Aucune modification** — déjà livré, cette spec l'alimente enfin en écritures réelles. |
 
@@ -101,7 +103,7 @@ repond_a:
 
 | Situation | Traitement attendu |
 |---|---|
-| `POST /bookings` échoue après que `create_order` a déjà confirmé la commande | `pms_reconciliation_entries` (open) + `orders.status='needs_reconciliation'` (§10.4) — jamais de rollback commande. |
+| `POST /bookings` échoue après le paiement (depuis le 2026-10-23, §8.2) | `pms_reconciliation_entries` (open) + `orders.status='needs_reconciliation'` (§10.4) — jamais de rollback commande. |
 | Catégorie de chambre non réservable par API (`422 INPUT_PARAMETERS`) | Erreur anticipée, pas un cas rare (§5 cahier des charges) — mappée en entrée de réconciliation, jamais une 500 générique. |
 | Changement de chambre fait par le staff Lobby (traslado) | Détecté par le job de poll (`total_alojamiento=0` sur la résa d'origine + nouvelle résa sans `descuentos`) — reconstruction identique au mécanisme v1 (§10.2 — port direct, pas de redesign). |
 | Annulation d'un booking avec activité déjà attachée | `422 RESTRICTED_RESERVATION` — jamais retenté automatiquement, nettoyage manuel Lobby signalé dans la fiche réconciliation (comportement v1 inchangé, limite Lobby elle-même). |
@@ -111,7 +113,7 @@ repond_a:
 
 ### Fichiers touchés
 
-- **Nouveau** : `packages/domain/src/pms/` (interface générique + implémentation LobbyPMS — disponibilité, création booking, miroir activité), `apps/web/app/api/pms/reserve-nights/route.ts` (côté vitrine, pas `apps/admin` comme d'abord écrit ici), `apps/admin/app/api/pms/test-connection/route.ts`, écran établissement (bloc connecteur PMS), Edge Functions `pms_poll_bookings`/`pms_nightly_contract_check`.
+- **Nouveau** : `packages/domain/src/pms/` (interface générique + implémentation LobbyPMS — disponibilité, création booking, miroir activité), `apps/web/app/api/pms/reserve-nights/route.ts` (supprimé par la livraison « Lobby après l'acompte » du 2026-10-23 : remplacé par `apps/web/app/api/pms/check-nights/route.ts` et l'Edge Function `pms-book-paid-orders`, §8.2 ; côté vitrine, pas `apps/admin` comme d'abord écrit ici), `apps/admin/app/api/pms/test-connection/route.ts`, écran établissement (bloc connecteur PMS), Edge Functions `pms_poll_bookings`/`pms_nightly_contract_check`.
 - **Étendu** : `create_order` (branche `isPmsBacked`), formulaire établissement admin, formulaire produit `lodging`/`hotel` (exposition des champs `lobby_category_id`/`lobby_product_id` déjà en base).
 - **Traçabilité legacy** (source de portage, jamais copiée telle quelle — port vers Postgres/TS) : `src/services/portalService.js` (`reserve`, `nightAvailability`, `getAvailability`), `src/services/catalogService.js` (`isPmsBacked`), `src/controllers/lobbyController.js` (`importFromLobby`, logique de traslado/héritage promo — **non portée**, remplacée par le poll automatique + réconciliation générique, cf. §10.3), `docs/3-integrations/lobby_pms_api.md` (legacy, dépôt parent) (référence API).
 
@@ -281,6 +283,8 @@ si on les lit isolément ; elles ne le sont pas : l'échec fermé protège contr
 
 ### 8.1 Réordonnancement du 2026-08-29 — Lobby est réservé AVANT confirmation
 
+> ⚠️ **Retourné le 2026-10-23 : voir §8.2.** Ce qui suit décrit la séquence du 29/08 au 23/10 ; elle n'est plus en vigueur.
+
 **Le code violait ce §8 en silence.** La séquence de `CheckoutForm.tsx` était `create_order` (qui
 CONFIRME) → `void reserve-nights` → `void startPayment` : la réservation PMS partait *après* la
 confirmation, sans être attendue, et le paiement démarrait sans elle. « Échec fermé uniquement
@@ -317,6 +321,75 @@ d'annulation via le trigger existant. Rien n'est encaissé, le panier est conser
 *après* un encaissement réussi (`pms-poll-bookings`, annulations) et pour le seul cas où le
 relâchement lui-même échoue — là, une commande reste pendante et un humain est nécessaire ; le
 filet est `expire_stale_payment_orders` (30 min).
+
+### 8.2 Retournement du 2026-10-23 — Lobby est réservé APRÈS l'acompte
+
+**Le fait nouveau** (constaté en prod par Gabriel, 2026-10-23). La séquence du 29/08 a un défaut que
+ses auteurs n'avaient pas mesuré : la réservation Lobby est créée AVANT le paiement. Un paiement
+refusé (ou abandonné) laisse donc un booking VIVANT chez le partenaire, qui bloque sa chambre jusqu'à
+l'expiration (30 min) — et l'e-mail 8 `partner_camp_evento_blocked` (« Reserva confirmada »), qui
+partait dans `create_order`, annonçait une réservation « confirmée » sans un peso encaissé. Règle
+posée : **« si pas payé, pas réservé »**. Le booking envoyé à Lobby doit aussi porter l'acompte déjà
+payé (`payment`, seul champ d'argent de l'API Lobby — elle n'a pas de champ remise).
+
+**Décision de Gabriel, 2026-10-23.** La réservation Lobby se crée après l'acompte. Si Lobby refuse
+alors que le client a payé, la commande va dans la file « à traiter » de l'admin
+(`pms_reconciliation_entries`, e-mail admin 3). **Aucun remboursement automatique** : les
+remboursements sont suspendus.
+
+**Risque accepté, dit sans détour.** Les catégories 49823 et 18013 sont annoncées libres par Lobby
+mais refusées en 422 (spec 24 §11.2, C1 réfuté) : aucune lecture ne peut le prédire. Avant le 23/10,
+l'écriture avant paiement attrapait ce cas AVANT d'encaisser. Désormais un 422 peut survenir APRÈS
+l'encaissement : le client a payé, Lobby refuse, un humain doit reloger ou rembourser à la main. Le
+client voit « Recibimos tu pago, el alojamiento no pudo confirmar tu reserva, te contactamos » —
+jamais « confirmada », jamais une promesse de remboursement.
+
+**Séquence en vigueur :**
+
+1. `create_order` (plus aucun e-mail 8 pour une commande à acompte : il part à la confirmation).
+2. `POST /api/pms/check-nights` : **lecture seule** chez Lobby, à chaud (jamais le cache), puis
+   `hold_pms_nights` — RPC anti-survente (squelette `docs/05` §1) qui tient la place dans hifago
+   pendant le paiement. Verrou sur `pms_category_locks(établissement, catégorie Lobby)` ; règle :
+   disponibilité Lobby − lignes hifago « en vol » ≥ quantité demandée. « En vol » = ligne tenue sans
+   booking, OU booking enregistré (`pms_recorded_at`) après la lecture (marge d'horloge de 30 s). Une
+   ligne non encore vérifiée ne compte pas (deux paniers sur la dernière unité ne se refusent pas
+   mutuellement). Nuit pleine / non cotée / Lobby injoignable → `release_order_after_pms_refusal`
+   (inchangée) : panier conservé, rien d'encaissé.
+3. « Pagar » : `create_payment_intent` garde le motif `pms_booking_missing`, mais ne le lève que si
+   une nuit PMS n'a NI booking NI hold de moins de 5 minutes. L'écran rappelle `check-nights` et
+   redemande l'intent une fois.
+4. Webhook `approved` (`apply_payment_webhook`) : la commande passe `paid`, et une demande est posée
+   dans `pms_booking_requests` (une par commande). La garde « nuit PMS sans booking →
+   `refund_required/pms_booking_missing` » disparaît. Les e-mails 5/6/7 (et 8) sont DIFFÉRÉS tant
+   qu'une nuit PMS n'a pas de booking (commandes mixtes comprises). Aucun appel réseau dans la route
+   ni dans le webhook.
+5. Déclenchement : trigger par instruction → `invoke_pms_book_paid_orders()` (`pg_net`, après le
+   commit), plus un cron `pms-book-paid-orders` toutes les minutes en filet.
+6. Edge Function `pms-book-paid-orders` : file prise `for update skip locked`, claim « payée
+   seulement » (`claim_paid_order_for_pms_booking`, bail 5 min, sans échéance), puis
+   `bookClaimedOrder` (domaine) : `POST /bookings` avec `payment` = acompte encaissé de la ligne et
+   la note « Anticipo pagado en hifago: $X — saldo: $Y », `record_pms_booking`, puis les activités.
+7. Issues : tout réservé → `done` → `notify_order_confirmed` (e-mails 5/6/7 + 8). Refus 400/422 →
+   `failed` + entrée de réconciliation « commande PAYÉE — Lobby a refusé ». Panne → 6 essais sur
+   ~30 min (1, 2, 4, 8, 15, 15 min). Issue inconnue → JAMAIS retentée, `needs_human` + entrée
+   immédiate (clé « hifago order_line <id> »). Activité refusée → la confirmation n'est pas bloquée.
+   Les bookings déjà obtenus sont gardés. Commande remboursée/rejetée entre-temps → demande close.
+8. **La remise** : si Lobby REFUSE (400/422) un booking portant `payment`, UN seul nouvel essai part
+   sans `payment` ; s'il passe, une entrée « remise à saisir à la main dans Lobby » est écrite. Jamais
+   de second essai après une issue inconnue (le booking a pu naître).
+9. **Annulation d'un booking payé** : Lobby refuse `RESTRICTED_RESERVATION` (« Booking has extra
+   payments or charges »). `pms-cancel-bookings` ne la clôt plus en silence : entrée de
+   réconciliation « annuler à la main dans Lobby » + e-mail admin
+   (`resolve_pms_cancellation_restricted`).
+10. États client (`order_for_client_jsonb.pms_confirmation`, lu par `deriveOrderState`) :
+    `confirming` (« Pago recibido, estamos confirmando tu reserva… », relecture ~2 min) et
+    `paid_unconfirmed`. Le WhatsApp du prestataire reste masqué tant que la valeur est `pending` ou
+    `failed`.
+
+**Hors de cette livraison** (au backlog) : la contraction M2 (suppression de
+`claim_order_for_pms_booking`, devenu inutilisé), les boutons admin « relancer Lobby » / « rattacher
+un booking », et « un booking par unité » pour un glamping ou une chambre privée prise en plusieurs
+exemplaires (aujourd'hui : un seul booking, `total_adults = qty`, comportement inchangé).
 
 ## 9. Cas limites
 

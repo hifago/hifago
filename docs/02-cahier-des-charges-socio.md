@@ -16,6 +16,7 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-10-23 — e-mail « Reserva confirmada — recurso bloqueado » à la confirmation** (spec 21 §8.2, `docs/06`) : l'avis de blocage camp/evento (§3d, l.409-412) ne part plus à la création de la commande mais quand la réservation est confirmée (paiement encaissé, et booking Lobby obtenu pour un logement PMS). Le blocage de la ressource, lui, reste posé à la création. Un evento gratuit / sur place l'envoie toujours dès la création.
 - **2026-10-23 — spec 19 retouchée, sans changement de périmètre** : la préférence Mercado Pago envoie désormais l'acheteur (prénom, nom, téléphone) et le détail des lignes pour le contrôle anti-fraude (§0 Tranche 1 « Contenu de la préférence ») ; le montant facturé et le parcours client ne changent pas, rien ne change pour ce cahier.
 - **2026-10-19 — spec 19 retouchée, barème de l'acompte révisé** : 17 % = 8 % référent + 9 % app
   (ex-10 + 7), auto-référence 9 % (ex-7 %), direct 17 % inchangé — migration

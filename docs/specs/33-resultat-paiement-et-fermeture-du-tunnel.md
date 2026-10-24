@@ -434,7 +434,7 @@ disait déjà : « la règle est tranchée, le mécanisme n'existe pas, périmè
 ## 4. Parcours cible
 
 1. Le client valide ses coordonnées sur `/pago`. `create_order` réussit → `order_id`.
-2. `POST /api/pms/reserve-nights` accepte (inchangé — **Lobby d'abord**, spec 21 §8).
+2. `POST /api/pms/check-nights` accepte (**changé le 2026-10-23, spec 21 §8.2** : lecture de Lobby et place tenue, aucune écriture chez Lobby avant le paiement ; le booking Lobby se crée APRÈS l'acompte, `pms-book-paid-orders`). Écran de résultat : deux états de plus pour une commande payée — `confirming` (« Pago recibido, estamos confirmando tu reserva con el alojamiento… », relecture ~2 min) et `paid_unconfirmed` (« Recibimos tu pago, el alojamiento no pudo confirmar tu reserva, te contactamos », sans promesse de remboursement) —, dérivés de `order_for_client_jsonb.pms_confirmation`.
 3. `CheckoutForm` lit `orders.access_token` en RLS directe, puis **redirige** vers
    `/[locale]/reserva/<jeton>`. Le tunnel est fermé ; `/pago` ne rendra plus jamais de succès.
 4. L'écran affiche le numéro, le récapitulatif, les totaux — et, la commande n'étant pas payée,
