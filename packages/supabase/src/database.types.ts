@@ -2824,6 +2824,7 @@ export type Database = {
         Returns: {
           attempts: number
           last_error: string
+          lines: Json
           order_id: string
           request_id: string
           status: string

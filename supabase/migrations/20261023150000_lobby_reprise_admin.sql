@@ -438,7 +438,8 @@ returns table (
   status text,
   attempts int,
   last_error text,
-  updated_at timestamptz
+  updated_at timestamptz,
+  lines jsonb
 )
 language plpgsql
 stable
@@ -450,8 +451,19 @@ begin
     raise exception 'admin_pms_booking_requests réservé au rôle admin' using errcode = '42501';
   end if;
 
+  -- `lines` : les NUITS PMS de la commande encore sans booking (réservées, hébergement lié à Lobby),
+  -- dans l'ordre date puis id — une par champ « ID de la réserva en Lobby » du dialogue « Confirmar »,
+  -- pour qu'une commande de plusieurs nuits ne parte pas avec une nuit sans booking (ni annulée, ni
+  -- interrogée par le poll).
   return query
-  select r.id, r.order_id, r.status, r.attempts, r.last_error, r.updated_at
+  select r.id, r.order_id, r.status, r.attempts, r.last_error, r.updated_at,
+         (select coalesce(jsonb_agg(jsonb_build_object(
+                    'order_line_id', ol.id, 'product_name', p.name, 'date', ol.date, 'end_date', ol.end_date)
+                  order by ol.date, ol.id), '[]'::jsonb)
+            from public.order_lines ol
+            join public.products p on p.id = ol.product_id
+           where ol.order_id = r.order_id and ol.status = 'reserved' and ol.pms_booking_id is null
+             and p.type = 'lodging' and p.lobby_category_id is not null)
     from public.pms_booking_requests r
    where r.order_id = any(p_order_ids)
    order by r.order_id;
@@ -522,6 +534,7 @@ declare
   v_entries uuid[] := '{}'::uuid[];
   v_status text;
   v_note text;
+  v_cancel_line_id uuid;
 begin
   if not (select public.is_admin(auth.uid())) then
     raise exception 'admin_resolve_pms_booking_request réservé au rôle admin' using errcode = '42501';
@@ -602,7 +615,7 @@ begin
 
   -- Les lignes des bookings saisis, relues sous verrou — toute validation avant la première écriture.
   for v_item in select b.value from jsonb_array_elements(v_bookings) b loop
-    select ol.status, ol.pms_booking_id, p.type, p.lobby_category_id, p.lobby_product_id into v_line
+    select ol.status, ol.pms_booking_id, p.type, p.lobby_category_id, p.lobby_product_id, p.establishment_id into v_line
       from public.order_lines ol
       join public.products p on p.id = ol.product_id
      where ol.id = (v_item ->> 'order_line_id')::uuid and ol.order_id = v_order_id;
@@ -622,6 +635,22 @@ begin
     if not ((v_line.type = 'lodging' and v_line.lobby_category_id is not null)
             or (v_line.type in ('activity', 'transport') and v_line.lobby_product_id is not null)) then
       return jsonb_build_object('ok', false, 'reason', 'line_not_pms', 'order_line_id', v_item -> 'order_line_id');
+    end if;
+    -- Un id de booking Lobby identifie UNE réservation dans UN établissement : le même id déjà porté par
+    -- une ligne vivante d'une AUTRE commande du même établissement est une faute de saisie (le poll et
+    -- les annulations traiteraient les deux commandes comme une seule). Une ligne qui porte déjà cet
+    -- id (rejeu idempotent) n'est pas concernée.
+    if v_line.pms_booking_id is null and exists (
+      select 1
+        from public.order_lines o2
+        join public.products p2 on p2.id = o2.product_id
+       where o2.pms_booking_id = v_item ->> 'pms_booking_id'
+         and p2.establishment_id = v_line.establishment_id
+         and o2.order_id <> v_order_id
+         and o2.status in ('reserved', 'fulfilled', 'no_show')
+    ) then
+      return jsonb_build_object('ok', false, 'reason', 'booking_in_use', 'order_line_id', v_item -> 'order_line_id',
+                                'pms_booking_id', v_item -> 'pms_booking_id');
     end if;
   end loop;
 
@@ -737,6 +766,37 @@ begin
       returning e.id
     )
     select coalesce(array_agg(r.id order by r.id), '{}'::uuid[]) into v_entries from resolved r;
+  end if;
+
+  -- cancel : la commande reste PAYÉE sans chambre chez Lobby et le client la voit « confirmée » (la
+  -- demande n'est plus bloquée). L'admin doit donc ANNULER ou REMBOURSER les lignes à la main : une
+  -- entrée de réconciliation neuve le garde visible (et son trigger envoie l'e-mail admin 3). Elle ne
+  -- commence pas par « commande PAYÉE — Lobby a refusé » : confirm / cancel ne la résolvent jamais.
+  if p_action = 'cancel' then
+    select coalesce(
+      (select ol.id from public.order_lines ol
+         join public.products p on p.id = ol.product_id
+        where ol.order_id = v_order_id and ol.status = 'reserved' and ol.pms_booking_id is null
+          and p.type = 'lodging' and p.lobby_category_id is not null
+        order by ol.date, ol.id limit 1),
+      (select ol.id from public.order_lines ol
+        where ol.order_id = v_order_id and ol.status = 'reserved'
+        order by ol.date, ol.id limit 1),
+      (select ol.id from public.order_lines ol
+        where ol.order_id = v_order_id
+        order by ol.created_at, ol.id limit 1)
+    ) into v_cancel_line_id;
+    if v_cancel_line_id is not null then
+      insert into public.pms_reconciliation_entries (order_line_id, detail)
+      select v_cancel_line_id,
+             'commande PAYÉE — demande Lobby annulée : annuler ou rembourser les lignes à la main (commande '
+             || coalesce(v_reference, v_order_id::text) || ')'
+       where not exists (
+         select 1 from public.pms_reconciliation_entries e
+          where e.order_line_id = v_cancel_line_id and e.status in ('open', 'retrying')
+            and e.detail like 'commande PAYÉE — demande Lobby annulée%'
+       );
+    end if;
   end if;
 
   -- Les e-mails 5/6/7/8 différés jusqu'ici — isolés (spec 23 §8.1) : une notification ne fait jamais

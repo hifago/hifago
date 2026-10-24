@@ -24,7 +24,7 @@
 --     appel de pms-book-paid-orders (trigger) ; pms_confirmation pending ; journal ; la demande est
 --     réclamée de nouveau (claim_pms_booking_requests) et le claim de la commande passe.
 begin;
-select plan(50);
+select plan(53);
 
 create function t_id(p text) returns uuid language sql as $$
   select ('7e150000-0000-4000-8000-' || lpad(p, 12, '0'))::uuid;
@@ -165,7 +165,8 @@ select t_line('2013', '1007', '31', '2030-04-14', '2030-04-15', 'expired', true,
 select t_line('2014', '1007', '34', '2030-04-10', '2030-04-11', 'reserved', false);
 select t_request('3007', '1007', 'needs_human', 1, 'issue inconnue');
 select t_order('1008');
-select t_line('2016', '1008', '31', '2030-04-20', '2030-04-21');
+-- 2016 porte le booking 660001 (ligne vivante d'une autre commande du même établissement).
+select t_line('2016', '1008', '31', '2030-04-20', '2030-04-21', 'reserved', true, '660001');
 -- 1009 / 1010 — « en vol » : A (1009) tient la dernière unité de 7602 le 2030-05-01, sans booking,
 -- demande needs_human ; B (1010), non payée, la demande.
 select t_order('1009');
@@ -212,12 +213,17 @@ select is(
     jsonb_build_object('demande', t_id('3001'), 'commande', t_id('1001'), 'statut', 'needs_human', 'essais', 3, 'erreur', 'POST /bookings sans réponse'),
     jsonb_build_object('demande', t_id('3004'), 'commande', t_id('1004'), 'statut', 'pending', 'essais', 1, 'erreur', null)),
   'L1 : les demandes des commandes demandées, et seulement elles (une commande sans demande ne rend rien)');
+select is(
+  (select jsonb_agg(l -> 'order_line_id' order by ord)
+     from admin_pms_booking_requests(array[t_id('1001')]) r, jsonb_array_elements(r.lines) with ordinality as x(l, ord)),
+  jsonb_build_array(t_id('2001'), t_id('2002')),
+  'L3 : lines = les nuits PMS réservées SANS booking (2001, 2002), ni la nuit déjà bookée, ni le camp, ni l''activité');
 reset role;
 select is(
   (select array_agg(a.n order by a.o)
      from pg_proc p, unnest(p.proargnames, p.proargmodes) with ordinality as a(n, m, o)
     where p.oid = 'public.admin_pms_booking_requests(uuid[])'::regprocedure and a.m = 't'),
-  array['request_id', 'order_id', 'status', 'attempts', 'last_error', 'updated_at']::text[],
+  array['request_id', 'order_id', 'status', 'attempts', 'last_error', 'updated_at', 'lines']::text[],
   'L2 : les colonnes rendues, exactement');
 
 -- ── Refus typés ──────────────────────────────────────────────────────────────────────────────
@@ -265,6 +271,10 @@ select is(admin_resolve_pms_booking_request(t_id('3007'), 'confirm',
                               jsonb_build_object('order_line_id', t_id('2012'), 'pms_booking_id', '770002'))),
   jsonb_build_object('ok', false, 'reason', 'already_booked', 'order_line_id', t_id('2012'), 'pms_booking_id', '770001'),
   'R7 : une ligne qui porte un AUTRE booking → already_booked (jamais écrasé), même après une ligne valide');
+select is(admin_resolve_pms_booking_request(t_id('3007'), 'confirm',
+            jsonb_build_array(jsonb_build_object('order_line_id', t_id('2011'), 'pms_booking_id', '660001'))),
+  jsonb_build_object('ok', false, 'reason', 'booking_in_use', 'order_line_id', t_id('2011'), 'pms_booking_id', '660001'),
+  'R7b : un id de booking déjà porté par une ligne vivante d''une AUTRE commande du même établissement → booking_in_use');
 select is(admin_resolve_pms_booking_request(t_id('3007'), 'confirm',
             jsonb_build_array(jsonb_build_object('order_line_id', t_id('2013'), 'pms_booking_id', '12'))),
   jsonb_build_object('ok', false, 'reason', 'line_not_reserved', 'order_line_id', t_id('2013'), 'status', 'expired'),
@@ -415,6 +425,14 @@ select is(
   jsonb_build_object('confirmation', null, 'emails', jsonb_build_object('commission', 0, 'paiement', 0, 'client', 0, 'recurso', 0),
                      'audit', 'pms_booking_request.cancel'),
   'X5 : pms_confirmation null, aucun e-mail, une ligne d''audit');
+
+select is(
+  (select jsonb_build_object('ligne', order_line_id, 'statut', status, 'note', resolution_note,
+                             'texte', detail like 'commande PAYÉE — demande Lobby annulée : annuler ou rembourser les lignes à la main (commande RPR-1002)')
+     from pms_reconciliation_entries where order_line_id in (select id from order_lines where order_id = t_id('1002'))
+      and detail like 'commande PAYÉE — demande Lobby annulée%'),
+  jsonb_build_object('ligne', t_id('2005'), 'statut', 'open', 'note', null, 'texte', true),
+  'X6 : le cancel ouvre une entrée « commande PAYÉE — demande Lobby annulée : annuler ou rembourser… » sur la première nuit sans booking, restée ouverte');
 
 -- ── retry (1003) ─────────────────────────────────────────────────────────────────────────────
 select vault.create_secret('https://fonctions.reprise.test', 'pms_functions_base_url');
