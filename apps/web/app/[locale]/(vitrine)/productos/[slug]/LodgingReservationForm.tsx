@@ -47,7 +47,7 @@ import {
   pisoLeadDays,
   ultimoDiaReservable,
 } from "@/lib/reservas/calendario";
-import { limitarCantidad, topeCantidad } from "@/lib/reservas/cantidad";
+import { limitarCantidad, plafondCantidad, topeCantidad } from "@/lib/reservas/cantidad";
 import { plazasRestantes } from "@/lib/reservas/disponibilidad";
 import { motivoPms } from "@/lib/reservas/pms";
 import { usePrefillUltimosCriterios } from "@/lib/reservas/usePrefillUltimosCriterios";
@@ -132,7 +132,7 @@ export function LodgingReservationForm({
   const dernierJourReservable = useMemo(() => ultimoDiaReservable(), []);
 
   const [range, setRange] = useState<DateRange | undefined>();
-  const [qty, setQty] = useState(1);
+  const [qtyElegida, setQty] = useState(1);
 
   // Spec 21 §13 — un alojamiento PMS-backed n'a jamais de product_availability peuplée (Lobby fait
   // foi). Depuis le 2026-09-18, `availability` (prop SSR) n'est plus vide pour autant : elle porte
@@ -308,7 +308,8 @@ export function LodgingReservationForm({
     [lines, productId]
   );
 
-  const qtyMax = topeCantidad(maxQty);
+  // Maximum FIXE du produit : seuil d'affichage du compteur de restant dans les cases.
+  const qtyMaxFijo = topeCantidad(maxQty);
 
   // Cupos restants par nuit — une seule dérivation, lue par le barré du calendrier ET par le
   // compteur affiché dans la case. Ne dépend PAS de `qty` : c'est un fait de disponibilité, pas un
@@ -320,6 +321,18 @@ export function LodgingReservationForm({
     }
     return map;
   }, [effectiveAvailability, inCartByDate]);
+
+  const nights = useMemo(() => nightsInRange(range), [range]);
+
+  // PLAFOND DE QUANTITÉ d'un séjour PMS (2026-10-23) : `min(max_qty, places restantes sur la plage)`,
+  // ou le maximum des nuits chargées tant qu'aucune plage n'est posée. Avant, le champ montait
+  // jusqu'à `max_qty` (20) sur une nuit à 2 lits. Hors PMS, le maximum reste celui du produit.
+  const qtyMax = useMemo(
+    () => (isPmsBacked ? topeCantidad(plafondCantidad(maxQty, remainingByDate, nights)) : qtyMaxFijo),
+    [isPmsBacked, maxQty, remainingByDate, nights, qtyMaxFijo]
+  );
+  // La quantité retenue est ramenée DANS le plafond si la plage l'a réduit (dérivé, jamais un effet).
+  const qty = Math.min(qtyElegida, qtyMax);
 
   // Nuits que la quantité demandée ne peut pas prendre. Le seuil est `qty`, jamais 0 — c'est le
   // correctif du 2026-08-28. Avant, le calendrier ne barrait que les nuits COMPLÈTES : une nuit à 2
@@ -459,16 +472,15 @@ export function LodgingReservationForm({
       return (
         <DayPickerCalendarDayButton {...props} data-date={iso}>
           {props.children}
-          {remaining !== undefined && remaining > 0 && remaining < qtyMax ? (
+          {remaining !== undefined && remaining > 0 && remaining < qtyMaxFijo ? (
             <span data-testid="night-remaining">{remaining}</span>
           ) : null}
         </DayPickerCalendarDayButton>
       );
     }
     return { DayButton: RemainingDayButton };
-  }, [remainingByDate, qtyMax]);
+  }, [remainingByDate, qtyMaxFijo]);
 
-  const nights = useMemo(() => nightsInRange(range), [range]);
   const hasUnavailableNight = hasUnavailableNightInRange(
     nights,
     qty,
@@ -497,10 +509,10 @@ export function LodgingReservationForm({
     setRange(next);
   }
 
-  // Monter la quantité peut invalider une plage DÉJÀ posée, sans qu'aucun clic n'ait eu lieu sur
-  // le calendrier — c'est le seul chemin restant par lequel `hasUnavailableNightInRange` pourrait
-  // encore parler. On replie plutôt que d'avertir : la fenêtre resserrée est visible à l'écran
-  // dans le même geste, et l'utilisateur repique une sortie dedans.
+  // Monter la quantité peut invalider une ARRIVÉE déjà posée, sans qu'aucun clic n'ait eu lieu sur
+  // le calendrier. On replie plutôt que d'avertir : la fenêtre resserrée est visible à l'écran dans
+  // le même geste. Une plage COMPLÈTE d'un PMS-backed ne se replie plus depuis le 2026-10-23 : son
+  // plafond (`qtyMax`, nuit la moins fournie) borne la saisie avant qu'elle ne la déborde.
   function handleQtyChange(value: string) {
     const brut = Number(value);
     // min fixé à 1, jamais products.min_qty : create_order ne vérifie le plancher que hors lodging.
@@ -539,7 +551,7 @@ export function LodgingReservationForm({
 
   // Nommer l'unité de `qty` là où elle se saisit. « Cantidad » ne disait pas de QUOI, alors que la
   // réponse dépend du produit : un dortoir se vend au lit, une privée ou une maison à l'unité (même
-  // règle que cuposPerUnit et que le garde-fou capacity_exceeds_physical). `lodging_kind` étant
+  // vocabulaire que cuposPerUnit et que le garde-fou capacity_exceeds_physical). `lodging_kind` étant
   // facultatif, l'intitulé neutre reste le repli.
   const quantityLabel =
     lodgingKind === "dorm"
