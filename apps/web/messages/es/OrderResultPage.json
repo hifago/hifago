@@ -46,6 +46,7 @@
   "viewOrders": "Ver mis reservas",
   "lineStatus": {
     "reserved": "Reservada",
+    "pending_payment": "Pendiente de pago",
     "fulfilled": "Realizada",
     "no_show": "No se presentó",
     "cancelled_by_client": "Anulada por ti",

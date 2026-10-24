@@ -106,3 +106,30 @@ describe("OrderCard — annulation", () => {
     ]);
   });
 });
+
+// Le statut `reserved` d'une ligne tient la place pendant le paiement : d'une commande qui attend le sien,
+// la carte ne dit pas « Reservada » (2026-10-24).
+describe("OrderCard — le statut de la ligne suit le paiement de la commande", () => {
+  async function pastille(order: MyOrder, lineId: string) {
+    const html = renderToStaticMarkup(await OrderCard({ order, locale: "es" }));
+    // La pastille porte une icône avant son libellé : on lit le texte de son élément, balises retirées.
+    const start = html.indexOf(`data-testid="line-status-${lineId}"`);
+    const end = html.indexOf("</span></span>", start);
+    return html.slice(html.indexOf(">", start) + 1, end).replace(/<[^>]*>/g, "").trim();
+  }
+
+  it.each([
+    ["à payer", { paymentStatus: "unpaid", acompteCop: 10000 }, "Pendiente de pago"],
+    ["paiement en cours", { paymentStatus: "pending", acompteCop: 10000 }, "Pendiente de pago"],
+    ["payée", { paymentStatus: "paid" }, "Reservada"],
+    ["sans acompte dû (evento gratuit / sur place)", { paymentStatus: "unpaid", acompteCop: 0 }, "Reservada"],
+  ] as const)("commande %s → « %s »", async (_cas, relue, libelle) => {
+    const order = { ...commande([ligne("l-1", "reserved", true)]), ...relue };
+    expect(await pastille(order, "l-1")).toBe(libelle);
+  });
+
+  it("une ligne expirée d'une commande à payer garde son statut", async () => {
+    const order = { ...commande([ligne("l-1", "expired", false)]), paymentStatus: "unpaid", acompteCop: 10000 };
+    expect(await pastille(order, "l-1")).toBe("Expirada");
+  });
+});

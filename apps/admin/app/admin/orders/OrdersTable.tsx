@@ -3,11 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Chip, DataList, type DataListAction, type DataListColumn, type DataListSort } from "@hifago/ui";
-import { formatCop } from "@hifago/domain";
+import { displayLineStatus, formatCop, type OrderPaymentState } from "@hifago/domain";
+import { StatusChip } from "@/components/status-chip";
+import {
+  lineStatusChipColor,
+  lineStatusLabel,
+  PAYMENT_STATE_CHIP_STYLE,
+  PAYMENT_STATE_LABELS,
+} from "@/lib/orders/paymentDisplayLabels";
 import { ChangeStatusDialog } from "./ChangeStatusDialog";
 import { ModifyOrderLineDialog } from "@/components/ModifyOrderLineDialog";
 import { ORDERS_FILTERS } from "@/lib/lists/filters";
-import { STATUS_CHIP_COLOR, STATUS_LABELS } from "./statusLabels";
 
 export type OrderLineRow = {
   id: string;
@@ -16,6 +22,8 @@ export type OrderLineRow = {
   endDate: string | null;
   qty: number;
   status: string;
+  /** Le paiement de la commande de la ligne ; `null` si illisible (la ligne garde alors son statut brut). */
+  paymentState: OrderPaymentState | null;
   productName: string;
   establishmentName: string;
   holderName: string;
@@ -61,15 +69,33 @@ export function OrdersTable({
       id: "status",
       header: "Estado",
       sortable: true,
-      cell: (row) => (
-        <Chip
-          variant="soft"
-          color={STATUS_CHIP_COLOR[row.status] ?? "default"}
-          data-testid={`status-badge-${row.id}`}
-        >
-          {STATUS_LABELS[row.status] ?? row.status}
-        </Chip>
-      ),
+      // `reserved` tient la place pendant le paiement : d'une commande qui attend son paiement, elle
+      // s'affiche « Pendiente de pago », jamais « Reservada ». Le STATUT stocké (filtre, tri, changement
+      // de statut) n'est pas touché.
+      cell: (row) => {
+        const shown = row.paymentState ? displayLineStatus(row.status, row.paymentState) : row.status;
+        return (
+          <Chip variant="soft" color={lineStatusChipColor(shown)} data-testid={`status-badge-${row.id}`}>
+            {lineStatusLabel(shown)}
+          </Chip>
+        );
+      },
+    },
+    // Le paiement de la commande, à côté du statut de ligne : deux choses distinctes.
+    {
+      id: "paymentState",
+      header: "Pago",
+      cell: (row) =>
+        row.paymentState ? (
+          <StatusChip
+            status={row.paymentState}
+            map={PAYMENT_STATE_CHIP_STYLE}
+            labels={PAYMENT_STATE_LABELS}
+            testId={`payment-badge-${row.id}`}
+          />
+        ) : (
+          "—"
+        ),
     },
     {
       id: "holder",

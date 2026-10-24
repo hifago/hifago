@@ -1,9 +1,9 @@
 "use client";
 
-import { asLocalizedField, resolveLocalizedField, formatCop } from "@hifago/domain";
+import { asLocalizedField, resolveLocalizedField, formatCop, displayLineStatus, type OrderPaymentState } from "@hifago/domain";
 import { Chip, SimpleTable, SimpleTableBody, SimpleTableCell, SimpleTableHead, SimpleTableHeader, SimpleTableRow } from "@hifago/ui";
 import { deriveLedgerEntry, type LedgerState } from "@/lib/commission/deriveLedgerEntry";
-import { STATUS_LABELS, STATUS_CHIP_COLOR } from "../statusLabels";
+import { lineStatusChipColor, lineStatusLabel } from "@/lib/orders/paymentDisplayLabels";
 
 // Extrait de page.tsx (Server Component) — Table/Table.ScrollContainer de @hifago/ui imbriquant un
 // <Chip> côté client crashait le build ("Table.Content n'accepte jamais... depuis un Server
@@ -40,7 +40,14 @@ export type OrderLineQueryRow = {
   product_name: unknown;
 };
 
-export function LedgerLinesTable({ lines }: { lines: OrderLineQueryRow[] }) {
+export function LedgerLinesTable({
+  lines,
+  paymentState,
+}: {
+  lines: OrderLineQueryRow[];
+  /** Le paiement de la commande : une ligne `reserved` d'une commande qui l'attend s'affiche « Pendiente de pago ». */
+  paymentState: OrderPaymentState;
+}) {
   return (
     <SimpleTable data-testid="ledger-table" aria-label="Detalle de la comisión por línea">
       <SimpleTableHeader>
@@ -74,8 +81,8 @@ export function LedgerLinesTable({ lines }: { lines: OrderLineQueryRow[] }) {
                 <SimpleTableCell data-label="Fecha">{line.date}</SimpleTableCell>
                 <SimpleTableCell data-label="Cantidad">{line.qty}</SimpleTableCell>
                 <SimpleTableCell data-label="Estado">
-                  <Chip variant="soft" color={STATUS_CHIP_COLOR[line.status] ?? "default"}>
-                    {STATUS_LABELS[line.status] ?? line.status}
+                  <Chip variant="soft" color={lineStatusChipColor(displayLineStatus(line.status, paymentState))}>
+                    {lineStatusLabel(displayLineStatus(line.status, paymentState))}
                   </Chip>
                 </SimpleTableCell>
                 <SimpleTableCell data-label="Parte app" data-testid={`app-due-${line.id}`}>
