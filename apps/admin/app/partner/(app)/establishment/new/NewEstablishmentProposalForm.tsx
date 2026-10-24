@@ -7,6 +7,8 @@ import { Button, Input, Label, TextArea, TextField, cn, toast } from "@hifago/ui
 import { mountAddressAutocomplete } from "@/components/address-autocomplete";
 import { StagedEstablishmentPhotos, type StagedPhoto } from "@/components/establishment-photos-staged";
 import { ActionConfirmation } from "@/components/action-confirmation";
+import { DescriptionLengthCounter } from "@/components/description-length-counter";
+import { establishmentDescriptionError } from "@/lib/establishments/descriptionLimit";
 import { ColombianWhatsAppField, WHATSAPP_SOCIO_DESCRIPTION } from "@/components/colombian-whatsapp-field";
 import {
   colombianWhatsAppError,
@@ -82,6 +84,11 @@ export function NewEstablishmentProposalForm() {
 
     if (!nombre.trim()) {
       toast.danger("El nombre es obligatorio.");
+      return;
+    }
+    const descriptionError = establishmentDescriptionError(descriptionEs, descriptionEn);
+    if (descriptionError) {
+      toast.danger(descriptionError);
       return;
     }
     const whatsappError = colombianWhatsAppError(whatsapp);
@@ -189,6 +196,10 @@ export function NewEstablishmentProposalForm() {
           </div>
         </div>
         <TextArea data-testid="proposal-description-textarea" />
+        <DescriptionLengthCounter
+          value={descriptionLang === "es" ? descriptionEs : descriptionEn}
+          testId="proposal-description-counter"
+        />
       </TextField>
 
       <ColombianWhatsAppField

@@ -128,7 +128,7 @@ export function BandeauPagina({
         )}
         {chapo ? (
           <p
-            className="chapo max-w-[60ch]"
+            className="chapo max-w-[60ch] whitespace-pre-line"
             data-testid={chapoTestId ?? sousId("chapo")}
           >
             {chapo}

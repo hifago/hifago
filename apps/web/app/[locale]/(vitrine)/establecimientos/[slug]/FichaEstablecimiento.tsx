@@ -141,7 +141,7 @@ export function FichaEstablecimiento({
             />
 
             {ficha.descripcion ? (
-              <p className="max-w-prose text-base leading-[1.55] lg:text-[17px]">{ficha.descripcion}</p>
+              <p className="max-w-prose whitespace-pre-line text-base leading-[1.55] lg:text-[17px]">{ficha.descripcion}</p>
             ) : null}
           </div>
 

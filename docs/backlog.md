@@ -4,7 +4,7 @@ titre: "Backlog hifago — points ouverts et arbitrages en attente"
 theme: journal
 statut: vivant
 langue: fr
-maj: 2026-10-19
+maj: 2026-10-23
 resume: >
   Points ouverts, arbitrages en attente et dette connue non traitée du chantier hifago. Remplace
   le "curseur" de CLAUDE.md §12 (supprimé le 2026-09-07, cf. docs/journal/2026-09.md).
@@ -24,6 +24,7 @@ repond_a:
 > le 2026-10-12 Jérôme pilote : tout nouveau point va dans la première section (les autres : le dev).
 
 ## Ouvert par Jérôme depuis sa reprise (2026-10-12)
+- **Prix d'une chambre selon le nombre d'occupants** (2026-10-23, ex. privée 1 pers. 120 000 / 2 pers. 130 000 / 3 pers. 145 000) — non couvert : sur un `lodging`, `qty` = unités (lits/chambres) depuis `20260916120000`, `price_tiers` = prix PAR UNITÉ × `qty` (toujours vrai au 19/10). À spécifier puis valider par Jérôme (touche `create_order`). ⚠️ Libellés admin trompeurs à corriger : « Huéspedes mínimos/máximos » (`product-type-fields/index.tsx`) comptent des unités, et « Capacidad (couchage) » / « Cantidad » mal compris.
 - **Eventos non réservables ajoutables à Mi viaje, sans réservation** (2026-10-19, spec 42, migration `20261019190000`) — en prod depuis le 2026-10-19 (PR #115, correctif sans session PR #116) ; restent : validation par Jérôme, et l'avis « cancelación… nunca reembolsada » affiché sur la fiche d'un evento qu'on ne réserve pas (préexistant, toutes fiches).
 - **WhatsApp du prestataire obligatoire et privé** (2026-10-19, migration `20261019170000`) — en préprod puis en prod depuis le 2026-10-19 (PR #114) ; restent : validation par Jérôme (bouton retiré de la fiche publique ; numéro montré seulement sur commande payée ou sans acompte dû ; transport laissé public), saisie des numéros des établissements existants (aucun n'en a), et `contact_phone` dans `mockData/establishments/` avant toute nouvelle création.
 - **Fiche socio modifiable par l'admin** (2026-10-19, migration `20261019160000`, « Editar » sur `/admin/partners/[id]`) — identité, contact, réseaux (Instagram/Facebook/web, nouveaux), profil commercial et moyen de paiement ; en préprod puis en prod depuis le 2026-10-19 (PR #114) ; restent : validation par Jérôme, et éventuellement les trois réseaux dans « Nuevo socio » (`create_partner_direct`).
@@ -53,8 +54,7 @@ repond_a:
 - **Clé Google Maps SANS restriction** (choix explicite du 2026-09-30) : visible dans le code des pages admin, utilisable par n'importe qui sur la facturation de Jérôme. À restreindre (sites : URLs admin + localhost:3101 ; APIs : Maps JavaScript, Places (New), Geocoding) et à couvrir d'une alerte budgétaire.
 - **Relais Vultr** : relais neuf `144.202.33.78` (compte hifago, 2026-09-30), **partagé par la préprod et la prod** (décision de Gabriel, 2026-10-03 : pas de second relais) ; IP réservée **reportée** par Gabriel le 2026-10-03, alors que la prod en dépend (une reconstruction de l'instance changerait l'IP : la redéclarer chez Lobby et repasser les `LOBBY_*` des deux environnements) ; `LOBBY_*` posés en prod le 2026-10-03 (Supabase + Vercel Production web/admin, empreintes vérifiées). Rappel : chez Lobby, jeton ET liste d'IP sont PAR UTILISATEUR — le `lobby_api_token` stocké doit rester celui de l'utilisateur « claude ».
 - Bucket Storage `establishment-photos` (vide, legacy) à supprimer sur la préprod et la prod — par le tableau de bord : Supabase interdit le DELETE SQL sur `storage.buckets`, et la migration `20260814234500` le recrée en local (accepté).
-- `LOBBY_PMS_TOKEN` : révocation différée, décision explicite de Jérôme — déclencheur = fin de la campagne de tests LobbyPMS.
-- Secret `service_role` legacy encore affiché en clair par `supabase projects api-keys` sans `--reveal` (3ᵉ occurrence constatée) — rotation à envisager, jamais faite.
+- `LOBBY_PMS_TOKEN` : révocation différée, décision explicite de Jérôme — déclencheur = fin de la campagne de tests LobbyPMS. Secret `service_role` legacy encore affiché en clair par `supabase projects api-keys` sans `--reveal` (3ᵉ occurrence constatée) — rotation à envisager, jamais faite.
 
 ## Dette connue, assumée, non corrigée
 Sortie d'ici vers `docs/dette-technique.md` (dette technique et dette QA/UI mineure le 2026-09-08, data/config en écart le 2026-09-19 — même motif : plafond de 60 lignes), rien d'élagué. Un point qui s'y trouve est CONNU — ne pas le re-diagnostiquer.

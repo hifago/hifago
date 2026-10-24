@@ -429,7 +429,7 @@ export function FichaProducto({
               </div>
 
               {ficha.descripcion ? (
-                <p className="order-3 max-w-prose text-base leading-[1.55] lg:text-[17px]">{ficha.descripcion}</p>
+                <p className="order-3 max-w-prose whitespace-pre-line text-base leading-[1.55] lg:text-[17px]">{ficha.descripcion}</p>
               ) : null}
 
               {/* Le trajet et son lien, après la description : « d'où, vers où » se lit avant de

@@ -3324,6 +3324,7 @@ export type Database = {
         Returns: boolean
       }
       jobs_watchdog: { Args: never; Returns: undefined }
+      line_never_paid: { Args: { p_order_line_id: string }; Returns: boolean }
       list_audience_members: {
         Args: { p_audience: string }
         Returns: {
@@ -3550,6 +3551,7 @@ export type Database = {
         Args: { p_horizon?: string; p_product_id: string }
         Returns: undefined
       }
+      order_awaits_payment: { Args: { p_order_id: string }; Returns: boolean }
       order_deposit_collected: {
         Args: { p_payment_status: string }
         Returns: boolean
