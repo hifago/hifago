@@ -386,9 +386,30 @@ jamais « confirmada », jamais une promesse de remboursement.
     `paid_unconfirmed`. Le WhatsApp du prestataire reste masqué tant que la valeur est `pending` ou
     `failed`.
 
+11. **Garantie « issue inconnue jamais retentée »** (revue du 2026-10-23). Un marqueur DURABLE
+    `order_lines.pms_attempt_started_at` est posé EN BASE (`mark_pms_booking_attempt`) avant chaque
+    `POST /bookings` ; il n'est effacé (`clear_pms_booking_attempt`) que si l'appel n'a PAS pu créer de
+    booking (connexion jamais établie, 4xx de relais, refus explicite 400/422). Une issue inconnue le
+    laisse posé : même si la résolution de la demande échoue ensuite (erreur passagère, fonction
+    tuée) et que la demande repart, `claim_paid_order_for_pms_booking` refuse la ligne
+    (`attempt_unresolved`) et la demande passe `needs_human` avec son entrée de réconciliation —
+    jamais un second POST, donc jamais un second booking payé non annulable par API.
+12. **Reprise admin** (`/admin/reconciliation`, entrées PMS dont la commande a une demande `failed` /
+    `needs_human`), RPC `admin_resolve_pms_booking_request` (admin seul, journal d'audit) :
+    `Reintentar con Lobby` (l'admin atteste avoir vérifié chez Lobby qu'aucun booking n'existe ; le
+    marqueur est effacé et la demande repart), `Confirmar` (réservation résolue à la main, avec l'id de
+    booking saisi si besoin : les e-mails 5/6/7/8 partent UNE fois, l'état client se libère, les
+    lignes sans booking ne comptent plus « en vol ») et `Anular solicitud` (rien ne part chez Lobby ;
+    n'annule ni les lignes ni de remboursement). Sans ce levier une commande payée restait
+    `paid_unconfirmed` pour toujours.
+13. **Faux « complet »** : si `hold_pms_nights` refuse uniquement à cause des lignes « en vol »
+    (disponibilité Lobby ≥ quantité demandée), `check-nights` ne défait PAS la commande — elle annulerait
+    aussi un paiement `pending` d'un client parti payer. Il répond `pms_contended` (`released:false`) ;
+    la tenue expire seule. Un vrai « complet » (disponibilité < quantité) défait la commande, comme avant.
+
 **Hors de cette livraison** (au backlog) : la contraction M2 (suppression de
-`claim_order_for_pms_booking`, devenu inutilisé), les boutons admin « relancer Lobby » / « rattacher
-un booking », et « un booking par unité » pour un glamping ou une chambre privée prise en plusieurs
+`claim_order_for_pms_booking`, devenu inutilisé), les boutons admin « rattacher un booking » (la reprise
+retry / confirm / cancel est livrée, point 12), et « un booking par unité » pour un glamping ou une chambre privée prise en plusieurs
 exemplaires (aujourd'hui : un seul booking, `total_adults = qty`, comportement inchangé).
 
 ## 9. Cas limites

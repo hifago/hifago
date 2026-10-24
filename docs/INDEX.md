@@ -26,8 +26,8 @@
 
 ## Cadrage — la cible de la refonte
 - [Audit du modèle de données cible — entités partagées](00-modele-de-donnees.md) 56K
-- [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 98K
-- [Cahier des charges — portail socio (aujourd'hui /partner)](02-cahier-des-charges-socio.md) 57K
+- [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 99K
+- [Cahier des charges — portail socio (aujourd'hui /partner)](02-cahier-des-charges-socio.md) 58K
 - [Cahier des charges — back-office admin (aujourd'hui /admin)](03-cahier-des-charges-admin.md) 50K
 - [Choix de stack et architecture cible](04-architecture-cible.md) 78K
 - [Référence technique — patterns validés et extensions requises](05-reference-technique.md) 9K
@@ -55,7 +55,7 @@
 - [Créneaux horaires réellement réservables (product_slot_rules)](specs/18-creneaux-horaires-reservables.md) 36K ✓ · §0 offset 59 limit 53
 - [Paiement en ligne Mercado Pago — acompte obligatoire, ledger de…](specs/19-paiement-mercadopago-acompte-ledger.md) 56K ◐ · §0 offset 78 limit 400 · reste : Tranche 1 (capture d'acompte, CheckoutForm branché, ledger) livrée et vérifiée en…
 - [Agenda de réservations socio (vue jour/semaine/mois)](specs/20-agenda-reservations-socio.md) 26K ✓ · §0 offset 42 limit 55
-- [Connecteur LobbyPMS — contrat générique multi-prestataire](specs/21-connecteur-lobbypms.md) 48K ◐ · §0 offset 60 limit 59 · reste : Tranche 1 implémentée le 2026-08-19, disponibilité live côté client comblée le…
+- [Connecteur LobbyPMS — contrat générique multi-prestataire](specs/21-connecteur-lobbypms.md) 50K ◐ · §0 offset 60 limit 59 · reste : Tranche 1 implémentée le 2026-08-19, disponibilité live côté client comblée le…
 - [Vue référent restreinte — pas d'établissement/mis reservas, liste…](specs/22-vue-referent-restreinte.md) 13K ✓ · §0 offset 43 limit 77
 - [Notifications email transactionnelles (invitation, modération,…](specs/23-notifications-email-transactionnelles.md) 49K ✓ · §0 offset 62 limit 167
 - [Surface LobbyPMS exploitée, parcours front d'un produit lié, et…](specs/24-modele-hebergement-et-surface-lobbypms.md) 33K ◐ · §0 offset 60 limit 71 · reste : Lot A implémenté le 2026-08-26 ; Lot B gelé (observation préprod requise) ; T1/T2/T3 de…

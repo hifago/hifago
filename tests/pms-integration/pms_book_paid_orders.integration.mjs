@@ -12,6 +12,10 @@
 //     « remise à saisir à la main » ;
 //   - issue inconnue (connexion coupée) : `needs_human`, UN seul POST même après un second passage,
 //     entrée de réconciliation portant la note « hifago order_line <id> » ;
+//   - LE MARQUEUR DURABLE (revue du 2026-10-23) : POST sans réponse, PUIS la résolution de la demande
+//     ÉCHOUE (erreur simulée par un trigger) → la demande reste `pending` ; au passage suivant (la
+//     panne levée, la demande de nouveau due) AUCUN second POST ne part : le marqueur posé en base
+//     avant l'appel fait passer la demande en `needs_human` avec son entrée de réconciliation ;
 //   - heartbeat `ok` avec un avertissement (commandes payées à traiter), jeton nulle part.
 //
 // PRÉREQUIS : npx supabase start (edge runtime compris), le Vault SANS pms_service_role_key ; la
@@ -41,7 +45,7 @@ const JOB = "pms-book-paid-orders";
 const LOBBY_TOKEN = "IntegBookPaidToken0123456789abcdefghijklmnopqrstuvwxyzABCDEFG";
 
 // Une catégorie Lobby par scénario : c'est elle qui dit à la fixture comment répondre.
-const CATEGORY = { accepted: 781001, refused: 781002, paymentRefused: 781003, dropped: 781004 };
+const CATEGORY = { accepted: 781001, refused: 781002, paymentRefused: 781003, dropped: 781004, resolveFails: 781005 };
 const SCENARIOS = Object.keys(CATEGORY);
 
 const ids = { partner: randomUUID(), establishment: randomUUID() };
@@ -59,7 +63,7 @@ function startFixtureServer() {
       const body = raw ? JSON.parse(raw) : {};
       if (req.method === "POST" && req.url === "/api/v1/bookings") {
         postBookings.push({ category_id: body.category_id, payment: body.payment, note: body.note, tokenInBody: body.api_token === LOBBY_TOKEN });
-        if (body.category_id === CATEGORY.dropped) return void req.socket.destroy();
+        if (body.category_id === CATEGORY.dropped || body.category_id === CATEGORY.resolveFails) return void req.socket.destroy();
         const refuse =
           body.category_id === CATEGORY.refused ||
           (body.category_id === CATEGORY.paymentRefused && body.payment !== undefined);
@@ -207,10 +211,22 @@ async function main() {
     );
     checks.push([
       before.every((row) => row.payment_status === "paid" && row.mails === 0),
-      "les 4 commandes sont payées, la demande est posée par le webhook et AUCUN e-mail client n'est parti (différé)",
+      "les 5 commandes sont payées, la demande est posée par le webhook et AUCUN e-mail client n'est parti (différé)",
     ]);
 
-    // 4 demandes, 3 par passage : deux passages. Le second ne reprend jamais l'issue inconnue.
+    // La résolution de la demande `resolveFails` échouera (panne simulée de la base juste après le POST).
+    await client.query(`create or replace function public._it_fail_resolve() returns trigger language plpgsql as $$
+      begin
+        if new.status = 'needs_human' then raise exception 'panne simulée de resolve_pms_booking_request'; end if;
+        return new;
+      end; $$`);
+    await client.query(`drop trigger if exists _it_fail_resolve on public.pms_booking_requests`);
+    await client.query(
+      `create trigger _it_fail_resolve before update on public.pms_booking_requests
+         for each row when (new.order_id = '${scenario.resolveFails.orderId}') execute function public._it_fail_resolve()`
+    );
+
+    // 5 demandes, 3 par passage : deux passages. Le second ne reprend jamais l'issue inconnue.
     const first = await runAsServiceRole(FUNCTIONS_URL);
     console.log("Passage 1 :", first.status, first.text);
     const second = await runAsServiceRole(FUNCTIONS_URL);
@@ -274,6 +290,27 @@ async function main() {
       [(await mails("dropped")) === 0, "AUCUN e-mail client"]
     );
 
+    // ── résolution en panne après un POST sans réponse : JAMAIS de second POST ───────────────────
+    const rf = scenario.resolveFails;
+    const apresPanne = (await client.query("select status, attempts from pms_booking_requests where order_id = $1", [rf.orderId])).rows[0];
+    checks.push(
+      [apresPanne?.status === "pending", `la résolution a échoué : la demande est restée pending (${apresPanne?.status})`],
+      [postsFor("resolveFails").length === 1, `un seul POST parti avant la panne (${postsFor("resolveFails").length})`],
+      [(await client.query("select pms_attempt_started_at is not null as marque from order_lines where id = $1", [rf.lineId])).rows[0].marque === true,
+        "le marqueur de tentative est posé en base (il survit à la panne de résolution)"]
+    );
+    await client.query("drop trigger _it_fail_resolve on public.pms_booking_requests");
+    await client.query("update pms_booking_requests set next_attempt_at = now() where order_id = $1", [rf.orderId]);
+    const third = await runAsServiceRole(FUNCTIONS_URL);
+    console.log("Passage 3 :", third.status, third.text);
+    const finale = (await client.query("select status from pms_booking_requests where order_id = $1", [rf.orderId])).rows[0];
+    checks.push(
+      [postsFor("resolveFails").length === 1, `AUCUN second POST au passage suivant (${postsFor("resolveFails").length})`],
+      [finale?.status === "needs_human", `la demande passe needs_human (${finale?.status})`],
+      [(await entries("resolveFails")).some((d) => d.includes(`hifago order_line ${rf.lineId}`)), "entrée de réconciliation portant la clé « hifago order_line <id> »"],
+      [(await mails("resolveFails")) === 0, "AUCUN e-mail client"]
+    );
+
     const { rows: heartbeat } = await client.query("select last_error, last_warning from job_heartbeats where job_name = $1", [JOB]);
     checks.push(
       [postBookings.every((post) => post.tokenInBody), "le jeton part dans le CORPS du POST (jamais dans l'URL)"],
@@ -289,6 +326,8 @@ async function main() {
     console.error(err);
     exitCode = 1;
   } finally {
+    await client.query("drop trigger if exists _it_fail_resolve on public.pms_booking_requests").catch(() => {});
+    await client.query("drop function if exists public._it_fail_resolve()").catch(() => {});
     await purgeFixtures(client).catch((err) => console.error("Nettoyage final a échoué :", err));
     await restoreHeartbeat(client, JOB, heartbeatBefore).catch((err) => console.error("Restauration du heartbeat a échoué :", err));
     await client.end();
