@@ -259,6 +259,29 @@ describe("buildPreferenceItems — event_date", () => {
     expect(item.category_descriptor).toEqual({ event_date: "2026-12-31T23:30:00.000-05:00" });
   });
 
+  it("pas de category_descriptor pour la catégorie services (type inconnu), ni pour un type absent", () => {
+    for (const productType of ["autre", null]) {
+      const [item] = buildPreferenceItems({
+        paymentId: PAYMENT_ID,
+        amountCop: 40000,
+        lines: [ligne({ productType })],
+      });
+      expect(item.category_id).toBe("services");
+      expect(item).not.toHaveProperty("category_descriptor");
+    }
+  });
+
+  it("category_descriptor pour travels et tickets seulement", () => {
+    for (const productType of ["lodging", "camp", "transport", "activity", "evento"]) {
+      const [item] = buildPreferenceItems({
+        paymentId: PAYMENT_ID,
+        amountCop: 40000,
+        lines: [ligne({ productType })],
+      });
+      expect(item.category_descriptor?.event_date).toMatch(/^2026-11-12T09:00:00\.000-05:00$/);
+    }
+  });
+
   it("omet event_date d'une date illisible plutôt que d'en inventer une", () => {
     const [item] = buildPreferenceItems({
       paymentId: PAYMENT_ID,

@@ -187,12 +187,15 @@ function itemOfLine(line: PreferenceLine): PreferenceItem | null {
   // Un acompte nul (evento gratuit, payable sur place) ne coûte rien : le porter en `unit_price: 0`
   // ferait refuser la préférence, et l'omettre ne change pas la somme.
   if (!Number.isInteger(line.acompteCop) || line.acompteCop <= 0) return null;
-  const date = eventDate(line);
+  const category = categoryForProductType(line.productType);
+  // `category_descriptor` est le bloc « industrie » de Mercado Pago (voyage, billetterie) : hors de
+  // `travels` et `tickets`, il n'a pas de sens, donc on ne l'envoie pas.
+  const date = category === "services" ? null : eventDate(line);
   return {
     id: line.id,
     title: lineTitle(line),
     description: describeLine(line),
-    category_id: categoryForProductType(line.productType),
+    category_id: category,
     quantity: 1,
     currency_id: "COP",
     unit_price: line.acompteCop,

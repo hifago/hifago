@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { MercadoPagoConfig, Payment, Preference } from "mercadopago";
 import {
   aggregatedItem,
@@ -47,6 +48,19 @@ export const PREFERENCE_REQUEST_BOUNDS = {
  * des bornes ci-dessus (18 s), sous le `maxDuration` de `/api/payments/create` (avec ses deux accès base).
  */
 export const PREFERENCE_DEADLINE_MS = 20_000;
+
+/**
+ * Clé d'idempotence = notre `payments.id` + une empreinte (8 hex) de ce que la préférence contient
+ * VRAIMENT (items et payer). Le corps varie d'un essai à l'autre — la lecture des lignes peut échouer
+ * au 1er clic (item agrégé) puis réussir au 2e (items détaillés) — et le comportement de Mercado Pago
+ * face à une même clé avec un corps différent n'est pas documenté. Même corps → même clé (la nouvelle
+ * tentative du SDK et un double clic ne créent pas deux préférences) ; corps différent → autre clé.
+ * Au pire deux préférences pour un même paiement : même `external_reference`, même montant.
+ */
+export function preferenceIdempotencyKey(paymentId: string, content: unknown): string {
+  const fingerprint = createHash("sha256").update(JSON.stringify(content)).digest("hex").slice(0, 8);
+  return `${paymentId}:${fingerprint}`;
+}
 
 async function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -183,10 +197,10 @@ export async function createCheckoutPreference(
       },
       notification_url: input.notificationUrl,
     },
-    // Clé liée à NOTRE paiement interne, pas une clé aléatoire par appel SDK : si Mercado Pago la
-    // respecte, un nouvel essai sur le MÊME payment_id ne crée pas une seconde préférence (cf.
-    // PREFERENCE_REQUEST_BOUNDS sur ce qui n'est pas garanti).
-    requestOptions: { idempotencyKey: input.paymentId },
+    // Clé liée à NOTRE paiement interne ET au contenu envoyé, pas une clé aléatoire par appel SDK :
+    // si Mercado Pago la respecte, un nouvel essai identique ne crée pas une seconde préférence (cf.
+    // PREFERENCE_REQUEST_BOUNDS sur ce qui n'est pas garanti, et preferenceIdempotencyKey).
+    requestOptions: { idempotencyKey: preferenceIdempotencyKey(input.paymentId, { items, payer }) },
   }), PREFERENCE_DEADLINE_MS);
 
   if (!response.init_point) {

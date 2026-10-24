@@ -304,7 +304,7 @@ Pro par simple redirection plein-écran vers `init_point` (un lien/`window.locat
 aucune brique/bouton intégré requis pour ce périmètre (un seul compte marchand, pas de
 personnalisation in-page). Conséquence directe : `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY` n'est pas
 nécessaire non plus. En-tête `X-Idempotency-Key` posé explicitement sur `Preference.create(...)`
-avec `payments.id` comme clé (pas une clé aléatoire par appel) — un retry réseau sur le même intent
+avec `payments.id` suivi d'une empreinte (8 hex) des items et du payer comme clé (2026-10-23 : le corps varie selon que la lecture des lignes réussit, une même clé avec un corps différent n'est pas documentée ; pas une clé aléatoire par appel) — un retry réseau sur le même intent
 ne crée jamais deux préférences distinctes.
 
 **Contenu de la préférence (2026-10-23, bug `cc_rejected_high_risk` en prod)** — la préférence
