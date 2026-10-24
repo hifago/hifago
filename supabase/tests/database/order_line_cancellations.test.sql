@@ -134,6 +134,10 @@ select p7_line('59', '46', '2029-03-01', 1, false);
 select p7_line('60', '47', '2029-03-01', 1, false);
 select p7_line('61', '48', '2029-03-01', 1, false);
 select p7_line('62', '49', '2029-03-01', 1, false);
+-- ADAPTÉ le 2026-10-24 (20261024120000) : une réservation MANUELLE du prestataire n'a jamais d'acompte
+-- (create_manual_order_line : acompte_cop = 0) — le fixture le reflète, sinon la ligne passerait pour une
+-- réservation jamais payée dont le prestataire n'est plus prévenu de l'annulation.
+update order_lines set acompte_cop = 0, referrer_commission_cop = 0, app_commission_cop = 0 where id = '7c700000-0000-4000-8000-000000000062';
 select p7_line('63', '50', '2029-03-01', 1, true);
 select p7_line('64', '51', '2029-03-01', 1, false);
 select p7_line('65', '52', '2029-03-01', 1, false);
@@ -204,7 +208,7 @@ select is(
       and strpos(body_html, 'Se anuló «Kayak &lt;b&gt;&amp;&lt;/b&gt;» del 01/03/2029 (cantidad: 1), reserva <strong>P7&lt;41&gt;&amp;</strong>.') > 0
       and strpos(body_html, 'Anulada por el cliente.') > 0 and strpos(body_html, 'La disponibilidad quedó liberada.') > 0
       and strpos(body_html, 'Kayak <b>') = 0 and strpos(body_html, 'P7<41>') = 0),
-  1, 'C6 : l''information au prestataire : produit et référence échappés, sujet brut, place libérée');
+  0, 'C6 : ADAPTÉ (20261024120000) — la commande 41 n''a jamais été payée : le prestataire, qui ne l''a jamais vue, n''est PAS informé (l''échappement de son e-mail est couvert par partner_sans_impayees.test.sql)');
 
 -- ── Commande PAYÉE annulée par le client : place rendue, acompte acquis (A3) ─
 set local role authenticated;
@@ -306,8 +310,8 @@ select is(
                      'partenaire', (select count(*)::int from p7_emails where related_id = '7c700000-0000-4000-8000-000000000061'
                                  and event_type = 'partner_order_line_cancelled'
                                  and strpos(body_html, 'Anulada por la administración de Hifago, a pedido del cliente.') > 0)),
-  jsonb_build_object('paiement', 'pending', 'booked', 8, 'client', 1, 'partenaire', 1),
-  'C21 : par l''admin : place rendue, intent pending NON annulé (décision C9), confirmation « a tu pedido »');
+  jsonb_build_object('paiement', 'pending', 'booked', 8, 'client', 1, 'partenaire', 0),
+  'C21 : par l''admin : place rendue, intent pending NON annulé (décision C9), confirmation « a tu pedido » ; ADAPTÉ (20261024120000) : commande en cours de paiement, jamais confirmée — le prestataire n''est pas prévenu');
 select set_order_line_status('7c700000-0000-4000-8000-000000000063', 'cancelled_by_client', 'a pedido del cliente');
 select is(
   (select array_agg(entry_type || ':' || status order by entry_type) from p7_ledger where order_line_id = '7c700000-0000-4000-8000-000000000063'),
@@ -381,7 +385,7 @@ select is(
   'C30 : une confirmation au client par annulation (pas pour expired, no_show, ni l''adresse sentinelle 62)');
 select is(
   (select count(*)::int from p7_emails where event_type = 'partner_order_line_cancelled' and recipient_email = 'p7-partner@test.local'),
-  14, 'C31 : une information au prestataire par annulation (sentinelle comprise), pas pour expired ni no_show');
+  10, 'C31 : une information au prestataire par annulation d''une réservation qu''il voyait (sentinelle comprise), pas pour expired ni no_show, ni pour une commande jamais payée (ADAPTÉ 20261024120000 : 14 → 10)');
 
 -- ── La règle, les gardes, les droits, l'ordre des verrous ────────────────
 select is(
