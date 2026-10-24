@@ -185,6 +185,7 @@ export function FichaProducto({
         maxQty={ficha.eventoReservable.maxQty}
         capacityMode={ficha.eventoReservable.capacityMode}
         occurrences={ficha.eventoReservable.occurrences}
+        startTime={ficha.ocurrencia?.hora ?? null}
       />
     ) : ficha.modoReserva === "evento" && (ficha.fechasEventoSinReserva?.length ?? 0) > 0 ? (
       // Spec 42 : un evento non réservable se note dans Mi viaje à l'une de ses dates — le

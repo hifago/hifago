@@ -44,6 +44,9 @@ export const LINE_SCOPED_REASONS = [
   "price_missing",
   // Migration 20261014031656 : une ligne dont la date est passée (heure de Colombie).
   "date_in_past",
+  // Migration 20261024130000 : le jour même, un créneau ou une occurrence d'evento dont l'heure de
+  // début est déjà passée (heure de Colombie).
+  "start_time_passed",
   // Migration 20261024110000 (prix Lobby) : le devis lu à chaud sur /pago manque, a plus de 15 min,
   // ou cote moins de places que la quantité demandée.
   "pms_quote_missing",

@@ -18,7 +18,7 @@ import {
   CLASSNAMES_CALENDRIER,
   localeCalendrier,
 } from "@/components/molecules/Calendar";
-import { startOfTodayInBogota } from "@hifago/domain";
+import { startOfTodayInBogota, startTimeHasPassed } from "@hifago/domain";
 import { useCart } from "@/lib/cart/CartContext";
 import { useAddToCart } from "@/lib/cart/useAddToCart";
 import { isoDeFecha, mesPorDefecto, ultimoDiaReservable } from "@/lib/reservas/calendario";
@@ -115,9 +115,16 @@ export function SlotReservationForm({
   const [selectedSlotStartTime, setSelectedSlotStartTime] = useState<string | undefined>();
   const [qty, setQty] = useState(minQty);
 
+  // Le jour même, un créneau déjà commencé à Guatapé n'est plus proposé (demande du 2026-10-24 : à
+  // 17 h 10, le yoga de 10 h 30 du jour ne se réserve plus) — retiré ici, à la source, pour que
+  // la date elle-même soit barrée quand plus aucun créneau du jour ne reste. create_order refuse de
+  // toute façon (`start_time_passed`, migration 20261024130000) un créneau passé entre-temps.
+  // Filtré dans le navigateur et pas dans `producto.ts` : la fiche serveur peut être servie depuis
+  // un cache, l'heure doit être celle de l'ouverture de la page.
   const byDate = useMemo(() => {
     const map = new Map<string, SlotRow[]>();
     for (const slot of slots) {
+      if (startTimeHasPassed(slot.slot_date, slot.slot_start_time)) continue;
       const list = map.get(slot.slot_date);
       if (list) list.push(slot);
       else map.set(slot.slot_date, [slot]);

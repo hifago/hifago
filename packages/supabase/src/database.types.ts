@@ -3998,6 +3998,10 @@ export type Database = {
       }
       slugify: { Args: { p_text: string }; Returns: string }
       start_offboarding: { Args: { p_partner_id: string }; Returns: Json }
+      start_time_has_passed: {
+        Args: { p_date: string; p_start_time: string }
+        Returns: boolean
+      }
       submit_establishment_creation_proposal: {
         Args: { p_payload: Json }
         Returns: Json

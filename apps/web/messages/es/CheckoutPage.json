@@ -41,6 +41,7 @@
     "no_matching_tier": "No hay tarifa para la cantidad elegida en este servicio. Cambia la cantidad.",
     "price_missing": "Este servicio no tiene precio por ahora. Contacta al establecimiento.",
     "date_in_past": "Esta fecha ya pasó. Elige otra fecha para este servicio.",
+    "start_time_passed": "Este horario ya empezó. Elige otro horario u otra fecha para este servicio.",
     "email_required": "El correo electrónico es obligatorio.",
     "email_invalid": "El correo electrónico no es válido.",
     "phone_required": "El número de WhatsApp es obligatorio.",

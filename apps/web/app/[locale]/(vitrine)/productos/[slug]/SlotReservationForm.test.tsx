@@ -95,3 +95,31 @@ describe("SlotReservationForm — max_qty", () => {
     expect(choisirCreneau(10, 7, 6).getAttribute("max")).toBe("3");
   });
 });
+
+// Demande du 2026-10-24 : le jour même, l'heure compte — à 17 h 10 à Guatapé, le créneau de 10 h 30
+// du jour n'est plus proposé. Instant ABSOLU (22 h 10 UTC = 17 h 10 à Guatapé), pour ne dépendre ni
+// du fuseau de la machine ni de celui de la CI.
+describe("SlotReservationForm — créneau du jour déjà commencé", () => {
+  const JOUR = "2026-06-01";
+  beforeEach(() => {
+    vi.setSystemTime(new Date("2026-06-01T22:10:00Z"));
+  });
+
+  it("masque le créneau passé du jour et garde celui à venir", () => {
+    guardarUltimosCriterios(`?desde=${JOUR}&hasta=${JOUR}`);
+    renderForm([
+      { slot_date: JOUR, slot_start_time: "10:30:00", capacity: 5, booked: 0, slot_duration_minutes: 60 },
+      { slot_date: JOUR, slot_start_time: "18:00:00", capacity: 5, booked: 0, slot_duration_minutes: 60 },
+    ]);
+
+    expect(screen.queryByTestId(`slot-chip-${JOUR}-10:30`)).toBeNull();
+    expect(screen.getByTestId(`slot-chip-${JOUR}-18:00`)).toBeTruthy();
+  });
+
+  it("refuse la date du jour quand tous ses créneaux sont passés", () => {
+    guardarUltimosCriterios(`?desde=${JOUR}&hasta=${JOUR}`);
+    renderForm([{ slot_date: JOUR, slot_start_time: "10:30:00", capacity: 5, booked: 0, slot_duration_minutes: 60 }]);
+
+    expect(screen.queryByTestId(`slot-chip-${JOUR}-10:30`)).toBeNull();
+  });
+});
