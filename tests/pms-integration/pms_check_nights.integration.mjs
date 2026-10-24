@@ -1,24 +1,21 @@
-// Spec 21 §8 — test d'intégration RÉEL du tunnel de réservation d'un logement PMS-backed :
-// `create_order` (la vraie RPC, depuis un vrai panier) puis `POST /api/pms/reserve-nights` (le vrai
-// Route Handler, contre un serveur de fixtures LobbyPMS).
+// Spec 21 §8.2 (Lobby APRÈS l'acompte, 2026-10-23) — test d'intégration RÉEL du tunnel de vérification
+// d'un logement PMS-backed : `create_order` (la vraie RPC, depuis un vrai panier) puis
+// `POST /api/pms/check-nights` (le vrai Route Handler, contre un serveur de fixtures LobbyPMS), et la
+// vraie RPC `hold_pms_nights` derrière.
 //
-// CE QU'IL PROUVE, ET POURQUOI IL N'EXISTAIT PAS. Le Route Handler `reserve-nights` n'était exercé
-// par AUCUN parcours : les specs Playwright l'interceptaient au niveau navigateur (un mock
-// `page.route`, retiré depuis), donc le handler lui-même ne tournait jamais, et son fichier Vitest mocke
-// entièrement Supabase. Autrement dit, la JONCTION entre `create_order` et `reserve-nights`
-// n'était vérifiée nulle part — alors que `create_order` a été réécrit DEUX fois depuis la dernière
-// vérification réelle du tunnel (spec 32 le 2026-09-10, correctif prix le 2026-09-16) et que le
-// handler filtre les lignes sur `status = 'reserved'` et `pms_booking_id is null`. Un changement de
-// statut par défaut aurait suffi à ce que la route ne trouve plus rien et réponde `{ok:true}` sans
-// créer le moindre booking — en silence, chez un vrai partenaire.
+// CE QU'IL PROUVE, ET POURQUOI IL EXISTE. La route lit Lobby à chaud, tient la place dans hifago
+// (hold_pms_nights) et NE CRÉE AUCUN BOOKING : la jonction route ↔ RPC (forme de l'instantané, nuits
+// [date, départ), verrou de catégorie) n'était vérifiée nulle part, et un changement de forme aurait
+// suffi à ce que la route tienne « rien » en répondant ok. Il prouve aussi la concurrence À TRAVERS la
+// route : deux paniers sur la dernière unité → exactement un ok, jamais deux.
 //
 // ⚠️ PRÉREQUIS, et le second n'est pas optionnel :
 //   1. `npx supabase start` actif.
 //   2. Un serveur Next lancé avec LOBBY_API_BASE_URL pointant sur CE serveur de fixtures :
 //        cd apps/web && LOBBY_API_BASE_URL=http://127.0.0.1:4546 npm run dev
-//      SANS cette variable, `reserve-nights` retombe sur LOBBY_DEFAULT_BASE_URL — c'est-à-dire le
-//      VRAI LobbyPMS, et le test créerait de vrais bookings chez un vrai partenaire. Le script
-//      refuse de tourner s'il détecte que le serveur ne pointe pas sur la fixture (voir plus bas).
+//      SANS cette variable, `check-nights` retombe sur LOBBY_DEFAULT_BASE_URL — c'est-à-dire le
+//      VRAI LobbyPMS (lecture seule, mais avec un jeton factice). Le script refuse de tourner s'il
+//      détecte que le serveur ne pointe pas sur la fixture.
 import pg from "pg";
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
@@ -30,11 +27,10 @@ const WEB_URL = process.env.WEB_URL ?? "http://127.0.0.1:3100";
 const FIXTURE_PORT = 4546;
 const LOBBY_CATEGORY_ID = 776001;
 
-let appels = { bookings: 0, addService: 0 };
-let refuserLeBooking = false;
-// Délai de réponse de `POST /bookings` : sans lui, deux POST concurrents ne se chevauchent jamais
-// côté Lobby et le scénario 3 ne prouverait rien.
-let delaiBookingMs = 0;
+let appels = { bookings: 0, addService: 0, availability: 0 };
+// Unités libres que la fixture cote pour la catégorie, chaque nuit ; `lobbyDown` rejoue une panne.
+let disponibilite = 5;
+let lobbyDown = false;
 
 function startFixtureServer() {
   const server = createServer((req, res) => {
@@ -47,28 +43,28 @@ function startFixtureServer() {
     // Sonde d'identité : c'est elle qui permet au test de REFUSER de tourner contre le vrai Lobby.
     if (req.method === "GET" && url.pathname === "/__fixture__") return send(200, { fixture: true });
 
-    if (req.method === "POST" && url.pathname === "/api/v1/bookings") {
-      appels.bookings++;
-      if (refuserLeBooking) {
-        // Le 422 réel : Lobby refuse une catégorie tout en l'ayant cotée disponible (spec 24 §11.2,
-        // C1 réfuté). Corps volontairement NON exploitable par parseLobbyBookingResponse.
-        return send(422, { message: "fixture: catégorie non réservable par API" });
+    // LA LECTURE (end_date INCLUSIF, un enregistrement par nuit — forme mesurée le 2026-08-28).
+    if (req.method === "GET" && url.pathname === "/api/v2/available-rooms") {
+      appels.availability++;
+      if (lobbyDown) return send(500, { message: "fixture: Lobby en panne" });
+      const nuits = [];
+      const fin = new Date(`${url.searchParams.get("end_date")}T00:00:00Z`);
+      for (let jour = new Date(`${url.searchParams.get("start_date")}T00:00:00Z`); jour <= fin; jour.setUTCDate(jour.getUTCDate() + 1)) {
+        nuits.push({
+          date: jour.toISOString().slice(0, 10),
+          categories: [{ category_id: LOBBY_CATEGORY_ID, available_rooms: disponibilite, plans: [] }],
+        });
       }
-      // Forme RÉELLE observée le 2026-08-27, jamais celle de la doc officielle
-      // ({"data":[{"idBooking":…}]}), qui s'est révélée fausse.
-      if (delaiBookingMs > 0) {
-        setTimeout(() => send(200, { booking: { booking_id: 90000001, room_id: 90000002 } }), delaiBookingMs);
-        return;
-      }
-      return send(200, { booking: { booking_id: 90000001, room_id: 90000002 } });
+      return send(200, { data: nuits, meta: { total_records: nuits.length, current_page: 1, records_per_page: 100, total_pages: 1 } });
     }
 
+    // Toute ÉCRITURE chez Lobby est une faute de cette route : elle est comptée, le test exige zéro.
+    if (req.method === "POST" && url.pathname === "/api/v1/bookings") {
+      appels.bookings++;
+      return send(200, { booking: { booking_id: 90000001, room_id: 90000002 } });
+    }
     if (req.method === "POST" && url.pathname === "/api/v1/booking/add-product-service") {
       appels.addService++;
-      // Aligné sur `packages/e2e-support/src/pmsFixtureServer.ts` : cette fixture-ci répondait
-      // `{add_product_service:true}`, l'autre `{sale:{…}}`. Deux descriptions contradictoires du
-      // même service dans le même dépôt — l'une des deux ment forcément, et c'est le mode de
-      // défaillance que l'en-tête du serveur partagé documente sur trois paragraphes.
       return send(200, { sale: { id: 90000003, total: 0 } });
     }
 
@@ -95,6 +91,7 @@ const ids = {
   acheteur3: randomUUID(),
   acheteur4: randomUUID(),
   acheteur5: randomUUID(),
+  acheteur6: randomUUID(),
 };
 
 async function poserFixtures(client) {
@@ -115,7 +112,7 @@ async function poserFixtures(client) {
 
 // Le VRAI chemin : un panier en base, puis create_order sous l'identité de l'acheteur — exactement
 // ce que fait le tunnel depuis la spec 32 (les lignes ne sont plus un paramètre).
-async function creerCommande(accountId, email) {
+async function creerCommande(accountId, email, decalage = 20) {
   const client = new Client({ connectionString: CONNECTION_STRING });
   await client.connect();
   try {
@@ -125,8 +122,9 @@ async function creerCommande(accountId, email) {
     // `scripts/check-timezone.sh` refuse à juste titre (un `Date` JS projette un instant, pas un
     // jour civil — c'est le lot fuseau du 2026-08-28).
     const { rows: jours } = await client.query(
-      `select to_char(today_in_bogota() + 20, 'YYYY-MM-DD') as debut,
-              to_char(today_in_bogota() + 22, 'YYYY-MM-DD') as fin`
+      `select to_char(today_in_bogota() + $1::int, 'YYYY-MM-DD') as debut,
+              to_char(today_in_bogota() + $1::int + 2, 'YYYY-MM-DD') as fin`,
+      [decalage]
     );
     const dateIso = jours[0].debut;
     const endIso = jours[0].fin;
@@ -164,6 +162,27 @@ async function panierRendu(client, accountId, dateIso, endIso) {
   };
 }
 
+async function intent(accountId, orderId) {
+  const client = new Client({ connectionString: CONNECTION_STRING });
+  await client.connect();
+  try {
+    await client.query("select set_config('request.jwt.claims', $1, false)", [JSON.stringify({ sub: accountId, role: "authenticated" })]);
+    const { rows } = await client.query("select create_payment_intent($1) as result", [orderId]);
+    return rows[0].result;
+  } finally {
+    await client.end();
+  }
+}
+
+const appelerRoute = async (orderId) => {
+  const reponse = await fetch(`${WEB_URL}/api/pms/check-nights`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderId }),
+  });
+  return { status: reponse.status, corps: await reponse.json().catch(() => null) };
+};
+
 async function main() {
   const server = await startFixtureServer();
   const client = new Client({ connectionString: CONNECTION_STRING });
@@ -171,7 +190,6 @@ async function main() {
 
   try {
     // ── Garde-fou : le serveur web pointe-t-il bien sur CETTE fixture ? ──────────────────────────
-    // Sans elle, un oubli de LOBBY_API_BASE_URL enverrait de vrais bookings chez Casa Kayam.
     let web;
     try {
       web = await fetch(`${WEB_URL}/es`, { method: "HEAD" });
@@ -185,206 +203,103 @@ async function main() {
     await nettoyer(client);
     await poserFixtures(client);
 
-    // ── 1. Chemin heureux ───────────────────────────────────────────────────────────────────────
-    const { result, dateIso } = await creerCommande(ids.acheteur, `reserve-nights-${ids.acheteur.slice(0, 8)}@hifago.test`);
+    // ── 1. Chemin heureux : lecture, place tenue, AUCUN booking ────────────────────────────────
+    disponibilite = 5;
+    const { result } = await creerCommande(ids.acheteur, `check-nights-${ids.acheteur.slice(0, 8)}@hifago.test`);
     verifier(result?.ok === true, `create_order accepte une ligne PMS-backed (${JSON.stringify(result).slice(0, 120)})`);
     const orderId = result?.order_id;
     if (!orderId) throw new Error("create_order n'a pas rendu d'order_id — le reste du test n'a plus de sens");
 
-    const { rows: avant } = await client.query(
-      "select status, pms_booking_id from order_lines where order_id = $1",
-      [orderId]
-    );
-    verifier(avant.length === 1, `une ligne créée (${avant.length})`);
-    verifier(
-      avant[0]?.status === "reserved",
-      `la ligne est en statut 'reserved' — c'est EXACTEMENT ce que reserve-nights filtre (${avant[0]?.status})`
-    );
-    verifier(avant[0]?.pms_booking_id === null, "aucun booking Lobby avant l'appel");
+    // Sans lecture, « Pagar » est refusé : aucune nuit PMS n'est ni bookée ni tenue.
+    const avantTenue = await intent(ids.acheteur, orderId);
+    verifier(avantTenue?.ok === false && avantTenue?.reason === "pms_booking_missing", `avant check-nights, l'intent est refusé pms_booking_missing (${JSON.stringify(avantTenue)})`);
 
-    const reponse = await fetch(`${WEB_URL}/api/pms/reserve-nights`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId }),
-    });
-    const corps = await reponse.json().catch(() => null);
-    console.log("réponse reserve-nights :", reponse.status, JSON.stringify(corps));
-
-    verifier(reponse.status === 200, `reserve-nights répond 200 (${reponse.status})`);
-    verifier(corps?.ok === true, "elle rend ok:true");
-    verifier(
-      appels.bookings === 1,
-      `UN booking demandé à Lobby (${appels.bookings}) — si 0, la route n'a trouvé aucune ligne et personne ne l'aurait su`
-    );
+    const { status, corps } = await appelerRoute(orderId);
+    console.log("réponse check-nights :", status, JSON.stringify(corps));
+    verifier(status === 200 && corps?.ok === true, `check-nights répond 200 ok:true (${status})`);
+    verifier(appels.availability >= 1, `Lobby a été LU à chaud (${appels.availability} lecture(s))`);
+    verifier(appels.bookings === 0 && appels.addService === 0, `AUCUNE écriture chez Lobby avant paiement (${appels.bookings} booking, ${appels.addService} service)`);
 
     const { rows: apres } = await client.query(
-      "select pms_booking_id from order_lines where order_id = $1",
+      `select ol.status, ol.pms_booking_id, ol.pms_held_at is not null as tenue, o.pms_checked_at is not null as verifiee
+         from order_lines ol join orders o on o.id = ol.order_id where ol.order_id = $1`,
       [orderId]
     );
-    verifier(
-      apres[0]?.pms_booking_id === "90000001",
-      `pms_booking_id écrit depuis le CORPS de la réponse Lobby (${apres[0]?.pms_booking_id})`
-    );
+    verifier(apres[0]?.status === "reserved" && apres[0]?.pms_booking_id === null, "la ligne reste réservée, sans booking Lobby");
+    verifier(apres[0]?.tenue === true && apres[0]?.verifiee === true, "la place est TENUE (pms_held_at) et la commande vérifiée (pms_checked_at)");
 
-    // Migration 20260918170000 : le miroir de disponibilité doit apprendre CE booking sans attendre
-    // sa fenêtre de fraîcheur (jusqu'à 24 h) — c'est le trou que le lot referme. `dateIso` vient de
-    // `today_in_bogota()` côté Postgres (jamais un Date JS) : le tronquer au mois par `slice(0, 7)`
-    // reste une opération sur une chaîne déjà civile, pas une projection de fuseau.
-    const { rows: syncState } = await client.query(
-      "select invalidated_at from pms_sync_state where establishment_id = $1 and month = $2",
-      [ids.establishment, dateIso.slice(0, 7)]
-    );
-    verifier(
-      syncState[0]?.invalidated_at != null,
-      `LE POINT DU LOT — reserve-nights invalide le mois du booking dans pms_sync_state (${JSON.stringify(syncState[0])})`
-    );
+    const avecTenue = await intent(ids.acheteur, orderId);
+    verifier(avecTenue?.ok === true, `après check-nights, l'intent de paiement est accordé (${JSON.stringify(avecTenue)})`);
 
-    // Idempotence : rappeler la route ne doit PAS recréer un booking (le claim ne renvoie que les
-    // lignes sans booking — 20260930221837).
-    const appelsAvant = appels.bookings;
-    await fetch(`${WEB_URL}/api/pms/reserve-nights`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId }),
-    });
-    verifier(
-      appels.bookings === appelsAvant,
-      `un second appel ne redemande RIEN à Lobby (${appels.bookings - appelsAvant}) — la ligne porte déjà son booking`
-    );
+    // Idempotence : rappeler la route ne change rien et ne crée toujours rien chez Lobby.
+    const second = await appelerRoute(orderId);
+    verifier(second.status === 200 && appels.bookings === 0, "un second appel reste ok et n'écrit toujours rien chez Lobby");
 
-    // ── 2. Lobby refuse la nuit ─────────────────────────────────────────────────────────────────
-    refuserLeBooking = true;
+    // ── 2. Nuit pleine ──────────────────────────────────────────────────────────────────────────
+    disponibilite = 0;
     const { result: result2, dateIso: debut2, endIso: fin2 } = await creerCommande(
       ids.acheteur2,
-      `reserve-nights-refus-${ids.acheteur2.slice(0, 8)}@hifago.test`
+      `check-nights-plein-${ids.acheteur2.slice(0, 8)}@hifago.test`,
+      30
     );
     const orderId2 = result2?.order_id;
-    verifier(Boolean(orderId2), "seconde commande créée pour le scénario de refus");
-
-    const reponse2 = await fetch(`${WEB_URL}/api/pms/reserve-nights`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId: orderId2 }),
-    });
-    const corps2 = await reponse2.json().catch(() => null);
-    console.log("réponse en cas de refus :", reponse2.status, JSON.stringify(corps2));
-
-    verifier(reponse2.status === 409, `un refus Lobby rend 409, jamais 200 (${reponse2.status})`);
-    verifier(corps2?.reason === "pms_refused", `motif 'pms_refused' (${corps2?.reason})`);
-    verifier(corps2?.released === true, "la commande est DÉFAITE — c'est ce qui garantit que rien n'est encaissé");
-
-    const { rows: apresRefus } = await client.query(
-      "select status from order_lines where order_id = $1",
-      [orderId2]
-    );
-    verifier(
-      apresRefus[0]?.status === "cancelled_by_provider",
-      `la ligne repasse en cancelled_by_provider (${apresRefus[0]?.status})`
-    );
+    verifier(Boolean(orderId2), "seconde commande créée pour le scénario de nuit pleine");
+    const plein = await appelerRoute(orderId2);
+    console.log("réponse nuit pleine :", plein.status, JSON.stringify(plein.corps));
+    verifier(plein.status === 409 && plein.corps?.reason === "pms_refused", `nuit pleine → 409 pms_refused (${plein.status} ${plein.corps?.reason})`);
+    verifier(plein.corps?.released === true, "la commande est DÉFAITE — c'est ce qui garantit que rien n'est encaissé");
+    const { rows: apresPlein } = await client.query("select status from order_lines where order_id = $1", [orderId2]);
+    verifier(apresPlein[0]?.status === "cancelled_by_provider", `la ligne repasse en cancelled_by_provider (${apresPlein[0]?.status})`);
     const { rows: paiement } = await client.query("select payment_status from orders where id = $1", [orderId2]);
     verifier(paiement[0]?.payment_status === "unpaid", `la commande reste 'unpaid' (${paiement[0]?.payment_status})`);
     const panier2 = await panierRendu(client, ids.acheteur2, debut2, fin2);
-    verifier(
-      panier2.ok,
-      `après le refus, le panier du client contient de nouveau la ligne relâchée (${JSON.stringify(panier2.rows)})`
-    );
+    verifier(panier2.ok, `le panier du client contient de nouveau la ligne relâchée (${JSON.stringify(panier2.rows)})`);
+    verifier(appels.bookings === 0, "Lobby n'a toujours reçu aucune écriture");
 
-    // ── 3. Dix POST simultanés sur la même commande → UN SEUL booking chez Lobby ────────────────
-    // Migration 20260930221837 : le claim sérialise les appels — un seul réserve la commande, les
-    // autres reçoivent pms_claim_in_progress. Mutation « claim sans bail » → plus d'un booking ici.
-    refuserLeBooking = false;
-    delaiBookingMs = 400;
-    const { result: result3 } = await creerCommande(
+    // ── 3. Lobby en panne ───────────────────────────────────────────────────────────────────────
+    disponibilite = 5;
+    lobbyDown = true;
+    const { result: result3, dateIso: debut3, endIso: fin3 } = await creerCommande(
       ids.acheteur3,
-      `reserve-nights-concurrence-${ids.acheteur3.slice(0, 8)}@hifago.test`
+      `check-nights-panne-${ids.acheteur3.slice(0, 8)}@hifago.test`,
+      40
     );
     const orderId3 = result3?.order_id;
-    verifier(Boolean(orderId3), "troisième commande créée pour le scénario de concurrence");
-    const bookingsAvant = appels.bookings;
-    const reponses3 = await Promise.all(
-      Array.from({ length: 10 }, () =>
-        fetch(`${WEB_URL}/api/pms/reserve-nights`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId: orderId3 }),
-        }).then(async (r) => ({ status: r.status, corps: await r.json().catch(() => null) }))
-      )
-    );
-    delaiBookingMs = 0;
-    const oks3 = reponses3.filter((r) => r.status === 200 && r.corps?.ok === true).length;
-    const enCours3 = reponses3.filter((r) => r.status === 409 && r.corps?.reason === "pms_claim_in_progress").length;
-    verifier(
-      appels.bookings - bookingsAvant === 1,
-      `10 POST simultanés → UN SEUL booking demandé à Lobby (${appels.bookings - bookingsAvant})`
-    );
-    verifier(oks3 === 1 && enCours3 === 9, `1 réponse 200, 9 réponses 409 pms_claim_in_progress (${oks3} / ${enCours3})`);
-    const { rows: apres3 } = await client.query("select pms_booking_id from order_lines where order_id = $1", [orderId3]);
-    verifier(apres3[0]?.pms_booking_id === "90000001", `la ligne porte le booking (${apres3[0]?.pms_booking_id})`);
+    const panne = await appelerRoute(orderId3);
+    lobbyDown = false;
+    verifier(panne.status === 409 && panne.corps?.reason === "pms_unreachable" && panne.corps?.released === true,
+      `Lobby en panne → 409 pms_unreachable, commande défaite — échec fermé (${panne.status} ${JSON.stringify(panne.corps)})`);
+    const panier3 = await panierRendu(client, ids.acheteur3, debut3, fin3);
+    verifier(panier3.ok, "panne : le panier du client est rendu");
 
-    // ── 4. Connecteur coupé ENTRE create_order et la route ──────────────────────────────────────
-    // CLAUDE.md §4.4 : un logement PMS dont le connecteur est coupé n'a plus aucun contrôle de
-    // capacité — la commande est défaite (échec fermé).
-    const { result: result4, dateIso: debut4, endIso: fin4 } = await creerCommande(
-      ids.acheteur4,
-      `reserve-nights-coupe-${ids.acheteur4.slice(0, 8)}@hifago.test`
+    // ── 4. La dernière unité, deux paniers simultanés → UN SEUL ok ──────────────────────────────
+    // hold_pms_nights sérialise sur le verrou de catégorie : mutation « sans le for update » → deux ok.
+    disponibilite = 1;
+    const { result: r4a } = await creerCommande(ids.acheteur4, `check-nights-course-a-${ids.acheteur4.slice(0, 8)}@hifago.test`, 60);
+    const { result: r4b } = await creerCommande(ids.acheteur5, `check-nights-course-b-${ids.acheteur5.slice(0, 8)}@hifago.test`, 60);
+    const course = await Promise.all([appelerRoute(r4a?.order_id), appelerRoute(r4b?.order_id)]);
+    const oks = course.filter((r) => r.status === 200 && r.corps?.ok === true).length;
+    const refus = course.filter((r) => r.status === 409 && r.corps?.reason === "pms_refused" && r.corps?.released === true).length;
+    verifier(oks === 1 && refus === 1, `dernière unité, 2 paniers simultanés → 1 ok, 1 pms_refused (${oks} / ${refus} : ${JSON.stringify(course.map((r) => r.status))})`);
+    verifier(appels.bookings === 0, "toujours aucune écriture chez Lobby");
+
+    // ── 5. Connecteur coupé ENTRE create_order et la route ──────────────────────────────────────
+    // CLAUDE.md §4.4 : la commande est défaite (échec fermé).
+    disponibilite = 5;
+    const { result: r5, dateIso: debut5, endIso: fin5 } = await creerCommande(
+      ids.acheteur6,
+      `check-nights-coupe-${ids.acheteur6.slice(0, 8)}@hifago.test`,
+      80
     );
-    const orderId4 = result4?.order_id;
-    verifier(Boolean(orderId4), "quatrième commande créée connecteur actif");
     await client.query("update establishments set lobby_connector_active = false where id = $1", [ids.establishment]);
-    const bookingsAvant4 = appels.bookings;
-    const reponse4 = await fetch(`${WEB_URL}/api/pms/reserve-nights`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId: orderId4 }),
-    });
-    const corps4 = await reponse4.json().catch(() => null);
-    verifier(
-      reponse4.status === 409 && corps4?.reason === "pms_unavailable" && corps4?.released === true,
-      `connecteur coupé → 409 pms_unavailable, commande relâchée (${reponse4.status} ${JSON.stringify(corps4)})`
-    );
-    verifier(appels.bookings === bookingsAvant4, "Lobby n'est jamais appelé pour un connecteur coupé");
-    const { rows: apres4 } = await client.query("select status from order_lines where order_id = $1", [orderId4]);
-    verifier(apres4[0]?.status === "cancelled_by_provider", `la ligne est défaite (${apres4[0]?.status})`);
-    const panier4 = await panierRendu(client, ids.acheteur4, debut4, fin4);
-    verifier(
-      panier4.ok,
-      `connecteur coupé : le panier du client contient de nouveau la ligne relâchée (${JSON.stringify(panier4.rows)})`
-    );
-
-    // ── 5. Trop tard pour payer (migration 20261001194704) ──────────────────────────────────────
-    // Passé limite de paiement − bail (28 − 5 = 23 min), le claim refuse `order_expiring` : Lobby
-    // n'est jamais appelé, aucun claim n'est posé, et la commande n'est PAS défaite (elle expirera
-    // seule, avec le vrai statut `expired`). On vieillit la donnée, jamais l'horloge.
+    const lecturesAvant = appels.availability;
+    const coupe = await appelerRoute(r5?.order_id);
     await client.query("update establishments set lobby_connector_active = true where id = $1", [ids.establishment]);
-    const { result: result5 } = await creerCommande(
-      ids.acheteur5,
-      `reserve-nights-echeance-${ids.acheteur5.slice(0, 8)}@hifago.test`
-    );
-    const orderId5 = result5?.order_id;
-    verifier(Boolean(orderId5), "cinquième commande créée");
-    await client.query("update orders set created_at = now() - interval '23 minutes 1 second' where id = $1", [orderId5]);
-    const bookingsAvant5 = appels.bookings;
-    const reponse5 = await fetch(`${WEB_URL}/api/pms/reserve-nights`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId: orderId5 }),
-    });
-    const corps5 = await reponse5.json().catch(() => null);
-    verifier(
-      reponse5.status === 409 && corps5?.reason === "order_expiring" && corps5?.released === false,
-      `commande de 23 min 1 s → 409 order_expiring, released:false (${reponse5.status} ${JSON.stringify(corps5)})`
-    );
-    verifier(appels.bookings === bookingsAvant5, "Lobby n'est jamais appelé passé la limite");
-    const { rows: apres5 } = await client.query(
-      `select ol.status, o.pms_reserve_claimed_at
-         from order_lines ol join orders o on o.id = ol.order_id
-        where ol.order_id = $1`,
-      [orderId5]
-    );
-    verifier(
-      apres5[0]?.status === "reserved" && apres5[0]?.pms_reserve_claimed_at === null,
-      `ligne toujours reserved, aucun claim posé (${apres5[0]?.status}, ${apres5[0]?.pms_reserve_claimed_at})`
-    );
+    verifier(coupe.status === 409 && coupe.corps?.reason === "pms_unavailable" && coupe.corps?.released === true,
+      `connecteur coupé → 409 pms_unavailable, commande relâchée (${coupe.status} ${JSON.stringify(coupe.corps)})`);
+    verifier(appels.availability === lecturesAvant, "Lobby n'est jamais lu pour un connecteur coupé");
+    const panier5 = await panierRendu(client, ids.acheteur6, debut5, fin5);
+    verifier(panier5.ok, "connecteur coupé : le panier du client est rendu");
   } finally {
     await nettoyer(client);
     await client.end();
@@ -399,7 +314,7 @@ async function main() {
 }
 
 async function nettoyer(client) {
-  const comptes = [ids.acheteur, ids.acheteur2, ids.acheteur3, ids.acheteur4, ids.acheteur5];
+  const comptes = [ids.acheteur, ids.acheteur2, ids.acheteur3, ids.acheteur4, ids.acheteur5, ids.acheteur6];
   // cart_items PUIS carts, avant le compte : un refus les recrée (20261014211217), et carts tient
   // une clé étrangère sur partner_accounts, supprimé en cascade avec auth.users plus bas.
   await client.query(`delete from cart_items where account_id = any($1::uuid[])`, [comptes]);
