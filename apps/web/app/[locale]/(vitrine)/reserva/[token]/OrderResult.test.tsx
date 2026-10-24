@@ -626,6 +626,12 @@ describe("bookingRecovery — chaque réponse de check-nights", () => {
       arret("pms_claim_in_progress"),
     ],
     [
+      "places tenues par d'autres commandes — le bouton reste, rien de relâché",
+      false,
+      { reason: "pms_contended", released: false },
+      arret("pms_contended"),
+    ],
+    [
       "refus, relâchée",
       false,
       { reason: "pms_refused", released: true },
@@ -711,6 +717,7 @@ describe("bookingRecovery — chaque réponse de check-nights", () => {
         "pms_unavailable",
         "pms_unreachable",
         "pms_claim_in_progress",
+        "pms_contended",
         "pms_unknown_outcome",
         "pms_unconfirmed",
         "order_not_found",

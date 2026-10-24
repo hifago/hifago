@@ -143,7 +143,21 @@ export async function POST(request: Request) {
       const released = await releaseOrder(service, orderId, "connecteur LobbyPMS coupé (pms_unavailable)");
       return failure(409, "pms_unavailable", released);
     }
-    case "full":
+    case "full": {
+      // « Complet » à cause des SEULES lignes en vol (dispo Lobby ≥ demande, mais d'autres commandes
+      // tiennent ou viennent de réserver ces places — la règle (b) compte même un booking de moins de
+      // 30 s deux fois) n'est PAS une indisponibilité : défaire la commande annulerait aussi un
+      // paiement `pending` d'un client parti payer. On ne relâche rien : la tenue expirera seule, et
+      // le client peut réessayer tout à l'heure. Un vrai « complet » (dispo < demande) reste défait.
+      const available = Number(hold.available);
+      const requested = Number(hold.requested);
+      const inFlight = Number(hold.in_flight);
+      if (Number.isFinite(available) && Number.isFinite(requested) && inFlight > 0 && available >= requested) {
+        return failure(409, "pms_contended", false);
+      }
+      const released = await releaseOrder(service, orderId, `hold_pms_nights : full ${truncate(JSON.stringify(hold))}`);
+      return failure(409, "pms_refused", released);
+    }
     case "not_quoted": {
       // La place n'existe pas (ou plus) : un vrai refus, présenté comme une indisponibilité.
       const released = await releaseOrder(service, orderId, `hold_pms_nights : ${hold.reason} ${truncate(JSON.stringify(hold))}`);

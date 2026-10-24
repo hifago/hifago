@@ -51,6 +51,7 @@
     "pms_unreachable": "No pudimos confirmar la disponibilidad con el alojamiento. No se cobró nada — inténtalo de nuevo en unos minutos.",
     "pms_unconfirmed_pending": "No pudimos confirmar tu reserva con el alojamiento. No se cobró nada. Si ves una reserva pendiente, se liberará sola en unos 30 minutos.",
     "pms_claim_in_progress": "Tu reserva ya se está confirmando con el alojamiento. Vuelve a intentarlo en unos minutos.",
+    "pms_contended": "Otra reserva está terminando de confirmarse sobre esas fechas. No se cobró nada: espera unos minutos y vuelve a intentarlo desde Mi viaje.",
     "order_placed_unreadable": "Tu reserva quedó registrada, pero no pudimos abrirla.",
     "unknown": "No se pudo completar el pedido. Inténtalo de nuevo."
   }
