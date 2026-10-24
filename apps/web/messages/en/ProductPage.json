@@ -39,6 +39,7 @@
   "clearCalendar": "Clear",
   "nightsCount": "{count, plural, one {# night} other {# nights}}",
   "rangeUnavailable": "Some night in this range is no longer available.",
+  "lobbyPriceMissing": "The property has no published price for one of these nights. Please choose other dates.",
   "pmsAvailabilityLoading": "Checking real availability...",
   "pmsAvailabilityError": "Could not check availability right now. Please try again later.",
   "pmsAvailabilityRetry": "Try again",

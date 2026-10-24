@@ -3,12 +3,14 @@ import {
   getNightAvailabilityRange,
   isPmsBacked,
   LOBBY_DEFAULT_BASE_URL,
+  lobbyOccupancyForUnit,
   nightsOfMonth,
   pickCategoryNights,
   pmsUnitsToCupos,
   isMonthWithinHorizon,
   todayInBogota,
   toMirrorRows,
+  unitPriceForOccupancy,
   type NightAvailabilityRow,
   type NightCatalogRow,
   type PmsFailure,
@@ -25,9 +27,10 @@ import { createServiceRoleClient } from "@hifago/supabase/service";
 // "un échec PMS ne défait jamais la commande" ne s'applique pas ici : rien n'est encore réservé, la
 // page doit pouvoir dégrader son affichage proprement en cas d'échec Lobby).
 //
-// Ne lit QUE la disponibilité (available_rooms), jamais un prix : Lobby n'est jamais la source du
-// prix côté hifago (cf. packages/domain/src/pms/buildEvenRatesPerDay.ts) — product_date_rates/
-// price_tiers restent la seule source de prix, y compris pour un produit PMS-backed.
+// Depuis le 2026-10-23 (prix public = prix Lobby, spec 24 §0 révisée), chaque nuit porte aussi
+// `unitPriceCop`, le prix Lobby d'UNE unité à l'occupation du produit — tiré du MÊME catalogue en
+// cache, sans appel Lobby de plus. Affichage seulement : le prix facturé vient du devis lu à chaud
+// sur /pago (lib/pms/quoteCart.ts), jamais de ce cache.
 export const runtime = "nodejs";
 
 // `MirrorRow` (packages/domain) n'a pas de signature d'index : la forme locale à ce cast, reprise
@@ -40,6 +43,7 @@ interface ProductRow {
   type: string;
   lobby_category_id: number | null;
   establishment_id: string;
+  unit: string | null;
 }
 
 interface EstablishmentRow {
@@ -146,7 +150,7 @@ export async function GET(request: Request) {
   // relecture autoritative doit reproduire la règle de la base, pas seulement s'y substituer.
   const { data: product, error: productError } = await service
     .from("products")
-    .select("id, type, lobby_category_id, establishment_id")
+    .select("id, type, lobby_category_id, establishment_id, unit")
     .eq("id", productId)
     .eq("sellable", true)
     .maybeSingle<ProductRow>();
@@ -316,9 +320,14 @@ export async function GET(request: Request) {
     // ce que hifago vend, lits compris pour une catégorie partagée (VIDPOVO = capacity 1 × quantity 8) :
     // multiplier par `products.capacity` donnait 8 × 8 = 64. Appliquée APRÈS le cache, en nouveaux
     // objets — ce qui est en cache appartient à l'établissement, jamais à un produit.
-    const cupos: NightAvailabilityRow[] = picked.nights.map((row) => ({
+    // Le prix Lobby d'une unité, à l'occupation du produit (per_two : 2, sinon 1) ; `null` si Lobby ne
+    // cote pas ce niveau cette nuit-là — la fiche désactive alors l'ajout (échec fermé).
+    const occupancy = lobbyOccupancyForUnit(product.unit);
+    const pricesByDate = new Map(catalog.map((row) => [row.date, row.pricesByCategory.get(categoryId)]));
+    const cupos: (NightAvailabilityRow & { unitPriceCop: number | null })[] = picked.nights.map((row) => ({
       ...row,
       capacity: pmsUnitsToCupos(row.capacity),
+      unitPriceCop: unitPriceForOccupancy(pricesByDate.get(row.date), occupancy),
     }));
 
     // `restrictedNights` ne porte QUE les nuits où Lobby pose une contrainte non nulle

@@ -48,6 +48,7 @@ export function lineasDelCarritoSimulado(): CartLineForDisplay[] {
       availability: { status: "available" },
       durationDays: ficha?.duracionDias ?? null,
       priceTiers: (ficha?.alojamiento?.priceTiers as CartLineForDisplay["priceTiers"]) ?? null,
+      pmsPrice: null,
     };
   });
 }

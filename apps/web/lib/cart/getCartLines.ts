@@ -1,6 +1,15 @@
 import { createClient } from "@hifago/supabase/server";
-import { resolveLocalizedField, asLocalizedField } from "@hifago/domain";
+import {
+  addDaysIso,
+  asLocalizedField,
+  lobbyOccupancyForUnit,
+  resolveLocalizedField,
+  unitPriceForOccupancy,
+  type LobbyNightPrices,
+} from "@hifago/domain";
 import type { PriceTier } from "@/lib/reservas/reservationRange";
+import { precioLobbyPorUnidad } from "@/lib/reservas/precioLobby";
+import type { PmsCartQuote } from "@/lib/pms/quoteCart";
 import type { Locale } from "@/messages";
 
 // Spec 32 (panier en base) — lecture JOINTE du panier de l'appelant, réservée aux Server
@@ -21,6 +30,19 @@ export type CartLineAvailability =
   | { status: "available" }
   | { status: "unavailable"; reason: string | null }
   | { status: "unknown" };
+
+/**
+ * Le prix d'une ligne Lobby à prix dynamique (`lobby_dynamic_pricing`, 2026-10-23) — `null` pour
+ * toute autre ligne, qui garde le calcul de `computeCartLineTotal` :
+ *   - `quoted` : le devis lu à chaud sur /pago, celui que create_order facturera ; `estimateCop`, ce
+ *     que le miroir laissait attendre, sert à dire que le prix a changé ;
+ *   - `estimated` : la somme des prix Lobby du miroir (/mi-viaje, ou /pago quand le devis a échoué) ;
+ *   - `pending` : rien d'estimable, « precio confirmado en el pago ».
+ */
+export type CartLinePmsPrice =
+  | { kind: "quoted"; totalCop: number; estimateCop: number | null }
+  | { kind: "estimated"; totalCop: number }
+  | { kind: "pending" };
 
 export type CartLineForDisplay = {
   id: string;
@@ -49,15 +71,28 @@ export type CartLineForDisplay = {
    * palier de quantité que `LodgingReservationForm.tsx` affiche déjà sur la fiche produit.
    */
   priceTiers: PriceTier[] | null;
+  /** Cf. `CartLinePmsPrice` : non nul seulement pour une ligne Lobby à prix dynamique. */
+  pmsPrice: CartLinePmsPrice | null;
 };
 
-export async function getCartLines(locale: Locale): Promise<CartLineForDisplay[]> {
+// Les raisons qui ne disent QUE « pas encore de devis » : sur /mi-viaje, aucun devis n'est pris (il
+// l'est au rendu de /pago), elles n'y signalent donc aucune indisponibilité.
+const PMS_QUOTE_REASONS = new Set(["pms_quote_missing", "pms_quote_expired"]);
+
+/**
+ * `pmsQuotes` : les devis que `quoteCart` vient de prendre (/pago seulement, AVANT cet appel). Absent
+ * (/mi-viaje) : une ligne Lobby à prix dynamique sans devis reste « disponible », au prix estimé.
+ */
+export async function getCartLines(
+  locale: Locale,
+  options: { pmsQuotes?: Map<string, PmsCartQuote> } = {}
+): Promise<CartLineForDisplay[]> {
   const supabase = await createClient();
   const [{ data, error }, verdicts] = await Promise.all([
     supabase
       .from("cart_items")
       .select(
-        "id, product_id, date, end_date, slot_start_time, qty, created_at, products(name, type, slug, price_cop, price_tiers, establishment_id, duration_days, establishment:establishments(id, name))"
+        "id, product_id, date, end_date, slot_start_time, qty, created_at, products(name, type, slug, price_cop, price_tiers, establishment_id, duration_days, lobby_category_id, unit, establishment:establishments(id, name, lobby_dynamic_pricing))"
       )
       // Ordre chronologique du séjour (Jérôme, 2026-09-16) : la date de la ligne d'abord, jamais
       // l'ordre d'ajout au panier. `created_at` en départage stable pour deux lignes à la même date.
@@ -78,9 +113,55 @@ export async function getCartLines(locale: Locale): Promise<CartLineForDisplay[]
     verdicts.error ? [] : (verdicts.data ?? []).map((verdict) => [verdict.id, verdict])
   );
 
+  // Prix Lobby (2026-10-23) : l'estimation de chaque ligne à prix dynamique, depuis le miroir — une
+  // requête pour tout le panier, seulement s'il porte une telle ligne.
+  const estimates = await estimateFromMirror(
+    supabase,
+    data.flatMap((row) =>
+      isLobbyPriced(row.products, row.end_date)
+        ? [
+            {
+              id: row.id,
+              establishmentId: row.products!.establishment!.id,
+              categoryId: row.products!.lobby_category_id as number,
+              occupancy: lobbyOccupancyForUnit(row.products!.unit),
+              date: row.date,
+              endDate: row.end_date as string,
+              qty: row.qty,
+            },
+          ]
+        : []
+    )
+  );
+
   return data.map((row) => {
     const product = row.products;
     const establishment = product?.establishment;
+    let availability: CartLineAvailability = product
+      ? toAvailability(verdictParLigne.get(row.id))
+      : { status: "unavailable", reason: "not_sellable" };
+    let pmsPrice: CartLinePmsPrice | null = null;
+    if (product && isLobbyPriced(product, row.end_date)) {
+      const estimateCop = estimates.get(row.id) ?? null;
+      const fallback: CartLinePmsPrice =
+        estimateCop !== null ? { kind: "estimated", totalCop: estimateCop } : { kind: "pending" };
+      const quote = options.pmsQuotes?.get(row.id);
+      if (options.pmsQuotes) {
+        // /pago : le devis frais fait foi. Échoué, il ferme l'envoi — sauf si la base signale déjà
+        // une autre raison, plus précise, qu'on garde.
+        pmsPrice = quote?.ok ? { kind: "quoted", totalCop: quote.totalCop, estimateCop } : fallback;
+        if (quote && !quote.ok) {
+          const verdictPrecis =
+            availability.status === "unavailable" && !PMS_QUOTE_REASONS.has(availability.reason ?? "");
+          if (!verdictPrecis) availability = { status: "unavailable", reason: quote.reason };
+        }
+      } else {
+        pmsPrice = fallback;
+        if (availability.status === "unavailable" && PMS_QUOTE_REASONS.has(availability.reason ?? "")) {
+          availability = { status: "available" };
+        }
+      }
+    }
     return {
       id: row.id,
       productId: row.product_id,
@@ -96,13 +177,74 @@ export async function getCartLines(locale: Locale): Promise<CartLineForDisplay[]
       priceCop: product?.price_cop ?? 0,
       // Produit masqué par la RLS (`products_select_public` : sellable seulement) : il n'est plus en
       // vente, quoi que dise — ou taise, en panne — la disponibilité.
-      availability: product
-        ? toAvailability(verdictParLigne.get(row.id))
-        : { status: "unavailable", reason: "not_sellable" },
+      availability,
       durationDays: product?.duration_days ?? null,
       priceTiers: (product?.price_tiers as PriceTier[] | null | undefined) ?? null,
+      pmsPrice,
     };
   });
+}
+
+type ProductForPricing = {
+  type: string;
+  lobby_category_id: number | null;
+  establishment: { id: string; lobby_dynamic_pricing: boolean } | null;
+} | null;
+
+// Une nuitée Lobby d'un établissement vendant au prix Lobby : même prédicat que create_order.
+function isLobbyPriced(product: ProductForPricing, endDate: string | null): boolean {
+  return Boolean(
+    product &&
+      product.type === "lodging" &&
+      product.lobby_category_id !== null &&
+      product.establishment?.lobby_dynamic_pricing &&
+      endDate
+  );
+}
+
+type LineToEstimate = {
+  id: string;
+  establishmentId: string;
+  categoryId: number;
+  occupancy: number;
+  date: string;
+  endDate: string;
+  qty: number;
+};
+
+// Σ des prix Lobby du miroir × qty, par ligne ; une ligne dont une nuit n'est pas cotée est absente de
+// la carte (« precio confirmado en el pago »). Une panne du miroir n'est pas une erreur du panier :
+// les lignes restent simplement sans estimation.
+async function estimateFromMirror(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  lines: LineToEstimate[]
+): Promise<Map<string, number>> {
+  const estimates = new Map<string, number>();
+  if (lines.length === 0) return estimates;
+
+  const from = lines.reduce((min, line) => (line.date < min ? line.date : min), lines[0].date);
+  const to = lines.reduce((max, line) => (line.endDate > max ? line.endDate : max), lines[0].endDate);
+  const { data, error } = await supabase
+    .from("pms_availability_mirror")
+    .select("establishment_id, lobby_category_id, date, prices")
+    .in("establishment_id", [...new Set(lines.map((line) => line.establishmentId))])
+    .in("lobby_category_id", [...new Set(lines.map((line) => line.categoryId))])
+    .gte("date", from)
+    .lt("date", to);
+  if (error || !data) return estimates;
+
+  const prices = new Map(
+    data.map((row) => [`${row.establishment_id}:${row.lobby_category_id}:${row.date}`, row.prices as LobbyNightPrices | null])
+  );
+  for (const line of lines) {
+    const nights: string[] = [];
+    for (let night = line.date; night < line.endDate && nights.length < 400; night = addDaysIso(night, 1)) nights.push(night);
+    const unit = precioLobbyPorUnidad(nights, (night) =>
+      unitPriceForOccupancy(prices.get(`${line.establishmentId}:${line.categoryId}:${night}`), line.occupancy)
+    );
+    if (unit !== null) estimates.set(line.id, unit * line.qty);
+  }
+  return estimates;
 }
 
 // Ce qui ferme l'envoi sur /pago : une ligne SIGNALÉE. Une disponibilité illisible (`unknown`) ne

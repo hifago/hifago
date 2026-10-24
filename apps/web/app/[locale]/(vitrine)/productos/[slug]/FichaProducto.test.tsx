@@ -75,6 +75,7 @@ function renderView(overrides: {
       priceTiers: null,
       maxQty: 1,
       esPmsBacked: true,
+      precioLobby: false,
       reservableEnLinea: overrides.reservableEnLinea ?? true,
       amenidades: overrides.amenidades ?? [],
     },
