@@ -846,6 +846,7 @@ export type Database = {
           holder_phone: string | null
           id: string
           order_id: string
+          pms_attempt_started_at: string | null
           pms_booked_at: string | null
           pms_booking_id: string | null
           pms_held_at: string | null
@@ -877,6 +878,7 @@ export type Database = {
           holder_phone?: string | null
           id?: string
           order_id: string
+          pms_attempt_started_at?: string | null
           pms_booked_at?: string | null
           pms_booking_id?: string | null
           pms_held_at?: string | null
@@ -908,6 +910,7 @@ export type Database = {
           holder_phone?: string | null
           id?: string
           order_id?: string
+          pms_attempt_started_at?: string | null
           pms_booked_at?: string | null
           pms_booking_id?: string | null
           pms_held_at?: string | null
@@ -2816,6 +2819,17 @@ export type Database = {
         Args: { p_partner_id: string }
         Returns: Json
       }
+      admin_pms_booking_requests: {
+        Args: { p_order_ids: string[] }
+        Returns: {
+          attempts: number
+          last_error: string
+          order_id: string
+          request_id: string
+          status: string
+          updated_at: string
+        }[]
+      }
       admin_rename_catalog_amenity: {
         Args: { p_amenity_id: string; p_label_en: string; p_label_es: string }
         Returns: Json
@@ -2826,6 +2840,10 @@ export type Database = {
       }
       admin_rename_partner: {
         Args: { p_display_name: string; p_note?: string; p_partner_id: string }
+        Returns: Json
+      }
+      admin_resolve_pms_booking_request: {
+        Args: { p_action: string; p_bookings?: Json; p_request_id: string }
         Returns: Json
       }
       admin_update_partner_profile: {
@@ -2976,6 +2994,14 @@ export type Database = {
           lobby_api_token: string
           month: string
         }[]
+      }
+      clear_pms_booking_attempt: {
+        Args: {
+          p_claimed_at: string
+          p_order_id: string
+          p_order_line_id: string
+        }
+        Returns: Json
       }
       client_key_for_order: {
         Args: {
@@ -3362,6 +3388,14 @@ export type Database = {
       mark_notification_email_sent: {
         Args: { p_id: string; p_provider_message_id: string }
         Returns: undefined
+      }
+      mark_pms_booking_attempt: {
+        Args: {
+          p_claimed_at: string
+          p_order_id: string
+          p_order_line_id: string
+        }
+        Returns: Json
       }
       mark_pms_sync_due: {
         Args: { p_establishment_id: string; p_from: string; p_to: string }

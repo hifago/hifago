@@ -15,9 +15,10 @@
 --   - create_order : l'e-mail 8 part à la création d'une commande sans rien à payer en ligne
 --     (evento gratuit), jamais quand un acompte est dû ;
 --   - resolve_pms_cancellation_restricted : l'annulation refusée (booking payé) est close ET part en
---     réconciliation « annuler à la main dans Lobby », une fois par booking ; sans ligne, close seule.
+--     réconciliation « annuler à la main dans Lobby », une fois par booking ; sans ligne qui porte le
+--     booking, jamais close en silence : en échec, avec un motif explicite (migration 20261023150000).
 begin;
-select plan(29);
+select plan(30);
 
 create function t_id(p text) returns uuid language sql as $$
   select ('7e140000-0000-4000-8000-' || lpad(p, 12, '0'))::uuid;
@@ -299,10 +300,22 @@ reset role;
 select is(
   jsonb_build_object(
     'entrees_r1', (select count(*)::int from pms_reconciliation_entries where order_line_id = t_id('2401')),
-    'file_r1', (select status from pms_cancellation_queue where id = t_id('5002')),
-    'file_sans_ligne', (select status from pms_cancellation_queue where id = t_id('5003'))),
-  jsonb_build_object('entrees_r1', 1, 'file_r1', 'done', 'file_sans_ligne', 'done'),
-  'X6 : jamais une seconde entrée ouverte pour le même booking ; sans ligne qui le porte, la file seule est close');
+    'file_r1', (select status from pms_cancellation_queue where id = t_id('5002'))),
+  jsonb_build_object('entrees_r1', 1, 'file_r1', 'done'),
+  'X6 : jamais une seconde entrée ouverte pour le même booking');
+-- Migration 20261023150000 : sans ligne qui le porte, l'annulation refusée n'est plus close en silence
+-- ('done') — 'failed', motif explicite : claim_pms_cancellation_batch ne la reprend pas, la supervision
+-- la voit.
+select is(
+  (select jsonb_build_object('statut', status, 'code', lobby_status_code, 'erreur', last_error, 'clos', processed_at = now(),
+                             'entrees', (select count(*)::int from pms_reconciliation_entries r
+                                           join order_lines ol on ol.id = r.order_line_id
+                                          where ol.pms_booking_id = 'BK-LA-NONE'))
+     from pms_cancellation_queue where id = t_id('5003')),
+  jsonb_build_object('statut', 'failed', 'code', 422,
+                     'erreur', '422 RESTRICTED_RESERVATION — aucune ligne hifago ne porte le booking BK-LA-NONE : annulation à vérifier à la main dans Lobby',
+                     'clos', true, 'entrees', 0),
+  'X7 : sans ligne qui porte le booking → failed, motif explicite (annulation à vérifier à la main), aucune entrée');
 
 select * from finish();
 rollback;

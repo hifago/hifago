@@ -117,6 +117,11 @@ insert into tmp_grant_only (name) values
   ('resolve_pms_booking_request'),
   ('resolve_pms_cancellation_restricted'),
   ('invoke_pms_book_paid_orders'),        -- cron pms-book-paid-orders et trigger de la file
+  -- Marqueur de tentative (migration 20261023150000) : posé avant chaque POST /bookings, effacé quand
+  -- l'appel n'a pas pu créer de booking — par pms-book-paid-orders seule. Effacer le marqueur d'une
+  -- issue inconnue rouvrirait un second booking payé chez Lobby.
+  ('mark_pms_booking_attempt'),
+  ('clear_pms_booking_attempt'),
   -- Helpers INTERNES des e-mails de confirmation (appelés en propriétaire par apply_payment_webhook,
   -- resolve_pms_booking_request et create_order) : fermés à tous, service_role compris.
   ('notify_order_confirmed'),
