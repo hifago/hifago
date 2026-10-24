@@ -63,9 +63,8 @@ const CHUNK_SIZE = 6;
  *
  * Corollaire, assumé et exploité par l'appelant : ce que cette fonction rend n'appartient plus à un
  * produit mais à un ÉTABLISSEMENT. Le cache doit donc être clé par établissement, plus par produit
- * — et la conversion unités → cupos (`cuposPerUnit`), qui dépend du `lodging_kind` et de la
- * `capacity` de CHAQUE produit, se fait obligatoirement APRÈS cette lecture, produit par produit.
- * Deux produits pointant la même catégorie Lobby peuvent avoir des capacités différentes.
+ * — et la conversion unités → cupos (`pmsUnitsToCupos`, facteur 1 depuis le 2026-10-23) se fait
+ * APRÈS cette lecture, en nouveaux objets, jamais sur les lignes en cache.
  *
  * Port de mapChunked (app legacy, src/services/portalService.js) : lots séquentiels, appels
  * parallèles intra-lot — évite de saturer Lobby tout en restant raisonnablement rapide.

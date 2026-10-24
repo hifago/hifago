@@ -2,10 +2,10 @@ import { cache } from "react";
 import {
   asLocalizedField,
   asLodgingKind,
-  cuposPerUnit,
   hasActiveRestriction,
   isPmsBacked,
   lastBookableDateIso,
+  pmsUnitsToCupos,
   resolveLocalizedField,
   todayInBogota,
 } from "@hifago/domain";
@@ -403,12 +403,9 @@ export const getProductoPorSlug = cache(
       // crawler comme pour un visiteur qui n'a rien cliqué. `disponibilidad` est déjà filtrée sur
       // `gte("date", hoyIso)` et triée par date plus haut : on prend la première, sans refiltrer.
       primeraSalidaIso: (disponibilidad ?? [])[0]?.date ?? null,
-      // CONVERSION UNITÉS LOBBY → CUPOS pour un PMS-backed, exactement la même règle que
-      // /api/pms/night-availability : `available_units` compte des chambres/tentes/lits-unités,
-      // tout le reste de hifago compte des cupos (`qty`, `min_qty`/`max_qty`, `price_tiers`). Elle
-      // est appliquée PAR PRODUIT, jamais en amont — deux produits liés à la même catégorie Lobby
-      // peuvent avoir des `lodging_kind`/`capacity` différents, et le miroir est partagé par
-      // établissement+catégorie. `booked: 0` parce que le miroir porte déjà le RESTANT, pas un
+      // UNITÉS LOBBY → CUPOS pour un PMS-backed, même règle que /api/pms/night-availability :
+      // facteur 1 (`pmsUnitsToCupos`) — Lobby compte déjà des lits pour une catégorie partagée
+      // (VIDPOVO : 8 et non 8 × capacity). `booked: 0` parce que le miroir porte déjà le RESTANT, pas un
       // compteur (la soustraction est faite chez Lobby).
       // Seules les nuits sous contrainte NON NULLE, via le même prédicat que la route publique
       // (`hasActiveRestriction`) — jamais une contrainte inventée pour une nuit qui n'en porte pas.
@@ -439,8 +436,7 @@ export const getProductoPorSlug = cache(
             const unites = (fila as { date: string; available_units: number }).available_units;
             return {
               date: fila.date,
-              capacity:
-                unites * cuposPerUnit(asLodgingKind(producto.lodging_kind), producto.capacity),
+              capacity: pmsUnitsToCupos(unites),
               booked: 0,
             };
           })

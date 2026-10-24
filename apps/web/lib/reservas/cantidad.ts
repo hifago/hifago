@@ -50,3 +50,29 @@ export function pisoCantidad(min: number, max: number): number {
 export function topeCantidad(max: number): number {
   return Math.max(max, 1);
 }
+
+/** Plafond par ligne de `create_order` quand `products.max_qty` est NULL (`coalesce(max_qty, 20)`). */
+export const TOPE_CANTIDAD_POR_DEFECTO = 20;
+
+/**
+ * Le plafond de quantité d'un séjour PMS : `min(max_qty ou 20, places restantes)` — v1 :
+ * « limite effective = min(maxUnits, unités libres aux dates) ».
+ *
+ * Avec une plage choisie, ce sont les MOINS fournies de ses nuits qui bornent (une nuit absente de
+ * `restantes` vaut 0 : fail-closed, comme `nuitReservable`). Sans plage, on ne sait pas encore quelles
+ * nuits seront retenues : le MAXIMUM des nuits chargées, pour ne pas brider avant d'avoir un choix.
+ * Aucune nuit chargée → seul `maxQty` borne, et `create_order` reste le filet.
+ */
+export function plafondCantidad(
+  maxQty: number | null,
+  restantes: ReadonlyMap<string, number>,
+  nochesElegidas: readonly string[]
+): number {
+  const tope = maxQty !== null && maxQty > 0 ? maxQty : TOPE_CANTIDAD_POR_DEFECTO;
+  if (nochesElegidas.length > 0) {
+    const minimo = Math.min(...nochesElegidas.map((noche) => restantes.get(noche) ?? 0));
+    return Math.min(tope, Math.max(minimo, 0));
+  }
+  if (restantes.size === 0) return tope;
+  return Math.min(tope, Math.max(...restantes.values(), 0));
+}

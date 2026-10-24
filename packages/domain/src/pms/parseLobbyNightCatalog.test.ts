@@ -285,8 +285,8 @@ describe("parseLobbyNightCatalog — forme mono-nuit observée", () => {
   });
 
   it("tronque une valeur fractionnaire — jamais une demi-place à vendre", () => {
-    // `available_rooms` compte des unités physiques. Un 2.5 deviendrait 2.5 cupos après
-    // multiplication par cuposPerUnit, donc une demi-place mise en vente.
+    // `available_rooms` compte des unités physiques. Un 2.5 deviendrait 2.5 cupos (une unité Lobby =
+    // un cupo, pmsUnitsToCupos), donc une demi-place mise en vente.
     const parsed = parseLobbyNightCatalog({
       date: "2026-09-26",
       categories: [{ category_id: VIDPOVO, available_rooms: 2.5 }],
