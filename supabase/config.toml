@@ -508,6 +508,9 @@ deno_version = 2
 [functions.payments-reconcile]
 verify_jwt = true
 
+[functions.pms-book-paid-orders]
+verify_jwt = true
+
 [functions.pms-cancel-bookings]
 verify_jwt = true
 
