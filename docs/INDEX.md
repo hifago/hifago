@@ -25,10 +25,10 @@
 - écrire une spec : les questions à poser, puis le gabarit → [specs/avant-la-spec.md](specs/avant-la-spec.md), [specs/_modele.md](specs/_modele.md)
 
 ## Cadrage — la cible de la refonte
-- [Audit du modèle de données cible — entités partagées](00-modele-de-donnees.md) 56K
+- [Audit du modèle de données cible — entités partagées](00-modele-de-donnees.md) 57K
 - [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 99K
 - [Cahier des charges — portail socio (aujourd'hui /partner)](02-cahier-des-charges-socio.md) 58K
-- [Cahier des charges — back-office admin (aujourd'hui /admin)](03-cahier-des-charges-admin.md) 50K
+- [Cahier des charges — back-office admin (aujourd'hui /admin)](03-cahier-des-charges-admin.md) 51K
 - [Choix de stack et architecture cible](04-architecture-cible.md) 78K
 - [Référence technique — patterns validés et extensions requises](05-reference-technique.md) 9K
 - [Emails transactionnels — les 13 envois possibles, leur déclencheur…](06-emails-transactionnels.md) 16K
@@ -58,7 +58,7 @@
 - [Connecteur LobbyPMS — contrat générique multi-prestataire](specs/21-connecteur-lobbypms.md) 51K ◐ · §0 offset 60 limit 59 · reste : Tranche 1 implémentée le 2026-08-19, disponibilité live côté client comblée le…
 - [Vue référent restreinte — pas d'établissement/mis reservas, liste…](specs/22-vue-referent-restreinte.md) 13K ✓ · §0 offset 43 limit 77
 - [Notifications email transactionnelles (invitation, modération,…](specs/23-notifications-email-transactionnelles.md) 49K ✓ · §0 offset 62 limit 167
-- [Surface LobbyPMS exploitée, parcours front d'un produit lié, et…](specs/24-modele-hebergement-et-surface-lobbypms.md) 33K ◐ · §0 offset 60 limit 71 · reste : Lot A implémenté le 2026-08-26 ; Lot B gelé (observation préprod requise) ; T1/T2/T3 de…
+- [Surface LobbyPMS exploitée, parcours front d'un produit lié, et…](specs/24-modele-hebergement-et-surface-lobbypms.md) 37K ◐ · §0 offset 62 limit 105 · reste : Lot A implémenté le 2026-08-26 ; Lot B gelé (observation préprod requise) ; T1/T2/T3 de…
 - [Propagation d'une annulation hifago vers LobbyPMS (C2)](specs/25-propagation-annulation-lobbypms.md) 12K ✓ · sans §0
 - [Référencement de la vitrine : Google et moteurs de réponse IA](specs/26-referencement-seo-et-moteurs-ia.md) 32K ✓ · §0 offset 47 limit 83
 - [Architecture de la vitrine : routes, zones, coquilles et couche…](specs/27-architecture-vitrine-et-routage.md) 32K ✓ · §0 offset 52 limit 116

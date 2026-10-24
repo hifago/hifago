@@ -9,7 +9,9 @@ reste: >
   Lot A implémenté le 2026-08-26 ; Lot B gelé (observation préprod requise) ; T1/T2/T3 de la cible
   modèle LIVRÉS le 2026-08-27 — l'étage hôtel n'existe plus. T4 (import Lobby avancé) reste à
   faire. Impact sur les quatre cahiers relu le 2026-09-07 (relecture intégrale) et reporté dans
-  leur en-tête « Écarts connus » — voir le champ `revise:` ci-dessous.
+  leur en-tête « Écarts connus » — voir le champ `revise:` ci-dessous. §0 révisé le 2026-10-23
+  (bugs 6 et 3) : une unité Lobby vaut un cupo, et le prix public d'une nuit Lobby est le prix Lobby
+  (retour au cahier client §5).
 revise:
   - "docs/00-modele-de-donnees.md#1"
   - "docs/00-modele-de-donnees.md#3"
@@ -17,7 +19,7 @@ revise:
   - "docs/01-cahier-des-charges-client.md#5"
   - "docs/02-cahier-des-charges-socio.md#3d"
   - "docs/03-cahier-des-charges-admin.md#3c"
-maj: 2026-08-27
+maj: 2026-10-23
 resume: >
   Audit de ce que l'API LobbyPMS expose réellement face à ce que hifago en consomme, refonte du
   parcours front d'un produit lié (voir ce qu'on a choisi, importer ce que Lobby en sait), et
@@ -62,8 +64,11 @@ repond_a:
 ### La frontière, une fois pour toutes
 
 > **Lobby fait foi sur la DISPONIBILITÉ** — relue à chaud, jamais copiée en base.
-> **Sur tout le reste (nom, description, photos, capacité, prix), hifago fait foi** ; Lobby ne fait
-> que **proposer** une valeur au moment où on établit le lien.
+> **Lobby fait foi sur le PRIX d'une nuit** quand l'établissement vend au prix Lobby
+> (`establishments.lobby_dynamic_pricing`, depuis le 2026-10-23 — invariant ci-dessous), relu à chaud
+> au paiement.
+> **Sur tout le reste (nom, description, photos, capacité), hifago fait foi** ; Lobby ne fait que
+> **proposer** une valeur au moment où on établit le lien.
 
 Pourquoi l'import plutôt que le miroir permanent : la fiche publique est rendue en SSR avec i18n et
 SEO, elle ne peut pas dépendre d'un appel Lobby au rendu — c'est déjà la raison pour laquelle
@@ -86,17 +91,48 @@ officielle de Lobby s'est **déjà révélée fausse** sur `POST /bookings`, don
 | `parseLobbyServices.ts` | `GET /api/v1/products` → services (`value` **indicatif**, `infinite_inventory`, `stock`) |
 | `buildLobbyBookingNote.ts` | note du booking — seul champ libre, Lobby n'ayant aucun champ email/téléphone |
 | `fetchLobbyPhoto.ts` | récupération **bornée** d'une photo Lobby (liste blanche d'hôtes, refus des redirections, plafond sur les octets **reçus**, timeout) + `remainingPhotoSlots` |
+| `parseLobbyNightCatalog.ts` | `GET /api/v2/available-rooms` → par nuit et par catégorie : unités libres, restrictions, et (2026-10-23) prix par occupation `plans[].prices[{people, value}]` |
+| `quoteLobbyStay.ts` | devis PUR d'un séjour : prix d'une unité nuit par nuit + minimum des places, ou `night_missing` / `price_missing` / `insufficient` |
 
 ### Invariants
 
-- **Le prix ne vient jamais de Lobby.** `value`/`plans[].prices[]` ne sont affichés qu'à titre
-  indicatif. `product_date_rates`/`price_tiers` restent la seule source du prix de vente.
+- **Le prix public d'une nuit Lobby EST le prix Lobby, sans marge** — révisé le 2026-10-23, sur un
+  fait nouveau : Gabriel a constaté en production que le prix ne variait ni avec les dates ni avec le
+  nombre de personnes. Retour au cahier client §5 (validé par Jérôme le 2026-08-11) et à la v1
+  (`priceForPeople`, `src/services/portalService.js`, qui lisait `value`). La commission reste une
+  **part** du total (§3b), jamais une majoration. Sous-règles :
+  - (a) occupation EXACTE — 2 si le produit est vendu `per_two`, 1 sinon — et **échec fermé** si ce
+    niveau n'est pas coté (jamais le repli `list[0]` de la v1) ;
+  - (b) le plan `STANDARD_RATE`, sinon le premier plan qui porte des prix ; (c) en COP ; (d) tel
+    quel (arrondi au peso). Un `value` absent, illisible ou ≤ 0 est omis, jamais fabriqué.
+  - **Où il est lu** : à chaud sur `/pago` (`apps/web/lib/pms/quoteCart.ts`), qui enregistre un DEVIS
+    par ligne de panier (`pms_cart_quotes`, `record_pms_cart_quotes`) ; `create_order` exige ce devis
+    (même produit, mêmes dates, moins de 15 min : `pms_quote_missing` / `pms_quote_expired`), refuse
+    une quantité au-delà des places cotées (`pms_capacity_exceeded`), facture Σ des nuits et fige la
+    ventilation (`order_lines.pms_nightly_unit_prices`, envoyée à Lobby nuit par nuit). La capacité
+    « en vol » reste tenue par `hold_pms_nights`. Migrations 20261024100000 et 20261024110000.
+  - **Affichage** : la fiche et le panier estiment au prix Lobby du miroir
+    (`pms_availability_mirror.prices`, ou `unitPriceCop` de `night-availability`) ; cartes, listes et
+    JSON-LD gardent `price_cop` comme « desde ».
+  - **Interrupteur** `establishments.lobby_dynamic_pricing` (allumé par la migration pour tout
+    établissement relié à Lobby) ; éteint, le prix fixe hifago (`product_date_rates`/`price_tiers`)
+    s'applique comme avant. Retour arrière : `update public.establishments set lobby_dynamic_pricing
+    = false;`.
+  > Historique : jusqu'au 2026-10-23 cet invariant disait « Le prix ne vient jamais de Lobby.
+  > `value`/`plans[].prices[]` ne sont affichés qu'à titre indicatif. » (cf. §2 point 3).
 - **Un `type='hotel'` n'est jamais PMS-backed** (`isPmsBacked` = `lodging` + `lobby_category_id`).
 - **Une langue de contenu hors `es`/`en` n'est jamais écrite** — l'éditeur (`LocalizedTextField`) est
   fermé à ces deux langues et `activeLang` s'initialise à `es` : une clé `pt` importée serait publiée
   par repli, invisible dans l'éditeur et non supprimable. Le parseur la signale à l'écran au lieu de
   l'écrire.
-- **Lobby compte en UNITÉS, hifago en CUPOS — toute lecture de disponibilité doit convertir.**
+- **Une unité Lobby vaut un cupo pour un produit PMS-backed** (`pmsUnitsToCupos`,
+  `packages/domain/src/products/lodgingCupos.ts`, révisé le 2026-10-23, bug 6). Une catégorie Lobby
+  `compartida` compte DÉJÀ des lits — VIDPOVO = `capacity:1 × quantity:8` (§11.1) — et la
+  multiplication par `products.capacity` décrite ci-dessous affichait 8 × 8 = 64 cupos. C'est la
+  règle de la v1 (une unité Lobby = une unité de quantité, limite = min(`max_qty`, unités libres)).
+  La fiche borne la quantité de même (`plafondCantidad`, `apps/web/lib/reservas/cantidad.ts`).
+  > Historique, périmé pour le PMS : **Lobby compte en UNITÉS, hifago en CUPOS — toute lecture de
+  > disponibilité doit convertir.**
   `available_rooms` (`/api/v2/available-rooms`) renvoie un nombre de chambres/tentes/lits-unités
   libres. `product_availability.capacity`, `order_lines.qty`, `min_qty`/`max_qty` et `price_tiers`
   comptent, eux, des cupos — et le garde-fou `capacity_exceeds_physical`
@@ -171,6 +207,9 @@ manuelle » qui affiche l'entier brut), ni ce que Lobby sait de cette chambre.
 3. **Le prix Lobby est quasi dégénéré.** Sondé en live le 2026-07-06 : les trois dortoirs Casa Kayam
    n'exposent un tarif qu'à `people=1`. La règle « Lobby n'est jamais la source du prix » n'est pas
    un choix d'architecture abstrait, c'est une nécessité.
+   > ⚠️ **Révisé le 2026-10-23** (§0) : un tarif à `people=1` est exactement le prix d'un LIT de
+   > dortoir — ce n'est pas une dégénérescence, c'est le prix à vendre. Le prix public d'une nuit
+   > Lobby est désormais le prix Lobby.
 
 ## 3. Parcours front d'un produit lié (Lot A, implémenté)
 

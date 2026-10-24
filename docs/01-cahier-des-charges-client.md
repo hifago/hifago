@@ -16,6 +16,7 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-10-23 — le prix d'une nuit Lobby est le prix Lobby, comme le dit le §5** (spec 24 §0 révisée, qui disait le contraire depuis le 2026-08-26) : sans marge, au nombre exact de personnes du produit, relu à chaud au paiement — `/pago` affiche le nouveau prix s'il a changé — ; la commission reste une part du total. La quantité d'un dortoir Lobby est bornée par les lits réellement libres aux dates choisies. Sections ci-dessous non réécrites — cette ligne en tient lieu.
 - **2026-10-23 — Lobby se réserve APRÈS l'acompte** (spec 21 §8.2) : l'« échec fermé avant confirmation » du §4/§5 devient « lecture de Lobby + place tenue avant paiement, booking après l'acompte » ; un paiement refusé ne laisse plus de booking vivant ni d'e-mail « réservé » (§2b.9 : deux états d'écran de plus pour une commande payée, `confirming` et `paid_unconfirmed`, spec 33). Risque accepté : un refus (422) de Lobby APRÈS paiement va en file « à traiter », sans remboursement automatique. Sections ci-dessous non réécrites — cette ligne en tient lieu.
 - **2026-10-23 — spec 19 retouchée, sans changement de périmètre** : la préférence Mercado Pago envoie désormais l'acheteur (prénom, nom, téléphone) et le détail des lignes pour le contrôle anti-fraude (§0 Tranche 1 « Contenu de la préférence ») ; le montant facturé et le parcours client ne changent pas, rien ne change pour ce cahier.
 - **2026-10-07 — §7/A3 ne règle que l'argent, jamais l'inventaire** (spec 34 corrigée) : depuis
