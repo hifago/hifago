@@ -307,6 +307,35 @@ nécessaire non plus. En-tête `X-Idempotency-Key` posé explicitement sur `Pref
 avec `payments.id` comme clé (pas une clé aléatoire par appel) — un retry réseau sur le même intent
 ne crée jamais deux préférences distinctes.
 
+**Contenu de la préférence (2026-10-23, bug `cc_rejected_high_risk` en prod)** — la préférence
+partait presque vide (un item identique pour toutes les commandes, `payer = { email }`), et le
+contrôle de risque de Mercado Pago refusait presque toute carte ; aucun paiement accepté en prod du 14
+au 23/10. Mercado Pago recommande d'envoyer le maximum de données sur l'acheteur et le produit
+(« improve-payment-approval »). Construit par `apps/web/lib/mercadopago/preferenceData.ts` (module pur),
+appelé par `POST /api/payments/create`, envoyé par `createCheckoutPreference` :
+- **Envoyé** — `payer.name` / `payer.surname` (premier mot / reste de `orders.holder_name`),
+  `payer.phone` (`{ area_code, number }` de `orders.holder_phone`, omis s'il n'est pas analysable),
+  `payer.email` ; un item par ligne `reserved` (`id` de la ligne, titre « Anticipo – produit ·
+  établissement » en espagnol avec repli, description = dates + quantité, `category_id` `travels` pour
+  lodging/hotel/camp/transport, `tickets` pour activity/tour/evento, `services` sinon, `unit_price` =
+  `acompte_cop`, `category_descriptor.event_date` = date de la prestation à l'heure de Guatapé) ;
+  `statement_descriptor: "HIFAGO"`.
+- **Invariant** — Σ items = `payments.amount_cop` EXACTEMENT. Sinon (ligne annulée entre-temps,
+  acompte non entier, détail illisible) UN item agrégé au montant facturé ; le montant facturé ne
+  change jamais. Une ligne à acompte nul est omise (un `unit_price` de 0 ferait refuser la préférence).
+  Le constructeur et `createCheckoutPreference` appliquent chacun la règle.
+- **Lecture** — niveau 1 : `holder_name`, `holder_phone`, `reference` dans l'embed `orders(…)` déjà lu ;
+  niveau 2 : les lignes par `get_order_by_token`, client de session, au mieux, 3 s (jamais un embed
+  `order_lines`, `scripts/check-order-lines-access.sh`) ; sa panne retombe sur l'item agrégé, jamais
+  sur une erreur de paiement. Budget de la route : 5 + 3 + 20 + 5 = 33 s sous `maxDuration` 40.
+- **Jamais envoyé** — `payer.identification`, `payer.address`, `payer.date_created` et les indicateurs
+  d'historique d'achat (Hifago ne les collecte pas : les fabriquer serait pire qu'une absence ; le
+  client saisit son document sur la page Mercado Pago) ; `additional_info`. `binary_mode` reste absent
+  (`false`) : activé, il retire la revue manuelle et fait BAISSER l'approbation. Le Device ID est posé
+  par la page Checkout Pro elle-même.
+- **Non traité ici** : `cc_rejected_high_risk` se déclenche aussi sur des paiements consécutifs aux
+  paramètres identiques — des essais répétés au même montant restent exposés.
+
 **Invariants (Tranche 1)**
 - Un seul compte marchand bénéficiaire de la capture (Hifago) — aucun split Mercado Pago natif, aucun
   OAuth établissement, au moment du paiement client.

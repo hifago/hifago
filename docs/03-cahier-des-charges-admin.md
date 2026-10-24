@@ -3,7 +3,7 @@ id: refonte-cdc-admin
 titre: "Cahier des charges — back-office admin (aujourd'hui /admin)"
 theme: cadrage
 statut: brouillon
-maj: 2026-09-22
+maj: 2026-10-23
 resume: >
   Comportement métier cible du back-office de pilotage, dérivé du comportement réel actuel et
   challengé section par section avec Jérôme avant reprise dans la refonte.
@@ -16,6 +16,7 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-10-23 — spec 19 retouchée, sans changement de périmètre** : la préférence Mercado Pago envoie désormais l'acheteur (prénom, nom, téléphone) et le détail des lignes pour le contrôle anti-fraude (§0 Tranche 1 « Contenu de la préférence ») ; le montant facturé et le parcours client ne changent pas, rien ne change pour ce cahier.
 - **2026-10-01 — spec 19 retouchée, sans changement de périmètre** : la route de poll `apps/web/app/api/payments/[orderId]/status` est supprimée (aucun appelant, spec 33 §10) ; rien ne change pour ce cahier.
 Relevés par la relecture intégrale du 2026-09-07. Les sections ci-dessous ne sont pas réécrites —
 ces lignes en tiennent lieu.
