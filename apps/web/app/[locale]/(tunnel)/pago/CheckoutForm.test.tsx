@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { loadMessages } from "@/messages";
-import { CheckoutForm, reserveNightsErrorKey } from "./CheckoutForm";
+import { CheckoutForm, checkNightsErrorKey } from "./CheckoutForm";
 
 // `@/i18n/navigation` tire next-intl/navigation → next/navigation, irrésolu sous Vitest (même
 // bouchon que BuscadorInicio.test.tsx).
@@ -38,11 +38,11 @@ vi.mock("@hifago/supabase/client", () => ({
   }),
 }));
 
-// Correctif minimal (P4a, décision « 2i ») : chaque échec de /api/pms/reserve-nights affiche le
+// Correctif minimal (P4a, décision « 2i ») : chaque échec de /api/pms/check-nights affiche le
 // message de son `reason` / `released`. Avant, seul `released === false` était lu : un 504 sans
 // corps ou une erreur de base affichaient « fechas liberadas » alors que rien n'avait été relâché,
 // et un délai dépassé chez Lobby était présenté comme une indisponibilité.
-describe("reserveNightsErrorKey — un message juste pour chaque réponse de reserve-nights", () => {
+describe("checkNightsErrorKey — un message juste pour chaque réponse de check-nights", () => {
   it.each([
     // [cas, corps de la réponse, clé attendue]
     ["504 / 500 de la plateforme, corps illisible", null, "pms_unconfirmed_pending"],
@@ -60,7 +60,7 @@ describe("reserveNightsErrorKey — un message juste pour chaque réponse de res
     // de 23 min du claim) — épinglé pour qu'un repli reste fermé : commande non libérée, pas « réessaie ».
     ["trop tard pour payer (inatteignable ici)", { reason: "order_expiring", released: false }, "pms_unconfirmed_pending"],
   ] as const)("%s → %s", (_cas, corps, attendu) => {
-    expect(reserveNightsErrorKey(corps)).toBe(attendu);
+    expect(checkNightsErrorKey(corps)).toBe(attendu);
   });
 
   it.each(["es", "en"] as const)("chaque clé possible existe dans les messages %s", async (locale) => {
@@ -81,7 +81,7 @@ describe("reserveNightsErrorKey — un message juste pour chaque réponse de res
 // C5 (audit 2026-09-28) : le bouton était rendu dès le retour de create_order, AVANT l'appel à Lobby
 // (jusqu'à une minute). Un second clic relançait create_order sur un panier déjà vidé et affichait
 // « empty_cart » pendant que la première commande se confirmait encore.
-describe("CheckoutForm — le bouton reste tenu jusqu'à la fin de reserve-nights", () => {
+describe("CheckoutForm — le bouton reste tenu jusqu'à la fin de check-nights", () => {
   let repondreLobby: (response: Response) => void;
   const fetchMock = vi.fn();
 

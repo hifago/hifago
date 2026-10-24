@@ -13,6 +13,47 @@ describe("deriveOrderState", () => {
     ).toBe("paid");
   });
 
+  // Retournement du 2026-10-23 : le booking Lobby se fait APRÈS l'acompte. Payé ≠ confirmé tant que le
+  // prestataire n'a pas son booking — l'écran ne dit jamais « confirmada » avant.
+  it("rend « confirming » pour une commande payée dont le booking Lobby est en cours", () => {
+    expect(
+      deriveOrderState({
+        paymentStatus: "paid",
+        lines: [{ status: "reserved" }],
+        acompteCop: 100,
+        pmsConfirmation: "pending",
+      })
+    ).toBe("confirming");
+  });
+
+  it("rend « paid_unconfirmed » quand le prestataire n'a pas pu confirmer — jamais « paid »", () => {
+    expect(
+      deriveOrderState({
+        paymentStatus: "paid",
+        lines: [{ status: "reserved" }],
+        acompteCop: 100,
+        pmsConfirmation: "failed",
+      })
+    ).toBe("paid_unconfirmed");
+  });
+
+  it("une commande payée sans pms_confirmation (ou à null) reste « paid »", () => {
+    const base = { paymentStatus: "paid", lines: [{ status: "reserved" }], acompteCop: 100 };
+    expect(deriveOrderState(base)).toBe("paid");
+    expect(deriveOrderState({ ...base, pmsConfirmation: null })).toBe("paid");
+  });
+
+  it("pms_confirmation ne change rien à une commande non payée (aucun faux « confirming »)", () => {
+    expect(
+      deriveOrderState({
+        paymentStatus: "unpaid",
+        lines: [{ status: "reserved" }],
+        acompteCop: 100,
+        pmsConfirmation: "pending",
+      })
+    ).toBe("unpaid");
+  });
+
   it("rend « awaiting » pendant que le webhook Mercado Pago n'est pas arrivé", () => {
     expect(
       deriveOrderState({ paymentStatus: "pending", lines: [{ status: "reserved" }], acompteCop: 0 })

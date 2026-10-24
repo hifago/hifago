@@ -63,11 +63,12 @@ type PaymentIntentResult = {
 };
 
 /**
- * Que faire de la réponse de `/api/pms/reserve-nights`, appelée quand `create_payment_intent` refuse
- * avec `pms_booking_missing` (migration 20260930221837 : aucun paiement tant qu'une nuit PMS n'a pas
- * son booking — client parti avant la fin du tunnel, onglet fermé pendant l'appel à Lobby).
+ * Que faire de la réponse de `/api/pms/check-nights`, appelée quand `create_payment_intent` refuse
+ * avec `pms_booking_missing` (aucun paiement tant qu'une nuit PMS n'est ni bookée ni tenue par une
+ * lecture Lobby de moins de 5 minutes — migration du 2026-10-23 ; client parti avant la fin du
+ * tunnel, onglet fermé pendant l'appel, ou simplement trop longtemps sur la page).
  *
- * - `booked` : redemander UN intent, une seule fois. S'il manque encore un booking, ce second refus
+ * - `booked` (la place est tenue) : redemander UN intent, une seule fois. S'il manque encore un booking, ce second refus
  *   tombe sur « unknown » : jamais de boucle.
  * - `stop` : on s'arrête, et l'écran est TOUJOURS relu — un autre onglet a pu défaire ou payer la
  *   commande pendant l'appel, et c'est l'état relu (annulée, expirée, payée, encore à payer) qui dit
@@ -80,7 +81,7 @@ type PaymentIntentResult = {
  * chaque admin) pour une commande qui expirera de toute façon. « On ne sait pas »
  * (`pms_unknown_outcome`) n'est dit que sur un corps illisible ou un réseau coupé.
  *
- * Même lecture de `reason`/`released` que `reserveNightsErrorKey` (CheckoutForm), mais pas la même
+ * Même lecture de `reason`/`released` que `checkNightsErrorKey` (CheckoutForm), mais pas la même
  * fonction : ici une commande peut déjà être payée (`order_paid`), et l'écran sait se relire.
  */
 export type PmsNoticeKey =
@@ -99,7 +100,7 @@ export type BookingRecovery =
   | { kind: "booked" }
   | { kind: "stop"; notice: PmsNoticeKey | null; blockPayment: boolean };
 
-type ReserveNightsBody = { ok?: boolean; reason?: string; released?: boolean };
+type CheckNightsBody = { ok?: boolean; reason?: string; released?: boolean };
 
 /** Ce qu'une notice peut expliquer : un arrêt de la reprise PMS, ou un intent devenu sans objet. */
 type NoticeKey = PmsNoticeKey | "nothing_to_pay" | "already_paid";
@@ -108,7 +109,14 @@ type NoticeKey = PmsNoticeKey | "nothing_to_pay" | "already_paid";
  * États où un paiement a progressé (ici ou dans un autre onglet) : une notice d'arrêt n'y a plus
  * rien à dire — « vuelve a reservar » sous « Pago confirmado » pousserait à une seconde réservation.
  */
-const PAYMENT_PROGRESSED_STATES: readonly string[] = ["paid", "awaiting", "refunded", "paid_not_honored"];
+const PAYMENT_PROGRESSED_STATES: readonly string[] = [
+  "paid",
+  "confirming",
+  "paid_unconfirmed",
+  "awaiting",
+  "refunded",
+  "paid_not_honored",
+];
 
 const stop = (notice: PmsNoticeKey | null, blockPayment = false): BookingRecovery => ({
   kind: "stop",
@@ -118,7 +126,7 @@ const stop = (notice: PmsNoticeKey | null, blockPayment = false): BookingRecover
 
 export function bookingRecovery(
   httpOk: boolean,
-  body: ReserveNightsBody | null,
+  body: CheckNightsBody | null,
 ): BookingRecovery {
   if (httpOk) return { kind: "booked" };
   if (body === null) return stop("pms_unknown_outcome"); // 500/504 de la plateforme, corps illisible
@@ -143,12 +151,12 @@ export function bookingRecovery(
   return stop("pms_unconfirmed");
 }
 
-async function reserveMissingBookings(
+async function recheckNights(
   orderId: string,
 ): Promise<BookingRecovery> {
   let response: Response;
   try {
-    response = await fetch("/api/pms/reserve-nights", {
+    response = await fetch("/api/pms/check-nights", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orderId }),
@@ -158,13 +166,20 @@ async function reserveMissingBookings(
   }
   const body = (await response
     .json()
-    .catch(() => null)) as ReserveNightsBody | null;
+    .catch(() => null)) as CheckNightsBody | null;
   return bookingRecovery(response.ok, body);
 }
 
 /** Cadence et plafond du rafraîchissement pendant l'attente du webhook (≈ 1 minute au total). */
 const REFRESH_INTERVAL_MS = 3000;
 const MAX_REFRESH_TICKS = 20;
+/**
+ * `confirming` (payé, le booking Lobby se fait APRÈS l'acompte) se relit plus longtemps : deux minutes.
+ * L'Edge Function part tout de suite après le webhook, mais une panne passagère de Lobby est
+ * retentée pendant ~30 minutes — au-delà de la fenêtre, l'écran reste honnête (« estamos
+ * confirmando ») et l'e-mail de confirmation prend le relais.
+ */
+const MAX_CONFIRMING_REFRESH_TICKS = 40;
 
 export type OrderResultProps = {
   order: OrderForDisplay;
@@ -193,7 +208,7 @@ export function OrderResult({
     paymentOutcome === "rejected" ? t("errors.payment_rejected") : null,
   );
   const [isPaying, setIsPaying] = useState(false);
-  // Pendant l'appel à reserve-nights (jusqu'à près d'une minute chez Lobby) : le bouton ne dit pas
+  // Pendant l'appel à check-nights (jusqu'à près d'une minute chez Lobby) : le bouton ne dit pas
   // « Redirigiendo a Mercado Pago » tant que rien n'est parti vers Mercado Pago.
   const [isConfirmingBooking, setIsConfirmingBooking] = useState(false);
   // La raison d'un arrêt, affichée PAR-DESSUS l'état relu (annulée, expirée) — jamais l'état d'écran
@@ -221,6 +236,7 @@ export function OrderResult({
   // Spec 39 : on ne sonde que s'il reste réellement quelque chose à confirmer (`awaiting`), jamais
   // une commande morte dont le paiement local est resté `pending`.
   const isAwaiting = orderState === "awaiting";
+  const isConfirming = orderState === "confirming";
 
   const state = paymentError ? "failed" : orderState;
   // Une notice se tait dès qu'un paiement a progressé, et celle de `order_expiring` ne parle que d'une
@@ -253,19 +269,20 @@ export function OrderResult({
   // `react-hooks/set-state-in-effect` (eslint-plugin-react-hooks 7.1.1) trace statiquement qu'un
   // identifiant appelé dans un effet pose de l'état. Même patron que `CoquillaVitrine`.
   useEffect(() => {
-    if (!isAwaiting) return;
+    if (!isAwaiting && !isConfirming) return;
+    const maxTicks = isConfirming ? MAX_CONFIRMING_REFRESH_TICKS : MAX_REFRESH_TICKS;
     let ticks = 0;
     const timer = setInterval(() => {
       if (document.visibilityState !== "visible") return;
       ticks += 1;
-      if (ticks > MAX_REFRESH_TICKS) {
+      if (ticks > maxTicks) {
         clearInterval(timer);
         return;
       }
       router.refresh();
     }, REFRESH_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [isAwaiting, router]);
+  }, [isAwaiting, isConfirming, router]);
 
   async function startPayment() {
     setPaymentError(null);
@@ -296,7 +313,7 @@ export function OrderResult({
 
     if (!intentError && intentResult?.reason === "pms_booking_missing") {
       setIsConfirmingBooking(true);
-      const recovery = await reserveMissingBookings(order.id);
+      const recovery = await recheckNights(order.id);
       setIsConfirmingBooking(false);
       if (recovery.kind === "stop") {
         setIsPaying(false);

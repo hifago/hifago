@@ -5,6 +5,10 @@
   "status": {
     "paid": "¡Pago confirmado!",
     "paidDetail": "Tu reserva está confirmada. Te enviamos los detalles por correo electrónico.",
+    "confirming": "Pago recibido, estamos confirmando tu reserva con el alojamiento…",
+    "confirmingDetail": "Puede tardar un par de minutos. Esta página se actualiza sola; te enviamos los detalles por correo en cuanto el alojamiento la acepte.",
+    "paid_unconfirmed": "Recibimos tu pago, el alojamiento no pudo confirmar tu reserva",
+    "paid_unconfirmedDetail": "Ya tenemos tu pago y estamos resolviendo tu reserva con el alojamiento. Te contactamos en las próximas horas; no necesitas hacer nada.",
     "paid_not_honored": "Recibimos tu pago, pero la reserva no pudo confirmarse",
     "paid_not_honoredDetail": "El pago llegó cuando la reserva ya había expirado o había sido anulada. Te contactamos en las próximas horas para reembolsarte o volver a reservar; no necesitas hacer nada.",
     "refunded": "Te reembolsamos el anticipo",

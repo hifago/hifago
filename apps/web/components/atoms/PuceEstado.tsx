@@ -44,6 +44,8 @@ export type PuceEstadoProps = {
 /** L'état d'une commande (`deriveOrderState`), plus `failed`, état d'ÉCRAN d'un paiement refusé. */
 export const TONO_POR_ESTADO_PEDIDO: Record<OrderState | "failed", PuceEstadoTono> = {
   paid: "exito",
+  confirming: "info",
+  paid_unconfirmed: "alerta",
   confirmed: "exito",
   unpaid: "alerta",
   awaiting: "info",

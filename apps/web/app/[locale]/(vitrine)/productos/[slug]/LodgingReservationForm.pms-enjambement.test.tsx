@@ -225,7 +225,7 @@ describe("PMS-backed : le plafond de quantité suit les places restantes (2026-1
 // que le reste de la fiche) et le passe en `availability`. Le calendrier est juste dès la première
 // image, sans réseau. L'appel à Lobby devient le REPLI d'un mois que le miroir ne couvre pas.
 //
-// La barrière de réservation ne bouge pas : reserve-nights interroge Lobby à chaud avant toute
+// La barrière de réservation ne bouge pas : check-nights interroge Lobby à chaud avant toute
 // confirmation et refuse si ça ne colle plus (spec 24 §0).
 // ---------------------------------------------------------------------------------------------
 // ⚠️ Le semis par défaut couvre DEUX mois, et ce n'est pas du zèle : le composant précharge le mois
