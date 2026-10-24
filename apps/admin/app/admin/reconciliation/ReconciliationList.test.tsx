@@ -6,9 +6,11 @@ import { ReconciliationList, type ReconciliationEntryRow } from "./Reconciliatio
 // LOGIQUE DE RENDU : quand l'écran propose Reintentar / Confirmar / Anular (demande bloquée), et que
 // le dialogue reçoit la bonne action.
 vi.mock("./ResolveEntryDialog", () => ({ ResolveEntryDialog: () => null }));
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 const dialogue = vi.fn();
 vi.mock("./ResolvePmsRequestDialog", () => ({
-  ResolvePmsRequestDialog: (props: { action: string; requestId: string; orderLineId: string; onSuccess: (a: string) => void }) => {
+  ResolvePmsRequestDialog: (props: { action: string; requestId: string; lines: unknown[]; onSuccess: (a: string) => void }) => {
     dialogue(props);
     return (
       <button data-testid="dialogue-succes" onClick={() => props.onSuccess(props.action)}>
@@ -38,7 +40,7 @@ describe("ReconciliationList — reprise d'une commande payée bloquée", () => 
     render(
       <ReconciliationList
         rows={[
-          row({ id: "bloquee", pmsRequest: { id: "r1", status: "failed" } }),
+          row({ id: "bloquee", pmsRequest: { id: "r1", status: "failed", lines: [] } }),
           row({ id: "ordinaire", orderId: "o2", pmsRequest: null }),
         ]}
       />
@@ -51,19 +53,40 @@ describe("ReconciliationList — reprise d'une commande payée bloquée", () => 
   });
 
   it("ouvre le dialogue avec l'action cliquée, la demande et la ligne de l'entrée", () => {
-    render(<ReconciliationList rows={[row({ pmsRequest: { id: "r1", status: "needs_human" } })]} />);
+    render(<ReconciliationList rows={[row({ pmsRequest: { id: "r1", status: "needs_human", lines: [] } })]} />);
     fireEvent.click(screen.getByTestId("pms-request-confirm-button"));
-    expect(dialogue).toHaveBeenLastCalledWith(expect.objectContaining({ action: "confirm", requestId: "r1", orderLineId: "l1" }));
+    expect(dialogue).toHaveBeenLastCalledWith(expect.objectContaining({ action: "confirm", requestId: "r1", lines: [] }));
+  });
+
+  it("après « Confirmar », SEULE l'entrée « Lobby a refusé » sort : « remise à saisir » reste affichée", () => {
+    render(
+      <ReconciliationList
+        rows={[
+          row({ id: "refus", pmsRequest: { id: "r1", status: "failed", lines: [] } }),
+          row({ id: "remise", detail: "remise à saisir à la main dans Lobby : le booking 1 a été créé SANS le paiement", pmsRequest: { id: "r1", status: "failed", lines: [] } }),
+          row({ id: "inconnue", detail: "commande PAYÉE — issue inconnue — booking PEUT-ÊTRE créé chez Lobby", pmsRequest: { id: "r1", status: "failed", lines: [] } }),
+        ]}
+      />
+    );
+    fireEvent.click(screen.getAllByTestId("pms-request-confirm-button")[0]);
+    fireEvent.click(screen.getByTestId("dialogue-succes"));
+    const restantes = screen.getAllByTestId("reconciliation-entry").map((e) => e.textContent ?? "");
+    expect(restantes).toHaveLength(2);
+    expect(restantes.some((t) => t.includes("remise à saisir"))).toBe(true);
+    expect(restantes.some((t) => t.includes("issue inconnue"))).toBe(true);
+    // Plus aucun bouton de reprise : la demande n'est plus bloquée.
+    expect(screen.queryByTestId("pms-request-confirm-button")).toBeNull();
+    expect(refresh).toHaveBeenCalled();
   });
 
   it("après « Confirmar » ou « Anular », l'entrée sort de la file ; après « Reintentar », elle reste sans boutons", () => {
-    const { unmount } = render(<ReconciliationList rows={[row({ pmsRequest: { id: "r1", status: "failed" } })]} />);
+    const { unmount } = render(<ReconciliationList rows={[row({ pmsRequest: { id: "r1", status: "failed", lines: [] } })]} />);
     fireEvent.click(screen.getByTestId("pms-request-cancel-button"));
     fireEvent.click(screen.getByTestId("dialogue-succes"));
     expect(screen.queryAllByTestId("reconciliation-entry")).toHaveLength(0);
     unmount();
 
-    render(<ReconciliationList rows={[row({ pmsRequest: { id: "r1", status: "needs_human" } })]} />);
+    render(<ReconciliationList rows={[row({ pmsRequest: { id: "r1", status: "needs_human", lines: [] } })]} />);
     fireEvent.click(screen.getByTestId("pms-request-retry-button"));
     fireEvent.click(screen.getByTestId("dialogue-succes"));
     const group = within(screen.getByTestId("reconciliation-actionable-group"));

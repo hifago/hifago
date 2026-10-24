@@ -401,11 +401,25 @@ jamais « confirmada », jamais une promesse de remboursement.
     booking saisi si besoin : les e-mails 5/6/7/8 partent UNE fois, l'état client se libère, les
     lignes sans booking ne comptent plus « en vol » ; seule l'entrée « commande PAYÉE — Lobby a refusé » est résolue : « remise à saisir à la main » et « issue inconnue / booking NON enregistré » restent ouvertes, ce sont des tâches à part) et `Anular solicitud` (rien ne part chez Lobby ;
     n'annule ni les lignes ni de remboursement). Sans ce levier une commande payée restait
-    `paid_unconfirmed` pour toujours.
+    `paid_unconfirmed` pour toujours. Détails : « Confirmar » propose UN champ d'id de booking par nuit
+    PMS sans booking (tous facultatifs, envoyés ensemble ; chiffres seuls) et la RPC refuse
+    (`booking_in_use`) un id déjà porté par une ligne vivante d'une AUTRE commande du même
+    établissement ; « Anular solicitud » ouvre une entrée de réconciliation « commande PAYÉE — demande
+    Lobby annulée : annuler ou rembourser les lignes à la main » (la commande reste payée et « confirmée »
+    pour le client, sans chambre : l'admin doit annuler ou rembourser), jamais résolue automatiquement ;
+    chaque refus typé de la RPC a son texte à l'écran.
 13. **Faux « complet »** : si `hold_pms_nights` refuse uniquement à cause des lignes « en vol »
     (disponibilité Lobby ≥ quantité demandée), `check-nights` ne défait PAS la commande — elle annulerait
     aussi un paiement `pending` d'un client parti payer. Il répond `pms_contended` (`released:false`) ;
     la tenue expire seule. Un vrai « complet » (disponibilité < quantité) défait la commande, comme avant.
+
+**Mise en prod — ordre** (aligné sur `scripts/deploy-preprod.mjs`) : migrations (`supabase db push`,
+deux fichiers : `20261023120000` puis `20261023150000`) → Edge Functions (`pms-book-paid-orders`,
+`pms-cancel-bookings`) → code web + admin. Une Edge Function déployée AVANT sa migration ne trouve pas
+`mark_pms_booking_attempt` / `claim_pms_booking_requests` : elle tombe en panne, consomme six essais et
+envoie des e-mails admin pour rien. Le code AVANT les migrations casse `check-nights` et la page de
+réconciliation (RPC absentes) ; les migrations seules sont compatibles avec le code et les fonctions
+actuels.
 
 **Hors de cette livraison** (au backlog) : la contraction M2 (suppression de
 `claim_order_for_pms_booking`, devenu inutilisé), les boutons admin « rattacher un booking » (la reprise

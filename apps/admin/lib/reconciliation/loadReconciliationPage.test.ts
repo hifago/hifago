@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   erreurs: {} as Record<string, { message: string }>,
-  demandes: [] as { request_id: string; order_id: string; status: string }[],
+  demandes: [] as { request_id: string; order_id: string; status: string; lines?: unknown }[],
 }));
 
 const ENTREE_PAIEMENT = {
@@ -72,7 +72,24 @@ describe("loadReconciliationPage — panne ≠ rien à réconcilier", () => {
   it.each([["failed"], ["needs_human"]])("joint la demande de booking BLOQUÉE (%s) à l'entrée de sa commande", async (status) => {
     state.demandes = [{ request_id: "r1", order_id: "o1", status }];
     const page = await loadReconciliationPage();
-    expect(page.rows[0].pmsRequest).toEqual({ id: "r1", status });
+    expect(page.rows[0].pmsRequest).toEqual({ id: "r1", status, lines: [] });
+  });
+
+  it("rend les nuits sans booking de la demande bloquée (un champ de saisie chacune), lecture défensive", async () => {
+    state.demandes = [
+      {
+        request_id: "r1", order_id: "o1", status: "failed",
+        lines: [
+          { order_line_id: "l1", product_name: { es: "Noche A" }, date: "2030-01-10", end_date: "2030-01-12" },
+          { order_line_id: 12 },
+          "n'importe quoi",
+        ],
+      },
+    ];
+    const page = await loadReconciliationPage();
+    expect(page.rows[0].pmsRequest?.lines).toEqual([
+      { orderLineId: "l1", productName: "Noche A", date: "2030-01-10", endDate: "2030-01-12" },
+    ]);
   });
 
   it.each([["pending"], ["done"], ["cancelled"]])("une demande %s n'ouvre aucun levier admin", async (status) => {

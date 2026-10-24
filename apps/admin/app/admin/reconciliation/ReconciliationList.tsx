@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Button, Card, Chip } from "@hifago/ui";
 import { statusChip, type ChipStyle } from "@/components/status-chip";
@@ -23,8 +24,19 @@ export type ReconciliationEntryRow = {
    * `needs_human`) — seule situation où l'admin dispose de « Reintentar / Confirmar / Anular ». Absente
    * (null) pour toute autre entrée.
    */
-  pmsRequest: { id: string; status: string } | null;
+  pmsRequest: { id: string; status: string; lines: PendingPmsLine[] } | null;
 };
+
+/** Une nuit PMS de la commande encore sans booking : un champ « ID de la reserva en Lobby » du dialogue. */
+export type PendingPmsLine = { orderLineId: string; productName: string; date: string | null; endDate: string | null };
+
+/**
+ * Le détail de l'entrée née de la demande elle-même (resolve_pms_booking_request, issue `failed`) : la
+ * SEULE que confirm / cancel résolvent côté base. « remise à saisir », « issue inconnue » et « booking
+ * NON enregistré » sont des tâches à part et restent affichées. Doit rester aligné sur le filtre de
+ * admin_resolve_pms_booking_request (pgTAP C6).
+ */
+export const RESOLVED_BY_REQUEST_PREFIX = "commande PAYÉE — Lobby a refusé";
 
 // Vocabulaire de la feature 22 (check constraint pms_reconciliation_entries.status) — "resolved"
 // n'apparaît dans aucun des deux groupes affichés (ni actionnable ni échec permanent) : une entrée
@@ -116,7 +128,15 @@ function EntryCard({
 }
 
 export function ReconciliationList({ rows: initialRows }: { rows: ReconciliationEntryRow[] }) {
+  const router = useRouter();
   const [rows, setRows] = useState(initialRows);
+  // Resynchronisation avec le serveur après `router.refresh()` (« adjust state during render », pas un
+  // effet) : un cancel OUVRE une entrée neuve côté base, qu'un état purement local ne verrait jamais.
+  const [seenInitialRows, setSeenInitialRows] = useState(initialRows);
+  if (seenInitialRows !== initialRows) {
+    setSeenInitialRows(initialRows);
+    setRows(initialRows);
+  }
   const [dialogEntryId, setDialogEntryId] = useState<string | null>(null);
   const [pmsDialog, setPmsDialog] = useState<{ entryId: string; action: PmsRequestAction } | null>(null);
 
@@ -192,7 +212,7 @@ export function ReconciliationList({ rows: initialRows }: { rows: Reconciliation
             return (
               <ResolvePmsRequestDialog
                 requestId={target.pmsRequest.id}
-                orderLineId={target.orderLineId}
+                lines={target.pmsRequest.lines}
                 action={pmsDialog.action}
                 open
                 onOpenChange={(open) => {
@@ -200,8 +220,8 @@ export function ReconciliationList({ rows: initialRows }: { rows: Reconciliation
                 }}
                 onSuccess={(action) => {
                   // La demande n'est plus bloquée : plus de boutons sur AUCUNE entrée de cette commande.
-                  // `confirm` et `cancel` résolvent aussi les entrées de la commande (côté base) : elles
-                  // sortent de la file, comme après « Resolver ».
+                  // `confirm` et `cancel` ne résolvent côté base QUE l'entrée « commande PAYÉE — Lobby a
+                  // refusé » : les autres (« remise à saisir », « issue inconnue »…) restent affichées.
                   const orderId = target.orderId;
                   setRows((prev) =>
                     prev.map((row) =>
@@ -210,10 +230,17 @@ export function ReconciliationList({ rows: initialRows }: { rows: Reconciliation
                         : {
                             ...row,
                             pmsRequest: null,
-                            status: action === "retry" || row.status === "permanently_failed" ? row.status : "resolved",
+                            status:
+                              action === "retry" ||
+                              row.status === "permanently_failed" ||
+                              !row.detail?.startsWith(RESOLVED_BY_REQUEST_PREFIX)
+                                ? row.status
+                                : "resolved",
                           }
                     )
                   );
+                  // Un cancel ouvre une entrée neuve (annuler ou rembourser à la main) : on relit le serveur.
+                  router.refresh();
                 }}
               />
             );

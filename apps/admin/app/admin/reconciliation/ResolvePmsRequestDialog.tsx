@@ -4,6 +4,8 @@ import { useState } from "react";
 import { createClient } from "@hifago/supabase/client";
 import { Button, Label, Modal, TextField, Input, toast } from "@hifago/ui";
 import { rpcErrorMessage } from "@/lib/errors/rpcErrorMessage";
+import { pmsRefusalMessage } from "@/lib/reconciliation/pmsRequestRefusals";
+import type { PendingPmsLine } from "./ReconciliationList";
 
 // Lobby APRÈS l'acompte (spec 21 §8.2) — la reprise d'une commande PAYÉE que Lobby n'a pas pu réserver
 // (demande pms_booking_requests en `failed` / `needs_human`). Sans ce levier, le client restait
@@ -13,8 +15,9 @@ import { rpcErrorMessage } from "@/lib/errors/rpcErrorMessage";
 //   retry   — relancer l'envoi à Lobby. L'admin ATTESTE avoir vérifié chez Lobby qu'aucun booking
 //             n'existe pour cette commande (sinon : second booking payé, non annulable par API) ;
 //   confirm — la réservation est résolue à la main (relogée, ou créée dans Lobby) : les e-mails de
-//             confirmation partent, l'état du client se libère ; l'id du booking saisi à la main est
-//             facultatif ;
+//             confirmation partent, l'état du client se libère ; un champ « ID de la reserva en Lobby »
+//             PAR nuit PMS sans booking (tous facultatifs, envoyés ensemble) — une nuit laissée sans id
+//             ne serait jamais pollée ni annulée ;
 //   cancel  — on n'enverra rien à Lobby : l'état « no pudimos confirmar » disparaît. Aucune ligne n'est
 //             annulée ici (set_order_line_status), aucun remboursement (suspendus).
 export type PmsRequestAction = "retry" | "confirm" | "cancel";
@@ -42,21 +45,22 @@ const COPY: Record<PmsRequestAction, { title: string; body: string; submit: stri
 
 export function ResolvePmsRequestDialog({
   requestId,
-  orderLineId,
+  lines,
   action,
   open,
   onOpenChange,
   onSuccess,
 }: {
   requestId: string;
-  /** La ligne de l'entrée de réconciliation : porte l'id de booking saisi à la main (confirm). */
-  orderLineId: string;
+  /** Les nuits PMS de la commande sans booking : un champ de saisie chacune (confirm). */
+  lines: PendingPmsLine[];
   action: PmsRequestAction;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: (action: PmsRequestAction) => void;
 }) {
-  const [bookingId, setBookingId] = useState("");
+  // Un id saisi par ligne (clé = order_line_id).
+  const [bookingIds, setBookingIds] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const copy = COPY[action];
 
@@ -64,22 +68,26 @@ export function ResolvePmsRequestDialog({
     event.preventDefault();
     setIsSubmitting(true);
     const supabase = createClient();
-    const typed = bookingId.trim();
+    // Les champs remplis seulement, tous envoyés ensemble : la RPC les valide AVANT d'écrire quoi que
+    // ce soit (un id refusé n'en laisse aucun autre enregistré).
+    const bookings = lines
+      .map((line) => ({ order_line_id: line.orderLineId, pms_booking_id: (bookingIds[line.orderLineId] ?? "").trim() }))
+      .filter((booking) => booking.pms_booking_id !== "");
     const { data, error: rpcError } = await supabase.rpc("admin_resolve_pms_booking_request", {
       p_request_id: requestId,
       p_action: action,
-      ...(action === "confirm" && typed !== ""
-        ? { p_bookings: [{ order_line_id: orderLineId, pms_booking_id: typed }] }
-        : {}),
+      ...(action === "confirm" && bookings.length > 0 ? { p_bookings: bookings } : {}),
     });
     setIsSubmitting(false);
 
     if (rpcError || !(data as { ok: boolean } | null)?.ok) {
-      toast.danger(rpcErrorMessage(rpcError, "No se pudo procesar la solicitud."));
+      // Un refus MÉTIER de la RPC (id mal recopié, déjà utilisé, demande déjà traitée…) a son texte ;
+      // sinon le message générique.
+      toast.danger(pmsRefusalMessage(data) ?? rpcErrorMessage(rpcError, "No se pudo procesar la solicitud."));
       return;
     }
     toast.success(copy.done);
-    setBookingId("");
+    setBookingIds({});
     onSuccess(action);
     onOpenChange(false);
   }
@@ -89,7 +97,7 @@ export function ResolvePmsRequestDialog({
       <Modal.Backdrop
         isOpen={open}
         onOpenChange={(next) => {
-          if (!next) setBookingId("");
+          if (!next) setBookingIds({});
           onOpenChange(next);
         }}
       >
@@ -101,12 +109,26 @@ export function ResolvePmsRequestDialog({
             <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
               <Modal.Body className="flex flex-col gap-4">
                 <p className="text-sm" data-testid="pms-request-dialog-body">{copy.body}</p>
-                {action === "confirm" ? (
-                  <TextField fullWidth value={bookingId} onChange={setBookingId}>
-                    <Label htmlFor="pms-booking-id">ID de la reserva en Lobby (opcional)</Label>
-                    <Input id="pms-booking-id" name="pms-booking-id" data-testid="pms-booking-id-input" />
-                  </TextField>
-                ) : null}
+                {action === "confirm"
+                  ? lines.map((line) => (
+                      <TextField
+                        key={line.orderLineId}
+                        fullWidth
+                        value={bookingIds[line.orderLineId] ?? ""}
+                        onChange={(value) => setBookingIds((prev) => ({ ...prev, [line.orderLineId]: value }))}
+                      >
+                        <Label htmlFor={`pms-booking-id-${line.orderLineId}`}>
+                          {`ID de la reserva en Lobby — ${line.productName}${line.date ? `, ${line.date}${line.endDate ? ` → ${line.endDate}` : ""}` : ""} (opcional)`}
+                        </Label>
+                        <Input
+                          id={`pms-booking-id-${line.orderLineId}`}
+                          name={`pms-booking-id-${line.orderLineId}`}
+                          inputMode="numeric"
+                          data-testid={`pms-booking-id-input-${line.orderLineId}`}
+                        />
+                      </TextField>
+                    ))
+                  : null}
               </Modal.Body>
               <Modal.Footer>
                 <Button type="submit" isDisabled={isSubmitting} data-testid="confirm-pms-request-button">
