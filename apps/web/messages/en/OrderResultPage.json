@@ -46,6 +46,7 @@
   "viewOrders": "View my bookings",
   "lineStatus": {
     "reserved": "Booked",
+    "pending_payment": "Awaiting payment",
     "fulfilled": "Completed",
     "no_show": "No-show",
     "cancelled_by_client": "Cancelled by you",

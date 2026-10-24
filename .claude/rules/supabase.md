@@ -80,8 +80,8 @@ réelles. Règle d'échappement : au-delà de 100 lignes, le piège le plus anci
 - **LobbyPMS** : `end_date` est INCLUSIF ; la date d'une ligne vient de la RÉPONSE, jamais de la
   date demandée (`alignLobbyCatalogEntries` échoue bruyamment plutôt que de compter les rangs) ; une
   disponibilité illisible vaut « non cotée », jamais « complet » ; le succès se lit dans le CORPS,
-  jamais dans le statut HTTP ; `cancellation_reason` est un code fermé. Lobby n'est jamais la
-  source du prix. Le cache `(établissement, mois)` rejoint la promesse en vol (`getOrFetch`).
+  jamais dans le statut HTTP ; `cancellation_reason` est un code fermé. Le PRIX vient de Lobby
+  depuis le 2026-10-23 (devis `pms_cart_quotes`, spec 24 §0). Le cache `(établissement, mois)` : `getOrFetch`.
 - **Deux règles opposées coexistent volontairement** : une NUIT PMS refusée défait la commande
   (`release_order_after_pms_refusal`, panier conservé), une ACTIVITÉ refusée ne la défait pas.
   Ne pas « corriger » l'une au nom de l'autre. Toute annulation REND la place (20261006192424 : A3

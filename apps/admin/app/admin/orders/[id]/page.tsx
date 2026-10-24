@@ -4,7 +4,9 @@ import { createClient } from "@hifago/supabase/server";
 import { checkedRead } from "@/lib/supabase/checkedRead";
 import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { LedgerLinesTable } from "./LedgerLinesTable";
-import { formatDateInBogota } from "@hifago/domain";
+import { acompteDue, formatDateInBogota, orderPaymentState } from "@hifago/domain";
+import { StatusChip } from "@/components/status-chip";
+import { PAYMENT_STATE_CHIP_STYLE, PAYMENT_STATE_LABELS } from "@/lib/orders/paymentDisplayLabels";
 
 export default async function AdminOrderDetailPage({
   params,
@@ -19,7 +21,7 @@ export default async function AdminOrderDetailPage({
     supabase
       .from("orders")
       .select(
-        "id, holder_name, holder_email, holder_phone, created_at, referrer:partners(display_name)"
+        "id, holder_name, holder_email, holder_phone, created_at, payment_status, referrer:partners(display_name)"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -33,6 +35,10 @@ export default async function AdminOrderDetailPage({
   if (!order) {
     notFound();
   }
+
+  // Le paiement de la commande, croisé avec l'acompte dû : le statut `reserved` d'une ligne tient la
+  // place pendant le paiement, il ne dit pas que la commande est payée.
+  const paymentState = orderPaymentState(order.payment_status, acompteDue(lines ?? []));
 
   // Feature 22 : une éventuelle entrée de la file de réconciliation liée à cette commande, via ses
   // order_lines (pas de colonne order_id directe sur pms_reconciliation_entries). Silencieux si
@@ -61,6 +67,15 @@ export default async function AdminOrderDetailPage({
           Referente: {order.referrer?.display_name ?? "Directo"} · Creado el{" "}
           {formatDateInBogota(order.created_at, "es")}
         </p>
+        <div className="flex items-center gap-2" data-testid="order-payment">
+          <span className="text-sm text-muted">Pago:</span>
+          <StatusChip
+            status={paymentState}
+            map={PAYMENT_STATE_CHIP_STYLE}
+            labels={PAYMENT_STATE_LABELS}
+            testId="order-payment-state"
+          />
+        </div>
         {hasReconciliationEntry ? (
           <Link
             href="/admin/reconciliation"
@@ -72,7 +87,7 @@ export default async function AdminOrderDetailPage({
         ) : null}
       </div>
 
-      <LedgerLinesTable lines={lines ?? []} />
+      <LedgerLinesTable lines={lines ?? []} paymentState={paymentState} />
     </div>
   );
 }
