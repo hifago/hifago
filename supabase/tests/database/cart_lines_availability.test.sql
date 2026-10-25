@@ -16,7 +16,7 @@
 --     quantité au-delà des places cotées ; paliers sans objet sous devis.
 -- Dates relatives à today_in_bogota(), jamais current_date.
 begin;
-select plan(47);
+select plan(48);
 
 create temp table test_r (k text primary key, avail text[], ordered text);
 grant all on test_r to authenticated;
@@ -269,6 +269,9 @@ select test_parity('not_sellable produit', '[{"p":"22","d":3}]');
 select is(test_case('not_sellable produit'), array['not_sellable', 'not_sellable'], 'not_sellable (sellable = false, Phase 3)');
 select test_parity('date_in_past', '[{"p":"21","d":-1}]');
 select is(test_case('date_in_past'), array['date_in_past', 'date_in_past'], 'date_in_past');
+-- Migration 20261024130000 : 00:00 du jour est toujours passé (contrôlé avant la recherche du créneau).
+select test_parity('start_time_passed', '[{"p":"28","d":0,"s":"00:00"}]');
+select is(test_case('start_time_passed'), array['start_time_passed', 'start_time_passed'], 'start_time_passed');
 select test_parity('invalid_occurrence_date', '[{"p":"24","d":8}]');
 select is(test_case('invalid_occurrence_date'), array['invalid_occurrence_date', 'invalid_occurrence_date'], 'invalid_occurrence_date');
 select test_parity('unsupported_date_range', '[{"p":"21","d":3,"e":4}]');
