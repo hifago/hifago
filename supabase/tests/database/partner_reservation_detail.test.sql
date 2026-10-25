@@ -97,7 +97,8 @@ select is(
      from pg_proc p, unnest(p.proargnames, p.proargmodes) as a(n, m)
     where p.oid = 'public.partner_reservation_detail'::regproc and a.m = 't'),
   'created_at, date, end_date, establishment_name, holder_email, holder_name, holder_phone, '
-  'id, product_name, product_type, qty, slot_start_time, status, total_cop',
+  -- pricing_unit : spec 43 (20261025140000), « 3 h » plutôt que « 3 pers. ».
+  'id, pricing_unit, product_name, product_type, qty, slot_start_time, status, total_cop',
   'partner_reservation_detail rend exactement ses colonnes d''affichage — aucune colonne de commission'
 );
 

@@ -12,6 +12,8 @@
   "orderReference": "Booking {reference}",
   "viewDetail": "View details of booking {reference}",
   "lineQty": "Quantity: {count}",
+  "lineHours": "{count, plural, one {# hour} other {# hours}}",
+  "lineActivity": "Whole activity",
   "linePaid": "Paid",
   "lineTotal": "Total price",
   "cancelLine": "Cancel",

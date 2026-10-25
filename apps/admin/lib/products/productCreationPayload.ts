@@ -8,6 +8,7 @@ import { toEventoBookableColumns } from "@/lib/products/eventoBookable";
 import { toEventoOccurrenceColumns } from "@/lib/products/eventoOccurrence";
 import { toSlotRuleRows } from "@/lib/products/slotRules";
 import { toTransportInfoColumns } from "@/lib/products/transportInfo";
+import { pricingAllowsQty, toActivityPricingColumns } from "@/lib/products/activityPricing";
 import { productTypeGating, type ProductType, type ProductTypeFieldsState } from "@/lib/products/useProductTypeFieldsState";
 
 // Construit le payload jsonb attendu par submit_product_creation_proposal / le
@@ -36,8 +37,11 @@ export function buildProductCreationPayload(
   const {
     isEvento, isCamp, isLodging, isActivity, isTransport,
     hasLocationAndTags, hasTags, hasAmenities, hasPriceQtyFields, hasCheckInOut, hasDefaultCapacity,
+    hasMinQty, hasMaxQty,
   } = productTypeGating(type);
-  const usesTiers = hasPriceQtyFields && fields.priceMode === "tiers";
+  // Spec 43 : une activité vendue entière n'a ni tramos ni minimum (la fiche en réserve une).
+  const venteEntiere = isActivity && !pricingAllowsQty(fields.pricingUnit);
+  const usesTiers = hasPriceQtyFields && fields.priceMode === "tiers" && !venteEntiere;
   // `Number("")` vaut 0, PAS NaN : un champ prix laissé vide franchissait donc `Number.isFinite`
   // et partait en base à 0, refusé par `products_price_cop_positive` (`check price_cop > 0`). Cela
   // fermait le cas « vitrine sans prix chiffré » que la migration 20260908200000 venait justement
@@ -70,10 +74,15 @@ export function buildProductCreationPayload(
       ? {
           price_cop: usesTiers ? lowestTierPrice(fields.priceTiers) : priceCopOuNull,
           price_tiers: usesTiers ? toPriceTiersColumn(fields.priceTiers) : null,
-          min_qty: fields.minQty.trim() ? Number(fields.minQty) : null,
-          max_qty: fields.maxQty.trim() ? Number(fields.maxQty) : null,
+          // NULL explicite là où le type n'a pas la borne (migration 20261025120000 : la base la
+          // refuse) — une valeur saisie sous un autre type avant de basculer resterait sinon dans
+          // l'état, invisible, et ferait échouer l'enregistrement.
+          min_qty: hasMinQty && !venteEntiere && fields.minQty.trim() ? Number(fields.minQty) : null,
+          max_qty: hasMaxQty && fields.maxQty.trim() ? Number(fields.maxQty) : null,
         }
       : {}),
+    // Spec 43 (migration 20261025140000) : mode de prix et personnes min/max d'une activité.
+    ...(isActivity ? toActivityPricingColumns(fields) : {}),
     ...(isCamp
       ? {
           price_cop: priceCopOuNull,

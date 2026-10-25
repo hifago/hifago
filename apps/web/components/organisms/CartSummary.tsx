@@ -215,7 +215,14 @@ export function CartSummary({
                           ),
                         })}`
                       : ""}
-                    {` · ${t("lineQty", { count: line.qty })}`}
+                    {/* Spec 43 : ce que compte la quantité d'une activité (heures, activité entière). */}
+                    {` · ${
+                      line.pricingUnit === "per_hour"
+                        ? t("lineHours", { count: line.qty })
+                        : line.pricingUnit === "per_activity"
+                          ? t("lineActivity")
+                          : t("lineQty", { count: line.qty })
+                    }`}
                   </span>
                 </div>
                 <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">

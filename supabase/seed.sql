@@ -131,7 +131,7 @@ values (
 -- avec le rôle qui possède réellement un établissement/produit à vendre) et à l'établissement
 -- ci-dessus (feature 2, même produit — pas un nouveau).
 insert into products (
-  id, partner_id, establishment_id, type, name, description, price_cop, unit, schedule, qty_unit,
+  id, partner_id, establishment_id, type, name, description, price_cop, unit, schedule,
   category, sellable, slug
 )
 values (
@@ -150,7 +150,6 @@ values (
   80000,
   'per_person',
   'date',
-  'qty',
   'nautica',
   true,
   'tour-lancha-guatape'
@@ -269,7 +268,7 @@ values (
 -- que ce socio voie sa propre fiche dans /partner/products (products_select_public, Tranche 2, ne
 -- couvre que sellable=true ou admin).
 insert into products (
-  id, partner_id, establishment_id, type, name, description, price_cop, unit, schedule, qty_unit,
+  id, partner_id, establishment_id, type, name, description, price_cop, unit, schedule,
   category, sellable, slug
 )
 values (
@@ -282,7 +281,6 @@ values (
   60000,
   'per_person',
   'date',
-  'qty',
   'bienestar',
   false,
   'caminata-ecologica-propuestas'
@@ -297,7 +295,7 @@ values (
 -- panier avec des lignes de deux établissements différents nécessite deux produits publiés
 -- distincts, jamais un seul.
 insert into products (
-  id, partner_id, establishment_id, type, name, description, price_cop, unit, schedule, qty_unit,
+  id, partner_id, establishment_id, type, name, description, price_cop, unit, schedule,
   category, sellable, slug
 )
 values (
@@ -313,7 +311,6 @@ values (
   45000,
   'per_person',
   'date',
-  'qty',
   'nautica',
   true,
   'kayak-embalse-guatape'
@@ -534,7 +531,7 @@ update establishments
  where id = 'b0000000-0000-4000-8000-000000000002';
 
 insert into products (
-  id, partner_id, establishment_id, type, name, description, price_cop, unit, schedule, qty_unit,
+  id, partner_id, establishment_id, type, name, description, price_cop, unit, schedule,
   sellable, slug, lobby_category_id
 )
 values (
@@ -550,7 +547,6 @@ values (
   100000,
   'per_person',
   'date',
-  'qty',
   true,
   'alojamiento-pms-backed-demo',
   9631
@@ -581,7 +577,7 @@ values (
 -- Le couchage PMS, lui, l'a à null et passe donc par ABSENCE de borne ; sans une capacité explicite
 -- ici, aucune donnée du seed n'exercerait la branche qui filtre réellement.
 insert into products (
-  id, partner_id, establishment_id, type, name, description, price_cop, unit, schedule, qty_unit,
+  id, partner_id, establishment_id, type, name, description, price_cop, unit, schedule,
   capacity, sellable, slug
 )
 values (
@@ -597,7 +593,6 @@ values (
   65000,
   'per_person',
   'date',
-  'qty',
   6,
   true,
   'cama-dormitorio-compartido-demo'
@@ -692,7 +687,7 @@ insert into catalog_tags (id, label, slug, description) values
 -- distinctes. Elles sont rattachées au partenaire et à l'établissement déjà seedés : aucun
 -- troisième partenaire créé pour la forme.
 insert into products (
-  id, partner_id, establishment_id, type, name, description, price_cop, unit, schedule, qty_unit,
+  id, partner_id, establishment_id, type, name, description, price_cop, unit, schedule,
   category, max_qty, sellable, slug
 )
 values
@@ -706,7 +701,7 @@ values
       'es', 'Caminata guiada de tres horas hasta el mirador, con parada en el bosque nativo.',
       'en', 'Three-hour guided hike to the viewpoint, with a stop in the native forest.'
     ),
-    55000, 'per_person', 'date', 'qty', 'bienestar', 12, true, 'caminata-mirador-penon'
+    55000, 'per_person', 'date', 'bienestar', null, true, 'caminata-mirador-penon'
   ),
   -- ⚠️ Celle-ci reste DÉLIBÉRÉMENT NON TAGUÉE (voir les assignations ci-dessous) : c'est elle qui
   -- rend la tuile « Otras actividades » atteignable en e2e. Sans une activité publiée qu'aucune
@@ -721,7 +716,7 @@ values
       'es', 'Taller de dos horas para pintar tu propio zócalo, materiales incluidos.',
       'en', 'Two-hour workshop to paint your own zócalo, materials included.'
     ),
-    70000, 'per_person', 'date', 'qty', 'arte', 8, true, 'taller-ceramica-zocalos'
+    70000, 'per_person', 'date', 'arte', 8, true, 'taller-ceramica-zocalos'
   );
 
 -- Les assignations. `taller-ceramica-zocalos` n'y figure PAS, à dessein (cf. ci-dessus).
@@ -784,7 +779,7 @@ update public.establishments
 -- public (`establishments_select_public` exige un produit vendable). Cahier §2e.
 insert into products (
   id, partner_id, establishment_id, type, name, description, price_cop, price_label,
-  external_booking_url, unit, schedule, qty_unit, sellable, slug
+  external_booking_url, unit, schedule, sellable, slug
 )
 values (
   'b0000000-0000-4000-8000-000000000031',
@@ -806,7 +801,6 @@ values (
   -- permis, et c'est le bon choix ici : le tarif d'un traslado se négocie, il n'a pas d'unité.
   null,
   'none',
-  'qty',
   true,
   'traslado-privado-medellin-guatape'
 );

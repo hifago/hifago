@@ -119,7 +119,7 @@ async function poserFixtures(client) {
     `insert into products (id, partner_id, establishment_id, type, name, slug, sellable, price_cop,
                            lobby_category_id, capacity, unit_count, lodging_kind, min_qty, max_qty)
      values ($1, $2, $3, 'lodging', '{"es":"Chambre Reserve Nights"}'::jsonb, $4, true, 100000, $5,
-             2, 3, 'private', 1, 6)`,
+             2, 3, 'private', null, null)`, // ni min ni max pour un logement (migration 20261025120000)
     [ids.product, ids.partner, ids.establishment, `chambre-reserve-nights-${ids.product.slice(0, 8)}`, LOBBY_CATEGORY_ID]
   );
 }

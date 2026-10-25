@@ -18,7 +18,7 @@
 -- geste que les policies `_select_public` laissent bien passer ce qu'il faut.
 
 begin;
-select plan(47);
+select plan(48);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────────────────────────
 insert into partners (id, display_name) values
@@ -69,16 +69,25 @@ values
   ('aaaa1111-0000-0000-0000-000000000107', 'aaaa1111-0000-0000-0000-000000000001',
    'aaaa1111-0000-0000-0000-00000000000d', 'lodging', 'sc-hab-d2',
    '{"es":"Hab D2"}'::jsonb, 85000, true, 2, null, 'date'),
-  -- Activités : bornes de quantité différentes, pour le filtre personas
+  -- Activités, pour le filtre personas. Plus aucune ne porte de max_qty : interdit pour une
+  -- activité depuis la migration 20261025120000 (seule la place restante borne une réservation).
   ('aaaa1111-0000-0000-0000-000000000201', 'aaaa1111-0000-0000-0000-000000000001',
    'aaaa1111-0000-0000-0000-00000000000b', 'activity', 'sc-jetski',
-   '{"es":"Jetski"}'::jsonb, 90000, true, 20, 2, 'date'),
+   '{"es":"Jetski"}'::jsonb, 90000, true, 20, null, 'date'),
   ('aaaa1111-0000-0000-0000-000000000202', 'aaaa1111-0000-0000-0000-000000000001',
    'aaaa1111-0000-0000-0000-00000000000b', 'activity', 'sc-sin-tope',
    '{"es":"Sin tope"}'::jsonb, 30000, true, 20, null, 'date'),
   ('aaaa1111-0000-0000-0000-000000000203', 'aaaa1111-0000-0000-0000-000000000001',
    'aaaa1111-0000-0000-0000-00000000000b', 'activity', 'sc-cerrada',
    '{"es":"Cerrada"}'::jsonb, 40000, true, 20, null, 'date');
+
+-- Transport borné à 2 : le seul type de ce fichier qui garde un max_qty (migration 20261025120000).
+insert into products
+  (id, partner_id, establishment_id, type, slug, name, price_cop, sellable, max_qty, schedule)
+values
+  ('aaaa1111-0000-0000-0000-000000000206', 'aaaa1111-0000-0000-0000-000000000001',
+   'aaaa1111-0000-0000-0000-00000000000b', 'transport', 'sc-lancha-dos',
+   '{"es":"Lancha para dos"}'::jsonb, 60000, true, 2, 'none');
 
 -- Événements (2026-09-15, retour Jérôme : trier les evento par prochaine occurrence, du plus
 -- proche au plus éloigné — migration 20260915110000_search_catalog_evento_next_occurrence.sql).
@@ -384,10 +393,18 @@ select is(
   1, 'un logement de capacité 6 passe le filtre « 4 personnes »'
 );
 
+-- Migration 20261025120000 : une activité n'a plus de maximum par réservation, le filtre ne la
+-- borne donc plus — le maximum ne vaut plus que pour le transport (et l'evento).
 select is(
   (select count(*)::int from search_catalog(p_limite => 100000, p_personas => 4)
    where id = 'aaaa1111-0000-0000-0000-000000000201'),
-  0, 'une activité bornée à max_qty=2 ne passe pas « 4 personnes »'
+  1, 'une activité passe « 4 personnes » : plus de maximum par réservation'
+);
+
+select is(
+  (select count(*)::int from search_catalog(p_limite => 100000, p_personas => 4)
+   where id = 'aaaa1111-0000-0000-0000-000000000206'),
+  0, 'un transport borné à max_qty=2 ne passe pas « 4 personnes »'
 );
 
 select is(

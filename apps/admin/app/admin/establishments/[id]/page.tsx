@@ -89,7 +89,9 @@ export default async function AdminEstablishmentDetailPage({
     supabase
       .from("establishment_tag_assignments")
       .select("tag_id")
-      .eq("establishment_id", establishment.id),
+      .eq("establishment_id", establishment.id)
+      // La première = la principale, celle qui classe la carte dans la vitrine (20261025100000).
+      .order("position"),
   ]);
   const { data: tagsRaw } = checkedRead(tagsResult, "catalog_tags");
   const { data: tagAssignments } = checkedRead(tagAssignmentsResult, "establishment_tag_assignments");

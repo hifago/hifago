@@ -41,7 +41,7 @@ export default async function AdminProposalDetailPage({
     await supabase
       .from("product_proposals")
       .select(
-        "id, status, version, payload, kind, type, establishment_id, rejection_reason, product:products(id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, price_label, external_booking_url, group_discount_threshold_qty, group_discount_pct, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, evento_occupies_resource), establishment:establishments(id, name, lobby_connector_active, lobby_has_token), establishment_proposal:establishment_proposals(id, status, payload), partner:partners(display_name)"
+        "id, status, version, payload, kind, type, establishment_id, rejection_reason, product:products(id, type, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, pricing_unit, min_persons, max_persons, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, price_label, external_booking_url, group_discount_threshold_qty, group_discount_pct, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, evento_occupies_resource), establishment:establishments(id, name, lobby_connector_active, lobby_has_token), establishment_proposal:establishment_proposals(id, status, payload), partner:partners(display_name)"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -143,7 +143,11 @@ export default async function AdminProposalDetailPage({
     "catalog_tags",
   );
   const { data: tagAssignments } = checkedRead(
-    await supabase.from("product_tag_assignments").select("tag_id").eq("product_id", proposal.product.id),
+    await supabase
+      .from("product_tag_assignments")
+      .select("tag_id")
+      .eq("product_id", proposal.product.id)
+      .order("position"),
     "product_tag_assignments",
   );
   // Équipements d'un logement (migration 20261013151206) — même comparaison en place / proposé.
@@ -245,7 +249,8 @@ async function AdminEstablishmentProposalDetail({ id }: { id: string }) {
         await supabase
           .from("establishment_tag_assignments")
           .select("tag_id")
-          .eq("establishment_id", establishmentId),
+          .eq("establishment_id", establishmentId)
+          .order("position"),
         "establishment_tag_assignments",
       )
     : { data: [] as { tag_id: string }[] };

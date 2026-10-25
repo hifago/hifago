@@ -1,5 +1,6 @@
 import { isoDateToLocalMidnight } from "@hifago/domain";
 import { ultimoDiaCampIso } from "@/lib/cart/campMissingLodging";
+import { finDePlage } from "@/lib/reservas/horas";
 
 // La date (ou la plage, ou le créneau) d'une ligne, rendue de la même façon partout.
 //
@@ -24,7 +25,19 @@ export type LineSchedule = {
   /** `products.duration_days` — non nul seulement pour un camp, qui ne porte jamais `endDate`
    * (contrainte `products_duration_days_required_for_camp`). Sert à reconstituer sa date de fin. */
   durationDays?: number | null;
+  /** Spec 43 : une ligne d'activité à l'heure (`per_hour`) affiche sa PLAGE, `10:00–13:00`. */
+  pricingUnit?: string | null;
+  qty?: number;
 };
+
+/** L'heure d'une ligne à créneau : son début, ou sa plage pour une ligne à l'heure (spec 43). */
+function heureDeLigne(line: LineSchedule, slotStartTime: string): string {
+  if (line.pricingUnit === "per_hour" && line.qty) {
+    const debut = slotStartTime.slice(0, 5);
+    return `${debut}–${finDePlage(debut, line.qty)}`;
+  }
+  return slotStartTime;
+}
 
 /**
  * La date de fin à AFFICHER : `endDate` si la ligne en porte une (hébergement), sinon calculée
@@ -46,7 +59,7 @@ export function formatLineSchedule(line: LineSchedule, locale?: string): string 
   const resolvedEndDate = resolveDisplayEndDate(line);
   if (!locale) {
     if (resolvedEndDate) return `${line.date} → ${resolvedEndDate}`;
-    if (line.slotStartTime) return `${line.date} · ${line.slotStartTime}`;
+    if (line.slotStartTime) return `${line.date} · ${heureDeLigne(line, line.slotStartTime)}`;
     return line.date;
   }
 
@@ -68,7 +81,7 @@ export function formatLineSchedule(line: LineSchedule, locale?: string): string 
       : date(line.date);
     return `${startLabel} → ${date(resolvedEndDate)}`;
   }
-  if (line.slotStartTime) return `${date(line.date, true)} · ${line.slotStartTime}`;
+  if (line.slotStartTime) return `${date(line.date, true)} · ${heureDeLigne(line, line.slotStartTime)}`;
   return date(line.date, true);
 }
 
@@ -95,6 +108,6 @@ export function formatLineScheduleLisible(line: LineSchedule, locale: string): s
     return `${jour(line.date, court)} → ${jour(resolvedEndDate, court)}`;
   }
   const avecJour = jour(line.date, { weekday: "short", day: "numeric", month: "short" });
-  if (line.slotStartTime) return `${avecJour} · ${line.slotStartTime.slice(0, 5)}`;
+  if (line.slotStartTime) return `${avecJour} · ${heureDeLigne(line, line.slotStartTime.slice(0, 5))}`;
   return avecJour;
 }

@@ -365,6 +365,7 @@ export function ModerateEstablishmentProposalForm({
             selectedTagIds={selectedTagIds}
             onChange={setSelectedTagIds}
             testId="moderate-tags"
+            markPrimary
           />
         ) : null}
 

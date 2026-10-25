@@ -20,6 +20,8 @@ export type ProductOption = {
   id: string;
   name: string;
   hasSlots: boolean;
+  /** Spec 43 : activité à l'heure — la quantité compte des heures consécutives, pas des personnes. */
+  perHour?: boolean;
 };
 
 function toDateInputValue(date: Date): string {
@@ -227,7 +229,9 @@ export function AddReservationDialog({
                 </TextField>
 
                 <TextField value={qty} onChange={setQty} isRequired>
-                  <Label htmlFor="manual-qty">Cantidad de personas</Label>
+                  <Label htmlFor="manual-qty">
+                    {selectedProduct?.perHour ? "Cantidad de horas (desde la hora elegida)" : "Cantidad de personas"}
+                  </Label>
                   <Input id="manual-qty" type="number" min={1} data-testid="manual-qty-input" />
                 </TextField>
               </Modal.Body>

@@ -31,6 +31,7 @@
 // serait interprété dans le fuseau du navigateur visiteur, pas celui de Bogota"). Cohérent avec
 // apps/admin n'étant pas localisé (hifago/CLAUDE.md §2) : le socio consulte depuis son propre
 // fuseau, présumé Bogota.
+import { lineQtyLabel } from "@/lib/products/activityPricing";
 
 export type OrderLineForAgenda = {
   id: string;
@@ -44,6 +45,8 @@ export type OrderLineForAgenda = {
   date: string; // "YYYY-MM-DD"
   endDate: string | null; // "YYYY-MM-DD", hôtel/lodging uniquement
   slotStartTime: string | null; // "HH:MM:SS", null pour toute ligne sans créneau
+  // Spec 43 : instantané du mode de prix — une ligne à l'heure couvre qty créneaux d'une heure.
+  pricingUnit?: string | null;
 };
 
 export type SlotDuration = {
@@ -106,13 +109,16 @@ export function positionOrderLines(
   }
 
   return lines.map((line) => {
-    const text = `${line.productName} - ${line.holderName} - ${line.qty} pers.`;
+    const text = `${line.productName} - ${line.holderName} - ${lineQtyLabel(line.qty, line.pricingUnit)}`;
 
     if (line.slotStartTime) {
       const start = localDate(line.date, line.slotStartTime);
+      // Une ligne à l'heure (spec 43) occupe qty créneaux consécutifs d'une heure : un seul bloc.
       const durationMinutes =
-        durationByKey.get(slotDurationKey(line.productId, line.date, line.slotStartTime)) ??
-        DEFAULT_SLOT_DURATION_MINUTES;
+        line.pricingUnit === "per_hour"
+          ? line.qty * 60
+          : (durationByKey.get(slotDurationKey(line.productId, line.date, line.slotStartTime)) ??
+            DEFAULT_SLOT_DURATION_MINUTES);
       const end = new Date(start.getTime() + durationMinutes * 60_000);
       return { id: line.id, text, start, end, allDay: false, status: line.status };
     }

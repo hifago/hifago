@@ -113,14 +113,20 @@ export function FichaProducto({
   // `per_house` = le logement ENTIER : pour une chambre privée, c'est la chambre, pas une maison
   // (retour Jérôme du 2026-10-24, RM201 affichait « por la casa entera »). Une maison entière, un
   // dortoir ou un type non renseigné gardent « por la casa entera ».
+  // Spec 43 : une ACTIVITÉ dit toujours ce que son prix compte — « por persona » (ce que create_order
+  // facture depuis toujours, décision de Jérôme du 2026-10-25), « por hora » ou l'activité entière.
   const sufijoUnidad =
-    ficha.unidad === "per_person"
-      ? t("perPerson")
-      : ficha.unidad === "per_house"
-        ? alojamiento?.lodgingKind === "private"
-          ? t("perRoom")
-          : t("perHouse")
-        : null;
+    ficha.modoPrecio === "per_hour"
+      ? t("perHour")
+      : ficha.modoPrecio === "per_activity"
+        ? t("perActivity")
+        : ficha.modoPrecio === "per_person" || ficha.unidad === "per_person"
+          ? t("perPerson")
+          : ficha.unidad === "per_house"
+            ? alojamiento?.lodgingKind === "private"
+              ? t("perRoom")
+              : t("perHouse")
+            : null;
 
   // Table explicite plutôt qu'une clé i18n construite dynamiquement : next-intl ne vérifierait plus
   // l'existence de la clé, et une valeur inattendue afficherait son propre nom brut au visiteur.
@@ -239,6 +245,7 @@ export function FichaProducto({
       <SlotReservationForm
         productId={ficha.id}
         slots={ficha.franjas}
+        modoPrecio={ficha.modoPrecio}
         minQty={ficha.minQty}
         maxQty={ficha.maxQty}
       />
@@ -252,6 +259,7 @@ export function FichaProducto({
         groupDiscount={ficha.descuentoGrupo ?? undefined}
         precio={ficha.precio}
         unidad={ficha.unidad}
+        modoPrecio={ficha.modoPrecio}
         locale={locale}
         onSalidaChange={setSalidaIso}
       />
@@ -337,7 +345,23 @@ export function FichaProducto({
       ) : null}
     </p>
   ) : null;
+  // Spec 43 : le nombre de personnes d'une activité à l'heure ou entière — simple mention.
+  const personas = ficha.personas;
+  const etiquetaPersonas = personas
+    ? personas.min != null && personas.max != null
+      ? t("personsRange", { min: personas.min, max: personas.max })
+      : personas.max != null
+        ? t("personsMax", { count: personas.max })
+        : personas.min != null
+          ? t("personsMin", { count: personas.min })
+          : null
+    : null;
   const puces = [
+    etiquetaPersonas ? (
+      <PuceEstado key="personas" tono="neutro" multilinea testId="activity-persons">
+        {etiquetaPersonas}
+      </PuceEstado>
+    ) : null,
     faits.length > 0 ? (
       <span key="faits" className="contents" data-testid="product-lodging-facts">
         {faits.map((fait) => (

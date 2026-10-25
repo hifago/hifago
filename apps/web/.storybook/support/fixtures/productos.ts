@@ -50,6 +50,8 @@ const BASE: Omit<FichaProducto, "id" | "slug" | "tipo" | "nombre" | "modoReserva
   fotos: [],
   precio: null,
   unidad: null,
+  modoPrecio: null,
+  personas: null,
   minQty: 1,
   maxQty: 20,
   urlExterna: null,

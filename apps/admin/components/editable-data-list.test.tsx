@@ -203,7 +203,7 @@ describe("DataList — sélection multiple avec création", () => {
   const onManage = vi.fn();
 
   // Comme ProductsList : l'appelant ajoute l'option créée à `options`, la cellule ne la mémorise pas.
-  function TagList({ canCreate = true }: { canCreate?: boolean }) {
+  function TagList({ canCreate = true, rows = TAG_ROWS }: { canCreate?: boolean; rows?: TagRow[] }) {
     const [options, setOptions] = useState(OPTIONS);
     const columns: DataListColumn<TagRow>[] = [
       { id: "name", header: "Nombre" },
@@ -231,13 +231,13 @@ describe("DataList — sélection multiple avec création", () => {
     return (
       <UnsavedChangesProvider>
         <EditableDataList
-          rows={TAG_ROWS}
+          rows={rows}
           getRowId={(row) => row.id}
           columns={columns}
           basePath="/admin/things"
           page={1}
           pageSize={20}
-          totalCount={TAG_ROWS.length}
+          totalCount={rows.length}
           sort={{ key: "name", direction: "asc" }}
           extraParams={{}}
           ariaLabel="Cosas"
@@ -268,6 +268,24 @@ describe("DataList — sélection multiple avec création", () => {
     expect(await screen.findByRole("option", { name: "Señalética" })).toBeTruthy();
     expect(screen.queryByRole("option", { name: "Agua" })).toBeNull();
     expect(screen.queryByTestId("edit-tags-a-create")).toBeNull();
+  });
+
+  // Migration 20261025100000 : la première étiquette est la principale. La cellule doit montrer, et
+  // l'enregistrement transmettre, l'ordre de la SÉLECTION — jamais celui des options (catálogo).
+  it("la cellule montre l'ordre enregistré, pas celui du catálogo", () => {
+    render(<TagList rows={[{ id: "a", name: "Kayak", tagIds: ["senal", "agua"] }]} />);
+    expect(cellText()).toBe("Señalética, Agua");
+  });
+
+  it("cocher une option l'ajoute EN FIN de sélection, et c'est cet ordre qui part", async () => {
+    render(<TagList rows={[{ id: "a", name: "Kayak", tagIds: ["senal"] }]} />);
+    await openAndType("Agua");
+    await userEvent.click(await screen.findByRole("option", { name: "Agua" }));
+    await waitFor(() => expect(cellText()).toBe("Señalética, Agua"));
+
+    fireEvent.click(screen.getByTestId("save-changes-button"));
+    await waitFor(() => expect(onSaveTags).toHaveBeenCalledTimes(1));
+    expect(onSaveTags.mock.calls[0][0][0].values).toEqual({ tags: ["senal", "agua"] });
   });
 
   it("sans `onCreateOption`, un libellé inconnu ne propose rien", async () => {

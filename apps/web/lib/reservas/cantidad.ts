@@ -17,8 +17,10 @@
  * l'empêchait ni ne le signalait (`CheckoutPage.json` n'avait même pas la clé de traduction). Le
  * PLANCHER ne s'applique qu'aux produits hors lodging : `create_order` ne vérifie `min_qty` que dans
  * sa branche non-lodging — `LodgingReservationForm` appelle donc ce module avec `min` fixé à 1. Le
- * PLAFOND, lui, vaut pour TOUT type depuis la migration 20260929112240 (`coalesce(max_qty, 20)` par
- * ligne, `qty_cap_exceeded`) : chaque formulaire passe ici `min(place restante, maxQty)`.
+ * PLAFOND : chaque formulaire passe ici la place restante, bornée par le plafond par réservation du
+ * produit QUAND IL EN A UN. Depuis la migration 20261025120000 (décision Jérôme du 2026-10-25), une
+ * activité, un logement ou un camp n'en a plus — un client peut prendre tout le cupo d'un coup ;
+ * seuls l'evento et le transport gardent `coalesce(max_qty, 20)` (`perReservationQtyCap`).
  */
 export function limitarCantidad(bruto: number, min: number, max: number): number {
   const piso = pisoCantidad(min, max);
@@ -51,28 +53,28 @@ export function topeCantidad(max: number): number {
   return Math.max(max, 1);
 }
 
-/** Plafond par ligne de `create_order` quand `products.max_qty` est NULL (`coalesce(max_qty, 20)`). */
-export const TOPE_CANTIDAD_POR_DEFECTO = 20;
-
 /**
- * Le plafond de quantité d'un séjour PMS : `min(max_qty ou 20, places restantes)` — v1 :
- * « limite effective = min(maxUnits, unités libres aux dates) ».
+ * Le plafond de quantité d'un séjour : les places restantes sur les nuits — et `maxQty` quand le
+ * produit en a un. Un logement n'en a plus depuis la migration 20261025120000 (`maxQty` null) : un
+ * client peut prendre tout ce qui reste ; avant, `coalesce(max_qty, 20)` bornait à 20 un dortoir qui
+ * en offrait 30.
  *
  * Avec une plage choisie, ce sont les MOINS fournies de ses nuits qui bornent (une nuit absente de
  * `restantes` vaut 0 : fail-closed, comme `nuitReservable`). Sans plage, on ne sait pas encore quelles
  * nuits seront retenues : le MAXIMUM des nuits chargées, pour ne pas brider avant d'avoir un choix.
- * Aucune nuit chargée → seul `maxQty` borne, et `create_order` reste le filet.
+ * Aucune nuit chargée → `maxQty` s'il existe, sinon 1 : rien n'est encore réservable, et
+ * `create_order` reste le filet.
  */
 export function plafondCantidad(
   maxQty: number | null,
   restantes: ReadonlyMap<string, number>,
   nochesElegidas: readonly string[]
 ): number {
-  const tope = maxQty !== null && maxQty > 0 ? maxQty : TOPE_CANTIDAD_POR_DEFECTO;
+  const tope = maxQty !== null && maxQty > 0 ? maxQty : Number.POSITIVE_INFINITY;
   if (nochesElegidas.length > 0) {
     const minimo = Math.min(...nochesElegidas.map((noche) => restantes.get(noche) ?? 0));
     return Math.min(tope, Math.max(minimo, 0));
   }
-  if (restantes.size === 0) return tope;
+  if (restantes.size === 0) return Number.isFinite(tope) ? tope : 1;
   return Math.min(tope, Math.max(...restantes.values(), 0));
 }

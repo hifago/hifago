@@ -12,7 +12,9 @@ function params(overrides: Partial<Parameters<typeof requiredPricingStepError>[0
     isCamp: false,
     isActivity: true,
     isLodging: false,
-    hasPriceQtyFields: true,
+    // Les deux bornes affichées, comme pour un transport : chaque règle de quantité est testable.
+    hasMinQty: true,
+    hasMaxQty: true,
     needsOwnPrice: true,
     usesTiers: false,
     price: 50000,
@@ -66,6 +68,20 @@ describe("requiredPricingStepError — plancher des quantités", () => {
   });
 
   it("sans champs de quantité pour ce type, rien n'est vérifié", () => {
-    expect(requiredPricingStepError(params({ hasPriceQtyFields: false, minQty: "0" }))).toBeNull();
+    expect(requiredPricingStepError(params({ hasMinQty: false, hasMaxQty: false, minQty: "0" }))).toBeNull();
+  });
+
+  // Migration 20261025120000 : une activité n'a plus de maximum, un logement plus de minimum. Une
+  // valeur restée dans l'état d'un autre type n'est jamais envoyée : elle ne bloque pas l'écran.
+  it("une borne masquée n'est jamais vérifiée, même incohérente", () => {
+    expect(requiredPricingStepError(params({ hasMaxQty: false, maxQty: "0" }))).toBeNull();
+    expect(requiredPricingStepError(params({ hasMaxQty: false, minQty: "5", maxQty: "2" }))).toBeNull();
+    expect(requiredPricingStepError(params({ hasMinQty: false, minQty: "0" }))).toBeNull();
+  });
+
+  it("minimum au-dessus du maximum : refusé quand les deux bornes sont affichées (transport)", () => {
+    expect(requiredPricingStepError(params({ minQty: "5", maxQty: "2" }))).toBe(
+      "La cantidad mínima no puede ser mayor a la máxima."
+    );
   });
 });

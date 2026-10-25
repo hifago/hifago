@@ -11,9 +11,11 @@
 --   * la FORME GARDÉE — une proposition sans la clé ne retire aucune étiquette ;
 --   * un tableau VIDE, lui, les retire toutes (c'est une demande explicite) ;
 --   * un identifiant inconnu ou mal formé est écarté au dépôt, sans erreur de cast ;
---   * une étiquette supprimée entre le dépôt et l'approbation ne fait pas échouer l'approbation.
+--   * une étiquette supprimée entre le dépôt et l'approbation ne fait pas échouer l'approbation ;
+--   * l'ORDRE proposé est gardé du dépôt jusqu'aux assignations (20261025100000) : la première
+--     étiquette est la principale, celle qui classe la carte dans la vitrine.
 begin;
-select plan(19);
+select plan(26);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -63,6 +65,17 @@ create function etiquetas_ficha() returns text language sql as $$
     from public.product_tag_assignments a join public.catalog_tags t on t.id = a.tag_id
    where a.product_id = '7a650000-0000-4000-8000-000000000031';
 $$;
+-- Les mêmes, dans l'ordre de `position` (la première = la principale).
+create function etiquetas_ficha_en_orden() returns text language sql as $$
+  select coalesce(string_agg(t.slug, ',' order by a.position), '')
+    from public.product_tag_assignments a join public.catalog_tags t on t.id = a.tag_id
+   where a.product_id = '7a650000-0000-4000-8000-000000000031';
+$$;
+create function etiquetas_establecimiento_en_orden() returns text language sql as $$
+  select coalesce(string_agg(t.slug, ',' order by a.position), '')
+    from public.establishment_tag_assignments a join public.catalog_tags t on t.id = a.tag_id
+   where a.establishment_id = '7a650000-0000-4000-8000-000000000011';
+$$;
 create function etiquetas_establecimiento() returns text language sql as $$
   select coalesce(string_agg(t.slug, ',' order by t.slug), '')
     from public.establishment_tag_assignments a join public.catalog_tags t on t.id = a.tag_id
@@ -90,9 +103,10 @@ create temp table tmp_a as
 
 select is(
   (select payload -> 'tag_ids' from product_proposals where id = (select id from tmp_a)),
-  -- Ordre du slug (« dos » avant « tres ») : le tableau est RECONSTRUIT depuis catalog_tags.
-  jsonb_build_array('7a650000-0000-4000-8000-0000000000a2', '7a650000-0000-4000-8000-0000000000a3'),
-  'fiche, dépôt : tag_ids traverse la whitelist, l''id mal formé et l''id inconnu sont écartés'
+  -- L'ordre du socio (« tres » puis « dos ») est GARDÉ depuis 20261025100000 — il était retrié par
+  -- slug, ce qui perdait l'étiquette principale.
+  jsonb_build_array('7a650000-0000-4000-8000-0000000000a3', '7a650000-0000-4000-8000-0000000000a2'),
+  'fiche, dépôt : tag_ids traverse la whitelist dans l''ordre, l''id mal formé et l''id inconnu sont écartés'
 );
 
 select is(etiquetas_ficha(), 'etiquetas-test-uno',
@@ -108,6 +122,9 @@ select is(
 
 select is(etiquetas_ficha(), 'etiquetas-test-dos,etiquetas-test-tres',
   'fiche, approbation : « Uno » retirée, « Dos » et « Tres » posées');
+
+select is(etiquetas_ficha_en_orden(), 'etiquetas-test-tres,etiquetas-test-dos',
+  'fiche, approbation : dans l''ordre proposé — « Tres », la première, est la principale');
 
 -- ═══════════════════════════════════════════════════════════════════════════════════════════════
 -- C. FICHE — forme gardée : sans la clé, rien ne bouge
@@ -255,6 +272,66 @@ select is(
 
 select is(etiquetas_establecimiento(), 'etiquetas-test-uno',
   'établissement : sans tag_ids dans la correction, ce sont les étiquettes PROPOSÉES qui s''appliquent');
+
+-- ═══════════════════════════════════════════════════════════════════════════════════════════════
+-- I. L'ORDRE seul est une modification (20261025100000) — fiche puis établissement
+-- ═══════════════════════════════════════════════════════════════════════════════════════════════
+-- La fiche est vide depuis E. Dépôt « Dos, Uno », puis le MÊME ensemble dans l'autre ordre : la
+-- seconde approbation doit réordonner des étiquettes déjà posées, pas seulement en ajouter.
+select test_login('7a650000-0000-4000-8000-000000000021');
+create temp table tmp_i1 as
+  select (submit_product_proposal(
+    '7a650000-0000-4000-8000-000000000031'::uuid,
+    jsonb_build_object('name', jsonb_build_object('es', 'Caminata Etiquetas'), 'price_cop', 50000,
+                       'tag_ids', jsonb_build_array('7a650000-0000-4000-8000-0000000000a2',
+                                                    '7a650000-0000-4000-8000-0000000000a1'))
+  )->>'proposal_id')::uuid as id;
+
+select test_login('7a650000-0000-4000-8000-000000000024');
+select is(
+  (select moderate_product_proposal((select id from tmp_i1), 'approve', 1)->>'ok'),
+  'true', 'fiche : l''approbation de « Dos, Uno » réussit');
+
+select test_login('7a650000-0000-4000-8000-000000000021');
+create temp table tmp_i2 as
+  select (submit_product_proposal(
+    '7a650000-0000-4000-8000-000000000031'::uuid,
+    jsonb_build_object('name', jsonb_build_object('es', 'Caminata Etiquetas'), 'price_cop', 50000,
+                       'tag_ids', jsonb_build_array('7a650000-0000-4000-8000-0000000000a1',
+                                                    '7a650000-0000-4000-8000-0000000000a2'))
+  )->>'proposal_id')::uuid as id;
+
+select test_login('7a650000-0000-4000-8000-000000000024');
+select is(
+  (select moderate_product_proposal((select id from tmp_i2), 'approve', 1)->>'ok'),
+  'true', 'fiche : l''approbation du même ensemble réordonné réussit');
+
+select is(etiquetas_ficha_en_orden(), 'etiquetas-test-uno,etiquetas-test-dos',
+  'fiche : un simple réordonnancement change l''étiquette principale');
+
+-- Établissement : « Uno » est posée depuis H. Proposer « Dos, Uno » : la nouvelle passe DEVANT
+-- l'ancienne, qui doit donc être renumérotée.
+select test_login('7a650000-0000-4000-8000-000000000021');
+create temp table tmp_i3 as
+  select (submit_establishment_edit_proposal(
+    '7a650000-0000-4000-8000-000000000011'::uuid,
+    jsonb_build_object('name', jsonb_build_object('es', 'Hostal Etiquetas'),
+                       'tag_ids', jsonb_build_array('7a650000-0000-4000-8000-0000000000a2',
+                                                    '7a650000-0000-4000-8000-0000000000a1'))
+  )->>'proposal_id')::uuid as id;
+
+select is(
+  (select payload -> 'tag_ids' from establishment_proposals where id = (select id from tmp_i3)),
+  jsonb_build_array('7a650000-0000-4000-8000-0000000000a2', '7a650000-0000-4000-8000-0000000000a1'),
+  'établissement, dépôt : l''ordre du socio est gardé');
+
+select test_login('7a650000-0000-4000-8000-000000000024');
+select is(
+  (select moderate_establishment_proposal((select id from tmp_i3), 'approve', 1)->>'ok'),
+  'true', 'établissement : l''approbation de « Dos, Uno » réussit');
+
+select is(etiquetas_establecimiento_en_orden(), 'etiquetas-test-dos,etiquetas-test-uno',
+  'établissement : la nouvelle étiquette proposée en tête devient la principale');
 
 select * from finish();
 rollback;

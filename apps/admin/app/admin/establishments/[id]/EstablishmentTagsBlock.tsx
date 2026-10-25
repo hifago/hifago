@@ -39,6 +39,7 @@ export function EstablishmentTagsBlock({
         selectedTagIds={selectedIds}
         onChange={handleChange}
         testId="tags-multiselect"
+        markPrimary
       />
     </div>
   );

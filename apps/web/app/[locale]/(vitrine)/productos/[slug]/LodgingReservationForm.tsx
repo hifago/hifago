@@ -104,7 +104,8 @@ export function LodgingReservationForm({
   productId: string;
   priceCop: number;
   priceTiers: PriceTier[] | null;
-  maxQty: number;
+  /** Plafond par réservation — `null` pour un logement (migration 20261025120000) : seules les nuits bornent. */
+  maxQty: number | null;
   lodgingKind: LodgingKind | null;
   isPmsBacked: boolean;
   /**
@@ -546,10 +547,10 @@ export function LodgingReservationForm({
   // qu'elle ne la déborde.
   function handleQtyChange(value: string) {
     const brut = Number(value);
-    // min fixé à 1, jamais products.min_qty : create_order ne vérifie le plancher que hors lodging.
-    // Le plafond, lui, vaut pour le lodging aussi depuis la migration 20260929112240
-    // (`coalesce(max_qty, 20)` par ligne, en plus de l'agrégat lodging_cap_exceeded) — c'est
-    // `qtyMax`, issu de `maxQty`. Cf. lib/reservas/cantidad.ts.
+    // min fixé à 1 : un logement n'a pas de min_qty (interdit en base depuis la migration
+    // 20261025120000). Le plafond `qtyMax` est la place restante sur les nuits — aucun plafond
+    // produit depuis cette même migration, seul l'agrégat lodging_cap_exceeded reste côté serveur.
+    // Cf. lib/reservas/cantidad.ts.
     const suivant = limitarCantidad(brut, 1, qtyMax);
     setQty(suivant);
     if (!range?.from) return;

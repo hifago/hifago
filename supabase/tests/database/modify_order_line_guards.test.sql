@@ -25,7 +25,7 @@ insert into products (id, partner_id, establishment_id, type, name, slug, sellab
   -- 21 : activité.
   ('7c720000-0000-4000-8000-000000000021', '7c720000-0000-4000-8000-000000000001',
    '7c720000-0000-4000-8000-000000000011', 'activity', jsonb_build_object('es', 'Actividad'),
-   'modify-guards-actividad', true, 10000, 1, 10, false, null, null, true, null, null),
+   'modify-guards-actividad', true, 10000, 1, null, false, null, null, true, null, null),
   -- 22 : evento rsvp (n'occupe pas la ressource).
   ('7c720000-0000-4000-8000-000000000022', '7c720000-0000-4000-8000-000000000001',
    '7c720000-0000-4000-8000-000000000011', 'evento', jsonb_build_object('es', 'Evento rsvp'),
@@ -38,10 +38,11 @@ insert into products (id, partner_id, establishment_id, type, name, slug, sellab
   ('7c720000-0000-4000-8000-000000000024', '7c720000-0000-4000-8000-000000000001',
    '7c720000-0000-4000-8000-000000000011', 'evento', jsonb_build_object('es', 'Evento ocupante'),
    'modify-guards-ocupante', true, 30000, null, null, true, 'metered', 'online', true, 5, null),
-  -- 25 : logement local, min_qty 2.
+  -- 25 : logement local. Ni min_qty ni max_qty : interdits pour un logement depuis la migration
+  -- 20261025120000 (le min_qty 2 que portait ce cas ne peut plus exister).
   ('7c720000-0000-4000-8000-000000000025', '7c720000-0000-4000-8000-000000000001',
    '7c720000-0000-4000-8000-000000000011', 'lodging', jsonb_build_object('es', 'Casa'),
-   'modify-guards-casa', true, 100000, 2, 4, false, null, null, true, null, null),
+   'modify-guards-casa', true, 100000, null, null, false, null, null, true, null, null),
   -- 26 : logement adossé à LobbyPMS.
   ('7c720000-0000-4000-8000-000000000026', '7c720000-0000-4000-8000-000000000001',
    '7c720000-0000-4000-8000-000000000011', 'lodging', jsonb_build_object('es', 'Habitación PMS'),
@@ -50,11 +51,11 @@ insert into products (id, partner_id, establishment_id, type, name, slug, sellab
   -- un logement PMS, même prédicat que release_order_line_capacity.
   ('7c720000-0000-4000-8000-000000000028', '7c720000-0000-4000-8000-000000000001',
    '7c720000-0000-4000-8000-000000000011', 'activity', jsonb_build_object('es', 'Actividad PMS'),
-   'modify-guards-actividad-pms', true, 10000, 1, 10, false, null, null, true, null, 8),
+   'modify-guards-actividad-pms', true, 10000, 1, null, false, null, null, true, null, 8),
   -- 27 : logement local, pour le plancher d'une nuit.
   ('7c720000-0000-4000-8000-000000000027', '7c720000-0000-4000-8000-000000000001',
    '7c720000-0000-4000-8000-000000000011', 'lodging', jsonb_build_object('es', 'Cabaña'),
-   'modify-guards-cabana', true, 100000, null, 4, false, null, null, true, null, null);
+   'modify-guards-cabana', true, 100000, null, null, false, null, null, true, null, null);
 
 -- Migration 20261014211700 : la ligne d'un evento en ligne ne se déplace que sur une occurrence —
 -- les eventos 22 à 24 ont lieu chaque jour de mars 2029, dates que visent leurs cas.
@@ -168,11 +169,12 @@ select throws_ok(
   'P0001', null,
   'logement au plancher : 0 + 3 sur une capacité de 2 → capacité insuffisante (jamais 23514)'
 );
--- Le plafond max_qty d'un logement, lui, reste (seul min_qty est retiré).
+-- Plus de plafond max_qty pour un logement (migration 20261025120000) : 5 places butent sur la
+-- capacité de la nuit, jamais sur un « hors bornes ». Message exact pour le prouver.
 select throws_ok(
   $$ select modify_order_line('7c720000-0000-4000-8000-000000000059', '2029-03-10', 5, 'Motivo', '2029-03-11') $$,
-  'P0001', 'quantité 5 hors bornes [1, 4] pour ce produit',
-  'logement : qty au-delà de max_qty → refusée'
+  'P0001', 'capacité insuffisante pour la nuit 2029-03-10 (0 déjà réservé(s) sur 2)',
+  'logement : qty au-delà de la nuit → refusée par la capacité, aucun plafond produit'
 );
 reset role;
 
@@ -255,7 +257,7 @@ select is(
 
 -- ===== Logement : pas de min_qty ==================================================================
 select is((select res->>'ok' from r where k = 'logement_min'), 'true',
-  'logement à min_qty 2 ramené à 1 → ok (pas de min_qty logement)');
+  'logement ramené à 1 → ok (aucun min_qty pour un logement, interdit en base)');
 select is(
   (select jsonb_object_agg(date, booked) from product_availability
     where product_id = '7c720000-0000-4000-8000-000000000025'),

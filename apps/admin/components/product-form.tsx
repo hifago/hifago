@@ -20,11 +20,12 @@ import {
   requiredPricingStepError,
 } from "@/lib/products/productFormRequiredFields";
 import { toSlotRuleRows } from "@/lib/products/slotRules";
+import { activityPricingError, pricingAllowsQty } from "@/lib/products/activityPricing";
 import { buildProductCreationPayload } from "@/lib/products/productCreationPayload";
 import { buildProductEditPayload } from "@/lib/products/productEditPayload";
 import { eventoChangeRefusal } from "@/lib/products/eventoChangeRefusal";
 import { mergeLobbyRoom } from "@/lib/products/lobbyRoomImport";
-import { asLodgingKind, asLodgingUnit } from "@hifago/domain";
+import { asLodgingKind, asLodgingUnit, asPricingUnit } from "@hifago/domain";
 import {
   productTypeGating,
   useProductTypeFieldsState,
@@ -54,6 +55,10 @@ export type EditableProduct = {
   price_tiers: unknown;
   min_qty: number | null;
   max_qty: number | null;
+  // Spec 43 (migration 20261025140000).
+  pricing_unit?: string | null;
+  min_persons?: number | null;
+  max_persons?: number | null;
   check_in_time: string | null;
   check_out_time: string | null;
   capacity: number | null;
@@ -206,6 +211,9 @@ export function ProductForm({
           priceTiers: product.price_tiers,
           minQty: product.min_qty,
           maxQty: product.max_qty,
+          pricingUnit: asPricingUnit(product.pricing_unit),
+          minPersons: product.min_persons ?? null,
+          maxPersons: product.max_persons ?? null,
           checkInTime: product.check_in_time,
           checkOutTime: product.check_out_time,
           capacity: product.capacity,
@@ -266,14 +274,16 @@ export function ProductForm({
   } | null>(null);
 
   const {
-    isEvento, isCamp, isActivity, isLodging, isTransport, hasPriceQtyFields,
+    isEvento, isCamp, isActivity, isLodging, isTransport, hasPriceQtyFields, hasMinQty, hasMaxQty,
   } = productTypeGating(type);
 
   // Valeurs partagées entre la validation par étape (goNext) et la soumission finale
   // (handleSubmit) — calculées une seule fois, jamais dupliquées entre les deux.
   const nombreEs = name.es?.trim() ?? "";
   const price = Number(fields.priceCop);
-  const usesTiers = hasPriceQtyFields && fields.priceMode === "tiers";
+  // Spec 43 : une activité vendue entière n'a ni tramos ni minimum par réservation.
+  const venteEntiere = isActivity && !pricingAllowsQty(fields.pricingUnit);
+  const usesTiers = hasPriceQtyFields && fields.priceMode === "tiers" && !venteEntiere;
   // MIROIR EXACT de la contrainte `products_price_cop_required_unless_vitrine` (2026-09-08) : un
   // evento OU une offre en vitrine (URL externe posée) est dispensé de prix chiffré.
   // Un socio ne voit pas le lien de réservation externe d'un logement (showAdminLodgingOptions,
@@ -310,13 +320,14 @@ export function ProductForm({
         unitCount: fields.unitCount,
       });
     }
-    return requiredPricingStepError({
+    const pricingError = requiredPricingStepError({
       isEditing,
       isEvento,
       isCamp,
       isActivity,
       isLodging,
-      hasPriceQtyFields,
+      hasMinQty: hasMinQty && !venteEntiere,
+      hasMaxQty,
       needsOwnPrice,
       usesTiers,
       price,
@@ -333,6 +344,15 @@ export function ProductForm({
       maxQty: fields.maxQty,
       stayRates: fields.stayRates,
       externalBookingUrl: vitrinaOculta ? "" : fields.externalBookingUrl,
+    });
+    if (pricingError || !isActivity) return pricingError;
+    // Spec 43 : personnes min/max, et horaires de 60 min exigés pour une activité à l'heure.
+    return activityPricingError({
+      pricingUnit: fields.pricingUnit,
+      minPersons: fields.minPersons,
+      maxPersons: fields.maxPersons,
+      isEditing,
+      slotRules: fields.slotRules,
     });
   }
 

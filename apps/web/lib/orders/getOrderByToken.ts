@@ -36,6 +36,8 @@ export type OrderLineForDisplay = {
   durationDays: number | null;
   slotStartTime: string | null;
   qty: number;
+  /** Spec 43 : instantané `order_lines.pricing_unit` — `per_hour` : « 10:00–13:00 · 3 horas ». */
+  pricingUnit?: string | null;
   totalCop: number;
   acompteCop: number;
   /** `reserved` | `fulfilled` | `no_show` | `cancelled_by_client` | `cancelled_by_provider` | `expired` | `superseded` */
@@ -95,6 +97,7 @@ type RpcLine = {
   duration_days: number | null;
   slot_start_time: string | null;
   qty: number;
+  pricing_unit?: string | null;
   price_cop: number;
   total_cop: number;
   acompte_cop: number;
@@ -165,6 +168,7 @@ export async function getOrderByToken(
       durationDays: line.duration_days,
       slotStartTime: line.slot_start_time,
       qty: line.qty,
+      pricingUnit: line.pricing_unit ?? null,
       totalCop: line.total_cop,
       acompteCop: line.acompte_cop,
       status: line.status,

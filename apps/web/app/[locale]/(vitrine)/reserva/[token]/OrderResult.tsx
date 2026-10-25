@@ -524,7 +524,11 @@ export function OrderResult({
                         line.establishmentName
                       )}{" "}
                       · {formatLineSchedule(line, locale)} ·{" "}
-                      {t("lineQty", { count: line.qty })}
+                      {line.pricingUnit === "per_hour"
+                        ? t("lineHours", { count: line.qty })
+                        : line.pricingUnit === "per_activity"
+                          ? t("lineActivity")
+                          : t("lineQty", { count: line.qty })}
                     </span>
                     {/* Spec 34 décision ⑥ — écrire à l'établissement, message pré-rempli avec le
                       numéro de réservation : la forme exacte du portail en production

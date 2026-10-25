@@ -87,7 +87,8 @@ select is(
   (select string_agg(a.n, ', ' order by a.n)
      from pg_proc p, unnest(p.proargnames, p.proargmodes) as a(n, m)
     where p.oid = 'public.partner_agenda_order_lines'::regproc and a.m = 't'),
-  'date, end_date, holder_name, id, product_duration_days, product_id, product_name, '
+  -- pricing_unit : spec 43 (20261025140000), un bloc de qty heures pour une ligne à l'heure.
+  'date, end_date, holder_name, id, pricing_unit, product_duration_days, product_id, product_name, '
   'product_type, qty, slot_start_time, status',
   'partner_agenda_order_lines rend exactement ses colonnes d''affichage — aucune colonne de commission/montant'
 );

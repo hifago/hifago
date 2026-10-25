@@ -1,3 +1,4 @@
+import type { PricingUnit } from "@hifago/domain";
 // Les types partagés de la couche d'accès au catalogue (spec 27 §0, spec 28 §0).
 //
 // Ce fichier ne dépend de RIEN : ni de Supabase, ni de next-intl, ni de React. C'est ce qui permet
@@ -238,10 +239,10 @@ export type DatosEventoReservable = {
     registeredQty: number | null;
   }[];
   /**
-   * `products.max_qty`, replié à 20 — MÊME repli que `DatosAlojamiento.maxQty` et que le
-   * `coalesce(max_qty, 20)` de `create_order`. Porté ici plutôt qu'inventé côté formulaire : une
-   * constante locale (99 dans la première version) prétendait un plafond que la base ne connaît
-   * pas, et contredisait le 20 appliqué partout ailleurs sans le dire.
+   * `products.max_qty`, replié à 20 — le plafond de `public.product_qty_cap` pour un evento, toujours
+   * un nombre (un evento « unlimited » ou « rsvp » n'a aucun cupo : ce repli est son seul garde-fou).
+   * Porté ici plutôt qu'inventé côté formulaire : une constante locale (99 dans la première version)
+   * prétendait un plafond que la base ne connaît pas.
    */
   maxQty: number;
 };
@@ -263,7 +264,12 @@ export type DatosAlojamiento = {
   capacity: number | null;
   unitCount: number | null;
   priceTiers: unknown;
-  maxQty: number;
+  /**
+   * Toujours `null` depuis la migration 20261025120000 (décision Jérôme du 2026-10-25) : un logement
+   * n'a plus de plafond par réservation, seule la place restante sur les nuits choisies borne
+   * (`plafondCantidad`, `lib/reservas/cantidad.ts`). Même valeur que `FichaProducto.maxQty`.
+   */
+  maxQty: number | null;
   /** `type = 'lodging'` ET une catégorie Lobby : la disponibilité vient alors du PMS, pas de la base. */
   esPmsBacked: boolean;
   /**
@@ -341,17 +347,26 @@ export type FichaProducto = {
    */
   unidad: string | null;
   /**
+   * Spec 43 — ce que compte la quantité d'une ACTIVITÉ (`products.pricing_unit`) : personnes, heures
+   * consécutives ou activité entière. `null` pour tout autre type (rien ne change pour eux).
+   */
+  modoPrecio: PricingUnit | null;
+  /** Personnes annoncées (min/max) d'une activité à l'heure ou entière — simple mention, `null` sinon. */
+  personas: { min: number | null; max: number | null } | null;
+  /**
    * `products.min_qty`, replié à 1. N'a de sens QUE hors lodging : `create_order` ne le vérifie
    * (`qty_below_minimum`) que dans sa branche non-lodging — `LodgingReservationForm` l'ignore et
    * garde son propre plancher fixé à 1 (spec 30 §7a, `lib/reservas/cantidad.ts`).
    */
   minQty: number;
   /**
-   * `products.max_qty`, replié à 20 — le plafond par ligne que `create_order` applique à TOUT type
-   * (`coalesce(max_qty, 20)`, migration 20260929112240). Même valeur que `eventoReservable.maxQty`
-   * et `alojamiento.maxQty`, calculée une seule fois par la couche catalogue.
+   * Le plafond d'une réservation, exactement celui de `create_order` (`public.product_qty_cap`,
+   * migration 20261025120000) : `null` pour une activité, un logement ou un camp — seule la place
+   * restante (date, créneau, nuits) borne, un client peut prendre tout le cupo d'un coup ; sinon
+   * `products.max_qty`, replié à 20. Même valeur que `eventoReservable.maxQty` et
+   * `alojamiento.maxQty`, calculée une seule fois par la couche catalogue (`perReservationQtyCap`).
    */
-  maxQty: number;
+  maxQty: number | null;
   modoReserva: ModoReserva;
   /** Non nul ⟺ `modoReserva === "vitrina"` — sauf pour un evento, qui l'est par son type. */
   urlExterna: string | null;

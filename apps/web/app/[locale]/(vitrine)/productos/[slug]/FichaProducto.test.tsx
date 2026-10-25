@@ -54,6 +54,8 @@ function renderView(overrides: {
     fotos: [],
     precio: { tipo: "monto", cop: 120000 },
     unidad: overrides.unit ?? null,
+    modoPrecio: null,
+    personas: null,
     minQty: 1,
     maxQty: 20,
     modoReserva: "lodging",

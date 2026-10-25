@@ -110,7 +110,11 @@ export async function OrderCard({ order, locale }: OrderCardProps) {
                     {" · "}
                     {fecha}
                     {" · "}
-                    {t("lineQty", { count: line.qty })}
+                    {line.pricingUnit === "per_hour"
+                      ? t("lineHours", { count: line.qty })
+                      : line.pricingUnit === "per_activity"
+                        ? t("lineActivity")
+                        : t("lineQty", { count: line.qty })}
                   </span>
                   <span className="pt-1">
                     <PuceEstado tono={tonoDeLinea(displayLineStatus(state, line.status))} testId={`line-status-${line.id}`}>

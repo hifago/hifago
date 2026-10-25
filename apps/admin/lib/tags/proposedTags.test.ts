@@ -10,8 +10,10 @@ describe("tagIdsIfChanged", () => {
     expect(tagIdsIfChanged([], [])).toEqual({});
   });
 
-  it("même ensemble dans un autre ordre : toujours inchangée", () => {
-    expect(tagIdsIfChanged(["a", "b"], ["b", "a"])).toEqual({});
+  // Depuis 20261025100000 : la première étiquette classe la carte dans la vitrine. Réordonner,
+  // c'est changer l'étiquette principale — la proposition doit le porter.
+  it("même ensemble dans un autre ordre : c'est un changement, l'ordre est envoyé", () => {
+    expect(tagIdsIfChanged(["a", "b"], ["b", "a"])).toEqual({ tag_ids: ["b", "a"] });
   });
 
   it("ajout, retrait ou remplacement : la sélection entière est envoyée", () => {

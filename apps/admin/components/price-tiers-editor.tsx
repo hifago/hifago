@@ -25,6 +25,8 @@ export function PriceTiersEditor({
   priceTiers,
   onPriceTiersChange,
   testId,
+  label = "Precio",
+  allowTiers = true,
 }: {
   priceMode: "simple" | "tiers";
   onPriceModeChange: (mode: "simple" | "tiers") => void;
@@ -33,7 +35,14 @@ export function PriceTiersEditor({
   priceTiers: PriceTier[];
   onPriceTiersChange: (tiers: PriceTier[]) => void;
   testId: (part: PriceTiersEditorTestIdPart, tierIndex?: number) => string;
+  /** Libellé du prix — « Precio por hora (COP) » pour une activité à l'heure (spec 43). */
+  label?: string;
+  /** `false` : prix simple seulement (activité vendue entière, spec 43) — les tramos restent dans
+   *  l'état mais ne sont ni affichés ni envoyés (productCreationPayload/productEditPayload). */
+  allowTiers?: boolean;
 }) {
+  const modeAffiche = allowTiers ? priceMode : "simple";
+
   function updateTier(tierIndex: number, next: PriceTier) {
     onPriceTiersChange(priceTiers.map((tier, i) => (i === tierIndex ? next : tier)));
   }
@@ -45,17 +54,19 @@ export function PriceTiersEditor({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <Label>Precio</Label>
-        <button
-          type="button"
-          data-testid={testId("toggle")}
-          onClick={() => onPriceModeChange(priceMode === "simple" ? "tiers" : "simple")}
-          className="text-xs font-medium underline"
-        >
-          {priceMode === "simple" ? "Definir por tramos" : "Volver a precio simple"}
-        </button>
+        <Label>{label}</Label>
+        {allowTiers ? (
+          <button
+            type="button"
+            data-testid={testId("toggle")}
+            onClick={() => onPriceModeChange(priceMode === "simple" ? "tiers" : "simple")}
+            className="text-xs font-medium underline"
+          >
+            {priceMode === "simple" ? "Definir por tramos" : "Volver a precio simple"}
+          </button>
+        ) : null}
       </div>
-      {priceMode === "simple" ? (
+      {modeAffiche === "simple" ? (
         <TextField fullWidth name="price" value={priceCop} onChange={onPriceCopChange} isRequired>
           <Input id="price" type="number" min={1} data-testid={testId("simple-input")} />
         </TextField>

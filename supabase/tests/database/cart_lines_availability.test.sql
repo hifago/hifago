@@ -137,9 +137,10 @@ insert into products (id, partner_id, establishment_id, type, name, slug, sellab
   -- 28 : activité à créneaux (9 h et 10 h, 2 places, tous les jours), aucun créneau matérialisé.
   ('b1c70000-0000-4000-8000-000000000028', 'b1c70000-0000-4000-8000-000000000001', 'b1c70000-0000-4000-8000-000000000011',
    'activity', jsonb_build_object('es', 'Buceo'), 'cla-28', true, 30000, null, null, null, null, null, true, null, null),
-  -- 29 : activité de 2 à 3 personnes.
+  -- 29 : activité de 2 personnes minimum, cupo 30 — et aucun maximum par réservation (migration
+  -- 20261025120000 : interdit pour une activité, seule la place restante borne).
   ('b1c70000-0000-4000-8000-000000000029', 'b1c70000-0000-4000-8000-000000000001', 'b1c70000-0000-4000-8000-000000000011',
-   'activity', jsonb_build_object('es', 'Rafting'), 'cla-29', true, 30000, null, 10, 2, 3, null, true, null, null),
+   'activity', jsonb_build_object('es', 'Rafting'), 'cla-29', true, 30000, null, 30, 2, null, null, true, null, null),
   -- 30 : camp de 3 jours (exige un logement couvrant).
   ('b1c70000-0000-4000-8000-000000000030', 'b1c70000-0000-4000-8000-000000000001', 'b1c70000-0000-4000-8000-000000000011',
    'camp', jsonb_build_object('es', 'Campamento largo'), 'cla-30', true, 90000, null, 10, null, null, null, true, null, 3),
@@ -282,10 +283,12 @@ select test_parity('slot_required', '[{"p":"28","d":3}]');
 select is(test_case('slot_required'), array['slot_required', 'slot_required'], 'slot_required');
 select test_parity('qty_below_minimum', '[{"p":"29","d":3,"q":1}]');
 select is(test_case('qty_below_minimum'), array['qty_below_minimum', 'qty_below_minimum'], 'qty_below_minimum (min_qty du produit)');
-select test_parity('qty_cap_exceeded', '[{"p":"29","d":3,"q":4}]');
-select is(test_case('qty_cap_exceeded'), array['qty_cap_exceeded', 'qty_cap_exceeded'], 'qty_cap_exceeded (max_qty du produit)');
-select test_parity('qty_cap_exceeded logement', '[{"p":"25","d":10,"e":12,"q":21}]');
-select is(test_case('qty_cap_exceeded logement'), array['qty_cap_exceeded', 'qty_cap_exceeded'], 'qty_cap_exceeded (logement, plafond 20)');
+-- Migration 20261025120000 : plus de plafond par réservation sur un produit à cupo — 25 places d'un
+-- coup sur 30, au-delà de l'ancien repli 20. Le plafond ne reste qu'à l'evento (et au transport).
+select test_parity('sans plafond activité', '[{"p":"29","d":4,"q":25}]');
+select is(test_case('sans plafond activité'), array['ok', 'ok'], 'activité à cupo 30 : 25 places en une réservation');
+select test_parity('qty_cap_exceeded', '[{"p":"36","d":5,"q":21}]');
+select is(test_case('qty_cap_exceeded'), array['qty_cap_exceeded', 'qty_cap_exceeded'], 'qty_cap_exceeded (evento sans cupo, repli 20)');
 select test_parity('no_matching_tier', '[{"p":"26","d":10,"e":11,"q":3}]');
 select is(test_case('no_matching_tier'), array['no_matching_tier', 'no_matching_tier'], 'no_matching_tier');
 select test_parity('pms_unavailable', '[{"p":"27","d":10,"e":11}]');

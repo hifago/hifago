@@ -14,8 +14,9 @@ async function boites(page: Page, gauche: string, droite: string) {
   return { a, b };
 }
 
+// La paire min/max de quantité a disparu du formulaire d'activité le 2026-10-25 (migration
+// 20261025120000 : plus de maximum par réservation pour une activité, seul le transport le garde).
 const PAIRES: [string, string][] = [
-  ["min-qty-input", "max-qty-input"],
   ["lat-input", "lon-input"],
 ];
 

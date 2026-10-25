@@ -24,7 +24,7 @@ import {
   CLASSNAMES_CALENDRIER,
   localeCalendrier,
 } from "@/components/molecules/Calendar";
-import { startOfTodayInBogota } from "@hifago/domain";
+import { startOfTodayInBogota, type PricingUnit } from "@hifago/domain";
 import { Price } from "@/components/atoms/Price";
 import { PuceEstado } from "@/components/atoms/PuceEstado";
 import { hrefAlojamientosCompatibles } from "@/lib/catalog/criterios";
@@ -62,6 +62,7 @@ export function ReservationForm({
   groupDiscount,
   precio = null,
   unidad = null,
+  modoPrecio = null,
   locale = "es",
   onSalidaChange,
 }: {
@@ -88,11 +89,11 @@ export function ReservationForm({
   /** `products.min_qty`, replié à 1 — cf. `lib/reservas/cantidad.ts`. */
   minQty?: number;
   /**
-   * `products.max_qty`, déjà replié à 20 par la couche catalogue — le plafond par ligne que
-   * `create_order` applique à TOUT type (`coalesce(max_qty, 20)`, migration 20260929112240). Le
-   * champ ne propose jamais davantage, même s'il reste plus de places.
+   * Le plafond par réservation calculé par la couche catalogue (`public.product_qty_cap` de
+   * `create_order`). `null` pour une activité ou un camp (migration 20261025120000) : seule la
+   * place restante de la date borne le champ — un client peut prendre tout le cupo d'un coup.
    */
-  maxQty: number;
+  maxQty: number | null;
   /**
    * `products.group_discount_threshold_qty`/`group_discount_pct` (migration 20260914130000) —
    * non défini pour tout type autre que camp. Texte informatif statique seulement (décision
@@ -104,6 +105,12 @@ export function ReservationForm({
   precio?: PrecioTarjeta;
   /** `ficha.unidad` (`per_person`/`per_two`/`per_house`) — suffixe la ligne de prix d'une carte. */
   unidad?: string | null;
+  /**
+   * Spec 43 — `per_activity` : on réserve l'activité ENTIÈRE, la quantité vaut 1 et le champ
+   * disparaît. Tout autre mode garde le champ (personnes) ; `per_hour` ne passe jamais par ce
+   * formulaire (créneaux obligatoires, cf. `resolverModoReserva`).
+   */
+  modoPrecio?: PricingUnit | null;
   /** Nécessaire pour `<Price>` et pour le nom des mois de `formatEditionDateRange`. */
   locale?: Locale;
 }) {
@@ -115,7 +122,9 @@ export function ReservationForm({
   const dernierJourReservable = useMemo(() => ultimoDiaReservable(), []);
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [qty, setQty] = useState(minQty);
+  const ventaEntera = modoPrecio === "per_activity";
+  const qtyInicial = ventaEntera ? 1 : minQty;
+  const [qty, setQty] = useState(qtyInicial);
   // Retour Gabriel (2026-09-16) : au-delà de EDICIONES_VISIBLES_INICIALMENTE, la liste s'allongeait
   // sans borne (un camp à 10 départs affichait 10 cartes) — plafonnée, avec un bouton qui en
   // dévoile EDICIONES_VISIBLES_INICIALMENTE de plus à chaque clic (jamais tout d'un coup). Jamais
@@ -188,8 +197,9 @@ export function ReservationForm({
   const remaining = selectedRow
     ? plazasRestantes(selectedRow, inCartByDate.get(selectedRow.date) ?? 0)
     : 0;
-  // Borne haute du champ : la place restante, jamais au-delà du plafond par ligne du produit.
-  const qtyTope = Math.min(remaining, maxQty);
+  // Borne haute du champ : la place restante, jamais au-delà du plafond par ligne du produit
+  // quand il en a un (aucun pour une activité ou un camp).
+  const qtyTope = maxQty === null ? remaining : Math.min(remaining, maxQty);
 
   // Ouvre le calendrier sur le mois de la première date configurée plutôt que sur le mois
   // courant — sans ça, un visiteur (ou un test e2e) devrait naviguer manuellement jusqu'à la
@@ -231,7 +241,7 @@ export function ReservationForm({
   function handleSelectDate(date: Date | undefined) {
     if (!date) {
       setSelectedDate(undefined);
-      setQty(minQty);
+      setQty(qtyInicial);
       onSalidaChange?.(null);
       return;
     }
@@ -245,7 +255,7 @@ export function ReservationForm({
     // La clé est garantie présente par le prédicat ci-dessus.
     const departIso = porJourDepart.get(format(date, "yyyy-MM-dd"))!;
     setSelectedDate(parseISO(departIso));
-    setQty(minQty);
+    setQty(qtyInicial);
     // Notifie la fiche pour qu'elle DATE le programme du camp (spec 37). Posé ici, dans l'unique
     // point d'écriture de la sélection, donc valable aussi pour le clic sur une carte d'édition et
     // pour le pré-remplissage depuis l'URL, qui passent tous deux par cette fonction.
@@ -429,17 +439,19 @@ export function ReservationForm({
         <p className="text-sm text-muted">{t("selectDate")}</p>
       )}
 
-      <TextField
-        className="max-w-32"
-        name="qty"
-        value={String(qty)}
-        isDisabled={!selectedRow}
-        onChange={(value) => setQty(limitarCantidad(Number(value), minQty, qtyTope))}
-      >
-        <Label>{t("quantityLabel")}</Label>
-        <Input id="qty" type="number" min={pisoCantidad(minQty, qtyTope)} max={topeCantidad(qtyTope)} />
-      </TextField>
-      {minQty > 1 ? (
+      {ventaEntera ? null : (
+        <TextField
+          className="max-w-32"
+          name="qty"
+          value={String(qty)}
+          isDisabled={!selectedRow}
+          onChange={(value) => setQty(limitarCantidad(Number(value), minQty, qtyTope))}
+        >
+          <Label>{t("quantityLabel")}</Label>
+          <Input id="qty" type="number" min={pisoCantidad(minQty, qtyTope)} max={topeCantidad(qtyTope)} />
+        </TextField>
+      )}
+      {!ventaEntera && minQty > 1 ? (
         <p className="text-xs text-muted" data-testid="min-qty-hint">
           {t("minQtyHint", { count: minQty })}
         </p>

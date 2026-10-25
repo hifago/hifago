@@ -47,6 +47,8 @@ function renderTransporte(transporte: DatosTransporte | null) {
     fotos: [],
     precio: { tipo: "monto", cop: 80000 },
     unidad: "per_person",
+    modoPrecio: null,
+    personas: null,
     minQty: 1,
     maxQty: 20,
     // Depuis le 2026-09-17, un transport est TOUJOURS en mode vitrine : sa couche de données lui

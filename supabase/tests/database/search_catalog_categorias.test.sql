@@ -35,10 +35,10 @@ values
   -- Deux activités, la même catégorie « scc-kayak » — pour prouver le plafond ET le regroupement.
   ('cccc3333-0000-0000-0000-000000000101', 'cccc3333-0000-0000-0000-000000000001',
    'cccc3333-0000-0000-0000-00000000000a', 'activity', 'scc-taguee-1',
-   '{"es":"Sccunico actividad taguée un"}'::jsonb, 50000, true, null, 2, 'date'),
+   '{"es":"Sccunico actividad taguée un"}'::jsonb, 50000, true, null, null, 'date'),
   ('cccc3333-0000-0000-0000-000000000102', 'cccc3333-0000-0000-0000-000000000001',
    'cccc3333-0000-0000-0000-00000000000a', 'activity', 'scc-taguee-2',
-   '{"es":"Sccunico actividad taguée deux"}'::jsonb, 50000, true, null, 2, 'date'),
+   '{"es":"Sccunico actividad taguée deux"}'::jsonb, 50000, true, null, null, 'date'),
   -- Taguée elle aussi, mais NON VENDABLE : ne doit compter nulle part.
   ('cccc3333-0000-0000-0000-000000000103', 'cccc3333-0000-0000-0000-000000000001',
    'cccc3333-0000-0000-0000-00000000000a', 'activity', 'scc-no-vendible',
@@ -102,8 +102,8 @@ insert into product_tag_assignments (product_id, tag_id) values
   ('cccc3333-0000-0000-0000-000000000203', 'cccc3333-0000-0000-0000-000000000305');
 
 -- Carte à DEUX étiquettes — Établissement D : un couchage unique, `scc-multi-ficha` sur sa fiche et
--- `scc-multi-heredada` sur l'établissement seul. Établissement E : un autre couchage unique, plus
--- récent, dans `scc-multi-ficha` seulement — il passe devant D dans cette section, pas dans l'autre.
+-- `scc-multi-heredada` sur l'établissement seul. Établissement E : un autre couchage unique, dans
+-- `scc-multi-ficha` seulement. Depuis 20261025100000, D n'est rangé que sous `scc-multi-heredada`.
 insert into establishments (id, partner_id, name, status) values
   ('cccc3333-0000-0000-0000-00000000000d', 'cccc3333-0000-0000-0000-000000000001',
    '{"es":"Cabaña Multi SCC"}'::jsonb, 'active'),
@@ -222,10 +222,15 @@ select is(
   0, '…et ce couchage ne tombe plus dans le rattrapage'
 );
 
+-- Depuis 20261025100000 : une seule catégorie, celle de l'étiquette PRINCIPALE — pour un couchage
+-- unique, la première de l'établissement (`scc-heredado`, posée avant `scc-doble`), avant celles
+-- de sa fiche.
 select is(
-  (select count(*)::int from search_catalog_categorias(p_tipo => 'lodging', p_por_categoria => 10)
-   where categoria_slug = 'scc-doble' and id = 'cccc3333-0000-0000-0000-000000000203'),
-  1, 'un tag posé sur l''établissement ET sur la fiche ne compte le couchage qu''UNE fois'
+  (select array_agg(coalesce(categoria_slug, '(rattrapage)'))
+     from search_catalog_categorias(p_tipo => 'lodging', p_por_categoria => 10)
+    where id = 'cccc3333-0000-0000-0000-000000000203'),
+  array['scc-heredado'],
+  'un couchage unique figure dans UNE catégorie : la première étiquette de son établissement'
 );
 
 select is(
@@ -240,42 +245,44 @@ select is(
   1, '…elle reste donc dans le rattrapage tant que sa propre fiche ne porte aucun tag'
 );
 
--- ── Une carte à plusieurs étiquettes figure dans CHACUNE de ses sections (2026-10-14) ────────────
--- Voulu : une carte n'est jamais dédoublonnée entre sections, chaque section a ses propres compte
--- et rang. Une étiquette héritée de l'établissement vaut une étiquette de la fiche.
+-- ── Une carte à plusieurs étiquettes ne figure QUE sous sa principale (20261025100000) ───────────
+-- Remplace la règle du 2026-10-14 (« dans chacune de ses sections ») à la demande de Jérôme. Pour
+-- un couchage unique, l'étiquette de l'établissement passe avant celle de la fiche.
 select is(
-  (select array_agg(coalesce(categoria_slug, '(rattrapage)') order by categoria_slug)
+  (select array_agg(coalesce(categoria_slug, '(rattrapage)'))
      from search_catalog_categorias(p_tipo => 'lodging')
     where id = 'cccc3333-0000-0000-0000-000000000204'),
-  array['scc-multi-ficha', 'scc-multi-heredada'],
-  'une carte à deux étiquettes (fiche + héritée) figure dans les deux sections, jamais en rattrapage'
+  array['scc-multi-heredada'],
+  'une carte à deux étiquettes (fiche + héritée) ne figure que sous sa principale, jamais en rattrapage'
 );
 
 select is(
-  (select array_agg(categoria_slug || ' ' || total_categoria || ' ' || rango_categoria
-                    order by categoria_slug)
+  (select array_agg(categoria_slug || ' ' || total_categoria || ' ' || rango_categoria)
      from search_catalog_categorias(p_tipo => 'lodging')
-    where id = 'cccc3333-0000-0000-0000-000000000204'),
-  array['scc-multi-ficha 2 2', 'scc-multi-heredada 1 1'],
-  '…avec, dans chaque section, le compte et le rang de CETTE section'
+    where id = 'cccc3333-0000-0000-0000-000000000205'),
+  array['scc-multi-ficha 1 1'],
+  '…et ne compte plus dans la section de son étiquette secondaire : la voisine y est seule'
 );
 
 select is(
-  (select array_agg(categoria_slug order by categoria_slug)
+  (select array_agg(categoria_slug)
      from search_catalog_categorias(p_tipo => 'lodging', p_por_categoria => 1)
     where id = 'cccc3333-0000-0000-0000-000000000204'),
   array['scc-multi-heredada'],
-  '…et le plafond s''applique section par section : 2e dans l''une, la carte reste 1re dans l''autre'
+  '…et le plafond s''applique à sa seule section'
 );
 
 -- ── Les critères de recherche s'appliquent, sans être recopiés ──────────────────────────────────
--- `scc-taguee-1`/`scc-taguee-2` sont bornées à `max_qty = 2` : au-delà, elles sortent — donc la
--- catégorie aussi. Preuve que les six prédicats de `search_catalog` s'appliquent ici sans avoir été
--- redéfinis (même convention que l'ex-`search_catalog_tags`, cf. commentaire de tête de la RPC).
+-- Les deux chambres de l'Hotel Agrupado (B) logent 2 personnes : à 5, elles sortent — donc sa
+-- catégorie `scc-piscina` aussi. Preuve que les six prédicats de `search_catalog` s'appliquent ici
+-- sans avoir été redéfinis (même convention que l'ex-`search_catalog_tags`, cf. commentaire de tête
+-- de la RPC). Par la CAPACITÉ d'un logement, plus par le `max_qty` d'une activité : depuis
+-- 20261025120000 une activité n'a plus de maximum par réservation (contrainte
+-- `products_max_qty_only_without_cupo`).
 select is(
   (select count(*)::int from search_catalog_categorias(
-     p_tipo => 'activity', p_por_categoria => 10, p_personas => 5)
-   where categoria_slug = 'scc-kayak'),
+     p_tipo => 'lodging', p_por_categoria => 10, p_personas => 5)
+   where categoria_slug = 'scc-piscina'),
   0, 'un critère qui exclut toutes les offres d''une catégorie fait disparaître la catégorie'
 );
 

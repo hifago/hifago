@@ -140,10 +140,10 @@ select is(
 
 -- ── Les drapeaux de capacité restent gelés ──────────────────────────────────
 select is(test_update('21', 'evento_capacity_mode = ''rsvp'''),
-  'P0001 | capacity_flags_frozen_while_reserved | Ce produit porte des réservations en cours : lobby_category_id, evento_capacity_mode et evento_occupies_resource ne peuvent pas changer tant qu''elles ne sont pas réalisées ou annulées. La date et la récurrence d''un evento relèvent de products_occurrence_change_guard.',
+  'P0001 | capacity_flags_frozen_while_reserved | Ce produit porte des réservations en cours : lobby_category_id, evento_capacity_mode, evento_occupies_resource et pricing_unit ne peuvent pas changer tant qu''elles ne sont pas réalisées ou annulées. La date et la récurrence d''un evento relèvent de products_occurrence_change_guard.',
   'mode de cupo : toujours gelé tant qu''une ligne est réservée');
 select is(test_update('22', 'evento_occupies_resource = true'),
-  'P0001 | capacity_flags_frozen_while_reserved | Ce produit porte des réservations en cours : lobby_category_id, evento_capacity_mode et evento_occupies_resource ne peuvent pas changer tant qu''elles ne sont pas réalisées ou annulées. La date et la récurrence d''un evento relèvent de products_occurrence_change_guard.',
+  'P0001 | capacity_flags_frozen_while_reserved | Ce produit porte des réservations en cours : lobby_category_id, evento_capacity_mode, evento_occupies_resource et pricing_unit ne peuvent pas changer tant qu''elles ne sont pas réalisées ou annulées. La date et la récurrence d''un evento relèvent de products_occurrence_change_guard.',
   'occupation de la ressource : toujours gelée');
 
 -- ── Triggers et verrous en place ────────────────────────────────────────────
@@ -154,6 +154,8 @@ select is(
       and t.tgname in ('products_capacity_flags_frozen', 'products_occurrence_change_guard')),
   array['products_capacity_flags_frozen:evento_capacity_mode', 'products_capacity_flags_frozen:evento_occupies_resource',
         'products_capacity_flags_frozen:lobby_category_id',
+        -- Spec 43 (20261025140000) : le mode de prix d'une activité est gelé de la même façon.
+        'products_capacity_flags_frozen:pricing_unit',
         'products_occurrence_change_guard:occurrence_date', 'products_occurrence_change_guard:occurrence_type',
         'products_occurrence_change_guard:online_bookable', 'products_occurrence_change_guard:recurrence_end_count',
         'products_occurrence_change_guard:recurrence_end_date', 'products_occurrence_change_guard:recurrence_frequency_days'],

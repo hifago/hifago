@@ -151,7 +151,7 @@ retouché sur un item déjà existant, même règle que le reste de ce fichier.
   "establishment": "casa-mock-centro",
   "name": { "es": "Tour en lancha", "en": "Boat tour" },
   "description": { "es": "...", "en": "..." },
-  "price_cop": 80000, "min_qty": 1, "max_qty": 6,
+  "price_cop": 80000, "min_qty": 1,     // jamais de max_qty : interdit pour une activité (migration 20261025120000)
   "capacity": 6, "default_capacity": 2, "unit": "per_person",  // "per_person" | "per_two" | "per_house" (contrainte CHECK, pas de texte libre)
   "duration_minutes": 90, "start_time": "09:00",
   "external_booking_url": null,
@@ -186,7 +186,8 @@ produit), juste un dossier et des champs différents :
 Champs passés à `create_product_from_proposal` en plus (hébergement réel de la v1) :
 `lobby_category_id` / `lobby_product_id` (rattachement PMS Lobby — `lobby_category_id` est figé
 après création par `products_capacity_flags_frozen`, donc jamais via `_extra_columns`), et pour
-une maison louée en entier `price_tiers` + `min_qty`/`max_qty` + `stay_rates`
+une maison louée en entier `price_tiers` + `stay_rates` (jamais `min_qty`/`max_qty` : interdits pour
+un logement depuis la migration 20261025120000)
 (`{ season: { months, surcharge_pct, note }, weekend_days, weekend_surcharge_pct, deposit_cop,
 extra_note }`, spec 12 — cf. `rooms/bania-casa-completa.json`).
 

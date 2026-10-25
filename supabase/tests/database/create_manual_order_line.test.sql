@@ -70,7 +70,7 @@ insert into products (id, partner_id, establishment_id, type, name, price_cop, s
 values (
   '88950000-0000-4000-8000-000000000031', '88950000-0000-4000-8000-000000000001',
   '88950000-0000-4000-8000-000000000011', 'activity',
-  jsonb_build_object('es', 'Actividad Manual'), 50000, true, 'manual-order-line-act', 1, 5
+  jsonb_build_object('es', 'Actividad Manual'), 50000, true, 'manual-order-line-act', 1, null
 );
 insert into products (id, partner_id, establishment_id, type, name, price_cop, sellable, slug)
 values (
@@ -87,13 +87,13 @@ values (
     jsonb_build_object('min_qty', 1, 'max_qty', 2, 'price_cop', 40000),
     jsonb_build_object('min_qty', 4, 'max_qty', 5, 'price_cop', 35000)
   ),
-  true, 'manual-order-line-tiers', 1, 5
+  true, 'manual-order-line-tiers', 1, null
 );
 insert into products (id, partner_id, establishment_id, type, name, price_cop, sellable, slug, min_qty, max_qty)
 values (
   '88950000-0000-4000-8000-000000000034', '88950000-0000-4000-8000-000000000001',
   '88950000-0000-4000-8000-000000000011', 'activity',
-  jsonb_build_object('es', 'Actividad Manual Slot'), 20000, true, 'manual-order-line-slot', 1, 5
+  jsonb_build_object('es', 'Actividad Manual Slot'), 20000, true, 'manual-order-line-slot', 1, null
 );
 insert into product_slot_rules (product_id, weekdays, start_time, end_time, slot_duration_minutes, capacity)
 values (
@@ -107,7 +107,7 @@ values (
   '88950000-0000-4000-8000-000000000035', '88950000-0000-4000-8000-000000000001',
   '88950000-0000-4000-8000-000000000011', 'activity',
   jsonb_build_object('es', 'Actividad Manual Null Tiers'), 15000, 'null'::jsonb, true,
-  'manual-order-line-null-tiers', 1, 5
+  'manual-order-line-null-tiers', 1, null
 );
 
 insert into product_availability (product_id, date, capacity, booked) values
@@ -170,13 +170,14 @@ select is(
   'cas 6 : products.type=lodging → unsupported_product_type'
 );
 
--- Cas 7 : quantité hors bornes (max_qty=5).
+-- Cas 7 : plus de maximum par réservation pour une activité (migration 20261025120000, max_qty
+-- interdit pour ce type) — 6 places sur un cupo de 5 butent sur la capacité, plus sur un plafond.
 select is(
   (select create_manual_order_line(
      '88950000-0000-4000-8000-000000000031', '2029-05-01', 6, 'Cliente Walk-in'
    )->>'reason'),
-  'qty_cap_exceeded',
-  'cas 7 : qty > max_qty → qty_cap_exceeded'
+  'full',
+  'cas 7 : activité, qty au-delà du cupo → full (la place restante borne, aucun plafond produit)'
 );
 
 -- Cas 8 : aucun palier de prix ne couvre la quantité (produit TIER : 1-2 et 4-5, trou à 3).

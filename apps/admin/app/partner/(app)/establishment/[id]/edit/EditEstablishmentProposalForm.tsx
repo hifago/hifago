@@ -292,6 +292,7 @@ export function EditEstablishmentProposalForm({
           allowCreate={false}
           placeholder="Buscar una etiqueta…"
           testId="edit-proposal-tags"
+          markPrimary
         />
 
         <TextField fullWidth value={lobbyApiToken} onChange={setLobbyApiToken}>

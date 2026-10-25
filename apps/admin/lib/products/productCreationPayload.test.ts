@@ -111,3 +111,17 @@ describe("buildProductCreationPayload", () => {
     }
   });
 });
+
+// Migration 20261025120000 (décision Jérôme du 2026-10-25) : la base refuse max_qty sur une activité
+// ou un logement, et min_qty sur un logement. Les fixtures en portent (comme un état chargé d'avant
+// la migration, ou saisi sous un autre type avant de basculer) : le payload envoie NULL.
+describe("buildProductCreationPayload — bornes par réservation", () => {
+  const bornes = (type: "activity" | "lodging" | "transport") => {
+    const payload = buildProductCreationPayload(type, NAME, DESCRIPTION, buildFields(FIXTURE_INIT[type]));
+    return [payload.min_qty, payload.max_qty];
+  };
+
+  it("activité : le minimum seul", () => expect(bornes("activity")).toEqual([1, null]));
+  it("logement : aucune borne", () => expect(bornes("lodging")).toEqual([null, null]));
+  it("transport : les deux", () => expect(bornes("transport")).toEqual([1, 7]));
+});

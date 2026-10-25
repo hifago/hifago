@@ -96,7 +96,7 @@ async function resetFixtures(seedClient) {
     `insert into products (id, partner_id, establishment_id, type, name, price_cop, sellable, slug,
                            lodging_kind, unit_count, capacity, default_capacity, min_qty, max_qty)
      values ($1, $2, $3, 'lodging', jsonb_build_object('es', 'Realign nights'), 100000, true, $4,
-             'private', $5, 2, $5, 1, 1)`,
+             'private', $5, 2, $5, null, null)`, // ni min ni max pour un logement (migration 20261025120000)
     [PRODUCT_ID, PARTNER_ID, ESTABLISHMENT_ID, "realign-nights-concurrency", INITIAL_DEFAULT]
   );
   const { rows } = await seedClient.query(

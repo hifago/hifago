@@ -8,7 +8,6 @@
   "price_cop": 55000,
   "unit": "per_person",
   "min_qty": 1,
-  "max_qty": 1,
   "slot_rules": [
     {
       "weekdays": [
