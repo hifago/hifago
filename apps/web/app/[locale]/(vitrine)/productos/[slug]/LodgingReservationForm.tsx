@@ -316,9 +316,6 @@ export function LodgingReservationForm({
     [lines, productId]
   );
 
-  // Maximum FIXE du produit : seuil d'affichage du compteur de restant dans les cases.
-  const qtyMaxFijo = topeCantidad(maxQty);
-
   // Cupos restants par nuit — une seule dérivation, lue par le barré du calendrier ET par le
   // compteur affiché dans la case. Ne dépend PAS de `qty` : c'est un fait de disponibilité, pas un
   // verdict sur la demande en cours.
@@ -332,12 +329,34 @@ export function LodgingReservationForm({
 
   const nights = useMemo(() => nightsInRange(range), [range]);
 
-  // PLAFOND DE QUANTITÉ d'un séjour PMS (2026-10-23) : `min(max_qty, places restantes sur la plage)`,
-  // ou le maximum des nuits chargées tant qu'aucune plage n'est posée. Avant, le champ montait
-  // jusqu'à `max_qty` (20) sur une nuit à 2 lits. Hors PMS, le maximum reste celui du produit.
+  // `lead_days` — LE PLANCHER QUI MONTE, pas des nuits à barrer une par une (le délai de
+  // réservation est une propriété de la catégorie, pas de telle ou telle nuit). On retient le
+  // MAXIMUM des valeurs non nulles relevées : si deux nuits annonçaient des délais différents, le
+  // plus strict est le seul qui ne propose jamais une nuit que Lobby refuserait.
+  //
+  // ⚠️ `null` est ignoré, pas lu comme 0 — « Lobby n'a rien dit » n'apporte aucune contrainte.
+  const plancherIso = useMemo(() => pisoLeadDays(pmsRestrictions, todayInBogota()), [pmsRestrictions]);
+
+  // Les nuits qu'on peut encore choisir. Hors Lobby, `product_availability` arrive sans filtre de
+  // date : une nuit passée mieux dotée gonflerait sinon le plafond ci-dessous.
+  const remainingReservable = useMemo(
+    () => new Map([...remainingByDate].filter(([iso]) => iso >= plancherIso)),
+    [remainingByDate, plancherIso]
+  );
+
+  // PLAFOND DE QUANTITÉ : `min(max_qty, places restantes sur la plage)`, ou la nuit la mieux dotée
+  // tant qu'aucune plage n'est posée. Posé pour Lobby le 2026-10-23, étendu à TOUT logement le
+  // 2026-10-24 : une chambre privée en un exemplaire montait jusqu'à 20 (retour Jérôme, RM201).
   const qtyMax = useMemo(
-    () => (isPmsBacked ? topeCantidad(plafondCantidad(maxQty, remainingByDate, nights)) : qtyMaxFijo),
-    [isPmsBacked, maxQty, remainingByDate, nights, qtyMaxFijo]
+    () => topeCantidad(plafondCantidad(maxQty, remainingReservable, nights)),
+    [maxQty, remainingReservable, nights]
+  );
+
+  // Seuil du compteur de restant dans les cases : le même plafond, sans plage. Un compteur égal à ce
+  // seuil ne contraint rien — RM201 aurait sinon imprimé « 1 » sous chacune de ses nuits.
+  const seuilCompteur = useMemo(
+    () => topeCantidad(plafondCantidad(maxQty, remainingReservable, [])),
+    [maxQty, remainingReservable]
   );
   // La quantité retenue est ramenée DANS le plafond si la plage l'a réduit (dérivé, jamais un effet).
   const qty = Math.min(qtyElegida, qtyMax);
@@ -355,17 +374,11 @@ export function LodgingReservationForm({
     return dates;
   }, [remainingByDate, qty]);
 
-  // Bornes des deux marches : jamais avant aujourd'hui à Guatapé, jamais au-delà de l'horizon
-  // produit (six mois, inclusif). Mêmes bornes que `startMonth`/`endMonth` et que les deux
-  // matchers `before`/`after` du calendrier — une seule vérité, trois expressions.
-  // `lead_days` — LE PLANCHER QUI MONTE, pas des nuits à barrer une par une (le délai de
-  // réservation est une propriété de la catégorie, pas de telle ou telle nuit). On retient le
-  // MAXIMUM des valeurs non nulles relevées : si deux nuits annonçaient des délais différents, le
-  // plus strict est le seul qui ne propose jamais une nuit que Lobby refuserait.
+  // Bornes des deux marches : jamais avant aujourd'hui à Guatapé (ou le plancher `lead_days`,
+  // `plancherIso` plus haut), jamais au-delà de l'horizon produit (six mois, inclusif). Mêmes
+  // bornes que `startMonth`/`endMonth` et que les deux matchers `before`/`after` du calendrier —
+  // une seule vérité, trois expressions.
   //
-  // ⚠️ `null` est ignoré, pas lu comme 0 — « Lobby n'a rien dit » n'apporte aucune contrainte.
-  const plancherIso = useMemo(() => pisoLeadDays(pmsRestrictions, todayInBogota()), [pmsRestrictions]);
-
   // Le même plancher, sous la forme qu'attend le matcher `before` de react-day-picker. À
   // `lead_days = 0` il vaut exactement `startOfTodayInBogota()` — d'où l'absence totale d'effet
   // aujourd'hui, sur des restrictions mesurées à {0,0,0}.
@@ -464,7 +477,7 @@ export function LodgingReservationForm({
   }, [remainingByDate, fenetreDepuis, qty, monthKey]);
 
   // Compteur de restant dans la case du jour. Affiché UNIQUEMENT quand il contraint réellement le
-  // choix (`remaining < qtyMax`) : sur un logement à 20 cupos ouverts tous les jours, imprimer
+  // choix (`remaining < seuilCompteur`) : sur un logement à 20 cupos ouverts tous les jours, imprimer
   // « 20 » sur trente cases n'informe personne et abîme la lecture du calendrier.
   //
   // Mémoïsé sur la map, et c'est indispensable : react-day-picker démonte et remonte toute la
@@ -480,14 +493,14 @@ export function LodgingReservationForm({
       return (
         <DayPickerCalendarDayButton {...props} data-date={iso}>
           {props.children}
-          {remaining !== undefined && remaining > 0 && remaining < qtyMaxFijo ? (
+          {remaining !== undefined && remaining > 0 && remaining < seuilCompteur ? (
             <span data-testid="night-remaining">{remaining}</span>
           ) : null}
         </DayPickerCalendarDayButton>
       );
     }
     return { DayButton: RemainingDayButton };
-  }, [remainingByDate, qtyMaxFijo]);
+  }, [remainingByDate, seuilCompteur]);
 
   const hasUnavailableNight = hasUnavailableNightInRange(
     nights,
@@ -528,8 +541,9 @@ export function LodgingReservationForm({
 
   // Monter la quantité peut invalider une ARRIVÉE déjà posée, sans qu'aucun clic n'ait eu lieu sur
   // le calendrier. On replie plutôt que d'avertir : la fenêtre resserrée est visible à l'écran dans
-  // le même geste. Une plage COMPLÈTE d'un PMS-backed ne se replie plus depuis le 2026-10-23 : son
-  // plafond (`qtyMax`, nuit la moins fournie) borne la saisie avant qu'elle ne la déborde.
+  // le même geste. Une plage COMPLÈTE ne se replie plus (Lobby depuis le 2026-10-23, tout logement
+  // depuis le 2026-10-24) : son plafond (`qtyMax`, nuit la moins fournie) borne la saisie avant
+  // qu'elle ne la déborde.
   function handleQtyChange(value: string) {
     const brut = Number(value);
     // min fixé à 1, jamais products.min_qty : create_order ne vérifie le plancher que hors lodging.

@@ -3424,6 +3424,14 @@ export type Database = {
         Args: { p_line_ids: string[] }
         Returns: undefined
       }
+      lodging_physical_capacity: {
+        Args: {
+          p_capacity: number
+          p_lodging_kind: string
+          p_unit_count: number
+        }
+        Returns: number
+      }
       log_admin_action: {
         Args: {
           p_action: string

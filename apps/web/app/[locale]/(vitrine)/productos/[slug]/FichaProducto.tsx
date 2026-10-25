@@ -110,11 +110,16 @@ export function FichaProducto({
   // `unidad` est une unité de PRIX — à ne pas confondre avec `lodgingKind`, qui est une nature de
   // couchage. `per_two` reste délibérément SANS suffixe : « por dos personas » n'ajoute rien à un
   // prix de chambre que la fiche décrit déjà.
+  // `per_house` = le logement ENTIER : pour une chambre privée, c'est la chambre, pas une maison
+  // (retour Jérôme du 2026-10-24, RM201 affichait « por la casa entera »). Une maison entière, un
+  // dortoir ou un type non renseigné gardent « por la casa entera ».
   const sufijoUnidad =
     ficha.unidad === "per_person"
       ? t("perPerson")
       : ficha.unidad === "per_house"
-        ? t("perHouse")
+        ? alojamiento?.lodgingKind === "private"
+          ? t("perRoom")
+          : t("perHouse")
         : null;
 
   // Table explicite plutôt qu'une clé i18n construite dynamiquement : next-intl ne vérifierait plus

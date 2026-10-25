@@ -134,6 +134,55 @@ describe("LodgingReservationForm — le calendrier suit la quantité demandée",
   });
 });
 
+// Retour Jérôme du 2026-10-24 (RM201, chambre privée en un exemplaire) : hors Lobby, le champ
+// « Habitaciones » montait jusqu'à `max_qty` (20 par défaut) quelles que soient les places
+// restantes, et chaque case affichait son restant. Le plafond Lobby du 2026-10-23 vaut désormais
+// pour tout logement.
+describe("LodgingReservationForm — hors Lobby, le plafond suit les places restantes", () => {
+  function renderPrivada(availability: { date: string; capacity: number; booked: number }[]) {
+    return render(
+      <NextIntlClientProvider locale="es" messages={{ ProductPage: messages.ProductPage, Common: messages.Common }}>
+        <LodgingReservationForm
+          productId="rm201"
+          priceCop={160000}
+          priceTiers={null}
+          maxQty={20}
+          lodgingKind="private"
+          isPmsBacked={false}
+          availability={availability}
+          rates={[]}
+        />
+      </NextIntlClientProvider>
+    );
+  }
+  const maxChamp = () => Number((screen.getByTestId("lodging-qty-input") as HTMLInputElement).max);
+
+  it("une chambre en un exemplaire : jamais plus d'une, et aucun « 1 » imprimé sous les dates", () => {
+    renderPrivada([
+      // Une nuit PASSÉE mieux dotée ne doit pas gonfler le plafond (lecture sans filtre de date).
+      { date: "2026-05-30", capacity: 5, booked: 0 },
+      { date: "2026-06-10", capacity: 1, booked: 0 },
+      { date: "2026-06-11", capacity: 1, booked: 0 },
+    ]);
+    expect(maxChamp()).toBe(1);
+    setQty("12");
+    expect((screen.getByTestId("lodging-qty-input") as HTMLInputElement).value).toBe("1");
+    expect(document.querySelector('[data-testid="night-remaining"]')).toBeNull();
+  });
+
+  it("sur une plage : la nuit la moins fournie borne le champ", () => {
+    renderPrivada([
+      { date: "2026-06-10", capacity: 3, booked: 0 },
+      { date: "2026-06-11", capacity: 1, booked: 0 },
+      { date: "2026-06-12", capacity: 3, booked: 0 },
+    ]);
+    expect(maxChamp()).toBe(3);
+    fireEvent.click(document.querySelector('[data-date="2026-06-10"]')!);
+    fireEvent.click(document.querySelector('[data-date="2026-06-12"]')!); // nuits du 10 (3) et du 11 (1)
+    expect(maxChamp()).toBe(1);
+  });
+});
+
 // Spec 28 §4 point 3 : « le calendrier de la fiche se pré-remplit depuis la mémoire du
 // navigateur » — jamais câblé avant ce lot. Seule validation possible au montage : les bornes de
 // l'horizon (`pmsRestrictions` est vide tant que le fetch mensuel n'a pas répondu) — la
