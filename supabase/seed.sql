@@ -716,7 +716,8 @@ values
       'es', 'Taller de dos horas para pintar tu propio zócalo, materiales incluidos.',
       'en', 'Two-hour workshop to paint your own zócalo, materials included.'
     ),
-    70000, 'per_person', 'date', 'arte', 8, true, 'taller-ceramica-zocalos'
+    -- max_qty null : une activité à cupo n'a plus de maximum par réservation (migration 20261025120000).
+    70000, 'per_person', 'date', 'arte', null, true, 'taller-ceramica-zocalos'
   );
 
 -- Les assignations. `taller-ceramica-zocalos` n'y figure PAS, à dessein (cf. ci-dessus).
