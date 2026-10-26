@@ -177,7 +177,8 @@ select is(
   (select string_agg(a.n, ', ' order by a.n)
      from pg_proc p, unnest(p.proargnames, p.proargmodes) as a(n, m)
     where p.oid = 'public.partner_agenda_order_lines'::regproc and a.m = 't'),
-  'date, end_date, holder_name, id, product_duration_days, product_id, product_name, product_type, qty, slot_start_time, status',
+  -- pricing_unit ajoutée par la spec 43 (20261025140000) — toujours aucune colonne de montant.
+  'date, end_date, holder_name, id, pricing_unit, product_duration_days, product_id, product_name, product_type, qty, slot_start_time, status',
   'C1 : les colonnes de l''agenda sont inchangées');
 -- Le prestataire d'un AUTRE établissement ne voit toujours rien d'ici (règle de capacité intacte).
 select * from finish();

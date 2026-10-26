@@ -55,6 +55,7 @@ type ProductRow = {
   type: string;
   establishment_id: string;
   duration_days: number | null;
+  pricing_unit: string;
 };
 
 // Fenêtre de lecture initiale de l'agenda — pas de refetch au changement de vue/date côté client
@@ -202,7 +203,7 @@ export default async function PartnerHomePage() {
     const [productsResult, linesResult] = await Promise.all([
       supabase
         .from("products")
-        .select("id, name, type, establishment_id, duration_days")
+        .select("id, name, type, establishment_id, duration_days, pricing_unit")
         .in("establishment_id", establishmentIds)
         .eq("sellable", true)
         .returns<ProductRow[]>(),
@@ -251,6 +252,7 @@ export default async function PartnerHomePage() {
       date: line.date,
       endDate: line.end_date,
       slotStartTime: line.slot_start_time,
+      pricingUnit: line.pricing_unit ?? null,
     }));
 
     const slotDurations: SlotDuration[] = (slotDurationRows ?? []).map((row) => ({
@@ -268,6 +270,7 @@ export default async function PartnerHomePage() {
         id: p.id,
         name: resolveLocalizedField(asLocalizedField(p.name), "es") ?? "—",
         hasSlots: productIdsWithSlots.has(p.id),
+        perHour: p.pricing_unit === "per_hour",
       }));
   }
 

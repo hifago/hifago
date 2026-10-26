@@ -12,6 +12,8 @@
   "orderReference": "Reserva {reference}",
   "viewDetail": "Ver detalle de la reserva {reference}",
   "lineQty": "Cantidad: {count}",
+  "lineHours": "{count, plural, one {# hora} other {# horas}}",
+  "lineActivity": "Actividad completa",
   "linePaid": "Pagado",
   "lineTotal": "Precio total",
   "cancelLine": "Anular",

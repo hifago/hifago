@@ -9,6 +9,8 @@ import { useAddressAutocomplete } from "@/components/use-address-autocomplete";
 import { useEstablishmentFieldsState } from "@/lib/establishments/useEstablishmentFieldsState";
 import { buildEstablishmentRpcParams } from "@/lib/establishments/establishmentPayload";
 import { ActionConfirmation } from "@/components/action-confirmation";
+import { DescriptionLengthCounter } from "@/components/description-length-counter";
+import { establishmentDescriptionError } from "@/lib/establishments/descriptionLimit";
 
 // docs/specs/06-gestion-etablissement.md §5.1 — comble le gap cahier admin §3c ("toute la
 // présentation d'un établissement s'édite depuis l'admin") : jusqu'ici seules les photos étaient
@@ -71,6 +73,11 @@ export function EstablishmentEditBlock({
 
     if (!nombre.trim()) {
       toast.danger("El nombre es obligatorio.");
+      return;
+    }
+    const descriptionError = establishmentDescriptionError(fields.descriptionEs, fields.descriptionEn);
+    if (descriptionError) {
+      toast.danger(descriptionError);
       return;
     }
 
@@ -181,6 +188,10 @@ export function EstablishmentEditBlock({
             </div>
           </div>
           <TextArea data-testid="edit-description-textarea" />
+          <DescriptionLengthCounter
+            value={fields.descriptionLang === "es" ? fields.descriptionEs : fields.descriptionEn}
+            testId="edit-description-counter"
+          />
         </TextField>
 
         <div className="flex flex-col gap-1.5">

@@ -7,6 +7,8 @@
   "tripRange": "Del {start} al {end}",
   "tripSingle": "El {start}",
   "lineQty": "Cantidad: {count}",
+  "lineHours": "{count, plural, one {# hora} other {# horas}}",
+  "lineActivity": "Actividad completa",
   "lineNights": "{count, plural, one {# noche} other {# noches}}",
   "lineUnavailable": "Este servicio ya no está disponible. Puedes quitarlo de tu viaje.",
   "availabilityUnknown": "No pudimos comprobar la disponibilidad de tu viaje en este momento. Se confirmará al reservar.",

@@ -18,7 +18,7 @@ import {
   CLASSNAMES_CALENDRIER,
   localeCalendrier,
 } from "@/components/molecules/Calendar";
-import { startOfTodayInBogota } from "@hifago/domain";
+import { startOfTodayInBogota, startTimeHasPassed, type PricingUnit } from "@hifago/domain";
 import { useCart } from "@/lib/cart/CartContext";
 import { useAddToCart } from "@/lib/cart/useAddToCart";
 import { isoDeFecha, mesPorDefecto, ultimoDiaReservable } from "@/lib/reservas/calendario";
@@ -30,6 +30,7 @@ import {
   plazasRestantes,
 } from "@/lib/reservas/disponibilidad";
 import { usePrefillUltimosCriterios } from "@/lib/reservas/usePrefillUltimosCriterios";
+import { finDePlage, heuresLibresDepuis, ocupacionCarritoPorHora } from "@/lib/reservas/horas";
 import { Title } from "@/components/atoms/Title";
 
 // Spec 18 §0 Tranche 1 : produit à créneaux horaires (product_slot_rules côté admin, ex. jetski —
@@ -85,22 +86,34 @@ function diaCompleto(daySlots: SlotRow[] | undefined, inCartByKey: Map<string, n
   );
 }
 
+// Spec 43 — à l'heure, un jour est « plein » quand aucune heure de début n'offre le minimum d'heures
+// consécutives libres (une heure libre isolée ne suffit pas à une réservation de 2 h minimum).
+function diaSinPlaga(daySlots: SlotRow[], libres: Map<string, number> | undefined, minHoras: number): boolean {
+  return !daySlots.some((slot) => (libres?.get(toHHMM(slot.slot_start_time)) ?? 0) >= minHoras);
+}
+
 export function SlotReservationForm({
   productId,
   slots,
   minQty = 1,
   maxQty,
+  modoPrecio = null,
 }: {
   productId: string;
   slots: SlotRow[];
   /** `products.min_qty`, replié à 1 — cf. `lib/reservas/cantidad.ts`. */
   minQty?: number;
   /**
-   * `products.max_qty`, déjà replié à 20 par la couche catalogue — le plafond par ligne que
-   * `create_order` applique à TOUT type (`coalesce(max_qty, 20)`, migration 20260929112240). Le
-   * champ ne propose jamais davantage, même s'il reste plus de places.
+   * Le plafond par réservation calculé par la couche catalogue (`public.product_qty_cap` de
+   * `create_order`). `null` pour une activité (migration 20261025120000) : seule la place restante
+   * du créneau borne le champ — un client peut prendre tout le créneau d'un coup.
    */
-  maxQty: number;
+  maxQty: number | null;
+  /**
+   * Spec 43 — `per_hour` : la quantité compte des HEURES consécutives à partir du créneau choisi
+   * (créneaux d'une heure, 1 place prise sur chacun) ; `per_activity` : l'activité entière, quantité 1.
+   */
+  modoPrecio?: PricingUnit | null;
 }) {
   const t = useTranslations("ProductPage");
   // La langue de la page, pour la grille (plan 41, S10).
@@ -113,11 +126,23 @@ export function SlotReservationForm({
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedSlotStartTime, setSelectedSlotStartTime] = useState<string | undefined>();
-  const [qty, setQty] = useState(minQty);
+  const porHora = modoPrecio === "per_hour";
+  const ventaEntera = modoPrecio === "per_activity";
+  const qtyInicial = ventaEntera ? 1 : minQty;
+  // À l'heure : une plage doit offrir au moins ce nombre d'heures consécutives.
+  const minHoras = Math.max(1, minQty);
+  const [qty, setQty] = useState(qtyInicial);
 
+  // Le jour même, un créneau déjà commencé à Guatapé n'est plus proposé (demande du 2026-10-24 : à
+  // 17 h 10, le yoga de 10 h 30 du jour ne se réserve plus) — retiré ici, à la source, pour que
+  // la date elle-même soit barrée quand plus aucun créneau du jour ne reste. create_order refuse de
+  // toute façon (`start_time_passed`, migration 20261024130000) un créneau passé entre-temps.
+  // Filtré dans le navigateur et pas dans `producto.ts` : la fiche serveur peut être servie depuis
+  // un cache, l'heure doit être celle de l'ouverture de la page.
   const byDate = useMemo(() => {
     const map = new Map<string, SlotRow[]>();
     for (const slot of slots) {
+      if (startTimeHasPassed(slot.slot_date, slot.slot_start_time)) continue;
       const list = map.get(slot.slot_date);
       if (list) list.push(slot);
       else map.set(slot.slot_date, [slot]);
@@ -129,25 +154,51 @@ export function SlotReservationForm({
   // base) — même raisonnement que ReservationForm.tsx (avertissement indicatif, jamais la vraie
   // barrière, qui reste create_order au moment du checkout). Clé composée (date + heure) plutôt que
   // date seule : deux créneaux différents la même date sont deux cupos indépendants.
+  // Spec 43 : une ligne à l'heure de 3 h occupe 1 place sur chacune de ses 3 heures.
   const inCartByKey = useMemo(
     () =>
-      agregarEnCarrito(
-        lines,
-        (line) => line.productId === productId && Boolean(line.slotStartTime),
-        (line) => `${line.date}|${line.slotStartTime}`
-      ),
-    [lines, productId]
+      porHora
+        ? ocupacionCarritoPorHora(lines, productId)
+        : agregarEnCarrito(
+            lines,
+            (line) => line.productId === productId && Boolean(line.slotStartTime),
+            (line) => `${line.date}|${line.slotStartTime}`
+          ),
+    [lines, productId, porHora]
   );
+
+  // Spec 43 — à l'heure : pour chaque date, les heures consécutives libres depuis chaque début.
+  const heuresLibresParDate = useMemo(() => {
+    const out = new Map<string, Map<string, number>>();
+    if (!porHora) return out;
+    for (const [date, daySlots] of byDate) {
+      out.set(
+        date,
+        heuresLibresDepuis(
+          daySlots.map((slot) => ({
+            debut: slot.slot_start_time,
+            dureeMinutes: slot.slot_duration_minutes,
+            restantes: remainingForSlot(slot, inCartByKey),
+          }))
+        )
+      );
+    }
+    return out;
+  }, [porHora, byDate, inCartByKey]);
 
   const fullDates = useMemo(() => {
     const full: Date[] = [];
     for (const [date, daySlots] of byDate) {
-      if (diaCompleto(daySlots, inCartByKey)) {
+      if (
+        porHora
+          ? diaSinPlaga(daySlots, heuresLibresParDate.get(date), minHoras)
+          : diaCompleto(daySlots, inCartByKey)
+      ) {
         full.push(parseISO(date));
       }
     }
     return full;
-  }, [byDate, inCartByKey]);
+  }, [byDate, inCartByKey, porHora, heuresLibresParDate, minHoras]);
 
   // Ouvre le calendrier sur le mois du premier créneau configuré plutôt que sur le mois courant —
   // même raisonnement que ReservationForm.tsx.
@@ -161,8 +212,16 @@ export function SlotReservationForm({
     ? daySlots.find((slot) => toHHMM(slot.slot_start_time) === selectedSlotStartTime)
     : undefined;
   const slotRemaining = selectedSlot ? remainingForSlot(selectedSlot, inCartByKey) : 0;
-  // Borne haute du champ : la place restante du créneau, jamais au-delà du plafond par ligne.
-  const qtyTope = Math.min(slotRemaining, maxQty);
+  // Borne haute du champ : la place restante du créneau, jamais au-delà du plafond par ligne quand
+  // le produit en a un (aucun pour une activité).
+  // Spec 43 — à l'heure : les heures consécutives libres depuis le début choisi bornent le champ.
+  const horasLibres =
+    porHora && selectedIso && selectedSlot
+      ? (heuresLibresParDate.get(selectedIso)?.get(toHHMM(selectedSlot.slot_start_time)) ?? 0)
+      : 0;
+  const disponible = porHora ? horasLibres >= minHoras : slotRemaining >= 1;
+  const capacidad = porHora ? horasLibres : slotRemaining;
+  const qtyTope = maxQty === null ? capacidad : Math.min(capacidad, maxQty);
 
   // UN SEUL prédicat « cette date est-elle refusée ? », passé tel quel au `disabled` du calendrier
   // ET appelé en tête de `handleSelectDate` — le pré-remplissage (spec 28 §4 point 3) appelle ce
@@ -183,7 +242,9 @@ export function SlotReservationForm({
     return (
       date < startOfTodayInBogota() ||
       date > dernierJourReservable ||
-      diaCompleto(daySlotsForDate, inCartByKey)
+      (porHora
+        ? diaSinPlaga(daySlotsForDate, heuresLibresParDate.get(format(date, "yyyy-MM-dd")), minHoras)
+        : diaCompleto(daySlotsForDate, inCartByKey))
     );
   }
 
@@ -193,7 +254,7 @@ export function SlotReservationForm({
     if (date && fechaNoSeleccionable(date)) return;
     setSelectedDate(date);
     setSelectedSlotStartTime(undefined);
-    setQty(minQty);
+    setQty(qtyInicial);
   }
 
   // Spec 28 §4 point 3 : la date filtrée dans la recherche, si elle porte des créneaux réels de CE
@@ -202,17 +263,22 @@ export function SlotReservationForm({
     if (desde) handleSelectDate(parseISO(desde));
   });
 
+  // À l'heure (spec 43), un début n'est choisissable que s'il offre le minimum d'heures libres.
+  function horasDesde(slot: SlotRow): number {
+    return heuresLibresParDate.get(slot.slot_date)?.get(toHHMM(slot.slot_start_time)) ?? 0;
+  }
+
   function handleSelectSlot(slot: SlotRow) {
-    if (remainingForSlot(slot, inCartByKey) < 1) return;
+    if (porHora ? horasDesde(slot) < minHoras : remainingForSlot(slot, inCartByKey) < 1) return;
     setSelectedSlotStartTime(toHHMM(slot.slot_start_time));
-    setQty(minQty);
+    setQty(qtyInicial);
   }
 
   // Spec 28 Tranche 3 : sur succès, `useAddToCart` redirige déjà vers l'accueil — il n'y a plus
   // rien à faire ici avec la valeur de retour (ni toast, ni reset local : le composant est sur le
   // point de se démonter).
   async function handleAddToCart() {
-    if (!selectedIso || !selectedSlot || slotRemaining < 1) return;
+    if (!selectedIso || !selectedSlot || !disponible) return;
     await addToCart({
       productId,
       date: selectedIso,
@@ -270,10 +336,16 @@ export function SlotReservationForm({
 
       {selectedSlot ? (
         <p className="text-sm text-muted" aria-live="polite" data-testid="slot-summary">
-          {t(CLAVE_PLAZAS[estadoDisponibilidad(slotRemaining)], { count: slotRemaining })}
+          {porHora
+            ? t("hourRangeSummary", {
+                desde: toHHMM(selectedSlot.slot_start_time),
+                hasta: finDePlage(selectedSlot.slot_start_time, qty),
+                count: qty,
+              })
+            : t(CLAVE_PLAZAS[estadoDisponibilidad(slotRemaining)], { count: slotRemaining })}
         </p>
       ) : selectedIso ? (
-        <p className="text-sm text-muted">{t("selectSlotTime")}</p>
+        <p className="text-sm text-muted">{t(porHora ? "selectStartTime" : "selectSlotTime")}</p>
       ) : (
         <p className="text-sm text-muted">{t("selectSlotDate")}</p>
       )}
@@ -284,7 +356,11 @@ export function SlotReservationForm({
             const slotStart = toHHMM(slot.slot_start_time);
             const slotEnd = addMinutesToHHMM(slot.slot_start_time, slot.slot_duration_minutes);
             const slotRemainingCount = remainingForSlot(slot, inCartByKey);
-            const isFull = estadoDisponibilidad(slotRemainingCount) === "completo";
+            // À l'heure (spec 43) : la puce est une heure de DÉBUT, pleine si elle n'offre pas le
+            // minimum d'heures consécutives libres.
+            const isFull = porHora
+              ? horasDesde(slot) < minHoras
+              : estadoDisponibilidad(slotRemainingCount) === "completo";
             const isSelected = selectedSlotStartTime === slotStart;
             return (
               <button
@@ -303,13 +379,15 @@ export function SlotReservationForm({
                       : "border-border hover:bg-surface-secondary"
                 )}
               >
-                <span className="font-medium">
-                  {slotStart}–{slotEnd}
-                </span>
+                <span className="font-medium">{porHora ? slotStart : `${slotStart}–${slotEnd}`}</span>
                 <span className="text-muted">
-                  {t(CLAVE_PLAZAS[estadoDisponibilidad(slotRemainingCount)], {
-                    count: slotRemainingCount,
-                  })}
+                  {porHora
+                    ? isFull
+                      ? t("full")
+                      : t("hourSlotFree")
+                    : t(CLAVE_PLAZAS[estadoDisponibilidad(slotRemainingCount)], {
+                        count: slotRemainingCount,
+                      })}
                 </span>
               </button>
             );
@@ -317,24 +395,26 @@ export function SlotReservationForm({
         </div>
       ) : null}
 
-      <TextField
-        className="max-w-32"
-        name="qty"
-        value={String(qty)}
-        isDisabled={!selectedSlot}
-        onChange={(value) => setQty(limitarCantidad(Number(value), minQty, qtyTope))}
-      >
-        <Label>{t("quantityLabel")}</Label>
-        <Input
-          id="qty"
-          type="number"
-          min={pisoCantidad(minQty, qtyTope)}
-          max={topeCantidad(qtyTope)}
-        />
-      </TextField>
-      {minQty > 1 ? (
+      {ventaEntera ? null : (
+        <TextField
+          className="max-w-32"
+          name="qty"
+          value={String(qty)}
+          isDisabled={!selectedSlot}
+          onChange={(value) => setQty(limitarCantidad(Number(value), minQty, qtyTope))}
+        >
+          <Label>{t(porHora ? "hoursLabel" : "quantityLabel")}</Label>
+          <Input
+            id="qty"
+            type="number"
+            min={pisoCantidad(minQty, qtyTope)}
+            max={topeCantidad(qtyTope)}
+          />
+        </TextField>
+      )}
+      {!ventaEntera && minQty > 1 ? (
         <p className="text-xs text-muted" data-testid="min-qty-hint">
-          {t("minQtyHint", { count: minQty })}
+          {porHora ? t("minHoursHint", { count: minQty }) : t("minQtyHint", { count: minQty })}
         </p>
       ) : null}
 
@@ -343,7 +423,7 @@ export function SlotReservationForm({
         width="full"
         testId="add-to-cart-button"
         onPress={handleAddToCart}
-        isDisabled={!selectedSlot || slotRemaining < 1}
+        isDisabled={!selectedSlot || !disponible}
       >
         {t("addToCart")}
       </Button>

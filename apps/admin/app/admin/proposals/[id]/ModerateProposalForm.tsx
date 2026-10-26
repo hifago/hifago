@@ -93,7 +93,7 @@ export function ModerateProposalForm({
   const proposesAmenities = proposedAmenityIds(proposedPayload) !== null;
 
   const {
-    hasLocationAndTags, hasPriceQtyFields, hasCheckInOut, hasDefaultCapacity, isLodging, isEvento, isCamp,
+    hasLocationAndTags, hasMinQty, hasMaxQty, hasCheckInOut, hasDefaultCapacity, isLodging, isEvento, isCamp,
   } = productTypeGating(type);
   const needsOwnPrice = !isEvento;
 
@@ -255,11 +255,16 @@ export function ModerateProposalForm({
               </dd>
             </div>
           ) : null}
-          {hasPriceQtyFields ? (
+          {/* Seulement les bornes que le type a encore (migration 20261025120000) : aucune pour un
+              logement, le minimum seul pour une activité, les deux pour un transport. */}
+          {hasMinQty || hasMaxQty ? (
             <div>
-              <dt className="inline font-medium text-foreground">Cantidad mín/máx: </dt>
+              <dt className="inline font-medium text-foreground">
+                {hasMaxQty ? "Cantidad mín/máx por reserva: " : "Cantidad mínima por reserva: "}
+              </dt>
               <dd className="inline">
-                {currentPayload.min_qty ?? "—"} / {currentPayload.max_qty ?? "—"}
+                {currentPayload.min_qty ?? "—"}
+                {hasMaxQty ? ` / ${currentPayload.max_qty ?? "—"}` : ""}
               </dd>
             </div>
           ) : null}

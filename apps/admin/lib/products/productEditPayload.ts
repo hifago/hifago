@@ -6,6 +6,7 @@ import { toGroupDiscountColumns } from "@/lib/products/groupDiscount";
 import { toEventoBookableColumns } from "@/lib/products/eventoBookable";
 import { toEventoOccurrenceColumns } from "@/lib/products/eventoOccurrence";
 import { toTransportInfoColumns } from "@/lib/products/transportInfo";
+import { pricingAllowsQty, toActivityPricingColumns } from "@/lib/products/activityPricing";
 import { productTypeGating, type ProductType, type ProductTypeFieldsState } from "@/lib/products/useProductTypeFieldsState";
 
 // Construit le payload jsonb attendu par submit_product_proposal / le p_corrected_payload de
@@ -26,9 +27,11 @@ export function buildProductEditPayload(
 ): Record<string, unknown> {
   const {
     isEvento, hasLocationAndTags, hasPriceQtyFields, hasCheckInOut, isLodging, hasDefaultCapacity,
-    isTransport, isCamp, isActivity,
+    isTransport, isCamp, isActivity, hasMinQty, hasMaxQty,
   } = productTypeGating(type);
-  const usesTiers = hasPriceQtyFields && fields.priceMode === "tiers";
+  // Spec 43 : une activité vendue entière n'a ni tramos ni minimum (la fiche en réserve une).
+  const venteEntiere = isActivity && !pricingAllowsQty(fields.pricingUnit);
+  const usesTiers = hasPriceQtyFields && fields.priceMode === "tiers" && !venteEntiere;
   // Même garde que productCreationPayload : `Number("")` vaut 0, PAS NaN, et 0 est refusé par
   // `products_price_cop_positive`. Sans ce `> 0`, effacer le prix d'un produit pour le passer en
   // vitrine faisait échouer l'approbation de la proposition (mesuré le 2026-09-09).
@@ -77,12 +80,16 @@ export function buildProductEditPayload(
     // productCreationPayload.ts ; les deux pages d'édition les relisent désormais, sinon ce bloc
     // écrirait des champs vides.
     ...(isEvento ? toEventoOccurrenceColumns(fields) : {}),
+    // NULL explicite là où le type n'a pas la borne (migration 20261025120000 : la base la refuse) —
+    // même règle que productCreationPayload.
     ...(hasPriceQtyFields
       ? {
-          min_qty: fields.minQty.trim() ? Number(fields.minQty) : null,
-          max_qty: fields.maxQty.trim() ? Number(fields.maxQty) : null,
+          min_qty: hasMinQty && !venteEntiere && fields.minQty.trim() ? Number(fields.minQty) : null,
+          max_qty: hasMaxQty && fields.maxQty.trim() ? Number(fields.maxQty) : null,
         }
       : {}),
+    // Spec 43 : même bloc qu'à la création (submit_product_proposal whitelist les mêmes clés).
+    ...(isActivity ? toActivityPricingColumns(fields) : {}),
     ...(hasCheckInOut
       ? { check_in_time: fields.checkInTime || null, check_out_time: fields.checkOutTime || null }
       : {}),

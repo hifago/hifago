@@ -59,7 +59,7 @@ test("admin crée une actividad avec paliers de prix et bornes de quantité ; cr
   await page.getByTestId("price-tier-price-1").fill("25000");
 
   await page.getByTestId("min-qty-input").fill("2");
-  await page.getByTestId("max-qty-input").fill("6");
+  // Pas de maximum par réservation pour une activité (migration 20261025120000).
 
   await page.getByTestId("create-product-button").click();
   await confirmAndContinue(page, "product-form-confirmation");

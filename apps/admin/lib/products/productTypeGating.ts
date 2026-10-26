@@ -1,3 +1,5 @@
+import { productTypeHasMaxQty, productTypeHasMinQty } from "@hifago/domain";
+
 // Correctif — bug PRÉ-EXISTANT trouvé en vérifiant la spec 21 (connecteur LobbyPMS), SANS LIEN
 // avec elle : confirmé présent dans le dernier commit (bb254e9, avant toute modification de cette
 // session) via `git show HEAD:apps/admin/app/admin/products/[id]/edit/page.tsx`. Jamais corrigé en
@@ -67,6 +69,13 @@ export function productTypeGating(type: ProductType) {
     // éditoriales d'activités branchées sur search_catalog/`/actividades`.
     hasAmenities: isLodging,
     hasPriceQtyFields: isActivity || isLodging || isTransport,
+    // Bornes de quantité PAR RÉSERVATION (décision Jérôme du 2026-10-25, migration 20261025120000).
+    // Un produit à cupo n'a plus de maximum : un client peut prendre tout ce qui reste — seul le
+    // transport le garde. Le minimum reste pour l'activité (taille de groupe) et le transport, jamais
+    // pour un logement (create_order ne l'a jamais vérifié). La base refuse les deux hors de ces
+    // types (products_max_qty_only_without_cupo / products_min_qty_not_lodging).
+    hasMinQty: (isActivity || isLodging || isTransport) && productTypeHasMinQty(type),
+    hasMaxQty: (isActivity || isLodging || isTransport) && productTypeHasMaxQty(type),
     hasCheckInOut: isLodging,
     // Types qui matérialisent product_availability — seuls ceux-là peuvent porter un cupo par
     // défaut. evento : pas encore réellement réservable côté client, toujours hors périmètre.

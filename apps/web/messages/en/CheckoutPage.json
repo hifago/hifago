@@ -41,6 +41,7 @@
     "no_matching_tier": "There is no rate for the selected quantity of this service. Change the quantity.",
     "price_missing": "This service has no price for now. Please contact the establishment.",
     "date_in_past": "This date has already passed. Choose another date for this service.",
+    "start_time_passed": "This time slot has already started. Choose another time or date for this service.",
     "email_required": "Email is required.",
     "email_invalid": "Email is not valid.",
     "phone_required": "WhatsApp number is required.",

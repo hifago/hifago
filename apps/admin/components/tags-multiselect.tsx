@@ -9,6 +9,10 @@ import { isExistingTagName, tagMatchesQuery } from "@/lib/tags/tagSlug";
 
 export type TagOption = { id: string; label: string };
 
+/** Ce que l'admin et le socio lisent sous le sélecteur quand `markPrimary` est posé. */
+export const PRIMARY_TAG_HINT =
+  "La primera etiqueta define la categoría donde aparece en la vitrina; las demás solo sirven para la búsqueda.";
+
 const CREATE_TAG_KEY = "__create_tag__";
 
 // Multi-sélection ET création à la volée : searchable-combobox.tsx (recherche partenaire/
@@ -41,6 +45,10 @@ export function TagsMultiSelect({
   // explicitement, avec leur propre éditeur (`manageEditor`), dans l'admin seulement.
   allowManage = allowCreate,
   manageEditor = TAG_EDITOR,
+  // Étiquettes de catégorisation seulement (jamais les équipements) : la PREMIÈRE de la sélection
+  // est la principale, la seule qui classe la carte dans la vitrine (migration 20261025100000).
+  // L'ordre affiché est l'ordre enregistré — c'est ce qui rend la mention honnête.
+  markPrimary = false,
 }: {
   availableTags: TagOption[];
   selectedTagIds: string[];
@@ -52,6 +60,7 @@ export function TagsMultiSelect({
   placeholder?: string;
   allowManage?: boolean;
   manageEditor?: CatalogItemEditor;
+  markPrimary?: boolean;
 }) {
   const [query, setQuery] = useState("");
   // Tags créés depuis ce composant pendant sa durée de vie — le parent (Server Component) n'a pas
@@ -79,6 +88,14 @@ export function TagsMultiSelect({
         .map((id) => allTags.find((t) => t.id === id))
         .filter((t): t is TagOption => !!t),
     [selectedTagIds, allTags],
+  );
+
+  // « Principale » portée PAR L'ÉLÉMENT, pas lue à côté : la collection react-aria garde en cache le
+  // rendu d'un élément dont l'objet n'a pas changé. Sans ce champ, retirer la principale laissait la
+  // suivante sans sa pastille (attrapé par tags-multiselect.test.tsx).
+  const selectedItems = useMemo(
+    () => selectedTags.map((tag, index) => ({ ...tag, isPrimary: markPrimary && index === 0 })),
+    [selectedTags, markPrimary],
   );
 
   const selectableTags = useMemo(
@@ -171,9 +188,17 @@ export function TagsMultiSelect({
       {isCreating ? <p className="text-xs text-muted">Creando…</p> : null}
       {selectedTags.length > 0 ? (
         <TagGroup aria-label={label} onRemove={handleRemove} data-testid={`${testId}-selected`}>
-          <TagGroup.List items={selectedTags}>
-            {(tag: TagOption) => (
-              <Tag key={tag.id} id={tag.id} textValue={tag.label}>
+          <TagGroup.List items={selectedItems}>
+            {(tag: TagOption & { isPrimary: boolean }) => (
+              <Tag key={tag.id} id={tag.id} textValue={tag.isPrimary ? `${tag.label} (principal)` : tag.label}>
+                {tag.isPrimary ? (
+                  <span
+                    className="rounded-full bg-accent px-1.5 text-[11px] font-semibold uppercase leading-4 text-accent-foreground"
+                    data-testid={`${testId}-principal`}
+                  >
+                    Principal
+                  </span>
+                ) : null}
                 {tag.label}
                 <Tag.RemoveButton aria-label={`Quitar ${tag.label}`} />
               </Tag>
@@ -181,6 +206,7 @@ export function TagsMultiSelect({
           </TagGroup.List>
         </TagGroup>
       ) : null}
+      {markPrimary ? <p className="text-xs text-muted">{PRIMARY_TAG_HINT}</p> : null}
       {allowManage && allTags.length > 0 ? (
         <>
           <button

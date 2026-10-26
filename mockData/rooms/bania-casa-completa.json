@@ -30,8 +30,6 @@
       "price_cop": 2000000
     }
   ],
-  "min_qty": 1,
-  "max_qty": 20,
   "stay_rates": {
     "season": {
       "months": [

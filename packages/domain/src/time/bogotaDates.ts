@@ -44,6 +44,42 @@ export function todayInBogota(now: Date = new Date()): string {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
+const timeFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: OPERATION_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/**
+ * L'heure (HH:MM, 24 h) qu'il est À GUATAPÉ à l'instant `now`. `hourCycle: "h23"` : jamais « 24:00 »
+ * à minuit, que certains moteurs rendent avec `hour12: false`.
+ */
+export function nowTimeInBogota(now: Date = new Date()): string {
+  const parts = timeFormatter.formatToParts(now);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("hour")}:${get("minute")}`;
+}
+
+/**
+ * Le début (date civile + heure, à Guatapé) est-il atteint ? Faux sans heure de début.
+ *
+ * Contrepartie de `public.start_time_has_passed` (migration 20261024130000) : le jour même, un
+ * créneau ou une occurrence d'evento dont l'heure est passée n'est plus réservable — 10 h 30 est
+ * refusé dès 10 h 30. `startTime` accepte `HH:MM` ou `HH:MM:SS` (colonne Postgres `time`) ; la
+ * comparaison est faite à la minute, comme l'affichage.
+ */
+export function startTimeHasPassed(
+  dateIso: string,
+  startTime: string | null | undefined,
+  now: Date = new Date()
+): boolean {
+  if (!startTime) return false;
+  const today = todayInBogota(now);
+  if (dateIso !== today) return dateIso < today;
+  return startTime.slice(0, 5) <= nowTimeInBogota(now);
+}
+
 /**
  * Minuit LOCAL du jour civil qu'il est à Guatapé — l'objet `Date` que réclament les calendriers.
  *

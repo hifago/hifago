@@ -103,7 +103,9 @@ export default async function EditEstablishmentProposalPage({
   const { data: tagAssignments, error: tagAssignmentsError } = await supabase
     .from("establishment_tag_assignments")
     .select("tag_id")
-    .eq("establishment_id", id);
+    .eq("establishment_id", id)
+    // La première = la principale, celle qui classe la carte dans la vitrine (20261025100000).
+    .order("position");
   if (tagAssignmentsError) {
     throw new Error(
       `Lecture de la fiche impossible (establishment_tag_assignments) : ${tagAssignmentsError.message}`,

@@ -127,7 +127,12 @@ export default async function AdminProductsPage({
   const { data: tagAssignments } =
     productIds.length > 0
       ? checkedRead(
-          await supabase.from("product_tag_assignments").select("product_id, tag_id").in("product_id", productIds),
+          // Dans l'ordre de `position` : la cellule les affiche ainsi, la première est la principale.
+          await supabase
+            .from("product_tag_assignments")
+            .select("product_id, tag_id")
+            .in("product_id", productIds)
+            .order("position"),
           "product_tag_assignments",
         )
       : { data: [] as { product_id: string; tag_id: string }[] };

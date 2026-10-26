@@ -204,10 +204,19 @@ describe("getProductoPorSlug — panne ≠ absence", () => {
     expect(ficha?.establecimiento).toMatchObject({ slug: null, nombre: "Guatapé" });
   });
 
-  it("porte le plafond par ligne de create_order : max_qty, replié à 20", async () => {
-    expect((await getProductoPorSlug("kayak", { locale: "es" }))?.maxQty).toBe(20);
+  // Migration 20261025120000 (décision Jérôme du 2026-10-25) : le plafond de public.product_qty_cap —
+  // aucun pour une activité (seule la place restante borne), même si une valeur traînait en base.
+  it("porte le plafond par ligne de create_order : aucun pour une activité", async () => {
+    expect((await getProductoPorSlug("kayak", { locale: "es" }))?.maxQty).toBeNull();
     fauxSupabase.state.principale = { ...ACTIVIDAD, max_qty: 4 };
-    expect((await getProductoPorSlug("kayak-4", { locale: "es" }))?.maxQty).toBe(4);
+    expect((await getProductoPorSlug("kayak-4", { locale: "es" }))?.maxQty).toBeNull();
+  });
+
+  it("porte le plafond par ligne de create_order : max_qty replié à 20 pour un transport", async () => {
+    fauxSupabase.state.principale = { ...ACTIVIDAD, type: "transport", max_qty: 4 };
+    expect((await getProductoPorSlug("lancha-4", { locale: "es" }))?.maxQty).toBe(4);
+    fauxSupabase.state.principale = { ...ACTIVIDAD, type: "transport", max_qty: null };
+    expect((await getProductoPorSlug("lancha", { locale: "es" }))?.maxQty).toBe(20);
   });
 
   it.each([

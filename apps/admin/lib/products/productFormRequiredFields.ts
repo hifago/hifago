@@ -102,7 +102,9 @@ export function requiredPricingStepError(params: {
   isCamp: boolean;
   isActivity: boolean;
   isLodging: boolean;
-  hasPriceQtyFields: boolean;
+  /** Bornes par réservation affichées pour ce type (productTypeGating, migration 20261025120000). */
+  hasMinQty: boolean;
+  hasMaxQty: boolean;
   needsOwnPrice: boolean;
   usesTiers: boolean;
   price: number;
@@ -165,17 +167,19 @@ export function requiredPricingStepError(params: {
 
   // Même plancher que les contraintes products_min_qty_positive / products_max_qty_positive
   // (20261001144546) : refusé ici avec un message, plutôt qu'en erreur générique à l'enregistrement.
-  if (params.hasPriceQtyFields) {
-    if (params.minQty.trim() && Number(params.minQty) < 1) {
-      return "La cantidad mínima debe ser al menos 1.";
-    }
-    if (params.maxQty.trim() && Number(params.maxQty) < 1) {
-      return "La cantidad máxima debe ser al menos 1.";
-    }
+  // Seulement pour une borne AFFICHÉE : une valeur restée dans l'état d'un autre type n'est jamais
+  // envoyée (productCreationPayload/productEditPayload la remplacent par NULL), elle ne doit donc
+  // pas bloquer l'écran avec un message sur un champ invisible.
+  if (params.hasMinQty && params.minQty.trim() && Number(params.minQty) < 1) {
+    return "La cantidad mínima debe ser al menos 1.";
+  }
+  if (params.hasMaxQty && params.maxQty.trim() && Number(params.maxQty) < 1) {
+    return "La cantidad máxima debe ser al menos 1.";
   }
 
   if (
-    params.hasPriceQtyFields &&
+    params.hasMinQty &&
+    params.hasMaxQty &&
     params.minQty.trim() &&
     params.maxQty.trim() &&
     Number(params.minQty) > Number(params.maxQty)

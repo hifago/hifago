@@ -6,7 +6,9 @@ import {
   formatDateTimeInBogota,
   isoDateToLocalMidnight,
   nowIsoInstant,
+  nowTimeInBogota,
   startOfTodayInBogota,
+  startTimeHasPassed,
   todayInBogota,
 } from "./bogotaDates";
 
@@ -243,5 +245,41 @@ describe("addDaysIso — les deux débordements de l'ancre Date.UTC", () => {
     expect(() => addDaysIso("0001-01-01", -1)).toThrow(RangeError);
     // La borne elle-même reste calculable — on ne rétrécit pas le domaine utile.
     expect(addDaysIso("9999-12-30", 1)).toBe("9999-12-31");
+  });
+});
+
+describe("nowTimeInBogota / startTimeHasPassed — l'heure compte le jour même", () => {
+  // Le grief du 2026-10-24 : à 17 h 10 à Guatapé (22 h 10 UTC), un yoga de 10 h 30 du jour restait
+  // réservable. Processus forcé à Paris : l'heure de la MACHINE ne doit jamais entrer en jeu.
+  const tzOriginal = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = "Europe/Paris";
+  });
+  afterAll(() => {
+    process.env.TZ = tzOriginal;
+  });
+  const A_17H10 = new Date("2026-10-24T22:10:00Z");
+
+  it("rend l'heure de Guatapé, jamais celle de la machine ni d'UTC", () => {
+    expect(nowTimeInBogota(A_17H10)).toBe("17:10");
+    expect(nowTimeInBogota(new Date("2026-10-25T05:05:00Z"))).toBe("00:05");
+  });
+
+  it("refuse une heure du jour déjà passée, accepte une heure à venir", () => {
+    expect(startTimeHasPassed("2026-10-24", "10:30:00", A_17H10)).toBe(true);
+    expect(startTimeHasPassed("2026-10-24", "17:10", A_17H10)).toBe(true);
+    expect(startTimeHasPassed("2026-10-24", "17:11", A_17H10)).toBe(false);
+  });
+
+  it("ne touche qu'au jour même : demain reste ouvert, hier est passé, sans heure rien ne change", () => {
+    expect(startTimeHasPassed("2026-10-25", "08:00", A_17H10)).toBe(false);
+    expect(startTimeHasPassed("2026-10-23", "23:00", A_17H10)).toBe(true);
+    expect(startTimeHasPassed("2026-10-24", null, A_17H10)).toBe(false);
+  });
+
+  it("à 21 h à Guatapé (déjà le lendemain en UTC), un créneau de 22 h du jour reste ouvert", () => {
+    const a21h = new Date("2026-10-25T02:00:00Z");
+    expect(startTimeHasPassed("2026-10-24", "22:00", a21h)).toBe(false);
+    expect(startTimeHasPassed("2026-10-24", "20:00", a21h)).toBe(true);
   });
 });

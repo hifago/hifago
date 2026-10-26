@@ -58,7 +58,7 @@ export default async function EditProductPage({
       // l'autre. `price_label` était réécrit sans être lu depuis le 2026-09-17 (un enregistrement
       // l'effaçait) ; les colonnes d'occurrence n'étaient ni lues ni écrites, le formulaire
       // s'affichait vierge et jetait la saisie.
-      "id, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, category, type, establishment_id, sellable, lobby_category_id, lobby_product_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, evento_occupies_resource, price_label, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, establishment:establishments(lobby_connector_active, lobby_has_token)",
+      "id, name, description, address, lat, lon, price_cop, price_tiers, min_qty, max_qty, pricing_unit, min_persons, max_persons, check_in_time, check_out_time, capacity, unit_count, lodging_kind, unit, default_capacity, stay_rates, category, type, establishment_id, sellable, lobby_category_id, lobby_product_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, evento_occupies_resource, price_label, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, program, duration_days, establishment:establishments(lobby_connector_active, lobby_has_token)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -107,8 +107,9 @@ export default async function EditProductPage({
     hasTags
       ? supabase.from("catalog_tags").select("id, label").order("slug")
       : Promise.resolve({ data: [] as { id: string; label: unknown }[], error: null }),
+    // La première = la principale, celle qui classe la carte dans la vitrine (20261025100000).
     hasTags
-      ? supabase.from("product_tag_assignments").select("tag_id").eq("product_id", product.id)
+      ? supabase.from("product_tag_assignments").select("tag_id").eq("product_id", product.id).order("position")
       : Promise.resolve({ data: [] as { tag_id: string }[], error: null }),
     // Équipements structurés (migration 20260917110000) — même patron que tags juste au-dessus,
     // table dédiée `catalog_amenities`, gating `hasAmenities` (lodging uniquement).

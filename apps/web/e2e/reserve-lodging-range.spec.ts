@@ -42,7 +42,7 @@ async function crearAlojamientoDePrueba({
     const partnerId = rows[0].partner_id as string;
     await client.query(
       `insert into products (id, partner_id, establishment_id, type, name, sellable, slug, price_cop, min_qty, max_qty, price_tiers)
-       values ($1, $2, $3, 'lodging', $4, true, $5, 200000, 1, 4, $6::jsonb)`,
+       values ($1, $2, $3, 'lodging', $4, true, $5, 200000, null, null, $6::jsonb)`, // ni min ni max : interdits pour un logement (migration 20261025120000)
       [
         id,
         partnerId,

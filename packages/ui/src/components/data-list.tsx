@@ -373,7 +373,13 @@ function MultiSelectCell({ editor, selected, isDirty, isDisabled, ariaLabel, tes
   // Libellés joints à la main, pas par le `Autocomplete.Value` par défaut : react-aria les formate
   // dans la langue du NAVIGATEUR (« Arte and Agua » sur un poste en anglais), alors que l'admin est
   // en espagnol en dur.
-  const selectedLabels = editor.options.filter((option) => selected.includes(option.value)).map((o) => o.label);
+  //
+  // Dans l'ordre de la SÉLECTION, pas dans celui des options : pour les étiquettes du catálogo, la
+  // première est la principale, la seule qui classe la carte dans la vitrine (migration
+  // 20261025100000). La cellule montre donc l'ordre exact qui sera enregistré.
+  const selectedLabels = selected
+    .map((value) => editor.options.find((option) => option.value === value)?.label)
+    .filter((label): label is string => label !== undefined);
 
   return (
     <Autocomplete

@@ -105,6 +105,8 @@ export default async function PartnerEstablishmentPage() {
           )
           .eq("partner_id", partnerId)
           .order("created_at", { ascending: false })
+          // Les étiquettes de chaque fiche dans leur ordre : la première est la principale.
+          .order("position", { referencedTable: "product_tag_assignments" })
           .returns<ProductQueryRow[]>()
       : { data: null as ProductQueryRow[] | null, error: null },
     partnerId

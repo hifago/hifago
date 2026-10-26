@@ -54,6 +54,8 @@ function renderView(overrides: {
     fotos: [],
     precio: { tipo: "monto", cop: 120000 },
     unidad: overrides.unit ?? null,
+    modoPrecio: null,
+    personas: null,
     minQty: 1,
     maxQty: 20,
     modoReserva: "lodging",
@@ -184,6 +186,20 @@ describe("FichaProducto — unité de prix", () => {
   it("dit « por la casa entera » pour per_house", () => {
     renderView({ capacity: null, unitCount: null, unit: "per_house" });
     expect(screen.getByTestId("product-price").textContent).toContain("por la casa entera");
+  });
+
+  it("dit « por la casa entera » pour une maison entière en per_house", () => {
+    renderView({ capacity: 8, unitCount: 1, lodgingKind: "whole_house", unit: "per_house" });
+    expect(screen.getByTestId("product-price").textContent).toContain("por la casa entera");
+  });
+
+  // Retour Jérôme du 2026-10-24 : RM201, chambre privée vendue entière, affichait « por la casa
+  // entera ». Le logement entier d'une chambre privée, c'est la chambre.
+  it("dit « por la habitación » pour une chambre privée en per_house, jamais « casa entera »", () => {
+    renderView({ capacity: 3, unitCount: 1, lodgingKind: "private", unit: "per_house" });
+    const texte = screen.getByTestId("product-price").textContent ?? "";
+    expect(texte).toContain("por la habitación");
+    expect(texte).not.toContain("casa entera");
   });
 
   // per_two reste délibérément sans suffixe : le prix d'une chambre double n'a rien à préciser.

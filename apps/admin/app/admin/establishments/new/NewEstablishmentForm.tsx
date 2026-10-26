@@ -11,6 +11,8 @@ import { TagsMultiSelect, type TagOption } from "@/components/tags-multiselect";
 import { AMENITY_EDITOR } from "@/lib/amenities/editCatalogAmenity";
 import { useEstablishmentFieldsState } from "@/lib/establishments/useEstablishmentFieldsState";
 import { buildEstablishmentRpcParams } from "@/lib/establishments/establishmentPayload";
+import { establishmentDescriptionError } from "@/lib/establishments/descriptionLimit";
+import { DescriptionLengthCounter } from "@/components/description-length-counter";
 import { uploadCatalogBlob } from "@/lib/media/uploadCatalogBlob";
 import { ActionConfirmation } from "@/components/action-confirmation";
 import { WizardStepper } from "@/components/wizard-stepper";
@@ -94,7 +96,10 @@ export function NewEstablishmentForm({
       return partnerId ? null : "El partner es obligatorio.";
     }
     if (!nombre.trim()) return "El nombre es obligatorio.";
-    return colombianWhatsAppError(whatsapp);
+    return (
+      establishmentDescriptionError(fields.descriptionEs, fields.descriptionEn) ??
+      colombianWhatsAppError(whatsapp)
+    );
   }
 
   function goNext() {
@@ -339,6 +344,10 @@ export function NewEstablishmentForm({
               </div>
             </div>
             <TextArea data-testid="description-textarea" />
+            <DescriptionLengthCounter
+              value={fields.descriptionLang === "es" ? fields.descriptionEs : fields.descriptionEn}
+              testId="description-counter"
+            />
           </TextField>
 
           <ColombianWhatsAppField

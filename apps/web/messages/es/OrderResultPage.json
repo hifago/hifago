@@ -35,6 +35,8 @@
     "single": "Tu viaje del {start}"
   },
   "lineQty": "Cantidad: {count}",
+  "lineHours": "{count, plural, one {# hora} other {# horas}}",
+  "lineActivity": "Actividad completa",
   "total": "Total",
   "acompte": "Anticipo (pago en línea)",
   "remainder": "A pagar en el establecimiento",

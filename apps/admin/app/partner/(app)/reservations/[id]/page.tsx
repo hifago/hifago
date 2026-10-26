@@ -7,6 +7,7 @@ import { isRealClientEmail } from "@/lib/whatsapp";
 import { STATUS_LABELS, STATUS_CHIP_COLOR } from "@/app/admin/orders/statusLabels";
 import { ReservationActions } from "./ReservationActions";
 import { requireUuidParam } from "@/lib/routing/requireUuidParam";
+import { lineQtyLabel } from "@/lib/products/activityPricing";
 
 // Spec 20 §0/§5 — fiche de réservation individuelle, jamais construite avant côté socio (seul
 // /admin/orders/[id] existait, au niveau `orders`, admin-only). id = order_lines.id, pas orders.id.
@@ -84,7 +85,7 @@ export default async function PartnerReservationDetailPage({
           {line.slot_start_time ? (
             <Field label="Horario" value={formatSlot(line.slot_start_time, slotDurationMinutes)} />
           ) : null}
-          <Field label="Cantidad" value={`${line.qty} pers.`} />
+          <Field label="Cantidad" value={lineQtyLabel(line.qty, line.pricing_unit)} />
           <Field label="Monto total" value={formatCop(line.total_cop)} />
           <Field label="Creada el" value={formatDateTimeInBogota(line.created_at, "es-CO")} />
         </Card.Content>

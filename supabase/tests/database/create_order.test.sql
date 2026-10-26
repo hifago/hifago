@@ -2,7 +2,9 @@
 -- multi-établissement) — create_order. Séquencement en 4 phases testé dans l'ordre de la
 -- migration (20260813243000_create_order_rpc.sql, seule source de vérité pour les seuils/reasons) :
 --   1. Plafonds globaux (lodging lignes>4 OU unités>12 ; prestation lignes>20 ; qty individuelle>20
---      pour le non-lodging) — aucun verrou pris, product_availability jamais consultée.
+--      pour le non-lodging) — aucun verrou pris, product_availability jamais consultée. Depuis la
+--      migration 20261025120000, le plafond individuel ne vaut plus que pour un evento ou un
+--      transport : une activité, un logement ou un camp n'est borné que par sa place restante.
 --   2. Verrouillage FOR UPDATE de toutes les ressources (product_id, date) visées, un seul ordre
 --      stable, une seule requête.
 --   3. Validation par ligne contre l'état verrouillé (sellable, calendrier ouvert, capacité —
@@ -57,7 +59,7 @@
 -- (plafond par ligne d'un logement, plage obligatoire, ressource partagée sommée sur le panier,
 -- e-mail camp échappé).
 begin;
-select plan(138);
+select plan(139);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -155,7 +157,7 @@ insert into auth.users (id, instance_id, aud, role, is_anonymous, created_at, up
 
 -- Produits :
 --   031 lodging sellable       → cas 5 (plafond lignes) et 6 (plafond unités)
---   032 activity sellable      → cas 7 (plafond lignes prestation) et 8 (plafond qty individuel)
+--   032 activity sellable      → cas 7 (plafond lignes prestation) et 8 (aucun plafond qty individuel)
 --   033 activity NON sellable  → cas 4
 --   034 activity sellable      → cas 9 (tout-ou-rien)
 --   035 activity sellable      → cas 10 (somme inter-lignes même produit+date)
@@ -207,8 +209,10 @@ values (
 );
 
 -- product_availability : uniquement pour les produits/dates qui doivent atteindre la phase 3
--- (la phase 1 — cas 4 à 8 — ne consulte jamais cette table, cf. migration).
+-- (la phase 1 — cas 4 à 7 — ne consulte jamais cette table, cf. migration ; le cas 8 la traverse
+-- depuis que l'activité n'a plus de plafond individuel, migration 20261025120000).
 insert into product_availability (product_id, date, capacity, booked) values
+  ('88880000-0000-4000-8000-000000000032', '2028-03-01', 30, 0),  -- cas 8, 21 places d'un coup
   ('88880000-0000-4000-8000-000000000034', '2028-04-01', 10, 0),  -- cas 9, ligne valide isolément
   ('88880000-0000-4000-8000-000000000034', '2028-04-02', 5, 5),   -- cas 9, déjà complète
   ('88880000-0000-4000-8000-000000000035', '2028-05-01', 10, 8),  -- cas 10, remaining=2
@@ -434,7 +438,9 @@ select is(
   '41 lignes non-lodging (>40), qty=1 chacune → prestation_cap_exceeded'
 );
 
--- Cas 8 : plafond individuel par ligne (qty=21 > 20 sur une seule ligne non-lodging) ---------------
+-- Cas 8 : plus de plafond individuel pour une activité (migration 20261025120000, décision Jérôme du
+-- 2026-10-25) — 21 places d'un coup sur un cupo de 30, au-delà de l'ancien repli 20. Le plafond de
+-- l'evento sans cupo est couvert par le cas 24q-bis.
 select test_set_cart(jsonb_build_array(jsonb_build_object(
   'product_id', '88880000-0000-4000-8000-000000000032', 'date', '2028-03-01', 'qty', 21
 )));
@@ -442,9 +448,9 @@ select is(
   (select create_order(
      'Holder QtyCap',
      p_holder_email => 'buyer-fixture@hifago.test'
-   )->>'reason'),
-  'qty_cap_exceeded',
-  'une ligne non-lodging avec qty=21 (>20) → qty_cap_exceeded'
+   )->>'ok'),
+  'true',
+  'une activité avec qty=21 sur un cupo de 30 → acceptée (aucun plafond par réservation)'
 );
 
 -- Cas 9 : tout-ou-rien. Ligne 1 (2028-04-01, capacity=10, booked=0) valide isolément ; ligne 2
@@ -1940,8 +1946,9 @@ insert into auth.users (id, email) values
 update partner_accounts set partner_id = '88880000-0000-4000-8000-000000000301'
  where id = '88880000-0000-4000-8000-000000000321';
 
--- 331 : logement sans min/max produit → plafond par défaut 20 (24a/24b).
--- 332 : logement min_qty = max_qty = 2 → plafond produit 2 (24c), min_qty ignoré (24d).
+-- 331 : logement, nuit de 30 places — plus de plafond par défaut 20 (24a/24b).
+-- 332 : logement, nuit de 10 places — ni min_qty ni max_qty, interdits en base pour un logement
+--       depuis la migration 20261025120000 (24c/24d).
 -- 333 : logement à default_capacity → sans end_date, la branche « date unique » l'acceptait (24e).
 -- 334/335 : deux camps d'un jour du même établissement (24g, 24i, 24j).
 -- 336 : camp de 3 jours (24h), couvert par le logement 339 dans le même panier.
@@ -1956,7 +1963,7 @@ values
    80000, true, 'order-test-p3-lodging-cap', null, null, null, null),
   ('88880000-0000-4000-8000-000000000332', '88880000-0000-4000-8000-000000000301',
    '88880000-0000-4000-8000-000000000311', 'lodging', jsonb_build_object('es', 'Alojamiento P3 Bornes'),
-   80000, true, 'order-test-p3-lodging-bounds', 2, 2, null, null),
+   80000, true, 'order-test-p3-lodging-bounds', null, null, null, null),
   ('88880000-0000-4000-8000-000000000333', '88880000-0000-4000-8000-000000000301',
    '88880000-0000-4000-8000-000000000311', 'lodging', jsonb_build_object('es', 'Alojamiento P3 Sin Salida'),
    80000, true, 'order-test-p3-lodging-no-end', null, null, 5, null),
@@ -2042,51 +2049,49 @@ insert into provider_resource_calendar (establishment_id, slot_date, capacity, b
 set local role authenticated;
 select test_login('88880000-0000-4000-8000-000000000021');
 
--- Cas 24a : logement qty 21 > coalesce(max_qty, 20), alors que la nuit a 30 places → refusé en
--- Phase 1. Sans la garde, la commande passait (aucune borne par ligne pour un logement).
+-- Cas 24a : logement qty 25 sur une nuit de 30 places → accepté. Avant la migration 20261025120000,
+-- coalesce(max_qty, 20) le refusait (qty_cap_exceeded) alors que personne n'avait rien saisi.
 select test_set_cart(jsonb_build_array(jsonb_build_object(
   'product_id', '88880000-0000-4000-8000-000000000331',
-  'date', '2029-10-01', 'end_date', '2029-10-02', 'qty', 21
+  'date', '2029-10-01', 'end_date', '2029-10-02', 'qty', 25
 )));
 select is(
-  (select create_order('Holder P3 Tope', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
-  'qty_cap_exceeded',
-  'cas 24a : logement qty 21 > plafond par défaut 20 → qty_cap_exceeded'
-);
-
--- Cas 24b : qty 20 = le plafond → accepté (borne incluse).
-select test_set_cart(jsonb_build_array(jsonb_build_object(
-  'product_id', '88880000-0000-4000-8000-000000000331',
-  'date', '2029-10-01', 'end_date', '2029-10-02', 'qty', 20
-)));
-select is(
-  (select create_order('Holder P3 Tope Exacto', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
+  (select create_order('Holder P3 Tope', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
   'true',
-  'cas 24b : logement qty 20 = plafond → accepté'
+  'cas 24a : logement qty 25 > ancien plafond 20, nuit de 30 → accepté'
 );
 
--- Cas 24c : max_qty produit (2) prime sur le défaut 20.
+-- Cas 24b : la nuit, elle, borne toujours — 25 déjà pris, 6 de plus dépassent les 30 places.
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000331',
+  'date', '2029-10-01', 'end_date', '2029-10-02', 'qty', 6
+)));
+select is(
+  (select create_order('Holder P3 Tope Exacto', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
+  'full',
+  'cas 24b : logement, 25 + 6 > 30 places de la nuit → full'
+);
+
+-- Cas 24c : toute la nuit d'un coup (10 sur 10) → accepté : un client peut prendre tout le cupo.
 select test_set_cart(jsonb_build_array(jsonb_build_object(
   'product_id', '88880000-0000-4000-8000-000000000332',
-  'date', '2029-10-03', 'end_date', '2029-10-04', 'qty', 3
+  'date', '2029-10-03', 'end_date', '2029-10-04', 'qty', 10
 )));
 select is(
-  (select create_order('Holder P3 Bornes Max', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
-  'qty_cap_exceeded',
-  'cas 24c : logement qty 3 > max_qty produit 2 → qty_cap_exceeded'
+  (select create_order('Holder P3 Bornes Max', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
+  'true',
+  'cas 24c : logement, les 10 places de la nuit en une réservation → accepté'
 );
 
--- Cas 24d : min_qty produit (2) N'EST PAS appliqué à un logement — la vitrine le réserve avec un
--- minimum fixé à 1 (apps/web/lib/reservas/cantidad.ts) ; l'appliquer refuserait des paniers
--- qu'elle accepte.
+-- Cas 24d : nuit désormais pleine → full, même pour 1 (la capacité reste la seule borne).
 select test_set_cart(jsonb_build_array(jsonb_build_object(
   'product_id', '88880000-0000-4000-8000-000000000332',
   'date', '2029-10-03', 'end_date', '2029-10-04', 'qty', 1
 )));
 select is(
-  (select create_order('Holder P3 Bornes Min', p_holder_email => 'buyer-fixture@hifago.test')->>'ok'),
-  'true',
-  'cas 24d : logement qty 1 < min_qty produit 2 → accepté (min_qty jamais appliqué à un logement)'
+  (select create_order('Holder P3 Bornes Min', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
+  'full',
+  'cas 24d : logement, nuit pleine (10/10) → full'
 );
 
 -- Cas 24e : logement sans end_date → date_range_required, avant tout verrou et avant la
@@ -2326,6 +2331,17 @@ select is(
   'cas 24q : ligne restée non incrémentée (booked 0)'
 );
 set local role authenticated;
+
+-- Cas 24q-bis : un evento 'unlimited' n'a aucun cupo — le repli 20 de public.product_qty_cap est son
+-- seul garde-fou par ligne (migration 20261025120000 : gardé pour l'evento et le transport).
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000344', 'date', '2029-11-06', 'qty', 21
+)));
+select is(
+  (select create_order('Holder P3 Evento Tope', p_holder_email => 'buyer-fixture@hifago.test')->>'reason'),
+  'qty_cap_exceeded',
+  'cas 24q-bis : evento unlimited, qty 21 > repli 20 → qty_cap_exceeded'
+);
 
 -- Cas 24r : evento 'metered' (cupo 3) — toujours décompté : qty 2 passe (booked 2), puis un second
 -- panier de qty 2 est refusé 'full'. Premier test d'un evento metered vendu par create_order : une

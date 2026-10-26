@@ -105,9 +105,16 @@ describe("plafondCantidad", () => {
     expect(plafondCantidad(20, restantes, ["2026-12-20", "2026-12-23"])).toBe(0);
   });
 
-  it("max_qty absent : défaut 20 ; rien de chargé : seul max_qty borne", () => {
-    expect(plafondCantidad(null, new Map([["2026-12-20", 64]]), [])).toBe(20);
-    expect(plafondCantidad(null, new Map(), [])).toBe(20);
+  // Migration 20261025120000 : un logement n'a plus de plafond par réservation (maxQty null) — un
+  // dortoir de 30 lits libres se prend en entier, l'ancien repli 20 ne bride plus rien.
+  it("sans plafond produit : seules les nuits bornent, au-delà de l'ancien repli 20", () => {
+    const dortoir = new Map([["2026-12-20", 30], ["2026-12-21", 25]]);
+    expect(plafondCantidad(null, dortoir, [])).toBe(30);
+    expect(plafondCantidad(null, dortoir, ["2026-12-20", "2026-12-21"])).toBe(25);
+  });
+
+  it("rien de chargé : maxQty s'il existe, sinon 1 (rien n'est encore réservable)", () => {
+    expect(plafondCantidad(null, new Map(), [])).toBe(1);
     expect(plafondCantidad(6, new Map(), [])).toBe(6);
   });
 });

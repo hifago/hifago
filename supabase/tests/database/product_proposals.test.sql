@@ -176,6 +176,8 @@ select is(
     'address', null, 'lat', null, 'lon', null,
     'price_cop', 95000, 'price_tiers', null, 'min_qty', null, 'max_qty', null,
     'default_capacity', 7,
+    -- Spec 43 (20261025140000) : mode et personnes d'une activité, null quand l'écran ne les envoie pas.
+    'pricing_unit', null, 'min_persons', null, 'max_persons', null,
     -- Ajoutées le 2026-09-09 (migration 20260909180000) : la vitrine n'est plus réservée aux
     -- eventos, donc submit_product_proposal whitelist ces deux clés pour TOUS les types. Elles
     -- valent null ici parce que le payload soumis plus haut ne les porte pas — et c'est

@@ -41,7 +41,12 @@ export function ProductSlotRulesBlock({
       p_rules: toSlotRuleRows(rules),
     });
     if (error || !(data as { ok?: boolean } | null)?.ok) {
-      toast.danger("No se pudo guardar los horarios.");
+      // Spec 43 : une activité à l'heure refuse un horaire qui ne fait pas 60 minutes.
+      toast.danger(
+        error?.message?.includes("per_hour_requires_hourly_slots")
+          ? "Una actividad por hora solo admite franjas de 60 minutos."
+          : "No se pudo guardar los horarios.",
+      );
       setIsSaving(false);
       return;
     }

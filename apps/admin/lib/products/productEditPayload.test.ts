@@ -177,3 +177,16 @@ describe("buildProductEditPayload", () => {
     }
   });
 });
+
+// Migration 20261025120000 : mêmes bornes que buildProductCreationPayload — NULL explicite là où le
+// type n'en a plus, pour effacer une valeur d'avant la migration plutôt que la renvoyer à la base.
+describe("buildProductEditPayload — bornes par réservation", () => {
+  const bornes = (type: "activity" | "lodging" | "transport") => {
+    const payload = buildProductEditPayload(type, NAME, DESCRIPTION, buildFields(FIXTURE_INIT[type]));
+    return [payload.min_qty, payload.max_qty];
+  };
+
+  it("activité : le minimum seul", () => expect(bornes("activity")).toEqual([1, null]));
+  it("logement : aucune borne", () => expect(bornes("lodging")).toEqual([null, null]));
+  it("transport : les deux", () => expect(bornes("transport")).toEqual([1, 7]));
+});

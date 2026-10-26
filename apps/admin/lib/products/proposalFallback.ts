@@ -16,6 +16,11 @@
 // Pas de "use client" : fonction pure, testée (proposalFallback.test.ts).
 export const KEPT_WHEN_ABSENT = [
   "program",
+  // Mode de prix d'une activité et personnes (spec 43) : une proposition déposée avant la
+  // migration 20261025140000 ne les porte pas.
+  "pricing_unit",
+  "min_persons",
+  "max_persons",
   "default_capacity",
   "external_booking_url",
   "price_label",

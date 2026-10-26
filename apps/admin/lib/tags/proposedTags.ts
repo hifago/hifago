@@ -18,10 +18,13 @@ export function toTagOptions(rows: { id: string; label: unknown }[] | null): Tag
  * l'approbation ; une clé absente n'y touche pas. Envoyer la sélection à chaque fois ferait donc
  * de toute proposition — même une simple correction de nom — un écrasement des étiquettes qu'un
  * admin aurait posées entre le dépôt et l'approbation.
+ *
+ * ⚠️ L'ORDRE compte (migration 20261025100000) : la première étiquette est la principale, celle
+ * qui classe la carte dans la vitrine. Le même ensemble dans un autre ordre est donc un
+ * changement. `current` doit être lu dans l'ordre de `position`.
  */
 export function tagIdsIfChanged(current: string[], selected: string[]): { tag_ids?: string[] } {
-  const enPlace = new Set(current);
-  const inchangee = selected.length === enPlace.size && selected.every((id) => enPlace.has(id));
+  const inchangee = selected.length === current.length && selected.every((id, i) => id === current[i]);
   return inchangee ? {} : { tag_ids: selected };
 }
 

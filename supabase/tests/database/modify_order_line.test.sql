@@ -47,11 +47,12 @@ values
   ('88920000-0000-4000-8000-000000000021', '88920000-0000-4000-8000-000000000001',
    '88920000-0000-4000-8000-000000000011', 'activity',
    jsonb_build_object('es', 'Actividad Modify Guards'), 50000, true, 'modify-order-line-guards',
-   1, 5),
+   -- max_qty NULL : interdit pour une activité depuis la migration 20261025120000.
+   1, null),
   ('88920000-0000-4000-8000-000000000022', '88920000-0000-4000-8000-000000000001',
    '88920000-0000-4000-8000-000000000011', 'activity',
    jsonb_build_object('es', 'Actividad Modify Success'), 50000, true, 'modify-order-line-success',
-   1, 20);
+   1, null);
 insert into products (id, partner_id, establishment_id, type, name, price_cop, sellable, slug,
                        min_qty, max_qty, duration_days)
 values (
@@ -74,7 +75,7 @@ values (
     jsonb_build_object('min_qty', 1, 'max_qty', 2, 'price_cop', 40000),
     jsonb_build_object('min_qty', 3, 'max_qty', 5, 'price_cop', 35000)
   ),
-  true, 'modify-order-line-tiers', 1, 5
+  true, 'modify-order-line-tiers', 1, null
 );
 
 -- Calendrier/capacité — groupe GARDES (produit 021) : une seule date, jamais touchée par un succès.
@@ -198,11 +199,13 @@ select is(
 set local role authenticated;
 select test_login('88920000-0000-4000-8000-000000000031');
 
--- Cas 7 : quantité hors bornes [min_qty, max_qty] du produit (021 : 1..5).
+-- Cas 7 : plus de plafond par réservation pour une activité (migration 20261025120000) — 6 places
+-- butent sur la CAPACITÉ de la date (5), plus sur un max_qty. Message exact : un « hors bornes »
+-- ferait rougir ce cas.
 select throws_ok(
   $$ select modify_order_line('88920000-0000-4000-8000-000000000051', '2028-09-01', 6, 'Motivo válido') $$,
-  'P0001'::char(5), null,
-  'cas 7 : quantité hors bornes → exception'
+  'P0001'::char(5), 'capacité insuffisante à la date cible (0 déjà réservé(s) sur 5)',
+  'cas 7 : activité, qty au-delà de la capacité → refusée par la capacité, aucun plafond produit'
 );
 
 -- Cas 8 : date cible fermée (2028-09-06, product_calendar.open=false).
@@ -434,7 +437,7 @@ insert into products (id, partner_id, establishment_id, type, name, price_cop, s
 values (
   '88920000-0000-4000-8000-000000000073', '88920000-0000-4000-8000-000000000001',
   '88920000-0000-4000-8000-000000000011', 'lodging',
-  jsonb_build_object('es', 'Casa Modify Order Line'), 150000, true, 'modify-order-line-lodging', 1, 4
+  jsonb_build_object('es', 'Casa Modify Order Line'), 150000, true, 'modify-order-line-lodging', null, null
 );
 
 insert into product_availability (product_id, date, capacity, booked)
@@ -577,7 +580,7 @@ values (
   '88920000-0000-4000-8000-000000000091', '88920000-0000-4000-8000-000000000001',
   '88920000-0000-4000-8000-000000000011', 'activity',
   jsonb_build_object('es', 'Actividad Modify Default Capacity'), 50000, true,
-  'modify-order-line-default-capacity', 1, 5, 2
+  'modify-order-line-default-capacity', 1, null, 2
 );
 insert into product_availability (product_id, date, capacity, booked) values
   ('88920000-0000-4000-8000-000000000091', '2028-11-01', 5, 1);
@@ -681,7 +684,7 @@ values (
   '88920000-0000-4000-8000-000000000025', '88920000-0000-4000-8000-000000000001',
   '88920000-0000-4000-8000-000000000011', 'activity',
   jsonb_build_object('es', 'Actividad Modify Slot Guard'), 50000, true, 'modify-order-line-slot',
-  1, 5
+  1, null
 );
 insert into product_slot_rules (product_id, weekdays, start_time, end_time, slot_duration_minutes, capacity)
 values (
@@ -749,7 +752,7 @@ values (
   '88920000-0000-4000-8000-000000000026', '88920000-0000-4000-8000-000000000001',
   '88920000-0000-4000-8000-000000000011', 'activity',
   jsonb_build_object('es', 'Actividad Modify Operator'), 50000, true, 'modify-order-line-operator',
-  1, 5
+  1, null
 );
 insert into product_availability (product_id, date, capacity, booked) values
   ('88920000-0000-4000-8000-000000000026', '2028-11-25', 5, 2),

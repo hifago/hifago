@@ -106,7 +106,8 @@ test("admin crée une actividad avec tous les champs (i18n, lieu, foto, tramos, 
   await page.getByTestId("price-tier-max-0").fill("4");
   await page.getByTestId("price-tier-price-0").fill("40000");
   await page.getByTestId("min-qty-input").fill("1");
-  await page.getByTestId("max-qty-input").fill("4");
+  // Aucun maximum par réservation pour une activité (migration 20261025120000) : le champ n'existe pas.
+  await expect(page.getByTestId("max-qty-input")).toHaveCount(0);
 
   // Horarios (spec 11) — créneaux de 1h, 10h-21h, lundi à samedi (exemple jetski de Jérôme).
   await page.getByTestId("add-slot-rule-button").click();

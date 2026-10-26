@@ -110,12 +110,23 @@ export function FichaProducto({
   // `unidad` est une unité de PRIX — à ne pas confondre avec `lodgingKind`, qui est une nature de
   // couchage. `per_two` reste délibérément SANS suffixe : « por dos personas » n'ajoute rien à un
   // prix de chambre que la fiche décrit déjà.
+  // `per_house` = le logement ENTIER : pour une chambre privée, c'est la chambre, pas une maison
+  // (retour Jérôme du 2026-10-24, RM201 affichait « por la casa entera »). Une maison entière, un
+  // dortoir ou un type non renseigné gardent « por la casa entera ».
+  // Spec 43 : une ACTIVITÉ dit toujours ce que son prix compte — « por persona » (ce que create_order
+  // facture depuis toujours, décision de Jérôme du 2026-10-25), « por hora » ou l'activité entière.
   const sufijoUnidad =
-    ficha.unidad === "per_person"
-      ? t("perPerson")
-      : ficha.unidad === "per_house"
-        ? t("perHouse")
-        : null;
+    ficha.modoPrecio === "per_hour"
+      ? t("perHour")
+      : ficha.modoPrecio === "per_activity"
+        ? t("perActivity")
+        : ficha.modoPrecio === "per_person" || ficha.unidad === "per_person"
+          ? t("perPerson")
+          : ficha.unidad === "per_house"
+            ? alojamiento?.lodgingKind === "private"
+              ? t("perRoom")
+              : t("perHouse")
+            : null;
 
   // Table explicite plutôt qu'une clé i18n construite dynamiquement : next-intl ne vérifierait plus
   // l'existence de la clé, et une valeur inattendue afficherait son propre nom brut au visiteur.
@@ -185,6 +196,7 @@ export function FichaProducto({
         maxQty={ficha.eventoReservable.maxQty}
         capacityMode={ficha.eventoReservable.capacityMode}
         occurrences={ficha.eventoReservable.occurrences}
+        startTime={ficha.ocurrencia?.hora ?? null}
       />
     ) : ficha.modoReserva === "evento" && (ficha.fechasEventoSinReserva?.length ?? 0) > 0 ? (
       // Spec 42 : un evento non réservable se note dans Mi viaje à l'une de ses dates — le
@@ -233,6 +245,7 @@ export function FichaProducto({
       <SlotReservationForm
         productId={ficha.id}
         slots={ficha.franjas}
+        modoPrecio={ficha.modoPrecio}
         minQty={ficha.minQty}
         maxQty={ficha.maxQty}
       />
@@ -246,6 +259,7 @@ export function FichaProducto({
         groupDiscount={ficha.descuentoGrupo ?? undefined}
         precio={ficha.precio}
         unidad={ficha.unidad}
+        modoPrecio={ficha.modoPrecio}
         locale={locale}
         onSalidaChange={setSalidaIso}
       />
@@ -331,7 +345,23 @@ export function FichaProducto({
       ) : null}
     </p>
   ) : null;
+  // Spec 43 : le nombre de personnes d'une activité à l'heure ou entière — simple mention.
+  const personas = ficha.personas;
+  const etiquetaPersonas = personas
+    ? personas.min != null && personas.max != null
+      ? t("personsRange", { min: personas.min, max: personas.max })
+      : personas.max != null
+        ? t("personsMax", { count: personas.max })
+        : personas.min != null
+          ? t("personsMin", { count: personas.min })
+          : null
+    : null;
   const puces = [
+    etiquetaPersonas ? (
+      <PuceEstado key="personas" tono="neutro" multilinea testId="activity-persons">
+        {etiquetaPersonas}
+      </PuceEstado>
+    ) : null,
     faits.length > 0 ? (
       <span key="faits" className="contents" data-testid="product-lodging-facts">
         {faits.map((fait) => (
@@ -429,7 +459,7 @@ export function FichaProducto({
               </div>
 
               {ficha.descripcion ? (
-                <p className="order-3 max-w-prose text-base leading-[1.55] lg:text-[17px]">{ficha.descripcion}</p>
+                <p className="order-3 max-w-prose whitespace-pre-line text-base leading-[1.55] lg:text-[17px]">{ficha.descripcion}</p>
               ) : null}
 
               {/* Le trajet et son lien, après la description : « d'où, vers où » se lit avant de

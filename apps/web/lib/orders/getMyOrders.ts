@@ -33,6 +33,8 @@ export type MyOrderLine = {
   durationDays: number | null;
   slotStartTime: string | null;
   qty: number;
+  /** Spec 43 : instantané `order_lines.pricing_unit` (« 3 horas », « 10:00–13:00 »). */
+  pricingUnit?: string | null;
   /** Décision ④ : ce qui a été payé en ligne POUR CETTE prestation, figé à la commande. */
   acompteCop: number;
   /** Décision ④ : le prix total de cette prestation, figé lui aussi. */
@@ -103,6 +105,7 @@ type RpcLine = {
   duration_days: number | null;
   slot_start_time: string | null;
   qty: number;
+  pricing_unit?: string | null;
   acompte_cop: number;
   total_cop: number;
   status: string;
@@ -160,6 +163,7 @@ export async function getMyOrders(locale: Locale): Promise<MyOrders | null> {
       endDate: line.end_date,
       durationDays: line.duration_days,
       slotStartTime: line.slot_start_time,
+      pricingUnit: line.pricing_unit ?? null,
       qty: line.qty,
       acompteCop: line.acompte_cop,
       totalCop: line.total_cop,

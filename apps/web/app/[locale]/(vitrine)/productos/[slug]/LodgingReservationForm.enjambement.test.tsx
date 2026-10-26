@@ -116,17 +116,20 @@ describe("la plage ne peut plus enjamber une nuit pleine", () => {
     expect(avertissement()).toBeNull();
   });
 
-  it("monter la quantité après coup replie la plage au lieu de l'avertir", () => {
+  it("monter la quantité au-delà de la plage posée la ramène au plafond, la plage reste", () => {
+    // Depuis le 2026-10-24 (RM201), le plafond Lobby du 2026-10-23 vaut pour tout logement : avec une
+    // plage posée, la nuit la moins fournie borne la saisie. Avant, la saisie de 3 repliait la plage
+    // sur l'arrivée.
     renderForm();
     fireEvent.click(jour("2026-12-28")!);
     fireEvent.click(jour("2026-12-30")!); // 2 nuits : 28 et 29
     expect(avertissement()).toBeNull();
     expect(screen.getByText("2 noches")).toBeTruthy();
 
-    setQty("3"); // la nuit du 29 ne tient plus 3 personnes
-    // Repliée sur l'arrivée, pas dénoncée : la fenêtre resserrée est visible dans le même geste.
+    setQty("3"); // la nuit du 29 n'a que 2 places
     expect(avertissement()).toBeNull();
-    expect(screen.queryByText("2 noches")).toBeNull();
+    expect((screen.getByTestId("lodging-qty-input") as HTMLInputElement).value).toBe("2");
+    expect(screen.getByText("2 noches")).toBeTruthy();
   });
 
   it("l'horizon de six mois borne la fenêtre, il ne la laisse pas la déborder", () => {

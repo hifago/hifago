@@ -17,7 +17,7 @@ import {
   CLASSNAMES_CALENDRIER,
   localeCalendrier,
 } from "@/components/molecules/Calendar";
-import { addDaysIso, startOfTodayInBogota } from "@hifago/domain";
+import { addDaysIso, startOfTodayInBogota, startTimeHasPassed } from "@hifago/domain";
 import { useCart } from "@/lib/cart/CartContext";
 import { useAddToCart } from "@/lib/cart/useAddToCart";
 import { hrefAlojamientosParaEvento } from "@/lib/catalog/criterios";
@@ -61,7 +61,8 @@ export function EventoReservationForm({
   minQty = 1,
   maxQty,
   capacityMode,
-  occurrences,
+  occurrences: toutesOccurrences,
+  startTime = null,
 }: {
   productId: string;
   /** `products.min_qty`, replié à 1 — même convention que `ReservationForm`. */
@@ -78,12 +79,22 @@ export function EventoReservationForm({
   maxQty: number;
   capacityMode: "unlimited" | "metered" | "rsvp";
   occurrences: EventoOccurrence[];
+  /** `products.start_time` (`HH:MM:SS`), la même heure pour toutes les occurrences ; `null` sans heure. */
+  startTime?: string | null;
 }) {
   const t = useTranslations("ProductPage");
   // La langue de la page, pour la grille (plan 41, S10).
   const locale = useLocale();
   const { lines } = useCart();
   const addToCart = useAddToCart();
+  // Le jour même, une occurrence déjà commencée à Guatapé n'est plus proposée (demande du
+  // 2026-10-24) — même règle que les créneaux de SlotReservationForm, et même refus serveur
+  // (`start_time_passed`, migration 20261024130000). Filtrée dans le navigateur : la fiche serveur
+  // peut venir d'un cache, l'heure doit être celle de l'ouverture de la page.
+  const occurrences = useMemo(
+    () => toutesOccurrences.filter((row) => !startTimeHasPassed(row.date, startTime)),
+    [toutesOccurrences, startTime]
+  );
   // Même borne haute que les trois autres formulaires (six mois, décidé le 2026-08-28) — purement
   // défensive ici : `occurrences` est déjà bornée par cette même fenêtre côté requête
   // (`get_event_occurrence_availability`, `producto.ts`), le prédicat `disabled` ci-dessous exclut

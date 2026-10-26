@@ -7,7 +7,14 @@ import { emptyProgram, programFromColumn, type DraftProgram } from "@/lib/produc
 import { emptyTransportInfo, type TransportInfoFields } from "@/lib/products/transportInfo";
 import { emptyStayRates, stayRatesFromColumn, type DraftStayRates } from "@/lib/products/stayRates";
 import { slotRulesFromColumn, type DraftSlotRule } from "@/lib/products/slotRules";
-import { asLodgingKind, asLodgingUnit, type LodgingKind, type LodgingUnit } from "@hifago/domain";
+import {
+  asLodgingKind,
+  asLodgingUnit,
+  asPricingUnit,
+  type LodgingKind,
+  type LodgingUnit,
+  type PricingUnit,
+} from "@hifago/domain";
 
 // Correctif (spec 21, trouvé en vérifiant, sans lien avec elle — cf. productTypeGating.ts) :
 // productTypeGating/ProductType/availabilityScreenFor vivent désormais dans un module SANS
@@ -42,6 +49,11 @@ export type ProductTypeFieldsInit = {
   priceTiers?: unknown;
   minQty?: number | null;
   maxQty?: number | null;
+  // Spec 43 (migration 20261025140000) — activité seulement : ce que compte la quantité (personnes,
+  // heures ou activités entières) et le nombre de personnes annoncé, purement informatif.
+  pricingUnit?: PricingUnit | null;
+  minPersons?: number | null;
+  maxPersons?: number | null;
   checkInTime?: string | null;
   checkOutTime?: string | null;
   capacity?: number | null;
@@ -124,6 +136,9 @@ export function useProductTypeFieldsState(init: ProductTypeFieldsInit = {}) {
   const [priceTiers, setPriceTiers] = useState<PriceTier[]>(() => tiersFromColumn(init.priceTiers));
   const [minQty, setMinQty] = useState(init.minQty != null ? String(init.minQty) : "");
   const [maxQty, setMaxQty] = useState(init.maxQty != null ? String(init.maxQty) : "");
+  const [pricingUnit, setPricingUnit] = useState<PricingUnit>(init.pricingUnit ?? "per_person");
+  const [minPersons, setMinPersons] = useState(init.minPersons != null ? String(init.minPersons) : "");
+  const [maxPersons, setMaxPersons] = useState(init.maxPersons != null ? String(init.maxPersons) : "");
 
   const [checkInTime, setCheckInTime] = useState(toTimeInputValue(init.checkInTime));
   const [checkOutTime, setCheckOutTime] = useState(toTimeInputValue(init.checkOutTime));
@@ -225,6 +240,7 @@ export function useProductTypeFieldsState(init: ProductTypeFieldsInit = {}) {
     selectedAmenityIds, setSelectedAmenityIds,
     priceMode, setPriceMode, priceCop, setPriceCop, priceTiers, setPriceTiers,
     minQty, setMinQty, maxQty, setMaxQty,
+    pricingUnit, setPricingUnit, minPersons, setMinPersons, maxPersons, setMaxPersons,
     checkInTime, setCheckInTime, checkOutTime, setCheckOutTime,
     capacity, setCapacity, unitCount, setUnitCount,
     lodgingKind, setLodgingKind, unit, setUnit,
@@ -279,6 +295,9 @@ export type RawProductFieldsPayload = {
   unit_count?: number | null;
   lodging_kind?: string | null;
   unit?: string | null;
+  pricing_unit?: string | null;
+  min_persons?: number | null;
+  max_persons?: number | null;
   default_capacity?: number | null;
   stay_rates?: unknown;
   duration_days?: number | null;
@@ -351,6 +370,9 @@ export function payloadToFieldsInit(payload: RawProductFieldsPayload): ProductTy
     priceTiers: payload.price_tiers,
     minQty: payload.min_qty,
     maxQty: payload.max_qty,
+    pricingUnit: asPricingUnit(payload.pricing_unit),
+    minPersons: payload.min_persons,
+    maxPersons: payload.max_persons,
     checkInTime: payload.check_in_time,
     checkOutTime: payload.check_out_time,
     capacity: payload.capacity,

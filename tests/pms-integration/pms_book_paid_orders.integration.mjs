@@ -132,7 +132,7 @@ async function setUp(client) {
     await client.query(
       `insert into products (id, partner_id, establishment_id, type, name, slug, sellable, price_cop,
                              lobby_category_id, capacity, unit_count, lodging_kind, min_qty, max_qty)
-       values ($1, $2, $3, 'lodging', $4::jsonb, $5, true, 100000, $6, 2, 3, 'private', 1, 6)`,
+       values ($1, $2, $3, 'lodging', $4::jsonb, $5, true, 100000, $6, 2, 3, 'private', null, null)`, // ni min ni max pour un logement (migration 20261025120000)
       [scenario[name].product, ids.partner, ids.establishment, JSON.stringify({ es: `Chambre ${name}` }),
         `chambre-book-paid-${name}-${scenario[name].product.slice(0, 8)}`, CATEGORY[name]]
     );

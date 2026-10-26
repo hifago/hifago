@@ -83,8 +83,10 @@ test("admin crée un alojamiento (check-in/check-out, capacidad, temporada/fin d
   await page.getByTestId("price-tier-min-0").fill("1");
   await page.getByTestId("price-tier-max-0").fill("6");
   await page.getByTestId("price-tier-price-0").fill("350000");
-  await page.getByTestId("min-qty-input").fill("2");
-  await page.getByTestId("max-qty-input").fill("6");
+  // Ni minimum ni maximum par réservation pour un logement (migration 20261025120000) : seules les
+  // nuits bornent la quantité, les deux champs n'existent pas.
+  await expect(page.getByTestId("min-qty-input")).toHaveCount(0);
+  await expect(page.getByTestId("max-qty-input")).toHaveCount(0);
 
   // Extras stay_rates (spec 12) — temporada alta + recargo fin de semana + depósito. `includes`
   // (« Incluye ») retiré le 2026-09-17, supersedé par les équipements structurés (cf. stayRates.ts).
@@ -120,7 +122,6 @@ test("admin crée un alojamiento (check-in/check-out, capacidad, temporada/fin d
   await expect(page.getByTestId("address-input")).toHaveValue("Vía Guatapé - El Peñol, Guatapé");
   await expect(page.getByTestId("price-tiers-editor")).toBeVisible();
   await expect(page.getByTestId("price-tier-price-0")).toHaveValue("350000");
-  await expect(page.getByTestId("min-qty-input")).toHaveValue("2");
   await expect(page.getByTestId("check-in-input")).toHaveValue("15:00");
   await expect(page.getByTestId("check-out-input")).toHaveValue("11:00");
   await expect(page.getByTestId("capacity-input")).toHaveValue("8");

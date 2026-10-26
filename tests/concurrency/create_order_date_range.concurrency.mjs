@@ -145,12 +145,14 @@ async function resetAll(seedClient) {
 // Chaque scénario crée son propre produit `lodging` — l'équivalent direct de la chambre d'avant.
 // calendar_default_open vaut true par défaut, donc aucune ligne product_calendar n'est nécessaire :
 // toutes les nuits sont ouvertes tant qu'on ne les ferme pas explicitement.
-async function seedLodging(seedClient, id, label, slug, priceCop, maxQty) {
+// Ni min_qty ni max_qty : interdits pour un logement depuis la migration 20261025120000 — la capacité
+// des nuits est la seule borne, exactement ce que ces scénarios mesurent.
+async function seedLodging(seedClient, id, label, slug, priceCop) {
   await seedClient.query(
     `insert into products (id, partner_id, establishment_id, type, name, price_cop, sellable, slug,
                            min_qty, max_qty)
-     values ($1, $2, $3, 'lodging', $4, $5, true, $6, 1, $7)`,
-    [id, PARTNER_ID, ESTABLISHMENT_ID, JSON.stringify({ es: label }), priceCop, slug, maxQty]
+     values ($1, $2, $3, 'lodging', $4, $5, true, $6, null, null)`,
+    [id, PARTNER_ID, ESTABLISHMENT_ID, JSON.stringify({ es: label }), priceCop, slug]
   );
 }
 
@@ -163,7 +165,7 @@ const SCENARIO_1_END = "2029-03-04"; // 3 nuits
 async function seedScenario1(seedClient) {
   await seedLodging(
     seedClient, LODGING_1_ID, "Date Range Concurrency Regression",
-    "date-range-concurrency-regression", 100000, 1
+    "date-range-concurrency-regression", 100000
   );
   await seedClient.query(
     `insert into product_availability (product_id, date, capacity, booked)
@@ -263,7 +265,7 @@ function scenario2Attempts() {
 async function seedScenario2(seedClient) {
   await seedLodging(
     seedClient, LODGING_2_ID, "Date Range Concurrency Overlap",
-    "date-range-concurrency-overlap", 20000, 4
+    "date-range-concurrency-overlap", 20000
   );
   await seedClient.query(
     `insert into product_availability (product_id, date, capacity, booked)
@@ -385,7 +387,7 @@ const SCENARIO_3_B_END = "2029-05-05";
 async function seedScenario3(seedClient) {
   await seedLodging(
     seedClient, LODGING_3_ID, "Date Range Concurrency Adjacent",
-    "date-range-concurrency-adjacent", 100000, 1
+    "date-range-concurrency-adjacent", 100000
   );
   await seedClient.query(
     `insert into product_availability (product_id, date, capacity, booked)

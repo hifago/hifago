@@ -1,11 +1,14 @@
 import { cache } from "react";
 import {
+  asPricingUnit,
   asLocalizedField,
   asLodgingKind,
   hasActiveRestriction,
   isPmsBacked,
   lastBookableDateIso,
+  DEFAULT_MAX_QTY_PER_RESERVATION,
   lobbyOccupancyForUnit,
+  perReservationQtyCap,
   pmsUnitsToCupos,
   resolveLocalizedField,
   todayInBogota,
@@ -61,7 +64,7 @@ function recortarHora(hora: string | null): string | null {
 //
 // `establishment(...)` ne demande JAMAIS `photo_urls` : la colonne est hors du GRANT SELECT public
 // (20260819110000), et la demander ferait échouer la requête ENTIÈRE — pas seulement ce champ.
-const COLUMNAS_PRODUCTO = `id, slug, name, description, price_cop, price_tiers, min_qty, max_qty, unit, capacity, unit_count, lodging_kind, type, price_label, external_booking_url, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, duration_days, program, group_discount_threshold_qty, group_discount_pct, lobby_category_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, establishment:establishments(id, slug, is_place, name, description, address, lobby_last_synced_at, lobby_connector_active, lobby_has_token, lobby_dynamic_pricing)`;
+const COLUMNAS_PRODUCTO = `id, slug, name, description, price_cop, price_tiers, min_qty, max_qty, pricing_unit, min_persons, max_persons, unit, capacity, unit_count, lodging_kind, type, price_label, external_booking_url, occurrence_type, occurrence_date, recurrence_frequency_days, recurrence_end_date, recurrence_end_count, start_time, duration_minutes, duration_days, program, group_discount_threshold_qty, group_discount_pct, lobby_category_id, online_bookable, evento_capacity_mode, is_free, evento_payment_mode, transport_first_departure_time, transport_last_departure_time, transport_seats_per_departure, transport_departure_address, transport_departure_lat, transport_departure_lon, transport_arrival_address, transport_arrival_lat, transport_arrival_lon, transport_contact_phone, establishment:establishments(id, slug, is_place, name, description, address, lobby_last_synced_at, lobby_connector_active, lobby_has_token, lobby_dynamic_pricing)`;
 
 /**
  * ⚠️ Mémoïsé par `cache` de React, et ce n'est pas une optimisation : `generateMetadata` et le
@@ -90,6 +93,8 @@ export const getProductoPorSlug = cache(
     const esEventoReservable = esEvento && Boolean(producto.online_bookable);
     const esAlojamiento = producto.type === "lodging";
     const esTransporte = producto.type === "transport";
+    // Spec 43 : le mode de prix ne concerne qu'une activité — `null` pour tout autre type.
+    const modoPrecio = producto.type === "activity" ? asPricingUnit(producto.pricing_unit) : null;
 
     // ⚠️ Calculée UNE SEULE FOIS et réutilisée aux DEUX endroits ci-dessous (le résolveur de mode
     // ET l'objet rendu) : deux expressions séparées finiraient par diverger, et un mode « vitrina »
@@ -286,6 +291,7 @@ export const getProductoPorSlug = cache(
       urlExterna: urlContacto,
       esAlojamiento,
       tieneFranjas: (nbReglasFranja ?? 0) > 0,
+      porHora: modoPrecio === "per_hour",
     });
 
     // La SEULE attente séquentielle du module, et elle est structurelle : on ne sait qu'ici si le
@@ -313,9 +319,10 @@ export const getProductoPorSlug = cache(
       supabase.storage.from(BUCKET_MEDIA).getPublicUrl(ruta).data.publicUrl;
 
     const establecimiento = producto.establishment;
-    // Plafond par ligne, le même que `create_order` (`coalesce(max_qty, 20)`) : un produit sans
-    // plafond saisi reste réservable, borné à 20. Calculé une fois pour tous les formulaires.
-    const maxQty = producto.max_qty ?? 20;
+    // Plafond par ligne, le même que `create_order` (`public.product_qty_cap`, migration
+    // 20261025120000) : `null` pour une activité, un logement ou un camp — seule la place restante
+    // borne —, sinon `max_qty` replié à 20. Calculé une fois pour tous les formulaires.
+    const maxQty = perReservationQtyCap(producto.type, producto.max_qty);
 
     return {
       id: producto.id,
@@ -329,6 +336,11 @@ export const getProductoPorSlug = cache(
       fotos: enFotos(fotosProducto, urlPublica),
       precio: resolverPrecio(producto.price_label, producto.price_cop),
       unidad: producto.unit,
+      modoPrecio,
+      personas:
+        modoPrecio && modoPrecio !== "per_person" && (producto.min_persons != null || producto.max_persons != null)
+          ? { min: producto.min_persons, max: producto.max_persons }
+          : null,
       minQty: producto.min_qty ?? 1,
       maxQty,
       modoReserva,
@@ -357,7 +369,8 @@ export const getProductoPorSlug = cache(
               booked: fila.booked,
               registeredQty: rsvpPorFecha.get(fila.occurrence_date) ?? null,
             })),
-            maxQty,
+            // Jamais null pour un evento (il garde son plafond) : le repli ne sert qu'au typage.
+            maxQty: maxQty ?? DEFAULT_MAX_QTY_PER_RESERVATION,
           }
         : null,
       fechasEventoSinReserva: esEvento && !esEventoReservable ? (fechasEventoSinReserva ?? []) : null,
@@ -367,8 +380,7 @@ export const getProductoPorSlug = cache(
             capacity: producto.capacity,
             unitCount: producto.unit_count,
             priceTiers: producto.price_tiers,
-            // Le même défaut que l'écran d'origine : un hébergement sans plafond saisi reste
-            // réservable, borné à 20.
+            // Toujours null depuis la migration 20261025120000 : seules les nuits bornent.
             maxQty,
             esPmsBacked,
             reservableEnLinea,
@@ -570,12 +582,15 @@ export function resolverModoReserva({
   urlExterna,
   esAlojamiento,
   tieneFranjas,
+  porHora = false,
 }: {
   esEvento: boolean;
   esEventoReservable: boolean;
   urlExterna: string | null;
   esAlojamiento: boolean;
   tieneFranjas: boolean;
+  /** Spec 43 : activité à l'heure — sans horaires, aucune heure à réserver (create_order : slot_required). */
+  porHora?: boolean;
 }): ModoReserva {
   // `esEventoReservable` implique déjà `esEvento` chez son unique producteur
   // (`esEvento && Boolean(online_bookable)`) — retester le premier laissait croire à deux conditions.
@@ -584,6 +599,8 @@ export function resolverModoReserva({
   if (urlExterna !== null) return "vitrina";
   if (esAlojamiento) return "lodging";
   if (tieneFranjas) return "slot";
+  // Une activité à l'heure sans horaires : rien de réservable en ligne, la fiche reste une vitrine.
+  if (porHora) return "vitrina";
   return "date";
 }
 

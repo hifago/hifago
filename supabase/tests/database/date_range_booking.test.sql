@@ -40,7 +40,8 @@ insert into products (id, partner_id, establishment_id, type, name, price_cop, s
                       min_qty, max_qty, stay_rates)
 values ('88930000-0000-4000-8000-000000000022', '88930000-0000-4000-8000-000000000001',
         '88930000-0000-4000-8000-000000000011', 'lodging', jsonb_build_object('es', 'Casa Range Test'),
-        200000, true, 'range-lodging', 1, 4,
+        -- min_qty/max_qty NULL : interdits pour un logement (migration 20261025120000).
+        200000, true, 'range-lodging', null, null,
         jsonb_build_object(
           'season', jsonb_build_object('months', jsonb_build_array(), 'surcharge_pct', 0, 'note', null),
           'weekend_days', jsonb_build_array(6, 7), -- ISO : 6=samedi, 7=dimanche
@@ -153,7 +154,8 @@ insert into products (id, partner_id, establishment_id, type, name, price_cop, s
 values ('88930000-0000-4000-8000-000000000023', '88930000-0000-4000-8000-000000000001',
         '88930000-0000-4000-8000-000000000011', 'lodging', jsonb_build_object('es', 'Casa Range Qty Test'),
         100000, true, 'range-lodging-qty',
-        1, 4,
+        null, null, -- interdits pour un logement (migration 20261025120000) ; les paliers bornent
+
         jsonb_build_array(
           jsonb_build_object('min_qty', 1, 'max_qty', 1, 'price_cop', 100000),
           jsonb_build_object('min_qty', 2, 'max_qty', 4, 'price_cop', 90000)

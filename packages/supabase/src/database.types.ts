@@ -535,16 +535,19 @@ export type Database = {
         Row: {
           created_at: string
           establishment_id: string
+          position: number
           tag_id: string
         }
         Insert: {
           created_at?: string
           establishment_id: string
+          position?: number
           tag_id: string
         }
         Update: {
           created_at?: string
           establishment_id?: string
+          position?: number
           tag_id?: string
         }
         Relationships: [
@@ -857,6 +860,7 @@ export type Database = {
           pms_nightly_unit_prices: Json | null
           pms_recorded_at: string | null
           price_cop: number
+          pricing_unit: string | null
           product_id: string
           qty: number
           referrer_commission_cop: number
@@ -890,6 +894,7 @@ export type Database = {
           pms_nightly_unit_prices?: Json | null
           pms_recorded_at?: string | null
           price_cop: number
+          pricing_unit?: string | null
           product_id: string
           qty: number
           referrer_commission_cop: number
@@ -923,6 +928,7 @@ export type Database = {
           pms_nightly_unit_prices?: Json | null
           pms_recorded_at?: string | null
           price_cop?: number
+          pricing_unit?: string | null
           product_id?: string
           qty?: number
           referrer_commission_cop?: number
@@ -2337,16 +2343,19 @@ export type Database = {
       product_tag_assignments: {
         Row: {
           created_at: string
+          position: number
           product_id: string
           tag_id: string
         }
         Insert: {
           created_at?: string
+          position?: number
           product_id: string
           tag_id: string
         }
         Update: {
           created_at?: string
+          position?: number
           product_id?: string
           tag_id?: string
         }
@@ -2395,8 +2404,10 @@ export type Database = {
           lobby_product_id: number | null
           lodging_kind: string | null
           lon: number | null
+          max_persons: number | null
           max_qty: number | null
           max_units: number | null
+          min_persons: number | null
           min_qty: number | null
           name: Json
           occurrence_date: string | null
@@ -2406,8 +2417,8 @@ export type Database = {
           price_cop: number | null
           price_label: string | null
           price_tiers: Json | null
+          pricing_unit: string
           program: Json | null
-          qty_unit: string
           recurrence_end_count: number | null
           recurrence_end_date: string | null
           recurrence_frequency_days: number | null
@@ -2460,8 +2471,10 @@ export type Database = {
           lobby_product_id?: number | null
           lodging_kind?: string | null
           lon?: number | null
+          max_persons?: number | null
           max_qty?: number | null
           max_units?: number | null
+          min_persons?: number | null
           min_qty?: number | null
           name: Json
           occurrence_date?: string | null
@@ -2471,8 +2484,8 @@ export type Database = {
           price_cop?: number | null
           price_label?: string | null
           price_tiers?: Json | null
+          pricing_unit?: string
           program?: Json | null
-          qty_unit?: string
           recurrence_end_count?: number | null
           recurrence_end_date?: string | null
           recurrence_frequency_days?: number | null
@@ -2525,8 +2538,10 @@ export type Database = {
           lobby_product_id?: number | null
           lodging_kind?: string | null
           lon?: number | null
+          max_persons?: number | null
           max_qty?: number | null
           max_units?: number | null
+          min_persons?: number | null
           min_qty?: number | null
           name?: Json
           occurrence_date?: string | null
@@ -2536,8 +2551,8 @@ export type Database = {
           price_cop?: number | null
           price_label?: string | null
           price_tiers?: Json | null
+          pricing_unit?: string
           program?: Json | null
-          qty_unit?: string
           recurrence_end_count?: number | null
           recurrence_end_date?: string | null
           recurrence_frequency_days?: number | null
@@ -2956,6 +2971,16 @@ export type Database = {
           reason: string
         }[]
       }
+      catalog_card_primary_tag_id: {
+        Args: {
+          p_establishment_id: string
+          p_grouped: boolean
+          p_product_id: string
+          p_type: string
+        }
+        Returns: string
+      }
+      catalog_tag_ids_in_order: { Args: { p_tag_ids: Json }; Returns: string[] }
       check_partner_invitation: { Args: { p_token: string }; Returns: Json }
       claim_notification_email_batch: {
         Args: { p_limit?: number }
@@ -3324,6 +3349,7 @@ export type Database = {
         Returns: boolean
       }
       jobs_watchdog: { Args: never; Returns: undefined }
+      line_never_paid: { Args: { p_order_line_id: string }; Returns: boolean }
       list_audience_members: {
         Args: { p_audience: string }
         Returns: {
@@ -3422,6 +3448,14 @@ export type Database = {
       lock_order_capacity_rows: {
         Args: { p_line_ids: string[] }
         Returns: undefined
+      }
+      lodging_physical_capacity: {
+        Args: {
+          p_capacity: number
+          p_lodging_kind: string
+          p_unit_count: number
+        }
+        Returns: number
       }
       log_admin_action: {
         Args: {
@@ -3550,6 +3584,7 @@ export type Database = {
         Args: { p_horizon?: string; p_product_id: string }
         Returns: undefined
       }
+      order_awaits_payment: { Args: { p_order_id: string }; Returns: boolean }
       order_deposit_collected: {
         Args: { p_payment_status: string }
         Returns: boolean
@@ -3566,6 +3601,17 @@ export type Database = {
         Args: { p_status: string }
         Returns: boolean
       }
+      order_line_slot_units: {
+        Args: {
+          p_pricing_unit: string
+          p_qty: number
+          p_slot_start_time: string
+        }
+        Returns: {
+          slot_start_time: string
+          units: number
+        }[]
+      }
       order_payment_deadline: {
         Args: { p_created_at: string }
         Returns: string
@@ -3577,6 +3623,7 @@ export type Database = {
           end_date: string
           holder_name: string
           id: string
+          pricing_unit: string
           product_duration_days: number
           product_id: string
           product_name: Json
@@ -3645,6 +3692,7 @@ export type Database = {
           holder_name: string
           holder_phone: string
           id: string
+          pricing_unit: string
           product_name: Json
           product_type: string
           qty: number
@@ -3687,6 +3735,10 @@ export type Database = {
       process_campaign_batch: {
         Args: { p_batch_size?: number; p_campaign_id: string }
         Returns: Json
+      }
+      product_qty_cap: {
+        Args: { p_max_qty: number; p_type: string }
+        Returns: number
       }
       product_slug_from_name: {
         Args: { p_exclude?: string; p_name: Json }
@@ -3996,6 +4048,10 @@ export type Database = {
       }
       slugify: { Args: { p_text: string }; Returns: string }
       start_offboarding: { Args: { p_partner_id: string }; Returns: Json }
+      start_time_has_passed: {
+        Args: { p_date: string; p_start_time: string }
+        Returns: boolean
+      }
       submit_establishment_creation_proposal: {
         Args: { p_payload: Json }
         Returns: Json
