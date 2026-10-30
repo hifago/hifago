@@ -172,6 +172,12 @@ remplacement des suivants. Un compte purement client/socio (sans rôle admin) ga
 friction minimal déjà décidé pour lui (§1/§2) — le 2FA ne s'applique jamais par défaut à tout le
 monde, seulement à qui porte le rôle qui le justifie.
 
+**Révision 2026-10-30** : l'enrôlement n'est plus forcé (suspendu depuis le 2026-08-15, arbitrage
+Jérôme à rendre pour le rétablir) mais un 2FA activé est désormais réel : demandé à chaque connexion
+(mot de passe ou Google) et exigé par `is_admin()` (AAL2) pour tout compte ayant un facteur vérifié ;
+géré depuis la modale « Seguridad » de la barre admin. Détail : `docs/specs/07-connexion-inscription-complete.md`
+(4e révision). Le paragraphe ci-dessous décrit l'implémentation initiale du 2026-08-15.
+
 **Implémenté le 2026-08-15 (Feature 31)** : TOTP via Supabase Auth MFA (`auth.mfa.totp`),
 enrôlement forcé au premier accès puis vérification à chaque nouvelle session — `is_admin()`
 exige désormais l'AAL2 (chokepoint centralisé, toute la checklist RLS/RPC-only en bénéficie sans

@@ -111,6 +111,12 @@ Resend, comme en préprod depuis le 2026-10-07.)
   `https://<ref>.supabase.co/auth/v1/callback`. En prod, l'écran de consentement doit être
   **publié** (en mode Test, seuls les testeurs déclarés peuvent se connecter).
 - Sessions anonymes actives (`enable_anonymous_sign_ins`, panier en base).
+- **Clé de sécurité (WebAuthn, 2FA admin)** : `mfa_web_authn_enroll_enabled` et
+  `mfa_web_authn_verify_enabled` à `true`, ET l'identité de la partie de confiance —
+  `webauthn_rp_id` = nom d'hôte de l'admin de l'environnement (sans schéma, port ni chemin ; **stable** :
+  le changer invalide toutes les clés), `webauthn_rp_origins` = son origine HTTPS (chaîne séparée par des
+  virgules), `webauthn_rp_display_name` = `Hifago`. Sans elle, l'enrôlement d'une clé échoue en 500
+  (« RPOrigins »). À lire avant d'écrire (`GET …/config/auth`) pour confirmer le format des champs.
 - SMTP personnalisé = Resend (§6). Sans lui, le mailer par défaut n'écrit qu'aux membres de
   l'organisation Supabase : aucune inscription client par e-mail ne peut aboutir
   (`enable_confirmations = true`), et les gabarits espagnols sont refusés (400).
@@ -217,3 +223,37 @@ de l'argent réel.
 - Admin : connexion + enrôlement TOTP ; connexion Google.
 - E-mails : §6.5. Paiement : un paiement réel de faible montant, webhook accepté, commande payée,
   puis remboursement depuis le panel.
+
+## 9. 2FA admin — inventaire avant la migration, et retrait d'un 2FA perdu
+
+Depuis la migration `20261030090000_admin_2fa_si_active.sql`, un admin qui a un facteur MFA
+**vérifié** n'est plus `is_admin()` tant que sa session n'est pas en AAL2. Un admin qui a perdu son
+appareil (sans second facteur) est donc **verrouillé** : l'écran `/mfa/verify` n'offre que « Cerrar
+sesión ». L'interface ne propose aucun retrait pour un autre compte — c'est cette procédure.
+
+**9.1 Avant de pousser la migration sur un projet hébergé** — qui est déjà enrôlé ? (lecture seule ;
+un facteur de la tentative du 2026-08-15 peut subsister alors que l'appareil a été réinitialisé :
+cet admin serait soumis au défi dès l'application) :
+
+```sql
+select u.email, f.factor_type, f.status, f.created_at
+  from auth.mfa_factors f
+  join auth.users u on u.id = f.user_id
+  join public.partner_capabilities pc on pc.account_id = u.id and pc.role = 'admin';
+```
+
+Aucune ligne `verified` : rien ne change pour personne. Une ligne `verified` : prévenir la personne
+(ou retirer le facteur, 9.2) AVANT le push.
+
+**9.2 Retirer le 2FA d'un admin** — qui : un dev avec accès au projet (SQL Editor du Dashboard, rôle
+`postgres`). Éprouvé en local le 2026-10-30 (`is_admin()` faux → vrai) :
+
+```sql
+delete from auth.mfa_factors
+ where user_id = (select id from auth.users where email = '<email de l''admin>');
+```
+
+La personne se reconnecte (session AAL1, plus aucun facteur, donc admin sans défi) et réactive son 2FA
+depuis « Seguridad ». Variante par l'API Admin : `auth.admin.mfa.deleteFactor({ id, userId })` avec
+la clé `service_role` (jamais côté navigateur). **Prévention** : la modale « Seguridad » recommande un
+second appareil (autre app, gestionnaire de mots de passe ou clé de sécurité) tant qu'il n'y en a qu'un.

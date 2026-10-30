@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
 import { isRealAccount } from "@hifago/supabase/identity";
+import { checkMfaGuard } from "@/lib/mfaGuard";
 
 // Racine de l'app (admin+socio, cf. hifago/CLAUDE.md §2.1) : ne rend jamais de contenu, aiguille
 // vers la page de base du type d'utilisateur connecté. C'est aussi la destination par défaut de
@@ -22,8 +23,14 @@ export default async function RootPage() {
     redirect("/login");
   }
 
-  // Feature 31 (docs/specs/07-connexion-inscription-complete.md §8) : 2FA rendu optionnel le
-  // 2026-08-15 (décision Jérôme) — plus de redirection forcée vers /mfa/enroll ou /mfa/verify.
+  // Feature 31 (docs/specs/07-connexion-inscription-complete.md §8/§10) : le 2FA est un choix, mais
+  // qui l'a activé le passe à chaque connexion — AVANT l'aiguillage par rôle : is_admin() est faux
+  // pour un admin enrôlé tant que sa session est en AAL1 (20261030090000), il serait aiguillé
+  // comme un compte sans rôle. Aucun enrôlement n'est jamais forcé ici.
+  const mfa = await checkMfaGuard(supabase);
+  if (mfa.action === "verify") {
+    redirect("/mfa/verify");
+  }
 
   // Échec fermé (2026-10-01) : chaque lecture de rôle en panne LÈVE (app/error.tsx propose de
   // réessayer). Lue comme « pas ce rôle », elle aiguillait ailleurs : un admin en panne de base

@@ -29,6 +29,7 @@ vi.mock("@/lib/mfaGuard", () => ({
 }));
 
 vi.mock("./MfaVerifyForm", () => ({ MfaVerifyForm: () => null }));
+vi.mock("@/components/LogoutButton", () => ({ LogoutButton: () => null }));
 
 const { default: MfaVerifyPage } = await import("./page");
 
