@@ -1,11 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { formatDateInBogota } from "@hifago/domain";
 import { createClient } from "@hifago/supabase/client";
 import { Alert, Button, Chip, Modal, toast } from "@hifago/ui";
-import { factorLabels, purgeUnverifiedFactors, uniqueFactorName } from "@/lib/mfaFactors";
+import {
+  factorLabels,
+  isCancelledCeremony,
+  purgeUnverifiedFactors,
+  uniqueFactorName,
+} from "@/lib/mfaFactors";
 import { TotpEnrollment } from "./totp-enrollment";
 
 type VerifiedFactor = { id: string; factor_type: string; created_at: string };
@@ -64,6 +69,7 @@ export function SecurityDialog({
 
 function SecurityPanel({ onClose }: { onClose: () => void }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [view, setView] = useState<"list" | "enroll">("list");
   const [factors, setFactors] = useState<VerifiedFactor[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -100,6 +106,15 @@ function SecurityPanel({ onClose }: { onClose: () => void }) {
     await supabase.auth.refreshSession();
     setRemovingId(null);
     setConfirmingId(null);
+    // GoTrue rétrograde en AAL1 la session obtenue avec l'appareil retiré. S'il en reste un autre, la
+    // personne doit le confirmer : on la mène au défi en le disant, plutôt que de la laisser éjectée
+    // sans explication au prochain rendu. (Le retrait d'un AUTRE appareil ne change pas la session.)
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.currentLevel === "aal1" && aal.nextLevel === "aal2") {
+      toast.info("Dispositivo quitado. Confirma tu identidad con otro de tus dispositivos.");
+      router.push(`/mfa/verify?next=${encodeURIComponent(pathname)}`);
+      return;
+    }
     toast.success("Dispositivo quitado.");
     router.refresh();
     await reload();
@@ -110,17 +125,22 @@ function SecurityPanel({ onClose }: { onClose: () => void }) {
   async function handleAddKey() {
     setRegisteringKey(true);
     const supabase = createClient();
-    await purgeUnverifiedFactors(supabase);
+    try {
+      await purgeUnverifiedFactors(supabase);
+    } catch {
+      setRegisteringKey(false);
+      toast.danger("No se pudo leer tu configuración de seguridad. Inténtalo de nuevo.");
+      return;
+    }
     const { error } = await supabase.auth.mfa.webauthn.register({
       friendlyName: uniqueFactorName("Llave de seguridad"),
     });
     setRegisteringKey(false);
     if (error) {
       // Annulée par la personne (fenêtre du navigateur fermée, délai dépassé) : pas une panne.
-      const cancelled = "code" in error && error.code === "ERROR_CEREMONY_ABORTED";
       toast.danger(
-        cancelled
-          ? "Operación cancelada. Inténtalo de nuevo cuando tengas tu llave a mano."
+        isCancelledCeremony(error)
+          ? "Operación cancelada o tiempo agotado. Inténtalo de nuevo cuando tengas tu llave a mano."
           : "No se pudo registrar la llave de seguridad."
       );
       return;
@@ -222,7 +242,9 @@ function SecurityPanel({ onClose }: { onClose: () => void }) {
                           type="button"
                           size="sm"
                           variant="outline"
+                          isDisabled={registeringKey}
                           onPress={() => setConfirmingId(factor.id)}
+                          aria-label={`Quitar ${labels.get(factor.id) ?? "dispositivo"}`}
                           data-testid="security-remove"
                         >
                           Quitar
@@ -243,10 +265,10 @@ function SecurityPanel({ onClose }: { onClose: () => void }) {
                     <Alert.Content>
                       <Alert.Title>Añade un dispositivo de respaldo</Alert.Title>
                       <Alert.Description>
-                        Si pierdes este dispositivo sin tener otro, otro administrador de Hifago
-                        tendrá que desactivar tu verificación. Registra un segundo dispositivo: otra
-                        app de autenticación (o un gestor de contraseñas con códigos TOTP) o una
-                        llave de seguridad.
+                        Si pierdes este dispositivo sin tener otro, no podrás entrar: habrá que
+                        pedir al equipo técnico de Hifago que desactive tu verificación. Registra un
+                        segundo dispositivo: otra app de autenticación (o un gestor de contraseñas
+                        con códigos TOTP) o una llave de seguridad.
                       </Alert.Description>
                     </Alert.Content>
                   </Alert>

@@ -163,8 +163,10 @@ test("2FA admin : jamais forcé, activable depuis « Seguridad », puis exigé �
   await context.clearCookies();
   await seConnecter(page, email, motDePasse);
   await page.waitForURL(/\/mfa\/verify/);
+  await page.waitForLoadState("networkidle"); // écran client : sans ça, la saisie peut précéder l'hydratation
   await page.goto("/admin");
   await page.waitForURL(/\/mfa\/verify/);
+  await page.waitForLoadState("networkidle"); // écran client : sans ça, la saisie peut précéder l'hydratation
 
   // « Cerrar sesión » est une sortie : l'écran de défi n'est plus un cul-de-sac.
   await expect(page.getByTestId("mfa-verify-logout")).toBeVisible();
@@ -208,13 +210,15 @@ test("2FA admin : /mfa/enroll offre une sortie et n'enrôle rien tant qu'on n'a 
   await expect(page.getByTestId("admin-sidebar")).toBeVisible();
 });
 
-test("2FA admin : un second appareil sert de secours — choix au défi, retrait depuis « Seguridad »", async ({
+test("2FA admin : un second appareil sert de secours — choix au défi, retrait d'un autre appareil puis de celui de la session", async ({
   page,
   context,
 }) => {
   // Supabase n'a pas de codes de secours : le secours documenté est un SECOND facteur. La modale le
-  // recommande tant qu'il n'y en a qu'un, l'écran de défi laisse choisir l'appareil (un code TOTP
-  // est lié au secret de son appareil), et retirer l'un laisse l'autre pleinement fonctionnel.
+  // recommande tant qu'il n'y en a qu'un, l'écran de défi laisse choisir l'appareil (un code TOTP est
+  // lié au secret de son appareil). Retirer un AUTRE appareil ne touche pas la session ; retirer
+  // CELUI qui a servi à la session la rétrograde en AAL1 (GoTrue) : la personne est menée au défi,
+  // l'écran le dit, et l'appareil restant la fait revenir.
   const motDePasse = "TwoFaBackup1234!";
   const email = await creerAdminDedie("e2e-2fa-backup", motDePasse);
 
@@ -235,38 +239,54 @@ test("2FA admin : un second appareil sert de secours — choix au défi, retrait
   await expect(page.getByTestId("security-backup-hint")).toBeVisible();
 
   // Second appareil : la recommandation disparaît.
-  const secretDeux = await enrolerDepuisLaModale();
+  await enrolerDepuisLaModale();
   await expect(page.getByTestId("security-factor")).toHaveCount(2);
   await expect(page.getByTestId("security-backup-hint")).toHaveCount(0);
   await page.getByRole("button", { name: "Cerrar", exact: true }).click();
 
-  // Nouvelle session : deux appareils → le défi laisse choisir. Le dernier utilisé est proposé en
-  // premier (le second), le premier appareil est donc le deuxième bouton.
+  // Nouvelle session : deux appareils → le défi laisse choisir. On passe avec le PREMIER.
   await context.clearCookies();
   await seConnecter(page, email, motDePasse);
   await page.waitForURL(/\/mfa\/verify/);
+  await page.waitForLoadState("networkidle"); // écran client : sans ça, la saisie peut précéder l'hydratation
   await expect(page.getByTestId("mfa-verify-factor")).toHaveCount(2);
-  await page.getByTestId("mfa-verify-factor").nth(1).click();
+  await page
+    .getByTestId("mfa-verify-factor")
+    .filter({ hasText: "App de autenticación 1" })
+    .click();
   await page.locator('input[name="code"]').fill(generateTotp(secretUn));
   await page.getByTestId("mfa-verify-submit").click();
   await page.waitForURL(/\/admin$/);
 
-  // Retrait du premier appareil (confirmation en deux temps) : il reste le second, qui suffit.
+  // Retrait du SECOND appareil (pas celui de la session) : on reste sur /admin, en AAL2.
   await page.getByTestId("security-button-nav").click();
   await expect(page.getByTestId("security-factor")).toHaveCount(2);
-  await page.getByTestId("security-remove").first().click();
+  await page.getByTestId("security-remove").nth(1).click();
   await page.getByTestId("security-remove-confirm").click();
   await expect(page.getByTestId("security-factor")).toHaveCount(1);
   await expect(page.getByTestId("security-backup-hint")).toBeVisible();
-  await page.getByRole("button", { name: "Cerrar", exact: true }).click();
+  expect(page.url()).toMatch(/\/admin$/);
 
-  await context.clearCookies();
-  await seConnecter(page, email, motDePasse);
+  // On en ajoute un nouveau : vérifier ce facteur rattache la session À LUI (GoTrue). On retire donc le
+  // DERNIER de la liste — celui qui porte la session, et non le premier, qui n'a plus d'effet sur elle.
+  await enrolerDepuisLaModale();
+  await expect(page.getByTestId("security-factor")).toHaveCount(2);
+  await page.getByTestId("security-remove").last().click();
+  await page.getByTestId("security-remove-confirm").click();
+
+  // La session est rétrogradée : défi, avec le seul appareil restant (le premier, pas de choix à faire).
   await page.waitForURL(/\/mfa\/verify/);
+  await page.waitForLoadState("networkidle"); // écran client : sans ça, la saisie peut précéder l'hydratation
   await expect(page.getByTestId("mfa-verify-factor")).toHaveCount(0);
-  await page.locator('input[name="code"]').fill(generateTotp(secretDeux));
+  await page.locator('input[name="code"]').fill(generateTotp(secretUn));
   await page.getByTestId("mfa-verify-submit").click();
   await page.waitForURL(/\/admin$/);
+  await expect(page.getByTestId("admin-sidebar")).toBeVisible();
+
+  // État final : un seul appareil, le premier.
+  await page.getByTestId("security-button-nav").click();
+  await expect(page.getByTestId("security-factor")).toHaveCount(1);
+  await expect(page.getByTestId("security-backup-hint")).toBeVisible();
 });
 
 test("2FA admin : une clé de sécurité (WebAuthn) s'ajoute depuis « Seguridad » et passe le défi", async ({
@@ -308,6 +328,7 @@ test("2FA admin : une clé de sécurité (WebAuthn) s'ajoute depuis « Seguridad
   await context.clearCookies();
   await seConnecter(page, email, motDePasse);
   await page.waitForURL(/\/mfa\/verify/);
+  await page.waitForLoadState("networkidle"); // écran client : sans ça, la saisie peut précéder l'hydratation
   await expect(page.getByTestId("mfa-verify-use-key")).toBeVisible();
   await expect(page.locator('input[name="code"]')).toHaveCount(0);
   await page.getByTestId("mfa-verify-use-key").click();

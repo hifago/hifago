@@ -3,7 +3,7 @@
 import { AppNavShell } from "@hifago/ui";
 import { LogoHifago } from "@/components/logo-hifago";
 import { LogoutButton } from "@/components/LogoutButton";
-import { SecurityButton } from "@/components/SecurityButton";
+import { SecurityButton } from "@/components/security-button";
 import { getAdminNavItems } from "./nav-items";
 
 // Wrapper local autour d'AppNavShell (packages/ui) — jamais importer "@hifago/ui" directement

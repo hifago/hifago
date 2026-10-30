@@ -67,14 +67,15 @@ export default async function MfaVerifyPage({ searchParams }: PageProps<"/mfa/ve
           className="max-w-sm text-center text-sm text-danger"
           data-testid="mfa-verify-unsupported"
         >
-          Tu cuenta usa un método de verificación que esta pantalla no admite. Cierra sesión y pide
-          ayuda a otro administrador de Hifago.
+          No encontramos un método de verificación que esta pantalla admita (tu cuenta usa otro
+          tipo, o ya no tiene ninguno activo). Cierra sesión y vuelve a entrar; si sigue igual, pide
+          ayuda al equipo técnico de Hifago.
         </p>
       )}
       <div className="flex max-w-sm flex-col items-center gap-2 text-center">
         <LogoutButton data-testid="mfa-verify-logout" />
         <p className="text-xs text-muted">
-          ¿Perdiste tu dispositivo? Otro administrador de Hifago puede desactivar tu verificación.
+          ¿Perdiste tu dispositivo? Pide al equipo técnico de Hifago que desactive tu verificación.
         </p>
       </div>
     </main>

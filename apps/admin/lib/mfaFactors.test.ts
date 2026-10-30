@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   factorLabels,
+  isCancelledCeremony,
   isSupportedFactorKind,
   purgeUnverifiedFactors,
   uniqueFactorName,
@@ -51,7 +52,7 @@ describe("purgeUnverifiedFactors", () => {
     expect(unenroll).toHaveBeenCalledWith({ factorId: "abandonne" });
   });
 
-  it("une lecture en échec ne bloque pas l'enrôlement qui suit", async () => {
+  it("une lecture en échec lève, au lieu de passer pour « aucun facteur »", async () => {
     const supabase = {
       auth: {
         mfa: {
@@ -60,6 +61,37 @@ describe("purgeUnverifiedFactors", () => {
         },
       },
     } as unknown as SupabaseClient;
-    expect(await purgeUnverifiedFactors(supabase)).toEqual([]);
+    await expect(purgeUnverifiedFactors(supabase)).rejects.toThrow(/Lecture des facteurs/);
+  });
+});
+
+// Forme réelle des erreurs du SDK (auth-js 2.112.3, lib/webauthn.errors.js) : fermer la fenêtre de la
+// clé lève `NotAllowedError`, rendue en ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY avec la cause d'origine.
+describe("isCancelledCeremony", () => {
+  it("reconnaît une fenêtre fermée ou un délai dépassé (NotAllowedError)", () => {
+    expect(
+      isCancelledCeremony({
+        name: "WebAuthnError",
+        code: "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",
+        cause: { name: "NotAllowedError" },
+      })
+    ).toBe(true);
+  });
+
+  it("reconnaît l'annulation par signal", () => {
+    expect(isCancelledCeremony({ code: "ERROR_CEREMONY_ABORTED" })).toBe(true);
+  });
+
+  it("ne prend pas une vraie panne pour une annulation", () => {
+    expect(
+      isCancelledCeremony({
+        code: "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",
+        cause: { name: "SecurityError" },
+      })
+    ).toBe(false);
+    expect(isCancelledCeremony({ code: "ERROR_INVALID_RP_ID" })).toBe(false);
+    expect(isCancelledCeremony({ name: "AuthError", message: "x" })).toBe(false);
+    expect(isCancelledCeremony(null)).toBe(false);
+    expect(isCancelledCeremony("x")).toBe(false);
   });
 });

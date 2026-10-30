@@ -66,7 +66,12 @@ describe("MfaVerifyForm — défi à la connexion", () => {
 
   it("une cérémonie annulée est dite comme telle, sans quitter l'écran", async () => {
     mfa.webauthn.authenticate.mockResolvedValue({
-      error: { name: "WebAuthnError", code: "ERROR_CEREMONY_ABORTED", message: "x" },
+      error: {
+        name: "WebAuthnError",
+        code: "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",
+        message: "x",
+        cause: { name: "NotAllowedError" },
+      },
     });
     render(<MfaVerifyForm factors={[CLE]} next="/admin" />);
     fireEvent.click(screen.getByTestId("mfa-verify-use-key"));

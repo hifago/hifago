@@ -258,7 +258,8 @@ Tous dans `apps/admin`, sauf mention contraire.
 - **`/auth/callback`** (nouveau, Route Handler) : gère l'échange de code OAuth
   (`exchangeCodeForSession`) et l'atterrissage des liens email (`verifyOtp` avec `token_hash` +
   `type` — `signup`, `recovery`) selon les paramètres reçus, puis redirige vers `next` (ou
-  `/mfa/enroll`/`/mfa/verify` si le compte est admin).
+  `/mfa/verify` si le compte a activé un 2FA et que la session est en AAL1 — plus de renvoi vers
+  `/mfa/enroll`, l'enrôlement n'est jamais forcé, depuis le 2026-10-30).
 - **`/mfa/enroll`** (nouveau) : QR code (SVG renvoyé par `mfa.enroll()`) + clé texte copiable + lien
   « abrir en la app » (mobile) + champ de confirmation à 6 chiffres (`mfa.challengeAndVerify()`).
   ~~Bloquant : pas d'accès à `/admin/*` tant que non enrôlé.~~ **Révisé le 2026-10-30** : jamais
@@ -367,6 +368,9 @@ Templates email confirmation/recovery pointant vers
 - Perte de l'authenticator TOTP par un admin → pas de codes de secours natifs côté Supabase MFA ;
   résolution par intervention `service_role` d'un autre admin/dev (retrait du facteur via l'API
   admin), à documenter comme procédure opérationnelle, pas une fonctionnalité self-service.
+  **Documentée le 2026-10-30** : `docs/runbook-environnements.md` §9 (SQL éprouvé en local). Depuis
+  que `is_admin()` exige l'AAL2 pour un compte enrôlé, ce verrouillage est réel, plus théorique :
+  d'où le second appareil recommandé par la modale et l'inventaire à passer avant la migration (§9.1).
 - Invitation consommée par quelqu'un d'autre entre le pré-contrôle du Route Handler et l'appel RPC
   (fenêtre de concurrence résiduelle) → compte créé mais sans rôle — cas rare, non dangereux (aucune
   capacité accordée), documenté plutôt que masqué.

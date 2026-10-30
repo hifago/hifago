@@ -19,9 +19,12 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+let capacite: { data: unknown; error: { message: string } | null } = { data: true, error: null };
+
 vi.mock("@hifago/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: utilisateur } }) },
+    rpc: async () => capacite,
   }),
 }));
 
@@ -56,6 +59,7 @@ describe("/mfa/enroll — destination de retour", () => {
   beforeEach(() => {
     utilisateur = { id: "u" };
     garde = { action: "verify" };
+    capacite = { data: true, error: null };
   });
 
   it.each([["//evil.com"], ["/\\evil.com"], ["/./\\evil.com"], ["/..//evil.com"]])(
@@ -67,6 +71,16 @@ describe("/mfa/enroll — destination de retour", () => {
 
   it("renvoie vers le défi avec une destination interne telle quelle", async () => {
     expect(destinationVerify(await redirectionPour("/partner"))).toBe("/partner");
+  });
+
+  it("un compte sans capacité admin n'enrôle pas : renvoyé à sa destination", async () => {
+    capacite = { data: false, error: null };
+    expect(await redirectionPour("/partner")).toBe("/partner");
+  });
+
+  it("lève quand la capacité admin est illisible, au lieu de la lire comme « non »", async () => {
+    capacite = { data: null, error: { message: "connection refused" } };
+    await expect(redirectionPour("/partner")).rejects.toThrow(/has_admin_capability/);
   });
 
   it("sans facteur à vérifier, rend l'écran d'enrôlement au lieu de rediriger", async () => {

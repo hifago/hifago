@@ -41,23 +41,24 @@ export function TotpEnrollment({
 
   const start = useCallback(async () => {
     const supabase = createClient();
-    const existing = await purgeUnverifiedFactors(supabase);
-    // Le premier TOTP reste sans nom ; les suivants (appareil de secours) en reçoivent un unique.
-    let friendlyName: string | undefined;
-    if (existing.some((factor) => factor.status === "verified")) {
-      const { data: userData } = await supabase.auth.getUser();
-      friendlyName = uniqueFactorName(`${userData.user?.email ?? "Hifago"} (respaldo)`);
-    }
-    const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName });
-    if (error || !data) {
+    try {
+      const existing = await purgeUnverifiedFactors(supabase);
+      // Le premier TOTP reste sans nom ; les suivants (appareil de secours) en reçoivent un unique.
+      let friendlyName: string | undefined;
+      if (existing.some((factor) => factor.status === "verified")) {
+        const { data: userData } = await supabase.auth.getUser();
+        friendlyName = uniqueFactorName(`${userData.user?.email ?? "Hifago"} (respaldo)`);
+      }
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName });
+      if (error || !data) throw new Error("enroll");
+      setFactorId(data.id);
+      setQrCode(data.totp.qr_code);
+      setSecret(data.totp.secret);
+      setUri(data.totp.uri);
+    } catch {
       toast.danger("No se pudo generar el código QR.");
       setEnrollFailed(true);
-      return;
     }
-    setFactorId(data.id);
-    setQrCode(data.totp.qr_code);
-    setSecret(data.totp.secret);
-    setUri(data.totp.uri);
   }, []);
 
   useEffect(() => {
@@ -102,6 +103,19 @@ export function TotpEnrollment({
     setIsSubmitting(false);
 
     if (verifyError) {
+      // Un autre onglet a ouvert son propre enrôlement et purgé celui-ci (purgeUnverifiedFactors) :
+      // GoTrue ne connaît plus ce facteur. Dire « code incorrect » enverrait la personne retaper un
+      // code qui ne passera jamais — on repart d'un nouveau QR, en le disant.
+      if ("code" in verifyError && verifyError.code === "mfa_factor_not_found") {
+        toast.danger("Este código QR ya no es válido (¿abriste otra pestaña?). Escanea el nuevo.");
+        setFactorId(null);
+        setQrCode(null);
+        setSecret(null);
+        setUri(null);
+        setCode("");
+        void start();
+        return;
+      }
       toast.danger("Código incorrecto. Inténtalo de nuevo.");
       return;
     }

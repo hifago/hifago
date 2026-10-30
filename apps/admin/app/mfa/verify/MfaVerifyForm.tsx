@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@hifago/supabase/client";
 import { Button, Input, Label, TextField, toast } from "@hifago/ui";
-import type { MfaFactorKind } from "@/lib/mfaFactors";
+import { isCancelledCeremony, type MfaFactorKind } from "@/lib/mfaFactors";
 
 export type VerifyFactor = { id: string; label: string; type: MfaFactorKind };
 
@@ -51,10 +51,9 @@ export function MfaVerifyForm({ factors, next }: { factors: VerifyFactor[]; next
 
     if (error) {
       // Annulée par la personne (fenêtre du navigateur fermée, délai dépassé) : pas une panne.
-      const cancelled = "code" in error && error.code === "ERROR_CEREMONY_ABORTED";
       toast.danger(
-        cancelled
-          ? "Operación cancelada. Inténtalo de nuevo con tu llave."
+        isCancelledCeremony(error)
+          ? "Operación cancelada o tiempo agotado. Inténtalo de nuevo con tu llave."
           : "No se pudo verificar la llave de seguridad. Inténtalo de nuevo."
       );
       return;

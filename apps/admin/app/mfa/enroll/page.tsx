@@ -27,6 +27,18 @@ export default async function MfaEnrollPage({ searchParams }: PageProps<"/mfa/en
     redirect(`/login?next=${encodeURIComponent(`/mfa/enroll?next=${encodeURIComponent(next)}`)}`);
   }
 
+  // Le 2FA vise la capacité admin (spec 07 §10, cahier admin §1) : un compte sans elle n'a pas de
+  // « Seguridad » dans sa navigation, donc aucun moyen de retirer un facteur qu'il aurait enrôlé par
+  // un lien direct — il n'enrôle pas. Échec fermé : une lecture en panne lève, elle n'est pas « non ».
+  const { data: isAdminCapable, error: capabilityError } =
+    await supabase.rpc("has_admin_capability");
+  if (capabilityError) {
+    throw new Error(
+      `Lecture du rôle impossible (has_admin_capability) : ${capabilityError.message}`
+    );
+  }
+  if (!isAdminCapable) redirect(next);
+
   // Un facteur est déjà vérifié mais cette session est en AAL1 : en ajouter un autre exige l'AAL2,
   // donc défi d'abord. Sinon (« none ») rien ne bloque l'enrôlement — c'est le cas normal.
   const guard = await checkMfaGuard(supabase);

@@ -3,8 +3,8 @@
 -- is_admin() n'exige l'AAL2 de la session que pour un compte qui a un facteur MFA VÉRIFIÉ. Qui n'a
 -- rien activé, ou a abandonné un enrôlement (facteur `unverified`), n'est jamais bloqué — c'est
 -- l'obligation générale de 20260815250000 qui avait verrouillé l'accès admin réel le 2026-08-15.
--- has_admin_capability() reste, elle, sans exigence d'AAL2 : le garde applicatif s'en sert pour
--- envoyer un admin AAL1 sur /mfa/verify au lieu de le renvoyer à `/` en boucle.
+-- has_admin_capability() reste, elle, sans exigence d'AAL2 : /mfa/enroll s'en sert pour ne laisser
+-- enrôler que la capacité admin, y compris depuis une session AAL1.
 begin;
 select plan(8);
 
@@ -57,10 +57,10 @@ select is(is_admin(), false, 'admin avec facteur vérifié, claim aal absent : r
 select test_login('a2fa0000-0000-4000-8000-000000000022', 'aal2');
 select is(is_admin(), true, 'admin avec facteur vérifié, session AAL2 : admin');
 
--- ── Le garde applicatif doit pouvoir reconnaître l'admin AAL1 pour l'envoyer sur /mfa/verify ───
+-- ── La capacité admin se lit sans AAL2 (/mfa/enroll décide d'après elle) ───────────────────────
 select test_login('a2fa0000-0000-4000-8000-000000000022', 'aal1');
 select is(has_admin_capability(), true,
-  'has_admin_capability reste vrai en AAL1 (le garde envoie sur /mfa/verify, pas en boucle sur /)');
+  'has_admin_capability reste vrai en AAL1 (la capacité ne dépend pas du niveau d''assurance)');
 
 -- ── Enrôlement abandonné : un facteur `unverified` ne bloque rien ───────────────────────────────
 select test_login('a2fa0000-0000-4000-8000-000000000023', 'aal1');

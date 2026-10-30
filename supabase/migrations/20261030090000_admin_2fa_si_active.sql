@@ -15,9 +15,9 @@
 -- passent tous l'appelant lui-même (auth.uid()). Pour un uid tiers, la règle échoue fermée
 -- (admin enrôlé et appelant en AAL1 → faux), jamais ouverte.
 --
--- has_admin_capability(uid) reste volontairement SANS exigence d'AAL2 : le garde applicatif
--- (apps/admin/lib/mfaGuard.ts) en a besoin pour savoir « ce compte est admin » AVANT que l'AAL2 soit
--- atteinte, afin de l'envoyer sur /mfa/verify plutôt que de le renvoyer à `/` en boucle.
+-- has_admin_capability(uid) reste volontairement SANS exigence d'AAL2 : « ce compte est admin » doit se
+-- savoir AVANT que l'AAL2 soit atteinte (aujourd'hui : /mfa/enroll n'enrôle que la capacité admin).
+-- Le garde applicatif (apps/admin/lib/mfaGuard.ts) n'en dépend plus : il lit le niveau d'assurance.
 --
 -- create or replace conserve les droits (20261014204647 : EXECUTE retiré à anon et authenticated, la
 -- fonction n'est appelée que par les SECURITY DEFINER et par la surcharge sans paramètre).

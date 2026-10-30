@@ -31,6 +31,19 @@ export function factorLabels(factors: FactorLike[]): Map<string, string> {
   return labels;
 }
 
+// Le navigateur lève `NotAllowedError` quand la personne ferme la fenêtre de la clé, ne la présente pas
+// ou laisse le délai expirer ; le SDK la rend en `ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY` (la cause
+// porte le nom). `ERROR_CEREMONY_ABORTED` n'existe que si on passe un `signal` d'annulation — ce que
+// l'interface ne fait pas — mais reste reconnu. Ce n'est pas une panne : on ne l'annonce pas comme telle.
+export function isCancelledCeremony(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const { code, cause } = error as { code?: unknown; cause?: { name?: unknown } | null };
+  return (
+    code === "ERROR_CEREMONY_ABORTED" ||
+    (code === "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY" && cause?.name === "NotAllowedError")
+  );
+}
+
 // GoTrue refuse deux facteurs de même nom pour un compte, y compris vide (422
 // mfa_factor_name_conflict). Le premier TOTP reste sans nom (l'app d'authentification affiche alors
 // l'e-mail) ; tout facteur suivant, et toute clé de sécurité (nom obligatoire), en reçoit un unique.
@@ -39,15 +52,19 @@ export function uniqueFactorName(prefix: string): string {
 }
 
 // Un enrôlement abandonné (onglet fermé, clé non présentée) laisse un facteur `unverified` : sans
-// purge ils s'accumulent jusqu'à `max_enrolled_factors` (config.toml) et l'enrôlement échoue. Best
-// effort : un échec ici ne doit jamais bloquer l'enrôlement qui suit. Renvoie les facteurs listés.
+// purge ils s'accumulent jusqu'à `max_enrolled_factors` (config.toml) et l'enrôlement échoue. Renvoie
+// les facteurs listés. Une LECTURE en échec lève : une panne n'est jamais une absence (ici, elle ferait
+// croire qu'aucun facteur vérifié n'existe et nommerait le suivant de travers) ; l'appelant l'affiche.
+// Le retrait d'un facteur abandonné, lui, reste au mieux : le rater ne bloque pas l'enrôlement.
 export async function purgeUnverifiedFactors(supabase: SupabaseClient) {
-  const { data } = await supabase.auth.mfa.listFactors();
-  const all = data?.all ?? [];
-  for (const factor of all) {
+  const { data, error } = await supabase.auth.mfa.listFactors();
+  if (error || !data) {
+    throw new Error(`Lecture des facteurs impossible : ${error?.message ?? "réponse vide"}`);
+  }
+  for (const factor of data.all) {
     if (factor.status === "unverified") {
       await supabase.auth.mfa.unenroll({ factorId: factor.id });
     }
   }
-  return all;
+  return data.all;
 }
