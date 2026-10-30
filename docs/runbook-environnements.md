@@ -111,6 +111,12 @@ Resend, comme en préprod depuis le 2026-10-07.)
   `https://<ref>.supabase.co/auth/v1/callback`. En prod, l'écran de consentement doit être
   **publié** (en mode Test, seuls les testeurs déclarés peuvent se connecter).
 - Sessions anonymes actives (`enable_anonymous_sign_ins`, panier en base).
+- **Clé de sécurité (WebAuthn, 2FA admin)** : `mfa_web_authn_enroll_enabled` et
+  `mfa_web_authn_verify_enabled` à `true`, ET l'identité de la partie de confiance —
+  `webauthn_rp_id` = nom d'hôte de l'admin de l'environnement (sans schéma, port ni chemin ; **stable** :
+  le changer invalide toutes les clés), `webauthn_rp_origins` = son origine HTTPS (chaîne séparée par des
+  virgules), `webauthn_rp_display_name` = `Hifago`. Sans elle, l'enrôlement d'une clé échoue en 500
+  (« RPOrigins »). À lire avant d'écrire (`GET …/config/auth`) pour confirmer le format des champs.
 - SMTP personnalisé = Resend (§6). Sans lui, le mailer par défaut n'écrit qu'aux membres de
   l'organisation Supabase : aucune inscription client par e-mail ne peut aboutir
   (`enable_confirmations = true`), et les gabarits espagnols sont refusés (400).

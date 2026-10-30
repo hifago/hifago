@@ -4,7 +4,7 @@ titre: "Backlog hifago — points ouverts et arbitrages en attente"
 theme: journal
 statut: vivant
 langue: fr
-maj: 2026-10-19
+maj: 2026-10-30
 resume: >
   Points ouverts, arbitrages en attente et dette connue non traitée du chantier hifago. Remplace
   le "curseur" de CLAUDE.md §12 (supprimé le 2026-09-07, cf. docs/journal/2026-09.md).
