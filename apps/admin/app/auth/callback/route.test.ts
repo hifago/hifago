@@ -47,8 +47,10 @@ vi.mock("@hifago/supabase/service", () => ({
   }),
 }));
 
+let garde: { action: "none" | "verify" } = { action: "none" };
+
 vi.mock("@/lib/mfaGuard", () => ({
-  checkMfaGuard: async () => ({ action: "none" }),
+  checkMfaGuard: async () => garde,
 }));
 
 const { GET } = await import("./route");
@@ -69,6 +71,7 @@ describe("GET /auth/callback (admin) — destination de retour", () => {
     reponseCheck = { data: { ok: true }, error: null };
     suppressions = [];
     deconnexions = 0;
+    garde = { action: "none" };
   });
 
   it.each([
@@ -96,6 +99,21 @@ describe("GET /auth/callback (admin) — destination de retour", () => {
     expect(location).toBe(`${ORIGIN}/partner/join?token=abc`);
     expect(suppressions).toEqual([]);
     expect(deconnexions).toBe(0);
+  });
+
+  // 2FA (spec 07 §10) : un choix, jamais une obligation. Le retour Google ou e-mail d'un compte qui
+  // l'a activé passe par le défi ; celui d'un compte qui n'a rien activé n'est JAMAIS détourné vers
+  // l'enrôlement (c'est ce qui coinçait un admin sur une page sans sortie).
+  it("envoie un compte qui a activé son 2FA vers le défi, destination conservée", async () => {
+    garde = { action: "verify" };
+    const location = await atterrir(`code=ok&next=${encodeURIComponent("/admin")}`);
+    expect(location).toBe(`${ORIGIN}/mfa/verify?next=%2Fadmin`);
+  });
+
+  it("ne détourne jamais un compte sans facteur vers l'enrôlement", async () => {
+    garde = { action: "none" };
+    const location = await atterrir(`code=ok&next=${encodeURIComponent("/admin")}`);
+    expect(location).toBe(`${ORIGIN}/admin`);
   });
 });
 
