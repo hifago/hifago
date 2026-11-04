@@ -34,6 +34,9 @@ export type PendingProductCreationRow = {
   type: string | null;
   payload: unknown;
   created_at: string;
+  // Migration 20261104130000 : une proposition refusée reste affichée, à corriger ou à écarter.
+  status: string;
+  rejectionReason: string | null;
 };
 
 const WITHDRAW_ERRORS: Record<string, string> = {
@@ -78,10 +81,14 @@ export function EstablishmentActivities({
   establishmentId,
   products,
   pendingCreations: initialPendingCreations,
+  establishmentRejected = false,
 }: {
   establishmentId: string;
   products: ProductCardRow[];
   pendingCreations: PendingProductCreationRow[];
+  // 20261104130000 : l'établissement (encore une proposition) a été refusé — ses services ne se
+  // corrigent qu'après lui (la RPC répondrait establishment_proposal_not_pending).
+  establishmentRejected?: boolean;
 }) {
   const [pendingCreations, setPendingCreations] = useState(initialPendingCreations);
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
@@ -107,11 +114,12 @@ export function EstablishmentActivities({
       return;
     }
 
+    const wasRejected = pendingCreations.some((p) => p.id === proposalId && p.status === "rejected");
     setPendingCreations((prev) => prev.filter((p) => p.id !== proposalId));
-    toast.success("Propuesta retirada.");
+    toast.success(wasRejected ? "Propuesta descartada." : "Propuesta retirada.");
   }
 
-  if (products.length === 0 && pendingCreations.length === 0) {
+  if (products.length === 0 && pendingCreations.length === 0 && !establishmentRejected) {
     return (
       <EmptyStateCta
         title="Aún no tienes servicios en este establecimiento"
@@ -162,8 +170,43 @@ export function EstablishmentActivities({
                   photos={photos}
                   title={proposedName ?? proposal.id}
                   meta={TYPE_LABELS[proposal.type ?? ""] ?? proposal.type ?? undefined}
-                  statusChips={[{ label: "Pendiente de revisión", color: "warning" }]}
+                  statusChips={[
+                    proposal.status === "rejected"
+                      ? { label: "Rechazada", color: "danger" }
+                      : { label: "Pendiente de revisión", color: "warning" },
+                  ]}
                   footer={
+                    proposal.status === "rejected" ? (
+                      <>
+                        <p className="w-full text-sm" data-testid={`rejection-reason-${proposal.id}`}>
+                          <span className="font-semibold">Motivo del rechazo:</span>{" "}
+                          {proposal.rejectionReason ?? "—"}
+                        </p>
+                        {establishmentRejected ? (
+                          <p className="w-full text-sm text-muted">
+                            Podrás corregirla cuando corrijas el establecimiento.
+                          </p>
+                        ) : (
+                          <Link
+                            href={`/partner/products/new?corregir=${proposal.id}`}
+                            className={buttonVariants({ size: "sm" })}
+                            data-testid={`correct-product-proposal-${proposal.id}`}
+                          >
+                            Corregir
+                          </Link>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          isDisabled={withdrawingId === proposal.id}
+                          onPress={() => handleWithdraw(proposal.id)}
+                          data-testid={`withdraw-product-creation-${proposal.id}`}
+                        >
+                          {withdrawingId === proposal.id ? "Descartando…" : "Descartar"}
+                        </Button>
+                      </>
+                    ) : (
                     <Button
                       type="button"
                       variant="outline"
@@ -174,6 +217,7 @@ export function EstablishmentActivities({
                     >
                       {withdrawingId === proposal.id ? "Retirando…" : "Retirar"}
                     </Button>
+                    )
                   }
                 />
               );

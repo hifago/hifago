@@ -26,8 +26,8 @@ export function emptySlotRule(): DraftSlotRule {
 }
 
 // Retourne un message d'erreur (à afficher tel quel) si une règle est invalide, sinon null. Un
-// tableau vide est valide (les créneaux restent optionnels) — même discipline que "0 tag" ou
-// "aucune borne min/max" (spec 08 §8).
+// tableau vide est valide ICI (l'édition admin peut encore vider les horaires) ; la création d'une
+// activité et la proposition du partenaire passent par requiredSlotRulesError, qui l'interdit.
 export function validateSlotRules(rules: DraftSlotRule[]): string | null {
   for (const rule of rules) {
     if (rule.weekdays.length === 0) {
@@ -67,6 +67,50 @@ export function validateSlotRules(rules: DraftSlotRule[]): string | null {
   }
 
   return null;
+}
+
+/**
+ * Une activité a au moins un horaire (demande Jérôme du 2026-11-04, migration 20261104120000) :
+ * sans règle, aucun créneau n'est dérivé et le client ne peut choisir aucune heure. Même exigence
+ * côté base (slot_rules_required) pour toute proposition du partenaire.
+ */
+export function requiredSlotRulesError(rules: DraftSlotRule[]): string | null {
+  if (rules.length === 0) {
+    return "Una actividad necesita al menos un horario.";
+  }
+  return validateSlotRules(rules);
+}
+
+/**
+ * La clé `slot_rules` n'entre dans une proposition d'ÉDITION que si les horaires ont changé — même
+ * règle que tagIdsIfChanged (lib/tags/proposedTags.ts), et pour la même raison : côté SQL, une clé
+ * présente REMPLACE tous les horaires à l'approbation. L'envoyer à chaque fois ferait d'une simple
+ * correction de nom un écrasement des horaires qu'un admin aurait changés entre-temps.
+ */
+export function slotRulesIfChanged(
+  current: DraftSlotRule[],
+  edited: DraftSlotRule[],
+): { slot_rules?: ParsedSlotRule[] } {
+  const rows = toSlotRuleRows(edited);
+  return JSON.stringify(rows) === JSON.stringify(toSlotRuleRows(current)) ? {} : { slot_rules: rows };
+}
+
+/** Les horaires proposés, ou `null` quand la proposition n'y touche pas. */
+export function proposedSlotRules(payload: { slot_rules?: unknown }): DraftSlotRule[] | null {
+  return Array.isArray(payload.slot_rules) ? slotRulesFromColumn(payload.slot_rules) : null;
+}
+
+const WEEKDAY_SHORT = ["", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+/** Résumé lisible des horaires en place (écran de modération, « Valor actual »). */
+export function formatSlotRulesSummary(rules: DraftSlotRule[]): string {
+  if (rules.length === 0) return "—";
+  return rules
+    .map((rule) => {
+      const days = [...rule.weekdays].sort((a, b) => a - b).map((d) => WEEKDAY_SHORT[d]).join(", ");
+      return `${days} ${rule.startTime}–${rule.endTime} (${rule.slotDurationMinutes} min, cupo ${rule.capacity})`;
+    })
+    .join(" · ");
 }
 
 export function toSlotRuleRows(rules: DraftSlotRule[]): ParsedSlotRule[] {

@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   emptySlotRule,
+  formatSlotRulesSummary,
   generateSlotPreview,
+  proposedSlotRules,
+  requiredSlotRulesError,
+  slotRulesIfChanged,
   toSlotRuleRows,
   validateSlotRules,
   type DraftSlotRule,
@@ -19,7 +23,7 @@ function rule(overrides: Partial<DraftSlotRule> = {}): DraftSlotRule {
 }
 
 describe("validateSlotRules", () => {
-  it("un tableau vide est valide — les créneaux restent optionnels", () => {
+  it("un tableau vide est valide ici — l'exigence d'un horaire vit dans requiredSlotRulesError", () => {
     expect(validateSlotRules([])).toBeNull();
   });
 
@@ -105,5 +109,54 @@ describe("emptySlotRule / toSlotRuleRows", () => {
         capacity: 4,
       },
     ]);
+  });
+});
+
+// Migration 20261104120000 — horaires obligatoires à la création, proposables en édition.
+describe("requiredSlotRulesError", () => {
+  it("aucun horaire → erreur (une activité sans règle n'a aucun créneau réservable)", () => {
+    expect(requiredSlotRulesError([])).toBe("Una actividad necesita al menos un horario.");
+  });
+
+  it("un horaire valide → null ; un horaire invalide → l'erreur de validateSlotRules", () => {
+    expect(requiredSlotRulesError([rule()])).toBeNull();
+    expect(requiredSlotRulesError([rule({ weekdays: [] })])).toBe(validateSlotRules([rule({ weekdays: [] })]));
+  });
+});
+
+describe("slotRulesIfChanged", () => {
+  it("horaires inchangés → aucune clé (l'approbation garderait sinon l'existant écrasé)", () => {
+    expect(slotRulesIfChanged([rule()], [rule()])).toEqual({});
+  });
+
+  it("l'ordre des jours cochés ne compte pas comme un changement", () => {
+    expect(slotRulesIfChanged([rule({ weekdays: [1, 3] })], [rule({ weekdays: [3, 1] })])).toEqual({});
+  });
+
+  it("une capacité changée → la clé part, avec TOUS les horaires", () => {
+    const edited = [rule(), rule({ startTime: "06:00", endTime: "09:00", capacity: "2" })];
+    expect(slotRulesIfChanged([rule()], edited)).toEqual({ slot_rules: toSlotRuleRows(edited) });
+  });
+
+  it("tous les horaires retirés → la clé part vide (refusée ensuite par la validation et la base)", () => {
+    expect(slotRulesIfChanged([rule()], [])).toEqual({ slot_rules: [] });
+  });
+});
+
+describe("proposedSlotRules", () => {
+  it("null quand la proposition ne porte pas la clé, les brouillons sinon", () => {
+    expect(proposedSlotRules({})).toBeNull();
+    expect(
+      proposedSlotRules({
+        slot_rules: [{ weekdays: [2], start_time: "14:00:00", end_time: "17:00:00", slot_duration_minutes: 60, capacity: 6 }],
+      }),
+    ).toEqual([{ weekdays: [2], startTime: "14:00", endTime: "17:00", slotDurationMinutes: "60", capacity: "6" }]);
+  });
+});
+
+describe("formatSlotRulesSummary", () => {
+  it("résume chaque horaire, jours triés", () => {
+    expect(formatSlotRulesSummary([rule({ weekdays: [3, 1] })])).toBe("Lun, Mié 10:00–21:00 (60 min, cupo 4)");
+    expect(formatSlotRulesSummary([])).toBe("—");
   });
 });

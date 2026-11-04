@@ -212,9 +212,11 @@ begin
   ) values (
     p_event_type, p_recipient_email, p_recipient_account_id, p_subject, p_body_html, p_related_table, p_related_id
   )
+  -- dedup_scope (20261104130000) : la cible doit suivre notification_emails_dedup_idx. Hors
+  -- propositions la portée vaut '', la valeur par défaut de la colonne.
   on conflict (
     event_type, related_table, related_id,
-    coalesce(recipient_account_id, '00000000-0000-0000-0000-000000000000'::uuid)
+    coalesce(recipient_account_id, '00000000-0000-0000-0000-000000000000'::uuid), dedup_scope
   ) where related_id is not null
   do nothing
   returning id into v_id;

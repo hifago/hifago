@@ -4,6 +4,7 @@ import { checkedRead } from "@/lib/supabase/checkedRead";
 import { ProductForm } from "@/components/product-form";
 import { toTagOptions } from "@/lib/tags/proposedTags";
 import { ProviderServiceStep } from "../../PartnerProviderWelcome";
+import { CorrectionPage } from "./CorrectionPage";
 
 // Spec 15 — pendant de /admin/products/new côté socio : mêmes champs/gating (ProductForm,
 // variant="socio-proposal"), mais écrit via submit_product_creation_proposal (proposition
@@ -20,7 +21,7 @@ import { ProviderServiceStep } from "../../PartnerProviderWelcome";
 export default async function NewProductProposalPage({
   searchParams,
 }: PageProps<"/partner/products/new">) {
-  const { establecimiento: requestedEstablishment, nueva } = (await searchParams) ?? {};
+  const { establecimiento: requestedEstablishment, nueva, corregir } = (await searchParams) ?? {};
   const supabase = await createClient();
 
   const {
@@ -45,6 +46,18 @@ export default async function NewProductProposalPage({
   const { data: partnerId } = checkedRead(partnerIdResult, "partner_id_for_account");
   const { data: tagsRaw } = checkedRead(tagsResult, "catalog_tags");
   const { data: amenitiesRaw } = checkedRead(amenitiesResult, "catalog_amenities");
+
+  // Migration 20261104130000 : `?corregir=<proposition>` rouvre une proposition REFUSÉE, remplie
+  // de ce qu'elle contenait — le partenaire ne change que ce qui n'allait pas.
+  if (typeof corregir === "string") {
+    return (
+      <CorrectionPage
+        proposalId={corregir}
+        allTags={toTagOptions(tagsRaw)}
+        allAmenities={toTagOptions(amenitiesRaw)}
+      />
+    );
+  }
 
   const { data: activeCapabilities } = checkedRead(
     partnerId

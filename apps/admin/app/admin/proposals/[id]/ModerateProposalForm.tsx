@@ -15,6 +15,13 @@ import { eventoChangeRefusal } from "@/lib/products/eventoChangeRefusal";
 import { withCurrentValuesForAbsentKeys } from "@/lib/products/proposalFallback";
 import { proposedTagIds, tagLabels } from "@/lib/tags/proposedTags";
 import { proposedAmenityIds } from "@/lib/amenities/proposedAmenities";
+import {
+  formatSlotRulesSummary,
+  proposedSlotRules,
+  requiredSlotRulesError,
+  slotRulesFromColumn,
+  toSlotRuleRows,
+} from "@/lib/products/slotRules";
 import { lodgingKindLabel } from "@/lib/products/lodgingKindLabels";
 import { lodgingUnitLabel } from "@/lib/products/lodgingUnitLabels";
 import {
@@ -28,6 +35,9 @@ import {
 const MODERATE_ERRORS: Record<string, string> = {
   proposal_not_found: "No se encontró la propuesta.",
   version_conflict: "Esta propuesta fue modificada por otra persona. Recarga la página.",
+  // Migration 20261104120000 : horaires proposés vides ou illisibles.
+  slot_rules_required: "Una actividad necesita al menos un horario.",
+  invalid_slot_rules: "Revisa los horarios: uno de ellos no es válido.",
 };
 
 type ModerateResult = { ok: boolean; reason?: string; status?: string; reviewed_by_email?: string };
@@ -52,6 +62,7 @@ export function ModerateProposalForm({
   currentTagIds,
   availableAmenities,
   currentAmenityIds,
+  currentSlotRules,
 }: {
   proposalId: string;
   expectedVersion: number;
@@ -62,6 +73,8 @@ export function ModerateProposalForm({
   currentTagIds: string[];
   availableAmenities: TagOption[];
   currentAmenityIds: string[];
+  /** Les lignes product_slot_rules de la fiche (vide hors activité). */
+  currentSlotRules: unknown[];
 }) {
   const router = useRouter();
   const [name, setName] = useState<LocalizedValue>(() => ({ ...(asLocalizedField(proposedPayload.name) ?? {}) }));
@@ -91,6 +104,10 @@ export function ModerateProposalForm({
   const proposesTags = proposedTagIds(proposedPayload) !== null;
   // Équipements d'un logement (migration 20261013151206) : même distinction absent/présent.
   const proposesAmenities = proposedAmenityIds(proposedPayload) !== null;
+  // Horaires d'une activité (migration 20261104120000) : même distinction absent/présent. Le
+  // formulaire est hydraté depuis la proposition (payloadToFieldsInit lit `slot_rules`).
+  const proposesSlotRules = type === "activity" && proposedSlotRules(proposedPayload) !== null;
+  const currentSlotRulesSummary = formatSlotRulesSummary(slotRulesFromColumn(currentSlotRules));
 
   const {
     hasLocationAndTags, hasMinQty, hasMaxQty, hasCheckInOut, hasDefaultCapacity, isLodging, isEvento, isCamp,
@@ -111,6 +128,12 @@ export function ModerateProposalForm({
       toast.danger(occurrenceError);
       return;
     }
+    const slotRulesError =
+      decision === "approve" && proposesSlotRules ? requiredSlotRulesError(fields.slotRules) : null;
+    if (slotRulesError) {
+      toast.danger(slotRulesError);
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -121,6 +144,7 @@ export function ModerateProposalForm({
             ...buildProductEditPayload(type, name, description, fields),
             ...(proposesTags ? { tag_ids: fields.selectedTagIds } : {}),
             ...(proposesAmenities ? { amenity_ids: fields.selectedAmenityIds } : {}),
+            ...(proposesSlotRules ? { slot_rules: toSlotRuleRows(fields.slotRules) } : {}),
           }
         : null;
     const { data, error: rpcError } = await supabase.rpc("moderate_product_proposal", {
@@ -246,6 +270,15 @@ export function ModerateProposalForm({
               {proposesTags ? "" : " (sin cambios propuestos)"}
             </dd>
           </div>
+          {type === "activity" ? (
+            <div data-testid="current-slot-rules">
+              <dt className="inline font-medium text-foreground">Horarios: </dt>
+              <dd className="inline">
+                {currentSlotRulesSummary}
+                {proposesSlotRules ? "" : " (sin cambios propuestos)"}
+              </dd>
+            </div>
+          ) : null}
           {isLodging ? (
             <div data-testid="current-amenities">
               <dt className="inline font-medium text-foreground">Equipamiento: </dt>
@@ -344,6 +377,7 @@ export function ModerateProposalForm({
           availableTags={availableTags}
           showAmenities={proposesAmenities}
           availableAmenities={availableAmenities}
+          showSlotRulesEditor={proposesSlotRules}
         />
 
         <TextField value={rejectionReason} onChange={setRejectionReason}>

@@ -332,7 +332,7 @@ export function ProductTypeFields({
 
       {showPricing && showSlotRulesEditor && isActivity ? (
         <div className="flex flex-col gap-1.5">
-          <Label>{pricingUnit === "per_hour" ? "Horarios — obligatorio, franjas de 60 minutos" : "Horarios — opcional"}</Label>
+          <Label>{pricingUnit === "per_hour" ? "Horarios — obligatorio, franjas de 60 minutos" : "Horarios — obligatorio"}</Label>
           <SlotRulesEditor rules={state.slotRules} onChange={state.setSlotRules} />
         </div>
       ) : null}

@@ -13,6 +13,7 @@ import { ColombianWhatsAppField, WHATSAPP_SOCIO_DESCRIPTION } from "@/components
 import {
   colombianWhatsAppError,
   colombianWhatsAppReasonMessage,
+  localPartOfColombianWhatsApp,
   toColombianWhatsApp,
 } from "@/lib/establishments/colombianWhatsApp";
 
@@ -26,26 +27,62 @@ const SUBMIT_ERRORS: Record<string, string> = {
   not_authenticated: "No se pudo verificar tu sesión. Vuelve a intentarlo.",
   not_a_partner: "Tu cuenta no está asociada a ningún partner.",
   name_required: "El nombre es obligatorio.",
+  // Migration 20261104130000 : correction d'une proposition refusée.
+  proposal_not_found: "No se encontró la propuesta.",
+  not_rejected: "Esta propuesta ya no está rechazada: vuelve a cargar la página.",
 };
+
+// Forme de la proposition enregistrée (submit_establishment_creation_proposal) — le token Lobby
+// n'y est plus jamais en clair après une décision, seulement `lobby_api_token_provided`.
+type StoredEstablishmentPayload = {
+  name?: { es?: unknown } | null;
+  description?: { es?: unknown; en?: unknown } | null;
+  address?: unknown;
+  lat?: unknown;
+  lon?: unknown;
+  photos?: { storage_path: string }[];
+  contact_phone?: unknown;
+  lobby_api_token_provided?: unknown;
+};
+
+function asText(value: unknown): string {
+  return typeof value === "string" ? value : typeof value === "number" ? String(value) : "";
+}
 
 // docs/specs/06-gestion-etablissement.md §5.2 — jamais operated_directly (classification métier/
 // plateforme, filtrée aussi côté RPC) : ce formulaire n'expose que les champs de présentation, même
 // sous-ensemble que NewEstablishmentForm.tsx (admin) moins ce seul champ.
-export function NewEstablishmentProposalForm() {
+//
+// Migration 20261104130000 : `correction` rouvre une proposition REFUSÉE, remplie de ce qu'elle
+// contenait — photos comprises, restées dans Storage. L'envoi la renvoie en revue (même
+// proposition, p_proposal_id), avec les services refusés en même temps qu'elle.
+export function NewEstablishmentProposalForm({
+  correction,
+}: {
+  correction?: { proposalId: string; payload: unknown };
+} = {}) {
   const router = useRouter();
+  const initial = (correction?.payload ?? {}) as StoredEstablishmentPayload;
 
-  const [nombre, setNombre] = useState("");
-  const [descriptionEs, setDescriptionEs] = useState("");
-  const [descriptionEn, setDescriptionEn] = useState("");
+  const [nombre, setNombre] = useState(() => asText(initial.name?.es));
+  const [descriptionEs, setDescriptionEs] = useState(() => asText(initial.description?.es));
+  const [descriptionEn, setDescriptionEn] = useState(() => asText(initial.description?.en));
   const [descriptionLang, setDescriptionLang] = useState<DescriptionLang>("es");
-  const [address, setAddress] = useState("");
-  const [lat, setLat] = useState("");
-  const [lon, setLon] = useState("");
+  const [address, setAddress] = useState(() => asText(initial.address));
+  const [lat, setLat] = useState(() => asText(initial.lat));
+  const [lon, setLon] = useState(() => asText(initial.lon));
   const [lobbyApiToken, setLobbyApiToken] = useState("");
   // WhatsApp du socio — obligatoire (décision Jérôme, 2026-10-19), exigé aussi par la RPC.
-  const [whatsapp, setWhatsapp] = useState("");
+  const [whatsapp, setWhatsapp] = useState(() =>
+    localPartOfColombianWhatsApp(typeof initial.contact_phone === "string" ? initial.contact_phone : null),
+  );
   const [showWhatsappError, setShowWhatsappError] = useState(false);
-  const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>([]);
+  const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>(() =>
+    (Array.isArray(initial.photos) ? initial.photos : []).map((photo) => ({
+      path: photo.storage_path,
+      url: createClient().storage.from("catalog-media").getPublicUrl(photo.storage_path).data.publicUrl,
+    })),
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Écran de confirmation plein écran (docs/specs/40 §4) — toujours « partenaire/en attente », ce
@@ -117,6 +154,7 @@ export function NewEstablishmentProposalForm() {
     const supabase = createClient();
     const { data, error: rpcError } = await supabase.rpc("submit_establishment_creation_proposal", {
       p_payload: payload,
+      ...(correction ? { p_proposal_id: correction.proposalId } : {}),
     });
 
     setIsSubmitting(false);
@@ -132,6 +170,22 @@ export function NewEstablishmentProposalForm() {
     }
 
     setSubmittedProposalId(result.proposal_id ?? null);
+  }
+
+  if (submittedProposalId && correction) {
+    return (
+      <ActionConfirmation
+        status="pending"
+        title="Propuesta corregida enviada"
+        body="Un administrador de Hifago revisará de nuevo tu establecimiento, junto con los servicios que se habían rechazado con él."
+        actionLabel="Ir a mis establecimientos"
+        onAction={() => {
+          router.push("/partner/establishment");
+          router.refresh();
+        }}
+        testId="establishment-proposal-confirmation"
+      />
+    );
   }
 
   if (submittedProposalId) {
@@ -260,9 +314,17 @@ export function NewEstablishmentProposalForm() {
         Si ya usas LobbyPMS, pega aquí tu token de acceso — el equipo lo verificará antes de
         aprobar tu establecimiento. Puedes dejarlo en blanco y añadirlo más adelante.
       </p>
+      {/* Le token n'est jamais conservé en clair après une décision (rédigé au refus) : il ne peut
+          pas être prérempli, seulement redemandé. */}
+      {correction && initial.lobby_api_token_provided === true ? (
+        <p className="text-xs text-muted" data-testid="proposal-lobby-token-again">
+          Por seguridad no guardamos el token que habías pegado: si quieres conectar LobbyPMS,
+          vuelve a pegarlo.
+        </p>
+      ) : null}
 
       <Button type="submit" isDisabled={isSubmitting} data-testid="submit-establishment-proposal-button">
-        {isSubmitting ? "Enviando…" : "Enviar propuesta"}
+        {isSubmitting ? "Enviando…" : correction ? "Enviar la propuesta corregida" : "Enviar propuesta"}
       </Button>
     </form>
   );

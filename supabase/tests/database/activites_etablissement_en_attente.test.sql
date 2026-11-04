@@ -59,7 +59,8 @@ declare v_result jsonb;
 begin
   v_result := submit_product_creation_proposal(
     p_type => 'activity',
-    p_payload => jsonb_build_object('name', jsonb_build_object('es', p_nombre), 'price_cop', 20000),
+    p_payload => jsonb_build_object('name', jsonb_build_object('es', p_nombre), 'price_cop', 20000,
+      'slot_rules', jsonb_build_array(jsonb_build_object('weekdays', jsonb_build_array(1), 'start_time', '09:00', 'end_time', '10:00', 'slot_duration_minutes', 60, 'capacity', 1))),
     p_establishment_proposal_id => (select id from ids where cle = p_establishment_proposal));
   if v_result ->> 'proposal_id' is not null then
     insert into ids values (p_cle, (v_result ->> 'proposal_id')::uuid);
@@ -228,9 +229,9 @@ select throws_ok(
 select throws_ok(
   format($$ update product_proposals set status = 'approved' where id = %L $$, pid('act5')),
   '23514', null, 'approuvée sans établissement viole product_proposals_scope');
-select ok(not has_function_privilege('anon', 'submit_product_creation_proposal(uuid,text,jsonb,uuid)', 'EXECUTE'),
+select ok(not has_function_privilege('anon', 'submit_product_creation_proposal(uuid,text,jsonb,uuid,uuid)', 'EXECUTE'),
   'anon ne peut pas appeler submit_product_creation_proposal');
-select ok(has_function_privilege('authenticated', 'submit_product_creation_proposal(uuid,text,jsonb,uuid)', 'EXECUTE'),
+select ok(has_function_privilege('authenticated', 'submit_product_creation_proposal(uuid,text,jsonb,uuid,uuid)', 'EXECUTE'),
   'authenticated peut appeler submit_product_creation_proposal');
 
 select * from finish();

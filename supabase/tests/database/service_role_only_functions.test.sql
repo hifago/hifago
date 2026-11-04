@@ -149,6 +149,7 @@ insert into tmp_grant_only (name) values
   ('start_time_has_passed'),           -- create_order et cart_lines_availability (20261024130000)
   ('product_qty_cap'),                 -- plafond par ligne (20261025120000)
   ('order_line_slot_units'),           -- créneaux consommés par une ligne (20261025140000)
+  ('proposal_slot_rules'),             -- relecture des horaires proposés (20261104120000)
   ('create_product_from_proposal'),    -- moderate_product_proposal seule (20261006182227)
   ('partner_invitation_email_html'),   -- corps de l'e-mail de bienvenue du socio (20261019130000)
   ('partner_deletion_blocker'),        -- admin_partner_deletion_check, admin_delete_partner (20261019150000)

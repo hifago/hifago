@@ -5,6 +5,7 @@ import {
   createSignedInClient,
   createActiveOperatorEstablishment,
   goToNextWizardStep,
+  toggleCheckbox,
 } from "@hifago/e2e-support";
 import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
 
@@ -65,6 +66,13 @@ test("un socio propone la creación de una actividad con foto, publicada y vendi
   // Étape 2 validée, avance vers l'étape 3 "Comercialización" (precio).
   await goToNextWizardStep(page);
   await page.getByTestId("price-input").fill("50000");
+  // Un horaire est obligatoire pour créer une activité (migration 20261104120000).
+  await page.getByTestId("add-slot-rule-button").click();
+  await toggleCheckbox(page.getByTestId("slot-rule-weekday-1-0"));
+  await page.getByTestId("slot-rule-start-0").fill("09:00");
+  await page.getByTestId("slot-rule-end-0").fill("12:00");
+  await page.getByTestId("slot-rule-duration-0").fill("60");
+  await page.getByTestId("slot-rule-capacity-0").fill("4");
 
   await page.getByTestId("submit-product-proposal-button").click();
   await confirmAndContinue(page, "product-form-confirmation");

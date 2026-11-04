@@ -12,6 +12,7 @@ import type { TagOption } from "@/components/tags-multiselect";
 import { asLocalizedField } from "@hifago/domain";
 import { buildProductCreationPayload } from "@/lib/products/productCreationPayload";
 import { eventoOccurrenceError } from "@/lib/products/eventoOccurrence";
+import { requiredSlotRulesError } from "@/lib/products/slotRules";
 import {
   payloadToFieldsInit,
   useProductTypeFieldsState,
@@ -23,6 +24,9 @@ const MODERATE_ERRORS: Record<string, string> = {
   proposal_not_found: "No se encontró la propuesta.",
   version_conflict: "Esta propuesta fue modificada por otra persona. Recarga la página.",
   establishment_pending: "Aprueba primero el establecimiento de esta propuesta.",
+  // Migration 20261104120000 : une activité naît avec au moins un horaire lisible.
+  slot_rules_required: "Una actividad necesita al menos un horario.",
+  invalid_slot_rules: "Revisa los horarios: uno de ellos no es válido.",
 };
 
 type ModerateResult = {
@@ -112,6 +116,14 @@ export function ModerateProductCreationProposalForm({
     const occurrenceError = decision === "approve" && type === "evento" ? eventoOccurrenceError(fields) : null;
     if (occurrenceError) {
       toast.danger(occurrenceError);
+      return;
+    }
+    // Une activité ne se crée pas sans horaire (migration 20261104120000) — y compris une
+    // proposition déposée avant cette règle : l'admin ajoute l'horaire ici avant d'approuver.
+    const slotRulesError =
+      decision === "approve" && type === "activity" ? requiredSlotRulesError(fields.slotRules) : null;
+    if (slotRulesError) {
+      toast.danger(slotRulesError);
       return;
     }
 

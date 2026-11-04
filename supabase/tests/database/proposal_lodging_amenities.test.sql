@@ -230,7 +230,8 @@ create temp table tmp_h as
   select (submit_product_creation_proposal(
     '7a660000-0000-4000-8000-000000000011'::uuid, 'activity',
     jsonb_build_object('name', jsonb_build_object('es', 'Caminata Nueva Equipamiento'), 'price_cop', 40000,
-                       'amenity_ids', jsonb_build_array('7a660000-0000-4000-8000-0000000000a1'))
+                       'amenity_ids', jsonb_build_array('7a660000-0000-4000-8000-0000000000a1'),
+                       'slot_rules', jsonb_build_array(jsonb_build_object('weekdays', jsonb_build_array(1), 'start_time', '09:00', 'end_time', '10:00', 'slot_duration_minutes', 60, 'capacity', 1)))
   )->>'proposal_id')::uuid as id;
 
 select is(

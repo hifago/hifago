@@ -779,6 +779,7 @@ export type Database = {
           attempts: number
           body_html: string
           created_at: string
+          dedup_scope: string
           event_type: string
           id: string
           last_attempt_at: string | null
@@ -796,6 +797,7 @@ export type Database = {
           attempts?: number
           body_html: string
           created_at?: string
+          dedup_scope?: string
           event_type: string
           id?: string
           last_attempt_at?: string | null
@@ -813,6 +815,7 @@ export type Database = {
           attempts?: number
           body_html?: string
           created_at?: string
+          dedup_scope?: string
           event_type?: string
           id?: string
           last_attempt_at?: string | null
@@ -2988,6 +2991,7 @@ export type Database = {
           attempts: number
           body_html: string
           created_at: string
+          dedup_scope: string
           event_type: string
           id: string
           last_attempt_at: string | null
@@ -3744,6 +3748,7 @@ export type Database = {
         Args: { p_exclude?: string; p_name: Json }
         Returns: string
       }
+      proposal_slot_rules: { Args: { p_rules: Json }; Returns: Json }
       provision_evento_availability: {
         Args: { p_horizon?: string; p_product_id: string }
         Returns: undefined
@@ -4053,7 +4058,7 @@ export type Database = {
         Returns: boolean
       }
       submit_establishment_creation_proposal: {
-        Args: { p_payload: Json }
+        Args: { p_payload: Json; p_proposal_id?: string }
         Returns: Json
       }
       submit_establishment_edit_proposal: {
@@ -4073,6 +4078,7 @@ export type Database = {
           p_establishment_id?: string
           p_establishment_proposal_id?: string
           p_payload?: Json
+          p_proposal_id?: string
           p_type?: string
         }
         Returns: Json

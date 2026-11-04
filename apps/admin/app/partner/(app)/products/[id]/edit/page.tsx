@@ -72,6 +72,7 @@ export default async function EditProductProposalPage({
     tagAssignmentsResult,
     amenitiesResult,
     amenityAssignmentsResult,
+    slotRulesResult,
   ] = await Promise.all([
     supabase
       .from("product_proposals")
@@ -101,6 +102,14 @@ export default async function EditProductProposalPage({
     supabase.from("product_tag_assignments").select("tag_id").eq("product_id", id).order("position"),
     supabase.from("catalog_amenities").select("id, label").order("category_key").order("sort_order"),
     supabase.from("product_amenity_assignments").select("amenity_id").eq("product_id", id),
+    // Horaires d'une activité (migration 20261104120000) : proposables par le partenaire, dans le
+    // même envoi que le reste. Lus ici (lecture directe autorisée) ; l'écriture reste réservée à
+    // l'approbation d'un admin (product_slot_rules est RPC-only).
+    supabase
+      .from("product_slot_rules")
+      .select("weekdays, start_time, end_time, slot_duration_minutes, capacity")
+      .eq("product_id", id)
+      .order("start_time"),
   ]);
   for (const [table, result] of [
     ["product_proposals", pendingResult],
@@ -110,6 +119,7 @@ export default async function EditProductProposalPage({
     ["product_tag_assignments", tagAssignmentsResult],
     ["catalog_amenities", amenitiesResult],
     ["product_amenity_assignments", amenityAssignmentsResult],
+    ["product_slot_rules", slotRulesResult],
   ] as const) {
     if (result.error) {
       throw new Error(`Lecture de la fiche impossible (${table}) : ${result.error.message}`);
@@ -120,6 +130,7 @@ export default async function EditProductProposalPage({
   const pendingPhotosProposal = pendingPhotosResult.data;
   const tagAssignments = tagAssignmentsResult.data;
   const amenityAssignments = amenityAssignmentsResult.data;
+  const slotRules = slotRulesResult.data;
 
   const photos = (media ?? []).map((m) => ({
     id: m.id,
@@ -161,6 +172,7 @@ export default async function EditProductProposalPage({
         currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
         availableAmenities={toTagOptions(amenitiesResult.data)}
         currentAmenityIds={(amenityAssignments ?? []).map((row) => row.amenity_id)}
+        currentSlotRules={slotRules ?? []}
         establishmentId={product.establishment_id}
         establishmentLobbyConnected={Boolean(
           product.establishment?.lobby_connector_active && product.establishment?.lobby_has_token

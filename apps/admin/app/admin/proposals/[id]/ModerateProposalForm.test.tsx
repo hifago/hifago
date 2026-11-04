@@ -45,6 +45,7 @@ function rendre(proposedPayload: Record<string, unknown>) {
       currentTagIds={[]}
       availableAmenities={[]}
       currentAmenityIds={[]}
+      currentSlotRules={[]}
     />,
   );
 }
@@ -137,5 +138,70 @@ describe("ModerateProposalForm — evento", () => {
         "No se puede guardar el cambio de fecha — 1 reserva en curso quedaría fuera de las nuevas fechas: 22/10/2026.",
       ),
     );
+  });
+});
+
+// Horaires proposés en édition (migration 20261104120000) : affichés en place / proposés, renvoyés
+// seulement quand la proposition les porte — sinon l'approbation remplacerait les horaires en place.
+const KAYAK_EN_BASE = { name: { es: "Kayak" }, description: null, price_cop: 50000, pricing_unit: "per_person" };
+const HORARIO_EN_BASE = { weekdays: [1], start_time: "09:00:00", end_time: "12:00:00", slot_duration_minutes: 60, capacity: 4 };
+
+function rendreActividad(proposedPayload: Record<string, unknown>) {
+  render(
+    <ModerateProposalForm
+      proposalId="propuesta-2"
+      expectedVersion={1}
+      type="activity"
+      currentPayload={KAYAK_EN_BASE}
+      proposedPayload={proposedPayload}
+      availableTags={[]}
+      currentTagIds={[]}
+      availableAmenities={[]}
+      currentAmenityIds={[]}
+      currentSlotRules={[HORARIO_EN_BASE]}
+    />,
+  );
+}
+
+describe("ModerateProposalForm — horarios de una actividad", () => {
+  beforeEach(() => {
+    rpc.mockReset();
+    rpc.mockResolvedValue({ data: { ok: true }, error: null });
+    toast.danger.mockClear();
+  });
+
+  it("affiche les horaires en place et renvoie ceux proposés", async () => {
+    rendreActividad({
+      ...KAYAK_EN_BASE,
+      slot_rules: [{ weekdays: [2, 4], start_time: "14:00:00", end_time: "17:00:00", slot_duration_minutes: 60, capacity: 6 }],
+    });
+
+    expect(screen.getByTestId("current-slot-rules").textContent).toContain("Lun 09:00–12:00");
+    expect((screen.getByTestId("slot-rule-start-0") as HTMLInputElement).value).toBe("14:00");
+
+    expect((await aprobar()).slot_rules).toEqual([
+      { weekdays: [2, 4], start_time: "14:00", end_time: "17:00", slot_duration_minutes: 60, capacity: 6 },
+    ]);
+  });
+
+  it("une proposition sans horaires ne montre pas l'éditeur et ne renvoie pas slot_rules", async () => {
+    rendreActividad({ ...KAYAK_EN_BASE, name: { es: "Kayak renombrado" } });
+
+    expect(screen.getByTestId("current-slot-rules").textContent).toContain("sin cambios propuestos");
+    expect(screen.queryByTestId("slot-rules-editor")).toBeNull();
+    expect(await aprobar()).not.toHaveProperty("slot_rules");
+  });
+
+  it("refuse d'approuver des horaires proposés vidés par l'admin", () => {
+    rendreActividad({
+      ...KAYAK_EN_BASE,
+      slot_rules: [{ weekdays: [2], start_time: "14:00:00", end_time: "17:00:00", slot_duration_minutes: 60, capacity: 6 }],
+    });
+
+    fireEvent.click(screen.getByTestId("remove-slot-rule-0"));
+    fireEvent.click(screen.getByTestId("approve-button"));
+
+    expect(toast.danger).toHaveBeenCalledWith("Una actividad necesita al menos un horario.");
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
