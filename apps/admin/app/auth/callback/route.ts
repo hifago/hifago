@@ -119,15 +119,10 @@ export async function GET(request: Request) {
     }
   }
 
-  // 2FA admin déclenchée à la connexion elle-même (§8) — un compte admin qui vient de confirmer
-  // son email ou de se connecter via Google n'échappe pas à l'AAL2.
+  // 2FA activé par le compte (§8/§10) : défi à la connexion elle-même. Aucun enrôlement n'est
+  // jamais forcé ici — l'activation est un choix (modale « Seguridad »).
   if (user) {
     const mfa = await checkMfaGuard(supabase);
-    if (mfa.action === "enroll") {
-      return NextResponse.redirect(
-        new URL(`/mfa/enroll?next=${encodeURIComponent(next)}`, url.origin)
-      );
-    }
     if (mfa.action === "verify") {
       return NextResponse.redirect(
         new URL(`/mfa/verify?next=${encodeURIComponent(next)}`, url.origin)

@@ -1,7 +1,7 @@
 import { validateProgram, type DraftProgram } from "@/lib/products/program";
 import { validateTransportInfo, type TransportInfoFields } from "@/lib/products/transportInfo";
 import { validateGroupDiscount, type GroupDiscount } from "@/lib/products/groupDiscount";
-import { validateSlotRules, type DraftSlotRule } from "@/lib/products/slotRules";
+import { requiredSlotRulesError, type DraftSlotRule } from "@/lib/products/slotRules";
 import { validatePriceTiers, type PriceTier } from "@/lib/products/priceTiers";
 import { validateStayRates, type DraftStayRates } from "@/lib/products/stayRates";
 import { eventoOccurrenceError } from "@/lib/products/eventoOccurrence";
@@ -137,8 +137,10 @@ export function requiredPricingStepError(params: {
       const groupDiscountError = validateGroupDiscount(params.groupDiscount);
       if (groupDiscountError) return groupDiscountError;
     }
+    // Au moins un horaire depuis le 2026-11-04 (migration 20261104120000) : une activité sans
+    // règle n'a aucun créneau réservable.
     if (params.isActivity) {
-      const slotRulesError = validateSlotRules(params.slotRules);
+      const slotRulesError = requiredSlotRulesError(params.slotRules);
       if (slotRulesError) return slotRulesError;
     }
   }

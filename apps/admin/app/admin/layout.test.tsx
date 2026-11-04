@@ -39,6 +39,12 @@ vi.mock("@hifago/supabase/server", () => ({
   }),
 }));
 
+let garde: { action: "none" | "verify" } = { action: "none" };
+
+vi.mock("@/lib/mfaGuard", () => ({
+  checkMfaGuard: async () => garde,
+}));
+
 vi.mock("./AdminNav", () => ({
   AdminNav: ({ pendingProposalsCount }: { pendingProposalsCount: number }) => (
     <p data-testid="pastille">{pendingProposalsCount}</p>
@@ -65,6 +71,7 @@ describe("/admin — garde", () => {
   beforeEach(() => {
     utilisateur = { id: "u" };
     isAdmin = { data: true, error: null };
+    garde = { action: "none" };
     lectures = [];
     comptes = {
       product_proposals: { count: 2, error: null },
@@ -85,6 +92,15 @@ describe("/admin — garde", () => {
   it("connecté sans rôle admin (socio), renvoie à l'aiguillage / — jamais à /login", async () => {
     isAdmin = { data: false, error: null };
     expect(await redirection()).toBe("/");
+  });
+
+  // 2FA activé (spec 07 §10) : is_admin() est faux pour un admin enrôlé tant que sa session est en
+  // AAL1. Le défi doit donc passer AVANT is_admin(), sinon il serait renvoyé à `/` en boucle.
+  it("admin qui a activé son 2FA mais en AAL1 : renvoie au défi, sans lire le rôle", async () => {
+    garde = { action: "verify" };
+    isAdmin = { data: false, error: null };
+    expect(await redirection()).toBe("/mfa/verify?next=%2Fadmin");
+    expect(lectures).toEqual([]);
   });
 
   it("lève quand le rôle admin est indéterminable, au lieu de déconnecter", async () => {

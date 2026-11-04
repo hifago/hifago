@@ -27,9 +27,11 @@ import { eventoChangeRefusal } from "@/lib/products/eventoChangeRefusal";
 import { mergeLobbyRoom } from "@/lib/products/lobbyRoomImport";
 import { asLodgingKind, asLodgingUnit, asPricingUnit } from "@hifago/domain";
 import {
+  payloadToFieldsInit,
   productTypeGating,
   useProductTypeFieldsState,
   type ProductType,
+  type RawProductFieldsPayload,
 } from "@/lib/products/useProductTypeFieldsState";
 
 type Establishment = {
@@ -132,6 +134,12 @@ const SUBMIT_ERRORS: Record<string, string> = {
   // 20261019120000 : l'établissement en revue a été tranché (ou retiré) pendant la saisie.
   establishment_proposal_not_pending:
     "Este establecimiento ya fue revisado. Vuelve a cargar la página y elígelo de nuevo.",
+  // Migration 20261104130000 : correction d'une proposition refusée.
+  proposal_not_found: "No se encontró la propuesta.",
+  not_rejected: "Esta propuesta ya no está rechazada: vuelve a cargar la página.",
+  // Migration 20261104120000 : une activité se propose avec au moins un horaire lisible.
+  slot_rules_required: "Una actividad necesita al menos un horario.",
+  invalid_slot_rules: "Revisa los horarios: uno de ellos no es válido.",
 };
 
 // Un seul endroit pour le nom du type en espagnol (genre inclus) — le bouton de soumission, le
@@ -179,6 +187,7 @@ export function ProductForm({
   allAmenities = [],
   product,
   variant = "admin",
+  correction,
 }: {
   establishments?: Establishment[];
   initialEstablishmentId?: string;
@@ -190,15 +199,29 @@ export function ProductForm({
   allAmenities?: TagOption[];
   product?: EditableProduct;
   variant?: "admin" | "socio-proposal";
+  // Migration 20261104130000 (variant socio-proposal seulement) : corriger une proposition de
+  // création REFUSÉE. Le formulaire repart de ce qu'elle contenait — rien n'est ressaisi — et
+  // l'envoi la renvoie en revue (même proposition, submit_product_creation_proposal avec
+  // p_proposal_id). Établissement et type restent figés : la RPC les relit sur la proposition.
+  correction?: { proposalId: string; type: ProductType; payload: unknown };
 }) {
   const router = useRouter();
   const isEditing = Boolean(product);
+  const correctionPayload = (correction?.payload ?? {}) as RawProductFieldsPayload & {
+    name?: unknown;
+    description?: unknown;
+    photos?: { storage_path: string }[];
+  };
 
   const [establishmentId, setEstablishmentId] = useState(initialEstablishmentId);
-  const [type, setType] = useState<ProductType>((product?.type as ProductType) ?? "activity");
-  const [name, setName] = useState<LocalizedValue>(() => ({ ...(asLocalizedField(product?.name) ?? {}) }));
+  const [type, setType] = useState<ProductType>(
+    (product?.type as ProductType) ?? correction?.type ?? "activity",
+  );
+  const [name, setName] = useState<LocalizedValue>(() => ({
+    ...(asLocalizedField(product ? product.name : correctionPayload.name) ?? {}),
+  }));
   const [description, setDescription] = useState<LocalizedValue>(() => ({
-    ...(asLocalizedField(product?.description) ?? {}),
+    ...(asLocalizedField(product ? product.description : correctionPayload.description) ?? {}),
   }));
 
   const fields = useProductTypeFieldsState(
@@ -249,9 +272,18 @@ export function ProductForm({
           transportArrivalLon: product.transport_arrival_lon,
           transportContactPhone: product.transport_contact_phone,
         }
-      : undefined,
+      : correction
+        ? payloadToFieldsInit(correctionPayload)
+        : undefined,
   );
-  const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>([]);
+  // Une correction reprend les photos déjà envoyées : elles sont restées dans Storage, seul leur
+  // storage_path voyage dans la proposition. getPublicUrl ne fait aucun appel réseau.
+  const [stagedPhotos, setStagedPhotos] = useState<StagedPhoto[]>(() =>
+    (Array.isArray(correctionPayload.photos) ? correctionPayload.photos : []).map((photo) => ({
+      path: photo.storage_path,
+      url: createClient().storage.from("catalog-media").getPublicUrl(photo.storage_path).data.publicUrl,
+    })),
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -518,10 +550,13 @@ export function ProductForm({
         ...buildProductCreationPayload(type, name, description, fields, stagedPhotos),
         ...(vitrinaOculta ? { external_booking_url: null, price_label: null } : {}),
       };
+      // Correction (20261104130000) : la cible n'est pas envoyée, la RPC la relit sur la proposition.
       const { data, error: rpcError } = await supabase.rpc("submit_product_creation_proposal", {
-        ...(establishment.pending_proposal
-          ? { p_establishment_proposal_id: establishment.id }
-          : { p_establishment_id: establishment.id }),
+        ...(correction
+          ? { p_proposal_id: correction.proposalId }
+          : establishment.pending_proposal
+            ? { p_establishment_proposal_id: establishment.id }
+            : { p_establishment_id: establishment.id }),
         p_type: type,
         p_payload: payload as Json,
       });
@@ -531,8 +566,24 @@ export function ProductForm({
       const result = data as { ok: boolean; reason?: string; proposal_id?: string } | null;
       if (rpcError || !result?.ok) {
         toast.danger(
-          SUBMIT_ERRORS[result?.reason ?? ""] ?? "No se pudo enviar la propuesta. Inténtalo de nuevo.",
+          (correction && result?.reason === "establishment_proposal_not_pending"
+            ? "Tu establecimiento fue rechazado: corrígelo primero y esta propuesta podrá enviarse."
+            : SUBMIT_ERRORS[result?.reason ?? ""]) ?? "No se pudo enviar la propuesta. Inténtalo de nuevo.",
         );
+        return;
+      }
+
+      if (correction) {
+        setConfirmation({
+          status: "pending",
+          title: "Propuesta corregida enviada",
+          body: `Un administrador de Hifago revisará de nuevo ${entityNoun(type)}. Te avisaremos de su decisión.`,
+          actionLabel: "Ir a mis establecimientos",
+          onAction: () => {
+            router.push("/partner/establishment");
+            router.refresh();
+          },
+        });
         return;
       }
 
@@ -784,7 +835,9 @@ export function ProductForm({
     variant === "socio-proposal"
       ? isSubmitting
         ? "Enviando…"
-        : "Enviar propuesta"
+        : correction
+          ? "Enviar la propuesta corregida"
+          : "Enviar propuesta"
       : isSubmitting
         ? "Creando…"
         : `Crear ${PRODUCT_TYPE_NOUN[type].label}`;
@@ -798,6 +851,8 @@ export function ProductForm({
           <Select
             fullWidth
             placeholder="Selecciona un establecimiento"
+            // Correction : établissement et type figés (relus par la RPC sur la proposition).
+            isDisabled={Boolean(correction)}
             value={establishmentId}
             onChange={(value) => value && setEstablishmentId(value as string)}
           >
@@ -822,7 +877,12 @@ export function ProductForm({
               </ListBox>
             </Select.Popover>
           </Select>
-          <Select fullWidth value={type} onChange={(value) => value && setType(value as ProductType)}>
+          <Select
+            fullWidth
+            isDisabled={Boolean(correction)}
+            value={type}
+            onChange={(value) => value && setType(value as ProductType)}
+          >
             <Label>Tipo</Label>
             <Select.Trigger data-testid="type-select">
               <Select.Value />
@@ -910,12 +970,17 @@ export function ProductForm({
         <Button type="button" variant="outline" onPress={goPrev} isDisabled={stepIndex === 0}>
           Anterior
         </Button>
+        {/* `key` distincts, obligatoires (2026-11-04) : sans eux React RÉUTILISE le même <button>
+            en changeant son type. onPress (react-aria) passe à l'étape 3 au relâchement, AVANT le
+            clic natif — qui tombait alors sur un bouton devenu « submit » et envoyait la
+            proposition sans que l'étape 3 ait été vue (constaté sur une correction déjà remplie). */}
         {stepIndex < STEP_TITLES.length - 1 ? (
-          <Button type="button" onPress={goNext} data-testid="wizard-next-button">
+          <Button key="wizard-next" type="button" onPress={goNext} data-testid="wizard-next-button">
             Siguiente
           </Button>
         ) : (
           <Button
+            key="wizard-submit"
             type="submit"
             isDisabled={isSubmitting}
             data-testid={

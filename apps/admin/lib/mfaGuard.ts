@@ -1,26 +1,21 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type MfaGuardResult =
-  | { action: "none" }
-  | { action: "enroll" }
-  | { action: "verify" };
+export type MfaGuardResult = { action: "none" } | { action: "verify" };
 
-// Feature 31 (docs/specs/07-connexion-inscription-complete.md §8) — le 2FA admin se déclenche à la
-// connexion elle-même, pas seulement à l'entrée d'un module : appelé depuis app/admin/layout.tsx
-// ET app/partner/(app)/layout.tsx. has_admin_capability (pas is_admin, volontairement gelé à false
-// tant que l'AAL2 n'est pas atteinte, cf. migration 20260815250000_admin_2fa_aal2.sql) décide si ce
-// compte est concerné ; getAuthenticatorAssuranceLevel() décide où l'envoyer.
+// Feature 31 (docs/specs/07-connexion-inscription-complete.md §8/§10) — le 2FA est un CHOIX : jamais
+// d'enrôlement forcé (décision du 2026-08-15, confirmée le 2026-10-30), mais qui l'a activé doit le
+// passer à CHAQUE connexion, mot de passe comme Google. Appelé depuis app/auth/callback/route.ts,
+// app/admin/layout.tsx, app/partner/(app)/layout.tsx et app/page.tsx.
+//
+// ⚠️ À appeler AVANT tout contrôle is_admin() : depuis 20261030090000_admin_2fa_si_active.sql,
+// is_admin() est faux pour un admin enrôlé tant que sa session est en AAL1. Sans ce garde en amont,
+// il serait renvoyé à `/` (qui le renvoie sur /admin) en boucle au lieu d'atteindre /mfa/verify.
+//
+// nextLevel === 'aal2' && currentLevel === 'aal1' : un facteur VÉRIFIÉ existe mais n'a pas encore
+// été prouvé pour CETTE session. Un facteur resté `unverified` (enrôlement abandonné) ne fait pas
+// monter nextLevel : il ne bloque donc jamais personne.
 export async function checkMfaGuard(supabase: SupabaseClient): Promise<MfaGuardResult> {
-  const { data: hasAdminCapability } = await supabase.rpc("has_admin_capability");
-  if (!hasAdminCapability) return { action: "none" };
-
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (!aal) return { action: "none" };
-
-  // nextLevel === 'aal1' : aucun facteur enrôlé, l'AAL2 n'est même pas atteignable — enrôlement
-  // obligatoire. nextLevel === 'aal2' && currentLevel === 'aal1' : un facteur existe déjà mais pas
-  // encore vérifié pour CETTE session — simple vérification, pas un nouvel enrôlement.
-  if (aal.nextLevel === "aal1") return { action: "enroll" };
-  if (aal.nextLevel === "aal2" && aal.currentLevel === "aal1") return { action: "verify" };
+  if (aal?.nextLevel === "aal2" && aal.currentLevel === "aal1") return { action: "verify" };
   return { action: "none" };
 }

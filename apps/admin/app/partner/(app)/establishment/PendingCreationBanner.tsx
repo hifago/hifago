@@ -14,7 +14,14 @@ const WITHDRAW_ERRORS: Record<string, string> = {
   not_authenticated: "No se pudo verificar tu sesión. Vuelve a intentarlo.",
 };
 
-type PendingCreation = { id: string; payload: unknown; created_at: string };
+type PendingCreation = {
+  id: string;
+  payload: unknown;
+  created_at: string;
+  // Migration 20261104130000 : une proposition refusée reste affichée, à corriger ou à écarter.
+  status: string;
+  rejection_reason: string | null;
+};
 
 // Rendu en CatalogCard comme le reste de /partner/establishment (retour Jérôme : une proposition
 // en attente reste une carte normale, seul le tag de statut la distingue) — jamais deux tags
@@ -47,13 +54,14 @@ export function PendingCreationBanner({ proposal: initialProposal }: { proposal:
     }
 
     setProposal(null);
-    toast.success("Propuesta retirada.");
+    toast.success(proposal.status === "rejected" ? "Propuesta descartada." : "Propuesta retirada.");
     // Le retrait emporte les activités proposées avec cet établissement (20261019120000) : la page
     // les rend sous cette carte, elle doit être relue.
     router.refresh();
   }
 
   if (!proposal) return null;
+  const isRejected = proposal.status === "rejected";
 
   const payload = proposal.payload as { name?: unknown; photos?: { storage_path: string }[] };
   const proposedName = resolveLocalizedField(asLocalizedField(payload?.name), "es");
@@ -70,27 +78,57 @@ export function PendingCreationBanner({ proposal: initialProposal }: { proposal:
       layout="horizontal"
       photos={photos}
       title={proposedName ?? proposal.id}
-      statusChips={[{ label: "Pendiente de revisión", color: "warning" }]}
+      statusChips={[
+        isRejected
+          ? { label: "Rechazada", color: "danger" }
+          : { label: "Pendiente de revisión", color: "warning" },
+      ]}
       footer={
-        <>
-          <Link
-            href={`/partner/products/new?establecimiento=${proposal.id}`}
-            className={buttonVariants({ size: "sm" })}
-            data-testid={`add-activity-to-pending-${proposal.id}`}
-          >
-            Añadir servicio
-          </Link>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            isDisabled={isWithdrawing}
-            onPress={handleWithdraw}
-            data-testid="withdraw-creation-proposal-button"
-          >
-            {isWithdrawing ? "Retirando…" : "Retirar"}
-          </Button>
-        </>
+        isRejected ? (
+          <>
+            {/* 20261104130000 : le motif, puis corriger (formulaire prérempli) ou écarter. */}
+            <p className="w-full text-sm" data-testid={`rejection-reason-${proposal.id}`}>
+              <span className="font-semibold">Motivo del rechazo:</span> {proposal.rejection_reason ?? "—"}
+            </p>
+            <Link
+              href={`/partner/establishment/new?corregir=${proposal.id}`}
+              className={buttonVariants({ size: "sm" })}
+              data-testid={`correct-establishment-proposal-${proposal.id}`}
+            >
+              Corregir
+            </Link>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              isDisabled={isWithdrawing}
+              onPress={handleWithdraw}
+              data-testid="withdraw-creation-proposal-button"
+            >
+              {isWithdrawing ? "Descartando…" : "Descartar"}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Link
+              href={`/partner/products/new?establecimiento=${proposal.id}`}
+              className={buttonVariants({ size: "sm" })}
+              data-testid={`add-activity-to-pending-${proposal.id}`}
+            >
+              Añadir servicio
+            </Link>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              isDisabled={isWithdrawing}
+              onPress={handleWithdraw}
+              data-testid="withdraw-creation-proposal-button"
+            >
+              {isWithdrawing ? "Retirando…" : "Retirar"}
+            </Button>
+          </>
+        )
       }
     />
   );

@@ -5,11 +5,11 @@ theme: specs
 public: [ia, dev, jerome]
 langue: fr
 statut: implemente
-maj: 2026-08-19
+maj: 2026-10-30
 resume: >
   Parcours de connexion/inscription complet pour hifago, sur Supabase Auth : Google OAuth,
   inscription email/mot de passe avec vérification par email, mot de passe oublié/réinitialisation,
-  et 2FA TOTP obligatoire pour le rôle admin — sans reconstruire l'identité unifiée déjà en place
+  et 2FA TOTP (choix de l'utilisateur, exigé à la connexion une fois activé) — sans reconstruire l'identité unifiée déjà en place
   (partner_accounts/partner_capabilities). Back-end générique pour les deux apps ; front de ce lot
   concentré sur apps/admin.
 mots_cles: [auth, connexion, inscription, google, oauth, verification email, mot de passe oublie,
@@ -69,6 +69,28 @@ repond_a:
 > création. Le bouton Google est **restauré sur `/login`** ; un compte fraîchement créé (Google ou
 > confirmation email) hors contexte d'invitation est supprimé a posteriori plutôt que sa création
 > bloquée en amont. Détail : §5, §8, §9, §10.
+>
+> **4e révision le 2026-10-30 — le 2FA devient un CHOIX, mais un choix qui protège** (décision
+> Gabriel ; l'obligation générale reste un arbitrage de Jérôme, §10). Constat : depuis le 15/08 le
+> 2FA était « optionnel » sans l'être vraiment — seule la connexion Google (et la confirmation
+> d'e-mail) passait par le garde et forçait `/mfa/enroll`, une page sans aucune sortie ; la
+> connexion e-mail + mot de passe ne demandait jamais le 2FA, même à un admin enrôlé ; et
+> `is_admin()` ne regardait plus l'AAL, donc un 2FA activé ne protégeait rien. Désormais : (1)
+> **jamais d'enrôlement forcé** ; (2) qui a activé un facteur le passe à **chaque connexion**
+> (mot de passe comme Google) — `checkMfaGuard` ne produit plus que `verify` et passe AVANT
+> `is_admin()` ; (3) `is_admin()` exige l'AAL2 **seulement si le compte a un facteur vérifié**
+> (`20261030090000_admin_2fa_si_active.sql`) ; (4) gestion dans la modale « Seguridad » du pied de
+> la barre admin (activer, ajouter un second appareil, retirer), pas dans une page isolée ;
+> `/mfa/enroll` et `/mfa/verify` gagnent leurs sorties (« Más tarde », « Cerrar sesión », choix de
+> l'appareil). Pas de codes de secours (Supabase n'en a pas) : le secours est un **second
+> facteur**, recommandé par la modale. **Clé de sécurité (WebAuthn) ajoutée le 2026-10-30** (même
+> jour, décision Gabriel) : « Añadir una llave de seguridad » dans la modale, bouton « Usar mi llave »
+> au défi ; une clé seule suffit à activer le 2FA. Réglage serveur : `[auth.mfa.web_authn]` ET
+> `[auth.webauthn]` (`rp_id`, `rp_origins`, `rp_display_name`) — sans l'identité de la partie de
+> confiance, GoTrue répond 500 « must provide at least one value to the 'RPOrigins' field » au
+> challenge ; l'`rp_id` est le nom d'hôte de l'admin et doit rester STABLE (une clé y est liée).
+> **SMS écarté** (module Supabase payant ≈ 75 $/mois/projet hors plafond, fournisseur absent de la
+> liste CLAUDE.md §9, facteur le plus faible : à ne rouvrir que sur demande de Jérôme).
 
 ## Sommaire et statut
 
@@ -186,8 +208,9 @@ Ne pas rouvrir :
 
 ## 4. Parcours cible
 
-**Connexion** : `/login` → email/mot de passe ou Google → succès → next (ou `/mfa/verify` si compte
-admin sans AAL2) ; échec pour cause de compte non confirmé → `/verify-email`.
+**Connexion** : `/login` → email/mot de passe ou Google → succès → next (ou `/mfa/verify` si le
+compte a activé un facteur et que la session est en AAL1 — pour les deux modes de connexion, depuis
+le 2026-10-30) ; échec pour cause de compte non confirmé → `/verify-email`.
 
 ~~**Inscription libre** : `/signup` → email/mot de passe (+confirmation) ou Google → pas de session
 (confirmation requise pour email/mot de passe) → `/verify-email` → clic sur le lien reçu →
@@ -197,9 +220,14 @@ redirige désormais vers `/login` (§5, §8, §10).
 **Mot de passe oublié** : `/forgot-password` → email → toujours un message générique → lien reçu →
 `/auth/callback` (session de récupération) → `/reset-password` → nouveau mot de passe → reconnexion.
 
-**2FA admin** : connexion réussie, compte porte la capacité admin → pas de facteur TOTP enrôlé →
-`/mfa/enroll` (bloquant) → facteur enrôlé et vérifié → accès. Si facteur déjà enrôlé mais session
-AAL1 → `/mfa/verify` (bloquant) → accès.
+~~**2FA admin** : connexion réussie, compte porte la capacité admin → pas de facteur TOTP enrôlé →
+`/mfa/enroll` (bloquant) → facteur enrôlé et vérifié → accès.~~ — **supprimé le 2026-10-30** : aucun
+enrôlement n'est forcé.
+
+**2FA** (révision 2026-10-30) : un compte l'active quand il veut, depuis « Seguridad » (modale du
+pied de la barre admin) ou par lien direct vers `/mfa/enroll`. Une fois un facteur vérifié, chaque
+connexion en AAL1 → `/mfa/verify` (bloquant, avec « Cerrar sesión ») → accès ; `is_admin()` est faux
+tant que l'AAL2 n'est pas atteinte.
 
 **Invitation partenaire** (Feature 29, inchangée dans son comportement) : lien reçu → jeton vérifié
 en arrière-plan → formulaire (nom/email/mot de passe) → compte créé **déjà confirmé** (nouveau,
@@ -230,13 +258,17 @@ Tous dans `apps/admin`, sauf mention contraire.
 - **`/auth/callback`** (nouveau, Route Handler) : gère l'échange de code OAuth
   (`exchangeCodeForSession`) et l'atterrissage des liens email (`verifyOtp` avec `token_hash` +
   `type` — `signup`, `recovery`) selon les paramètres reçus, puis redirige vers `next` (ou
-  `/mfa/enroll`/`/mfa/verify` si le compte est admin).
-- **`/mfa/enroll`** (nouveau) : affiché quand le compte a la capacité admin et **aucun** facteur TOTP
-  enrôlé — QR code (`otpauth://` renvoyé par `mfa.enroll()`, rendu via `qrcode`) + secret en repli
-  texte + champ de confirmation à 6 chiffres (`mfa.challengeAndVerify()`). Bloquant : pas d'accès à
-  `/admin/*` (ni `/partner/*`) tant que non enrôlé.
-- **`/mfa/verify`** (nouveau) : affiché quand le compte a la capacité admin, un facteur TOTP existe,
-  mais la session courante est AAL1 — champ à 6 chiffres, même appel de vérification.
+  `/mfa/verify` si le compte a activé un 2FA et que la session est en AAL1 — plus de renvoi vers
+  `/mfa/enroll`, l'enrôlement n'est jamais forcé, depuis le 2026-10-30).
+- **`/mfa/enroll`** (nouveau) : QR code (SVG renvoyé par `mfa.enroll()`) + clé texte copiable + lien
+  « abrir en la app » (mobile) + champ de confirmation à 6 chiffres (`mfa.challengeAndVerify()`).
+  ~~Bloquant : pas d'accès à `/admin/*` tant que non enrôlé.~~ **Révisé le 2026-10-30** : jamais
+  bloquant — « Más tarde » et « Cerrar sesión ». Même assistant (`components/totp-enrollment.tsx`)
+  que la modale « Seguridad ». Un second facteur reçoit un `friendlyName` unique (GoTrue refuse deux
+  noms identiques, y compris vides : 422 `mfa_factor_name_conflict`).
+- **`/mfa/verify`** (nouveau) : affiché quand un facteur vérifié existe mais la session courante est
+  AAL1 (tout compte, plus seulement admin) — champ à 6 chiffres ; avec plusieurs appareils, choix de
+  l'appareil (un code TOTP est lié au secret du sien), « Cerrar sesión » toujours proposé.
 - **`/partner/join` → `JoinForm.tsx`** (modifié) : remplace l'appel client `signUp()` par un appel au
   nouveau Route Handler `POST /api/auth/invitation-signup` (§7), le reste (RPC
   `consume_partner_invitation`, redirection `/partner`) inchangé.
@@ -249,10 +281,13 @@ déjà utilisé par toute la checklist RLS/RPC-only existante, un seul changemen
 de retoucher chaque RPC admin individuellement. Vérifié à l'implémentation (grep exhaustif) : tous
 les appelants sont des auto-contrôles (`is_admin(auth.uid())`), jamais un contrôle du statut admin
 d'un tiers. Nouveau helper distinct `has_admin_capability(uid)` : la capacité seule, **sans**
-exigence d'AAL2 — nécessaire pour que le garde applicatif (`checkMfaGuard`) puisse d'abord savoir
-« ce compte est admin » avant que l'AAL2 soit atteinte, afin de le rediriger vers `/mfa/enroll` ;
-`is_admin()` seul ne peut pas servir à cette décision (il est volontairement faux tant que l'AAL2
-n'est pas satisfaite — cercle vicieux sinon). Nouvelle RPC `check_partner_invitation` (§7).
+exigence d'AAL2 — nécessaire pour que le garde applicatif puisse savoir « ce compte est admin »
+avant que l'AAL2 soit atteinte ; `is_admin()` seul ne peut pas servir à cette décision (il est faux
+tant que l'AAL2 n'est pas satisfaite — cercle vicieux sinon). **Révisé le 2026-10-30**
+(`20261030090000_admin_2fa_si_active.sql`) : l'exigence d'AAL2 de `is_admin()` n'existe que pour un
+compte ayant un facteur MFA **vérifié** (tous types) ; un facteur `unverified` (enrôlement
+abandonné) ne bloque rien. Test : `supabase/tests/database/admin_2fa_si_active.test.sql`. Nouvelle
+RPC `check_partner_invitation` (§7).
 
 ## 7. Contrat API/RPC
 
@@ -305,9 +340,10 @@ Templates email confirmation/recovery pointant vers
 - `/partner/join` reste instantané, jamais régressé par ce lot.
 - Aucune invitation invalide ne crée de compte, même partiel (invariant déjà testé, préservé).
 - ~~Un compte portant la capacité admin ne peut jamais atteindre `/admin/*` ni `/partner/*` sans
-  facteur TOTP enrôlé et vérifié (AAL2)~~ — **suspendu le 2026-08-15** (§10, non conforme
-  temporaire) : le 2FA est actuellement optionnel, pas d'AAL2 requis. Cet invariant redevient
-  vrai dès que le point ouvert §10 est refermé.
+  facteur TOTP enrôlé et vérifié (AAL2)~~ — **suspendu le 2026-08-15** (§10), **remplacé le
+  2026-10-30** par : un compte qui a un facteur vérifié ne peut jamais atteindre `/admin/*` ni
+  `/partner/*` (ni être `is_admin()`) sans AAL2, quel que soit son mode de connexion. L'obligation
+  d'enrôlement pour tout admin (cahier admin §1) reste, elle, suspendue — arbitrage Jérôme.
 - Jamais de fuite d'information sur l'existence d'un compte (signup, forgot-password) — réponse
   générique dans tous les cas.
 - ~~**Ajouté le 2026-08-19** : aucun nouveau compte ne peut se créer sans passer par une invitation
@@ -332,6 +368,9 @@ Templates email confirmation/recovery pointant vers
 - Perte de l'authenticator TOTP par un admin → pas de codes de secours natifs côté Supabase MFA ;
   résolution par intervention `service_role` d'un autre admin/dev (retrait du facteur via l'API
   admin), à documenter comme procédure opérationnelle, pas une fonctionnalité self-service.
+  **Documentée le 2026-10-30** : `docs/runbook-environnements.md` §9 (SQL éprouvé en local). Depuis
+  que `is_admin()` exige l'AAL2 pour un compte enrôlé, ce verrouillage est réel, plus théorique :
+  d'où le second appareil recommandé par la modale et l'inventaire à passer avant la migration (§9.1).
 - Invitation consommée par quelqu'un d'autre entre le pré-contrôle du Route Handler et l'appel RPC
   (fenêtre de concurrence résiduelle) → compte créé mais sans rôle — cas rare, non dangereux (aucune
   capacité accordée), documenté plutôt que masqué.
@@ -376,6 +415,14 @@ Templates email confirmation/recovery pointant vers
   conditions réelles (pas seulement via l'automatisation, qui n'a jamais reproduit le problème) ;
   les écrans `/mfa/enroll`/`/mfa/verify` restent fonctionnels en usage volontaire. **Point ouvert à
   rouvrir**, pas une décision définitive.
+  **Mise à jour 2026-10-30** (décision Gabriel) : l'obligation générale reste suspendue, mais le 2FA
+  volontaire est rendu réel (cf. chapeau, 4e révision). Piste de la cause du bug d'origine : les
+  cookies mélangés `127.0.0.1`/`localhost` du bug `redirect_to`, corrigé le jour même. Autre cause
+  possible à vérifier SUR LE PROJET HÉBERGÉ (jamais fait ici) : `mfa.enroll()` répond 500 « site url
+  is improperly formatted » si le `site_url` GoTrue n'est pas une URL valide — constaté en local le
+  2026-10-30 (pile démarrée sans le `.env`, `GOTRUE_SITE_URL=env(SUPABASE_AUTH_SITE_URL)` littéral).
+  Pour rétablir l'obligation d'enrôlement des admins : arbitrage Jérôme, puis un seul geste
+  (`checkMfaGuard` → `enroll`, `is_admin()` sans la clause « a un facteur vérifié »).
 - ~~**Inscription libre — bloquée le 2026-08-19**~~ (contredit la décision initiale §2/§4/§5,
   historique conservé, pas écrasé — voir aussi le chapeau du document) : première tentative de
   Jérôme après test réel sur son propre compte de test (`gmiro46@gmail.com`, connexion Google) — le

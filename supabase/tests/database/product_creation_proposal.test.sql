@@ -183,7 +183,8 @@ select is(
 -- pending/partenaire — testé juste après — reste une vraie barrière.)
 select is(
   (select submit_product_creation_proposal(
-     '88880000-0000-4000-8000-000000000011'::uuid, 'activity', jsonb_build_object('name', jsonb_build_object('es', 'Y'))
+     '88880000-0000-4000-8000-000000000011'::uuid, 'activity', jsonb_build_object('name', jsonb_build_object('es', 'Y'),
+       'slot_rules', jsonb_build_array(jsonb_build_object('weekdays', jsonb_build_array(1), 'start_time', '09:00', 'end_time', '10:00', 'slot_duration_minutes', 60, 'capacity', 1)))
    )->>'ok')::boolean,
   true,
   'une 2e création pending sur le MÊME établissement réussit désormais (plafond par établissement retiré)'
@@ -423,7 +424,8 @@ select is(
 create temp table tmp_lobby_activity as
   select submit_product_creation_proposal(
     '88880000-0000-4000-8000-000000000015'::uuid, 'activity',
-    jsonb_build_object('name', jsonb_build_object('es', 'Actividad Lobby'), 'price_cop', 50000, 'lobby_product_id', 4242)
+    jsonb_build_object('name', jsonb_build_object('es', 'Actividad Lobby'), 'price_cop', 50000, 'lobby_product_id', 4242,
+                       'slot_rules', jsonb_build_array(jsonb_build_object('weekdays', jsonb_build_array(1), 'start_time', '09:00', 'end_time', '10:00', 'slot_duration_minutes', 60, 'capacity', 1)))
   ) as result;
 select is(
   (select payload ->> 'lobby_product_id' from product_proposals

@@ -85,3 +85,26 @@ describe("requiredPricingStepError — plancher des quantités", () => {
     );
   });
 });
+
+// Migration 20261104120000 (demande Jérôme, 2026-11-04) : une activité naît avec au moins un horaire.
+describe("requiredPricingStepError — horaires d'une activité", () => {
+  const horario = { weekdays: [1], startTime: "09:00", endTime: "12:00", slotDurationMinutes: "60", capacity: "4" };
+
+  it("création d'une activité sans horaire : refusée", () => {
+    expect(requiredPricingStepError(params({ isEditing: false, slotRules: [] }))).toBe(
+      "Una actividad necesita al menos un horario.",
+    );
+  });
+
+  it("création d'une activité avec un horaire valide : acceptée", () => {
+    expect(requiredPricingStepError(params({ isEditing: false, slotRules: [horario] }))).toBeNull();
+  });
+
+  it("un autre type se crée sans horaire", () => {
+    expect(requiredPricingStepError(params({ isEditing: false, isActivity: false, slotRules: [] }))).toBeNull();
+  });
+
+  it("l'édition admin n'est pas concernée (les horaires y vivent dans leur propre bloc)", () => {
+    expect(requiredPricingStepError(params({ isEditing: true, slotRules: [] }))).toBeNull();
+  });
+});

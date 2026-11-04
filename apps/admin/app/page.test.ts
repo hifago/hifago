@@ -30,6 +30,12 @@ vi.mock("@hifago/supabase/server", () => ({
   }),
 }));
 
+let garde: { action: "none" | "verify" } = { action: "none" };
+
+vi.mock("@/lib/mfaGuard", () => ({
+  checkMfaGuard: async () => garde,
+}));
+
 const { default: RootPage } = await import("./page");
 
 async function destination() {
@@ -49,6 +55,7 @@ const PANNE: Reponse = { data: null, error: { message: "connection refused" } };
 describe("/ — aiguillage", () => {
   beforeEach(() => {
     utilisateur = { id: "u" };
+    garde = { action: "none" };
     roles = { is_admin: NON, operator: NON, referrer: NON };
   });
 
@@ -69,6 +76,11 @@ describe("/ — aiguillage", () => {
   ])("rôle %s → %s", async (role, attendu) => {
     roles[role] = OUI;
     expect(await destination()).toBe(attendu);
+  });
+
+  it("2FA activé mais session en AAL1 → défi, avant tout aiguillage par rôle", async () => {
+    garde = { action: "verify" };
+    expect(await destination()).toBe("/mfa/verify");
   });
 
   it("aucun rôle → /partner (écran « sin rol »)", async () => {

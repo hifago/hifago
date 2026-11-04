@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
 import { isRealAccount } from "@hifago/supabase/identity";
+import { checkMfaGuard } from "@/lib/mfaGuard";
 import { getOperatorCapability } from "@/lib/agenda/activeOperatorEstablishments";
 import { PartnerAppNav } from "./PartnerAppNav";
 
@@ -25,8 +26,12 @@ export default async function PartnerAppLayout({ children }: LayoutProps<"/partn
     redirect("/login?next=/partner");
   }
 
-  // Feature 31 (docs/specs/07-connexion-inscription-complete.md §8) : 2FA rendu optionnel le
-  // 2026-08-15 (décision Jérôme) — plus de redirection forcée depuis ce layout.
+  // Feature 31 (docs/specs/07-connexion-inscription-complete.md §8/§10) : le 2FA est un choix, mais
+  // qui l'a activé le passe à chaque connexion (aucun enrôlement n'est jamais forcé ici).
+  const mfa = await checkMfaGuard(supabase);
+  if (mfa.action === "verify") {
+    redirect(`/mfa/verify?next=${encodeURIComponent("/partner")}`);
+  }
 
   // Refonte vue référent (2026-08-20, docs/specs/22-vue-referent-restreinte.md) : la nav elle-même
   // décide quoi montrer, pas seulement les layouts enfants (§ci-dessous n'existe pas encore ici —

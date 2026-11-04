@@ -30,6 +30,12 @@ vi.mock("@hifago/supabase/server", () => ({
   }),
 }));
 
+let garde: { action: "none" | "verify" } = { action: "none" };
+
+vi.mock("@/lib/mfaGuard", () => ({
+  checkMfaGuard: async () => garde,
+}));
+
 vi.mock("@/lib/agenda/activeOperatorEstablishments", () => ({
   getOperatorCapability: (supabase: unknown, id: string | null) => capaciteLue(supabase, id),
 }));
@@ -50,6 +56,7 @@ describe("/partner — garde commune", () => {
   beforeEach(() => {
     utilisateur = { id: "u" };
     partnerId = { data: "p-1", error: null };
+    garde = { action: "none" };
     capaciteLue.mockClear();
   });
 
@@ -61,6 +68,12 @@ describe("/partner — garde commune", () => {
   it("session anonyme (panier de la vitrine) : renvoie à /login, sans coquille socio", async () => {
     utilisateur = { id: "anon", is_anonymous: true };
     await expect(rendre()).rejects.toMatchObject({ url: "/login?next=/partner" });
+  });
+
+  it("2FA activé mais session en AAL1 : renvoie au défi, sans lire l'organisation", async () => {
+    garde = { action: "verify" };
+    await expect(rendre()).rejects.toMatchObject({ url: "/mfa/verify?next=%2Fpartner" });
+    expect(capaciteLue).not.toHaveBeenCalled();
   });
 
   it("lève quand l'organisation est illisible, sans rendre de nav amputée", async () => {

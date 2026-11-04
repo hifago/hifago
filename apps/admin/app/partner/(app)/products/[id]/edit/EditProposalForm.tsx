@@ -12,6 +12,12 @@ import { buildProductEditPayload } from "@/lib/products/productEditPayload";
 import { eventoOccurrenceError } from "@/lib/products/eventoOccurrence";
 import { tagIdsIfChanged } from "@/lib/tags/proposedTags";
 import { amenityIdsIfChanged } from "@/lib/amenities/proposedAmenities";
+import { activityPricingError } from "@/lib/products/activityPricing";
+import {
+  requiredSlotRulesError,
+  slotRulesFromColumn,
+  slotRulesIfChanged,
+} from "@/lib/products/slotRules";
 import {
   payloadToFieldsInit,
   useProductTypeFieldsState,
@@ -25,6 +31,9 @@ const SUBMIT_ERRORS: Record<string, string> = {
   pending_cap_exceeded:
     "Ya tienes 10 propuestas pendientes. Espera a que se revisen antes de enviar más.",
   not_authenticated: "No se pudo verificar tu sesión. Vuelve a intentarlo.",
+  // Migration 20261104120000 : horaires proposés vides ou illisibles.
+  slot_rules_required: "Una actividad necesita al menos un horario.",
+  invalid_slot_rules: "Revisa los horarios: uno de ellos no es válido.",
 };
 
 const WITHDRAW_ERRORS: Record<string, string> = {
@@ -40,9 +49,8 @@ type PendingProposal = { id: string; payload: unknown; created_at: string } | nu
 // (jamais migré vers LocalizedTextField comme le reste, spec 11) et une `category` fixe abandonnée
 // par ProductForm admin-direct depuis la spec 08 (tags). Réécrit pour réutiliser exactement les
 // mêmes briques que ProductForm/ProductTypeFields (spec 15) : parité totale avec le parcours
-// d'édition admin-direct — mêmes champs, même gating par type, jamais photos/slot_rules
-// (délégués côté admin à des blocs séparés à sauvegarde immédiate, jamais couverts par ce même
-// submit là non plus, cf. migration 20260817150000).
+// d'édition admin-direct — mêmes champs, même gating par type, jamais les photos (bloc séparé,
+// PhotosSocioBlock, cf. migration 20260817150000).
 //
 // Les ÉTIQUETTES, elles, y sont depuis le 2026-10-13 (demande Jérôme, migration 20261013144848).
 // Côté admin elles vivent dans un bloc à sauvegarde immédiate qu'un socio ne peut pas avoir (RLS
@@ -53,6 +61,11 @@ type PendingProposal = { id: string; payload: unknown; created_at: string } | nu
 // Les ÉQUIPEMENTS d'un logement suivent le même chemin (migration 20261013151206). À l'inverse, le
 // dépôt et le lien de réservation externe d'un logement sont des options admin : ils ne sont pas
 // affichés ici, mais restent dans l'état et repartent tels quels dans la proposition.
+//
+// Les HORAIRES d'une activité aussi, depuis le 2026-11-04 (demande Jérôme, migration
+// 20261104120000) : une fois la fiche partagée, le partenaire ne pouvait plus les changer. Même
+// chemin que les étiquettes — `slot_rules` ne part que s'ils ont changé, modéré comme le reste, au
+// moins un horaire.
 export function EditProposalForm({
   productId,
   type,
@@ -62,6 +75,7 @@ export function EditProposalForm({
   currentTagIds,
   availableAmenities,
   currentAmenityIds,
+  currentSlotRules,
   establishmentId,
   establishmentLobbyConnected,
 }: {
@@ -73,6 +87,8 @@ export function EditProposalForm({
   currentTagIds: string[];
   availableAmenities: TagOption[];
   currentAmenityIds: string[];
+  /** Les lignes product_slot_rules de la fiche (vide hors activité). */
+  currentSlotRules: unknown[];
   // Corrigé le 2026-08-26 : ce formulaire rendait <ProductTypeFields type state /> SANS ces deux
   // props, donc la garde interne du bloc LobbyPMS (establishmentLobbyConnected) était toujours
   // fausse et le bloc n'était JAMAIS monté côté socio — un prestataire ne pouvait pas voir à quoi
@@ -98,8 +114,12 @@ export function EditProposalForm({
       duration_days: null,
       tag_ids: currentTagIds,
       amenity_ids: currentAmenityIds,
+      slot_rules: currentSlotRules,
     }),
   );
+  // Les horaires en place, sous la même forme que l'état : la référence de slotRulesIfChanged.
+  const [initialSlotRules] = useState(() => slotRulesFromColumn(currentSlotRules));
+  const isActivity = type === "activity";
 
   const [proposal, setProposal] = useState(pendingProposal);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -119,11 +139,30 @@ export function EditProposalForm({
       toast.danger(occurrenceError);
       return;
     }
+    // Horaires (migration 20261104120000) : vérifiés seulement s'ils changent — une fiche ancienne
+    // sans horaire peut encore corriger son nom sans en créer un. Le mode « por hora » exige, lui,
+    // des horaires d'une heure dans tous les cas : la base refuserait l'approbation sinon.
+    const slotRulesChange = isActivity ? slotRulesIfChanged(initialSlotRules, fields.slotRules) : {};
+    const activityError = isActivity
+      ? ((slotRulesChange.slot_rules ? requiredSlotRulesError(fields.slotRules) : null) ??
+        activityPricingError({
+          pricingUnit: fields.pricingUnit,
+          minPersons: fields.minPersons,
+          maxPersons: fields.maxPersons,
+          isEditing: false,
+          slotRules: fields.slotRules,
+        }))
+      : null;
+    if (activityError) {
+      toast.danger(activityError);
+      return;
+    }
 
     setIsSubmitting(true);
 
     const payload = {
       ...buildProductEditPayload(type, name, description, fields),
+      ...slotRulesChange,
       ...tagIdsIfChanged(currentTagIds, fields.selectedTagIds),
       ...amenityIdsIfChanged(currentAmenityIds, fields.selectedAmenityIds),
     };
@@ -236,6 +275,7 @@ export function EditProposalForm({
           establishmentLobbyConnected={establishmentLobbyConnected}
           lobbyLinkReadOnly
           campDurationDays={currentPayload.duration_days ?? null}
+          showSlotRulesEditor={isActivity}
         />
 
         <Button type="submit" isDisabled={isSubmitting} data-testid="submit-proposal-button">

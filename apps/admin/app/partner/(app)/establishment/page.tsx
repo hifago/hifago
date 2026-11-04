@@ -31,6 +31,16 @@ type PendingCreationProposalRow = {
   establishment_id: string | null;
   establishment_proposal_id: string | null;
   created_at: string;
+  status: string;
+  rejection_reason: string | null;
+};
+
+type CreationProposalRow = {
+  id: string;
+  payload: unknown;
+  created_at: string;
+  status: string;
+  rejection_reason: string | null;
 };
 
 // Refonte vue prestataire (2026-08-19) — fusionne l'ancienne liste "/partner/establishment"
@@ -68,6 +78,7 @@ export default async function PartnerEstablishmentPage() {
     pendingEstablishmentCreationsResult,
     productsResult,
     pendingProductCreationsResult,
+    approvedEstablishmentCreationsResult,
   ] = await Promise.all([
     partnerId
       ? supabase
@@ -88,15 +99,18 @@ export default async function PartnerEstablishmentPage() {
     // 20260819220000_establishment_creation_no_pending_cap.sql) : un partenaire peut désormais
     // avoir PLUSIEURS propositions de création pending en parallèle — liste, jamais .maybeSingle()
     // (qui échouerait dès la 2e ligne).
+    // Migration 20261104130000 : les propositions REFUSÉES restent affichées (à corriger ou à
+    // écarter) au lieu de disparaître.
     partnerId
       ? supabase
           .from("establishment_proposals")
-          .select("id, payload, created_at")
+          .select("id, payload, created_at, status, rejection_reason")
           .eq("partner_id", partnerId)
           .eq("kind", "create")
-          .eq("status", "pending")
+          .in("status", ["pending", "rejected"])
           .order("created_at", { ascending: false })
-      : { data: null as { id: string; payload: unknown; created_at: string }[] | null, error: null },
+          .returns<CreationProposalRow[]>()
+      : { data: null as CreationProposalRow[] | null, error: null },
     partnerId
       ? supabase
           .from("products")
@@ -112,13 +126,24 @@ export default async function PartnerEstablishmentPage() {
     partnerId
       ? supabase
           .from("product_proposals")
-          .select("id, type, payload, establishment_id, establishment_proposal_id, created_at")
+          .select("id, type, payload, establishment_id, establishment_proposal_id, created_at, status, rejection_reason")
           .eq("partner_id", partnerId)
           .eq("kind", "create")
-          .eq("status", "pending")
+          .in("status", ["pending", "rejected"])
           .order("created_at", { ascending: false })
           .returns<PendingCreationProposalRow[]>()
       : { data: null as PendingCreationProposalRow[] | null, error: null },
+    // 20261104130000 : une activité refusée pendant que son établissement attendait n'a jamais reçu
+    // d'establishment_id — sans ce lien, elle disparaîtrait de l'écran une fois l'établissement
+    // approuvé.
+    partnerId
+      ? supabase
+          .from("establishment_proposals")
+          .select("id, establishment_id")
+          .eq("partner_id", partnerId)
+          .eq("kind", "create")
+          .eq("status", "approved")
+      : { data: null as { id: string; establishment_id: string | null }[] | null, error: null },
   ]);
   const { data: establishments } = checkedRead(establishmentsResult, "establishments");
   const { data: pendingEstablishmentEdits } = checkedRead(pendingEstablishmentEditsResult, "establishment_proposals");
@@ -128,6 +153,16 @@ export default async function PartnerEstablishmentPage() {
   );
   const { data: products } = checkedRead(productsResult, "products");
   const { data: pendingProductCreationsRaw } = checkedRead(pendingProductCreationsResult, "product_proposals");
+  const { data: approvedEstablishmentCreations } = checkedRead(
+    approvedEstablishmentCreationsResult,
+    "establishment_proposals",
+  );
+  const establishmentBornFrom = new Map(
+    (approvedEstablishmentCreations ?? []).map((p) => [p.id, p.establishment_id]),
+  );
+  const hasPendingEstablishmentCreation = (pendingEstablishmentCreations ?? []).some(
+    (proposal) => proposal.status === "pending",
+  );
 
   const establishmentIds = (establishments ?? []).map((e) => e.id);
   const productIds = (products ?? []).map((p) => p.id);
@@ -233,13 +268,19 @@ export default async function PartnerEstablishmentPage() {
   // la pile « en revue » ci-dessous lit avec la même Map.
   const pendingProductCreationsByEstablishment = new Map<string, PendingProductCreationRow[]>();
   for (const proposal of pendingProductCreationsRaw ?? []) {
-    const groupId = proposal.establishment_id ?? proposal.establishment_proposal_id;
+    const groupId =
+      proposal.establishment_id ??
+      (proposal.establishment_proposal_id
+        ? (establishmentBornFrom.get(proposal.establishment_proposal_id) ?? proposal.establishment_proposal_id)
+        : null);
     if (!groupId) continue;
     const row: PendingProductCreationRow = {
       id: proposal.id,
       type: proposal.type,
       payload: proposal.payload,
       created_at: proposal.created_at,
+      status: proposal.status,
+      rejectionReason: proposal.rejection_reason,
     };
     const list = pendingProductCreationsByEstablishment.get(groupId) ?? [];
     list.push(row);
@@ -255,7 +296,7 @@ export default async function PartnerEstablishmentPage() {
               où proposer l'activité (message "Aún no tienes ningún establecimiento con capacidad
               de operador activa.") — bouton réservé au cas où au moins un existe. Un établissement
               en revue suffit depuis 20261019120000. */}
-          {establishmentRows.length > 0 || (pendingEstablishmentCreations ?? []).length > 0 ? (
+          {establishmentRows.length > 0 || hasPendingEstablishmentCreation ? (
             <Link
               href="/partner/products/new"
               className={buttonVariants({ size: "sm" })}
@@ -282,6 +323,7 @@ export default async function PartnerEstablishmentPage() {
               establishmentId={proposal.id}
               products={[]}
               pendingCreations={pendingProductCreationsByEstablishment.get(proposal.id) ?? []}
+              establishmentRejected={proposal.status === "rejected"}
             />
           </div>
         </div>

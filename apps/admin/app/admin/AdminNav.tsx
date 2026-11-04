@@ -3,6 +3,7 @@
 import { AppNavShell } from "@hifago/ui";
 import { LogoHifago } from "@/components/logo-hifago";
 import { LogoutButton } from "@/components/LogoutButton";
+import { SecurityButton } from "@/components/security-button";
 import { getAdminNavItems } from "./nav-items";
 
 // Wrapper local autour d'AppNavShell (packages/ui) — jamais importer "@hifago/ui" directement
@@ -24,8 +25,18 @@ export function AdminNav({ pendingProposalsCount }: { pendingProposalsCount: num
         mobileLinkPrefix: "admin-mobile-nav-link",
       }}
       brand={<LogoHifago variante="sombre" hauteur="h-10 md:h-16" href="/admin" />}
-      desktopFooter={<LogoutButton className="w-full" data-testid="logout-button-nav" />}
-      mobileFooter={<LogoutButton className="w-full" data-testid="logout-button-mobile-nav" />}
+      desktopFooter={
+        <div className="flex flex-col gap-2">
+          <SecurityButton className="w-full" data-testid="security-button-nav" />
+          <LogoutButton className="w-full" data-testid="logout-button-nav" />
+        </div>
+      }
+      mobileFooter={
+        <div className="flex flex-col gap-2">
+          <SecurityButton className="w-full" data-testid="security-button-mobile-nav" />
+          <LogoutButton className="w-full" data-testid="logout-button-mobile-nav" />
+        </div>
+      }
     />
   );
 }

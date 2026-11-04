@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAs, SEEDED_ACCOUNTS, SEEDED_PASSWORD } from "./support/login";
-import { confirmAndContinue, createSignedInClient, goToNextWizardStep, withDb } from "@hifago/e2e-support";
+import { confirmAndContinue, createSignedInClient, goToNextWizardStep, toggleCheckbox, withDb } from "@hifago/e2e-support";
 
 // Même partenaire réutilisé par plusieurs specs produit (admin-product-photos.spec.ts,
 // admin-product-tags.spec.ts), mais un établissement CRÉÉ ICI et jamais partagé : le sélectionner
@@ -61,6 +61,14 @@ test("admin crée une actividad avec paliers de prix et bornes de quantité ; cr
   await page.getByTestId("min-qty-input").fill("2");
   // Pas de maximum par réservation pour une activité (migration 20261025120000).
 
+  // Un horaire est obligatoire pour créer une activité (migration 20261104120000).
+  await page.getByTestId("add-slot-rule-button").click();
+  await toggleCheckbox(page.getByTestId("slot-rule-weekday-1-0"));
+  await page.getByTestId("slot-rule-start-0").fill("09:00");
+  await page.getByTestId("slot-rule-end-0").fill("12:00");
+  await page.getByTestId("slot-rule-duration-0").fill("60");
+  await page.getByTestId("slot-rule-capacity-0").fill("4");
+
   await page.getByTestId("create-product-button").click();
   await confirmAndContinue(page, "product-form-confirmation");
   await expect(page).toHaveURL(/\/admin\/establishments$/);
@@ -72,6 +80,10 @@ test("admin crée une actividad avec paliers de prix et bornes de quantité ; cr
     .single();
   if (!product) throw new Error("e2e: produit introuvable après création via l'UI");
   const productId = product.id as string;
+
+  // Ce test prouve les tramos sur une réservation PAR DATE : l'horaire, obligatoire pour créer
+  // l'activité depuis l'écran, est retiré ici — sinon create_order exigerait un créneau.
+  await adminClient.rpc("replace_product_slot_rules", { p_product_id: productId, p_rules: [] });
 
   const date = "2026-10-21"; // date dédiée à ce test
   await adminClient.rpc("set_product_availability", {

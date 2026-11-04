@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@hifago/supabase/server";
 import { isRealAccount } from "@hifago/supabase/identity";
+import { checkMfaGuard } from "@/lib/mfaGuard";
 import { UnsavedChangesProvider } from "@/components/unsaved-changes";
 import { AdminNav } from "./AdminNav";
 
@@ -28,11 +29,15 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     redirect("/login?next=/admin");
   }
 
-  // Feature 31 (docs/specs/07-connexion-inscription-complete.md §8) : le 2FA obligatoire a été
-  // rendu optionnel le 2026-08-15 (décision Jérôme) suite à un bug d'enrôlement bloquant l'accès
-  // admin réel — is_admin() ne requiert plus l'AAL2 (migration 20260815270000_admin_2fa_optional.sql).
-  // Les écrans /mfa/enroll et /mfa/verify restent utilisables volontairement, plus forcés ici.
-  //
+  // Feature 31 (docs/specs/07-connexion-inscription-complete.md §8/§10) : le 2FA est un choix, mais
+  // qui l'a activé le passe à chaque connexion — et is_admin() exige alors l'AAL2
+  // (20261030090000_admin_2fa_si_active.sql). Ce garde passe AVANT is_admin() : un admin enrôlé en
+  // AAL1 a is_admin() faux, et partirait sinon sur `/` en boucle au lieu de /mfa/verify.
+  const mfa = await checkMfaGuard(supabase);
+  if (mfa.action === "verify") {
+    redirect(`/mfa/verify?next=${encodeURIComponent("/admin")}`);
+  }
+
   // Échec fermé (2026-10-01) : une panne n'est jamais lue comme « pas admin ». Avant, `error` était
   // ignoré et un admin en panne de base partait sur /login, comme déconnecté ; la page lève
   // désormais, et app/error.tsx propose de réessayer.

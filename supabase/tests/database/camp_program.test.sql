@@ -124,7 +124,8 @@ select 'crea_act', public.submit_product_creation_proposal(
   '77770000-0000-4000-8000-000000000011', 'activity',
   jsonb_build_object('name', jsonb_build_object('es', 'Actividad propuesta'), 'price_cop', 50000,
                      'program', jsonb_build_array(
-                       jsonb_build_object('day', 1, 'text', jsonb_build_object('es', 'No deberia pasar')))));
+                       jsonb_build_object('day', 1, 'text', jsonb_build_object('es', 'No deberia pasar'))),
+                     'slot_rules', jsonb_build_array(jsonb_build_object('weekdays', jsonb_build_array(1), 'start_time', '09:00', 'end_time', '10:00', 'slot_duration_minutes', 60, 'capacity', 1))));
 
 select is(
   (select v ->> 'ok' from rpc_res where k = 'crea_act'),

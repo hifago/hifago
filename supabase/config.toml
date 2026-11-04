@@ -257,10 +257,16 @@ password_requirements = "letters_digits"
 # enabled = false
 
 # Configure WebAuthn relying party settings (required when passkey is enabled).
-# [auth.webauthn]
-# rp_display_name = "Supabase"
-# rp_id = "localhost"
-# rp_origins = ["http://127.0.0.1:3000"]
+# 2026-10-30 : aussi requis par la clé de sécurité MFA ([auth.mfa.web_authn], ci-dessous) — sans
+# `rp_origins`, GoTrue répond 500 « must provide at least one value to the 'RPOrigins' field » au
+# challenge, alors que le SDK envoie bien son origine (constaté en local). L'`rp_id` doit être le
+# nom d'hôte de l'admin ET rester STABLE : une clé enregistrée est liée à lui ; en préprod/prod il se
+# règle côté projet hébergé, pas ici. Les origines doivent avoir cet hôte (ou un sous-domaine) :
+# 127.0.0.1 ne convient donc pas à `localhost` — l'admin se sert sur http://localhost:3101.
+[auth.webauthn]
+rp_display_name = "Hifago"
+rp_id = "localhost"
+rp_origins = ["http://localhost:3101"]
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
@@ -419,10 +425,13 @@ otp_length = 6
 template = "Your code is {{ .Code }}"
 max_frequency = "5s"
 
-# Configure MFA via WebAuthn
-# [auth.mfa.web_authn]
-# enroll_enabled = true
-# verify_enabled = true
+# Configure MFA via WebAuthn (clé de sécurité / passkey) — 2026-10-30, docs/specs/07 §10.
+# ⚠️ Ce fichier ne gouverne QUE le local (docs/runbook-environnements.md §3.3) : préprod et prod se
+# règlent par l'API de gestion (`mfa_web_authn_enroll_enabled` / `mfa_web_authn_verify_enabled`) ou le
+# Dashboard, jamais `config push`. Facteur expérimental côté SDK (`auth.mfa.webauthn`).
+[auth.mfa.web_authn]
+enroll_enabled = true
+verify_enabled = true
 
 # Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
 # `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`,

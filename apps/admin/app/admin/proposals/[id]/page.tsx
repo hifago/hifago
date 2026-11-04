@@ -11,6 +11,19 @@ import { ModerateProposalForm } from "./ModerateProposalForm";
 import { PhotoModerationForm } from "./PhotoModerationForm";
 import { ModerateProductCreationProposalForm } from "./ModerateProductCreationProposalForm";
 import { ModerateEstablishmentProposalForm } from "./ModerateEstablishmentProposalForm";
+import { RejectionNotice } from "@/components/rejection-notice";
+
+// Migration 20261104130000 : une proposition refusée que le partenaire a corrigée revient en revue
+// avec le motif de son refus précédent (rejection_reason conservé) — l'admin vérifie qu'il a été
+// corrigé.
+function ResubmittedNotice({ status, reason }: { status: string; reason: string | null }) {
+  if (status !== "pending" || !reason) return null;
+  return (
+    <RejectionNotice title="Propuesta corregida por el socio tras un rechazo" reason={reason} testId="resubmitted-notice">
+      Comprueba que lo señalado se ha corregido.
+    </RejectionNotice>
+  );
+}
 
 export default async function AdminProposalDetailPage({
   params,
@@ -105,6 +118,7 @@ export default async function AdminProposalDetailPage({
         <p className="text-sm text-muted">
           Partner: {proposal.partner?.display_name ?? "—"} · Establecimiento: {establishmentName}
         </p>
+        <ResubmittedNotice status={proposal.status} reason={proposal.rejection_reason} />
 
         {proposal.status !== "pending" ? (
           <p role="status" data-testid="proposal-not-pending" className="text-sm text-muted">
@@ -162,6 +176,17 @@ export default async function AdminProposalDetailPage({
       .eq("product_id", proposal.product.id),
     "product_amenity_assignments",
   );
+  // Horaires d'une activité (migration 20261104120000) — même comparaison en place / proposé.
+  const { data: slotRules } = checkedRead(
+    proposal.product.type === "activity"
+      ? await supabase
+          .from("product_slot_rules")
+          .select("weekdays, start_time, end_time, slot_duration_minutes, capacity")
+          .eq("product_id", proposal.product.id)
+          .order("start_time")
+      : { data: [], error: null },
+    "product_slot_rules",
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -199,6 +224,7 @@ export default async function AdminProposalDetailPage({
           currentTagIds={(tagAssignments ?? []).map((row) => row.tag_id)}
           availableAmenities={toTagOptions(amenitiesRaw)}
           currentAmenityIds={(amenityAssignments ?? []).map((row) => row.amenity_id)}
+          currentSlotRules={slotRules ?? []}
         />
       )}
     </div>
@@ -283,6 +309,9 @@ async function AdminEstablishmentProposalDetail({ id }: { id: string }) {
         Revisar propuesta de {kindLabel} — {currentName ?? proposedName ?? proposal.id}
       </h1>
       <p className="text-sm text-muted">Partner: {proposal.partner?.display_name ?? "—"}</p>
+      {proposal.kind === "create" ? (
+        <ResubmittedNotice status={proposal.status} reason={proposal.rejection_reason} />
+      ) : null}
 
       {proposal.status !== "pending" ? (
         <p role="status" data-testid="proposal-not-pending" className="text-sm text-muted">
