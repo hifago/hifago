@@ -11,6 +11,7 @@ import { Button } from "@/components/atoms/Button";
 import { Card } from "@/components/atoms/Card";
 import { LinkButton } from "@/components/atoms/LinkButton";
 import { PhoneField } from "@/components/atoms/PhoneField";
+import { Textarea } from "@/components/atoms/Textarea";
 import { Aviso } from "@/components/molecules/Aviso";
 import { LINE_SCOPED_REASONS } from "@/lib/cart/lineReasons";
 
@@ -31,7 +32,12 @@ const ORDER_SCOPED_REASONS = [
   "prestation_cap_exceeded",
   "email_required",
   "email_invalid",
+  // Migration 20261112120000 : le champ borne déjà la saisie (`maxLength`) ; filet côté serveur.
+  "client_note_too_long",
 ] as const;
+
+// Même borne que la contrainte `orders_client_note_length` (migration 20261112120000).
+const CLIENT_NOTE_MAX_LENGTH = 1000;
 
 // Toutes les raisons mappées côté écran (union des deux listes ci-dessus, jamais un 3e jeu de
 // littéraux recopiés) — une raison inattendue (jamais censée arriver, mais la RPC reste la seule
@@ -114,6 +120,9 @@ export function CheckoutForm({
   const [holderPhone, setHolderPhone] = useState(initialHolderPhone);
   const [holderEmail, setHolderEmail] = useState(initialHolderEmail);
   const [marketingConsent, setMarketingConsent] = useState(false);
+  // Note facultative aux prestataires de la commande (décision Jérôme du 2026-11-12) : elle part
+  // dans l'e-mail de réservation que chacun reçoit à la confirmation.
+  const [clientNote, setClientNote] = useState("");
 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -182,6 +191,8 @@ export function CheckoutForm({
       p_holder_email: holderEmail.trim(),
       p_holder_phone: holderPhone.trim(),
       p_marketing_consent: marketingConsent,
+      // Vide → create_order l'enregistre NULL.
+      p_client_note: clientNote.trim(),
     });
 
     const result = data as CreateOrderResult | null;
@@ -312,6 +323,15 @@ export function CheckoutForm({
           <Label>{t("holderEmail")}</Label>
           <Input type="email" />
         </TextField>
+        <Textarea
+          name="client-note"
+          label={t("clientNote")}
+          hint={t("clientNoteHint")}
+          value={clientNote}
+          onChange={setClientNote}
+          maxLength={CLIENT_NOTE_MAX_LENGTH}
+          testId="client-note"
+        />
 
         <Checkbox
           data-testid="marketing-consent-checkbox"

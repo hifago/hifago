@@ -2378,6 +2378,9 @@ select is(
 -- pour une commande qui a un acompte à payer — il part à la confirmation (notify_order_confirmed →
 -- notify_partner_camp_evento_blocked, même corps). Le cas prouve désormais les deux : rien à la
 -- création, puis l'échappement à l'envoi, déclenché ici comme le fait la confirmation.
+-- ADAPTÉ (20261112120000) : l'e-mail 8 est fondu dans l'e-mail de réservation au prestataire
+-- (notify_partner_order_confirmed, event partner_payment_confirmed, related_id = la commande). Ce
+-- corps porte de vrais liens (WhatsApp, fiche) : l'absence de balise brute vise le nom piégé.
 select test_set_cart(jsonb_build_array(jsonb_build_object(
   'product_id', '88880000-0000-4000-8000-000000000338', 'date', '2029-10-14', 'qty', 1
 )));
@@ -2389,30 +2392,31 @@ select is(
 reset role;
 select is(
   (select count(*)::int from notification_emails n
-     join order_lines ol on ol.id = n.related_id
-    where n.event_type = 'partner_camp_evento_blocked' and n.related_table = 'order_lines'
+     join order_lines ol on ol.order_id = n.related_id
+    where n.event_type = 'partner_payment_confirmed' and n.related_table = 'orders'
       and ol.product_id = '88880000-0000-4000-8000-000000000338'),
   0,
-  'cas 24k : un camp à payer → AUCUN e-mail « recurso bloqueado » à la création (avant paiement)'
+  'cas 24k : un camp à payer → AUCUN e-mail au prestataire à la création (avant paiement)'
 );
-select notify_partner_camp_evento_blocked(ol.order_id)
+select notify_partner_order_confirmed(ol.order_id)
   from order_lines ol where ol.product_id = '88880000-0000-4000-8000-000000000338';
 select is(
   (select count(*)::int from notification_emails n
-     join order_lines ol on ol.id = n.related_id
-    where n.event_type = 'partner_camp_evento_blocked' and n.related_table = 'order_lines'
+     join order_lines ol on ol.order_id = n.related_id
+    where n.event_type = 'partner_payment_confirmed' and n.related_table = 'orders'
       and n.recipient_account_id = '88880000-0000-4000-8000-000000000321'
-      and ol.product_id = '88880000-0000-4000-8000-000000000338'),
+      and ol.product_id = '88880000-0000-4000-8000-000000000338'
+      and n.body_html like '%Recurso bloqueado%'),
   1,
-  'cas 24k : e-mail « recurso bloqueado » bien mis en file pour le compte du partenaire'
+  'cas 24k : e-mail au prestataire, avec la mention du blocage, bien mis en file pour le compte du partenaire'
 );
 select ok(
   (select bool_and(strpos(n.body_html,
             '&lt;a href=&quot;https://x.test&quot;&gt;clic&lt;/a&gt; &amp; co&#39;s') > 0
-          and strpos(n.body_html, '<a href') = 0)
+          and strpos(n.body_html, '<a href="https://x.test"') = 0)
      from notification_emails n
-     join order_lines ol on ol.id = n.related_id
-    where n.event_type = 'partner_camp_evento_blocked'
+     join order_lines ol on ol.order_id = n.related_id
+    where n.event_type = 'partner_payment_confirmed' and n.related_table = 'orders'
       and ol.product_id = '88880000-0000-4000-8000-000000000338'),
   'cas 24k : nom du produit échappé dans le corps HTML (aucune balise brute, apostrophe comprise)'
 );

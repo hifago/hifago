@@ -3,7 +3,7 @@ id: refonte-emails-transactionnels
 titre: "Emails transactionnels — les 13 envois possibles, leur déclencheur et leur destinataire"
 theme: cadrage
 statut: "vérifié en envoi RÉEL le 2026-08-31 — les 8 emails sont partis chez Resend depuis la stack locale et reçus en boîte ; secrets Resend posés en préprod, aucun envoi réel en préprod à ce jour"
-maj: 2026-10-14
+maj: 2026-11-12
 resume: >
   Table de référence des 13 seuls emails que hifago peut envoyer (liste fermée par la contrainte
   check sur notification_emails.event_type) : ce qui les déclenche, à qui ils partent, leur objet
@@ -35,9 +35,9 @@ repond_a:
 | 3 | `admin_new_reconciliation_exception` | Une exception de réconciliation est créée (PMS ou paiement) | **Tous les admins actifs**, un email chacun | `Nueva excepción de reconciliación PMS` / `…de pago` / `Pago recibido sin reserva que honrar — reembolso requerido` (entrée `kind = 'refund_required'`, 2026-09-20) |
 | 4 | `partner_proposal_decided` | Un admin approuve ou rejette une proposition | Le compte socio qui l'a soumise | `Tu propuesta fue aprobada` / `Tu propuesta fue rechazada` |
 | 5 | `partner_commission_earned` | Le paiement d'une commande est confirmé — **et, depuis le 2026-10-23, la réservation chez le prestataire PMS aussi** (`notify_order_confirmed`, différé jusqu'au booking Lobby) | Chaque **compte référent distinct** ayant une ligne en `commission_case = 'external_referrer'` | `Nueva comisión asignada` |
-| 6 | `partner_payment_confirmed` | Idem 5 | Chaque **compte propriétaire distinct** des produits commandés | `Pago confirmado` |
-| 7 | `client_order_confirmed` | Idem 5 — jamais avant que toutes les nuits PMS aient leur booking | Le client, sur `orders.holder_email` — un seul email par commande | `Reserva confirmada` |
-| 8 | `partner_camp_evento_blocked` | Une commande contenant une ligne `camp`/`evento` occupant la ressource est **confirmée** (`notify_order_confirmed`) — **depuis le 2026-10-23 plus à la création** : « si pas payé, pas réservé ». Exception : une commande sans acompte à payer (evento gratuit / sur place) l'envoie dès `create_order` | Chaque compte du partenaire propriétaire du camp/evento | `Reserva confirmada — recurso bloqueado` |
+| 6 | `partner_payment_confirmed` | Idem 5 — et, pour une commande **sans rien à payer en ligne**, dès `create_order` (depuis le 2026-11-12) | Chaque compte de chaque partenaire propriétaire d'une prestation vivante (`reserved`) ; chacun ne voit que **ses** prestations. **Reply-To = e-mail du client** | `Nueva reserva confirmada · <HFG-n> · <client>` |
+| 7 | `client_order_confirmed` | Idem 5 — jamais avant que toutes les nuits PMS aient leur booking — et, pour une commande **sans rien à payer en ligne**, dès `create_order` (depuis le 2026-11-12) | Le client, sur `orders.holder_email` — un seul email par commande | `Reserva <HFG-n> confirmada` |
+| 8 | ~~`partner_camp_evento_blocked`~~ — **supprimé le 2026-11-12**, fondu dans le 6 (valeur gardée par la contrainte pour l'historique) | Une commande contenant une ligne `camp`/`evento` occupant la ressource est **confirmée** (`notify_order_confirmed`) — **depuis le 2026-10-23 plus à la création** : « si pas payé, pas réservé ». Exception : une commande sans acompte à payer (evento gratuit / sur place) l'envoie dès `create_order` | Chaque compte du partenaire propriétaire du camp/evento | `Reserva confirmada — recurso bloqueado` |
 | 9 | `client_payment_received_not_honored` | Une entrée `refund_required` de `reason_code` `paid_after_expiry` ou `amount_mismatch` est créée (le client a payé, rien n'est honoré) — spec 39 D3, 2026-09-22 | Le client, sur `orders.holder_email` — **un seul e-mail par entrée** (dédup sur `related_id`) | `Recibimos tu pago — tu reserva <HFG-n> no pudo confirmarse` |
 | 10 | `client_duplicate_payment_refund` | Une entrée `refund_required` de `reason_code` `double_payment` est créée (la réservation EST confirmée, le doublon sera remboursé) | Le client, un e-mail par entrée | `Recibimos un pago duplicado para tu reserva <HFG-n>` |
 | 11 | `admin_job_stalled` | Un watchdog constate qu'un job attendu n'a pas réussi depuis son seuil (`job_expectations`, un seuil par job) — ou n'a **jamais été exécuté** passé ce seuil — une seule fois par panne tant qu'il ne repart pas | **Tous les admins actifs**, un email chacun | `El job <job> no responde (sin ejecución exitosa desde hace más de <seuil>)` ; `payments-reconcile` garde le sien : `El job de conciliación de pagos no responde desde hace <seuil>` |
@@ -59,9 +59,9 @@ emails d'un coup, mais jamais avant que le prestataire ait sa réservation.
 | 3 | trigger `notify_admin_new_reconciliation_exception` sur `pms_reconciliation_entries` + `payment_reconciliation_entries` | `supabase/migrations/20260824060000_notify_admin_reconciliation_exception.sql` |
 | 4 | `moderate_product_proposal` + `moderate_establishment_proposal` | `supabase/migrations/20260824070000_notify_partner_proposal_decided.sql` |
 | 5 | `apply_payment_webhook` | `supabase/migrations/20260824120000_notify_payment_confirmed.sql` |
-| 6 | `apply_payment_webhook` | idem |
-| 7 | `apply_payment_webhook` | idem |
-| 8 | `notify_order_confirmed` / `notify_partner_camp_evento_blocked` (ex-`create_order`, branche `camp`) | `supabase/migrations/20260824110000_notify_partner_camp_evento_blocked.sql` |
+| 6 | `notify_partner_order_confirmed`, appelée par `notify_order_confirmed` et par `create_order` (rien à payer en ligne) | `supabase/migrations/20261112120000_mail_prestataire_reserva_confirmada.sql` |
+| 7 | `notify_client_order_confirmed`, appelée par `notify_order_confirmed` et par `create_order` (rien à payer en ligne) | `supabase/migrations/20261112140000_mail_client_reserva_confirmada.sql`, `20261112160000_mail_client_commande_sans_paiement.sql` |
+| 8 | supprimé (`20261112120000`) — la mention du blocage est dans le 6 | — |
 | 9-10 | trigger `notify_client_refund_required` sur `payment_reconciliation_entries` (`when new.kind = 'refund_required'`) | `supabase/migrations/20260922100000_payment_refunds.sql` |
 | 11 | `jobs_watchdog` → `job_watchdog` (pg_cron `jobs-watchdog`, `*/15`) et `payments_reconcile_watchdog` (pg_cron `*/15`), seuils lus dans `job_expectations` | `supabase/migrations/20261003223900_pms_jobs_supervision.sql`, `20261006143045_job_expectations.sql` (et `20260921100000_payments_reconcile.sql`) |
 | 12-13 | `notify_order_line_cancelled`, appelée par `close_order_line_locked` (`cancel_order_line`, `set_order_line_status`) | `supabase/migrations/20261006192424_order_line_cancellations.sql` (redéfinie par `20261006235357_pms_booking_identity.sql`) |
@@ -72,13 +72,35 @@ qui empile dans `notification_emails`. L'envoi physique est fait par l'Edge Func
 (depuis le 2026-10-14, `20261014123021` : une fois par transaction, après le commit, par `pg_net`),
 et toutes les 5 minutes par pg_cron en filet (appel en panne, reprise d'un échec).
 
+## Présentation commune — la charte Hifago (depuis le 2026-11-12)
+
+Décision Jérôme : « le même style pour tous les mails, à tout le monde, tout le temps ».
+`enqueue_notification_email` habille **chaque** corps avec `email_layout`
+(`20261112150000_charte_tous_les_emails.sql`) : fond clair `#f0f6fc`, colonne de 600 px, **en-tête
+image** `apps/web/public/brand/email-cabecera.jpg` (bandeau or « hifa GO · Guatapé — Guatapé merece más
+de un día. », adresse absolue sous le secret Vault `web_app_public_url` ; sans le secret, un bandeau or
+en texte), panneau blanc, **titre Anton à point or**, pied de page marine « Hifago · Guatapé,
+Antioquia · <site> ». Le titre est l'**objet** de l'e-mail, sauf pour un corps qui porte déjà son
+`<h2>` (e-mails 1, 6, 7). Les liens nus des corps simples (2, 3, 4…) passent au bleu moyen souligné.
+Briques partagées : `email_titulo`, `email_seccion`, `email_boton` (`20261112140000`). Un e-mail ajouté
+demain reçoit l'habillage sans rien faire ; `charte_tous_les_emails.test.sql` vérifie que rien
+n'écrit dans la file sans passer par `enqueue_notification_email`.
+
+Les trois e-mails de **Supabase Auth** (confirmation de compte, mot de passe oublié, code de
+vérification — `supabase/templates/*.html`, hors file) portent le même habillage en HTML statique ;
+leur image et leur lien visent la vitrine de production `https://hifago.co` (un gabarit Auth ne lit
+pas le Vault). En préprod et en prod, ils se poussent par l'API de gestion (runbook §6).
+
+Les polices de la charte (Anton, Poppins) ne se chargent pas dans Gmail : replis Impact et Arial.
+
 ## Contenu exact de chaque email
 
 **1 · `partner_invitation`**
 E-mail de bienvenue (texte validé par Jérôme le 2026-10-19), construit par
-`partner_invitation_email_html` : « Hola <nom>, » (nom de la fiche socio, échappé ; « Hola, » sans
-nom) · « Te damos la bienvenida a Hifago. Con este enlace creas tu cuenta de socio: solo eliges una
-contraseña y entras directamente a tu espacio. » · « Desde allí podrás: » suivi de puces selon le
+`partner_invitation_email_html` : titre « Te damos la bienvenida a Hifago » (depuis le 2026-11-12, la
+première phrase devenue titre) · « Hola <nom>, » (nom de la fiche socio, échappé ; « Hola, » sans
+nom) · « Con este enlace creas tu cuenta de socio: solo eliges una contraseña y entras directamente a
+tu espacio. » · « Desde allí podrás: » suivi de puces selon le
 parcours de l'invitation — `provider` : ficha del establecimiento y servicios / disponibilidad y
 reservas / enlace y QR y comisiones ; `referrer` : enlace y QR / comisiones · bouton *Crear mi cuenta*
 (URL **absolue** `/partner/join?token=…`, depuis le secret Vault `admin_app_public_url`) · « Este enlace
@@ -110,15 +132,36 @@ Pago ».
 « Se te asignó una comisión por una reserva confirmada. » Rien d'autre : ni montant, ni nom de
 produit, ni lien.
 
-**6 · `partner_payment_confirmed`**
-« Se confirmó el pago de una reserva en tu establecimiento. » Rien d'autre non plus.
+**6 · `partner_payment_confirmed`** — e-mail de réservation au prestataire (décision Jérôme, maquette
+validée le 2026-11-12). « Nueva reserva confirmada », « Pedido <HFG-n> · confirmado el <date> », « Hola
+<partenaire>, <client> reservó y pagó en Hifago » (« reservó » seul quand rien n'a été payé), puis :
+**Cliente** (nom, WhatsApp en lien `wa.me`, e-mail en `mailto:` — jamais une adresse `@hifago.local`) ;
+**Tu reserva / Tus reservas (N)**, une carte par prestation vivante de CE partenaire : produit,
+établissement, dates en toutes lettres (« Llegada / Salida · N noches » pour un séjour, « Fechas del … al
+… » pour un camp ou un evento de plusieurs jours, sinon « Fecha » + heure du créneau), quantité (unidades,
+horas, actividad completa, personas), Total / Pagado en Hifago / **Saldo a cobrar** (« Gratis » si le
+total est nul), « Recurso bloqueado… » pour un camp/evento qui bloque la ressource (ex-e-mail 8), bouton
+*Ver la reserva* (absolu : `admin_app_public_url` + `/partner/reservations/<ligne>`, omis sans le secret) ;
+**Nota del cliente** (`orders.client_note`, saisie au paiement, bloc absent si vide) ; pied : écrire au
+client, « Répondre » lui arrive directement, annuler depuis l'espace. Reply-To = e-mail du client
+(`notification_emails.reply_to`, transmis à Resend par `send-notification-emails`). Toute valeur tierce
+passe par `html_text` ; le sujet reste du texte brut. Prouvé par
+`supabase/tests/database/partner_order_confirmed_email.test.sql`.
 
-**7 · `client_order_confirmed`**
-« Hola <prénom>, tu reserva fue confirmada: » suivi d'une liste, une ligne par prestation :
-nom du produit en espagnol — date (— date de fin si séjour) — montant en COP. Le seul des huit qui
-détaille vraiment quelque chose. Pas de lien vers `/orders/[id]/status`.
+**7 · `client_order_confirmed`** — refait le 2026-11-12 sur le modèle du 6
+(`notify_client_order_confirmed`). « Tu reserva está confirmada », « Reserva <HFG-n> · confirmada el
+<date> », « Hola <titulaire>, » puis « Recibimos tu pago y tu reserva está confirmada. » (commande
+payée) ou « Tu reserva está confirmada: no tienes ningún pago pendiente en línea. » (rien à payer en
+ligne). **Tu reserva / Tus reservas (N)** : une carte par prestation vivante (`reserved`), mêmes dates
+et quantités que le 6, montants avec les libellés de la page `/reserva` — Total / Anticipo (pago en
+línea) / **A pagar en el establecimiento** (« Gratis » si le total est nul). **Resumen** dès deux
+prestations (« …en los establecimientos » s'il y en a plusieurs). **Contacto** : le WhatsApp de chaque
+établissement, une fois chacun (lignes vivantes seulement). Bouton *Ver tu reserva* (absolu :
+`web_app_public_url` + `/reserva/<jeton>`, omis sans le secret) + « Guarda este enlace… ». « El saldo se
+paga directamente al establecimiento… » s'il reste un solde. Prouvé par
+`client_order_confirmed_email.test.sql` et `lobby_apres_acompte_paiement.test.sql` (C1b, C2b).
 
-**8 · `partner_camp_evento_blocked`**
+**8 · `partner_camp_evento_blocked`** — SUPPRIMÉ le 2026-11-12, fondu dans le 6. Ancien corps :
 « Se reservó "<produit>". » + « Período bloqueado: <du> a <au>. » + « Otras actividades que comparten
 este recurso pueden haber quedado no disponibles durante ese período. »
 
@@ -131,9 +174,8 @@ ci-dessous) ; le reste est à traiter avant d'ouvrir l'envoi à de vrais partena
 - ~~**Emails 2 et 3 : les liens sont relatifs**~~ — CORRIGÉ : les liens sont absolus, construits
   depuis le secret Vault `admin_app_public_url` ; le lien d'une proposition d'établissement porte
   `?entity=establishment` (migration `20261002160349_email_html_values.sql`).
-- **Emails 5 et 6 : aucun contenu utile.** Ce sont les deux emails qui parlent d'argent à un socio,
-  et ils ne portent ni montant, ni nom de produit, ni date, ni lien. Le destinataire ne peut rien
-  en faire.
+- **Email 5 : aucun contenu utile** — ni montant, ni produit, ni lien ; le référent ne peut rien en
+  faire. (~~Email 6~~ CORRIGÉ le 2026-11-12 : e-mail de réservation complet, cf. ci-dessus.)
 - ~~**Aucun échappement HTML.**~~ — CORRIGÉ : toute valeur tierce d'un corps d'e-mail passe par
   `public.html_text(text)` (migrations `20261002125023` et `20261002160349`). Un méta-test pgTAP
   (`notification_html_escaping`) refuse toute fonction qui émet du HTML sans l'appeler.

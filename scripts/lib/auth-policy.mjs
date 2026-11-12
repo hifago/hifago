@@ -154,3 +154,27 @@ export function ecartsCloud(reponse, politique, lireFichier) {
   }
   return ecarts;
 }
+
+/**
+ * Le corps du `PATCH /v1/projects/{ref}/config/auth` qui pose les e-mails Auth (sujets et gabarits)
+ * de la politique — et rien d'autre : ni mot de passe, ni SMTP, ni aucun autre réglage. Les gabarits
+ * sont lus dans leurs fichiers (`lireFichier`), envoyés tels quels, à l'octet près de ce que
+ * `ecartsCloud` comparera ensuite (contenu rogné).
+ * → scripts/push-auth-email-templates.mjs
+ */
+export function payloadEmailsAuth(politique, lireFichier) {
+  const payload = {};
+  for (const cle of clesDePolitique(politique)) {
+    const attendu = politique[cle];
+    if (SUJET.test(cle)) {
+      if (typeof attendu !== "string" || attendu === "") throw new Error(`${cle} : sujet vide ou non textuel`);
+      payload[cle] = attendu;
+    } else if (GABARIT.test(cle)) {
+      const contenu = lireFichier(attendu?.fichier ?? "").trim();
+      if (contenu === "") throw new Error(`${cle} : gabarit vide (${attendu?.fichier})`);
+      payload[cle] = contenu;
+    }
+  }
+  if (Object.keys(payload).length === 0) throw new Error("aucun e-mail Auth dans la politique");
+  return payload;
+}

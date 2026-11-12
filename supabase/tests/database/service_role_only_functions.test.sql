@@ -133,7 +133,20 @@ insert into tmp_grant_only (name) values
   -- Visibilité prestataire (20261024120000) : helpers internes des RPC prestataire et de l'e-mail d'annulation.
   ('order_awaits_payment'),
   ('line_never_paid'),
-  ('notify_partner_camp_evento_blocked'),
+  -- E-mail de réservation au prestataire et ses formateurs (20261112120000 — remplace
+  -- notify_partner_camp_evento_blocked, supprimée).
+  ('notify_partner_order_confirmed'),
+  ('email_fecha_es'),
+  ('email_hora_es'),
+  ('email_cop'),
+  -- Charte des e-mails (20261112140000, 20261112150000) : briques de style et habillage commun,
+  -- appelés par les fonctions d'e-mail et par enqueue_notification_email.
+  ('email_titulo'),
+  ('email_seccion'),
+  ('email_boton'),
+  ('email_layout'),
+  -- Confirmation au client, appelée par notify_order_confirmed et create_order (20261112140000).
+  ('notify_client_order_confirmed'),
   -- Helpers INTERNES (audit P12c, 2026-10-06) : appelés uniquement par d'autres fonctions SECURITY
   -- DEFINER (exécutées en propriétaire) ou par des triggers, jamais par un client. Aucun garde
   -- propre : leur seule barrière est le grant, exactement comme les RPC ci-dessus.

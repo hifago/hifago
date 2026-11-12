@@ -789,6 +789,7 @@ export type Database = {
           recipient_email: string
           related_id: string | null
           related_table: string | null
+          reply_to: string | null
           sent_at: string | null
           status: string
           subject: string
@@ -807,6 +808,7 @@ export type Database = {
           recipient_email: string
           related_id?: string | null
           related_table?: string | null
+          reply_to?: string | null
           sent_at?: string | null
           status?: string
           subject: string
@@ -825,6 +827,7 @@ export type Database = {
           recipient_email?: string
           related_id?: string | null
           related_table?: string | null
+          reply_to?: string | null
           sent_at?: string | null
           status?: string
           subject?: string
@@ -986,6 +989,7 @@ export type Database = {
           account_id: string
           attribution_code: string | null
           attribution_source: string | null
+          client_note: string | null
           created_at: string
           holder_email: string
           holder_name: string
@@ -1006,6 +1010,7 @@ export type Database = {
           account_id: string
           attribution_code?: string | null
           attribution_source?: string | null
+          client_note?: string | null
           created_at?: string
           holder_email: string
           holder_name: string
@@ -1026,6 +1031,7 @@ export type Database = {
           account_id?: string
           attribution_code?: string | null
           attribution_source?: string | null
+          client_note?: string | null
           created_at?: string
           holder_email?: string
           holder_name?: string
@@ -3001,6 +3007,7 @@ export type Database = {
           recipient_email: string
           related_id: string | null
           related_table: string | null
+          reply_to: string | null
           sent_at: string | null
           status: string
           subject: string
@@ -3156,6 +3163,7 @@ export type Database = {
       }
       create_order: {
         Args: {
+          p_client_note?: string
           p_holder_email?: string
           p_holder_name: string
           p_holder_phone?: string
@@ -3207,6 +3215,16 @@ export type Database = {
         Args: { p_note?: string; p_product_id: string }
         Returns: undefined
       }
+      email_boton: { Args: { p_texto: string; p_url: string }; Returns: string }
+      email_cop: { Args: { p_amount: number }; Returns: string }
+      email_fecha_es: { Args: { p_date: string }; Returns: string }
+      email_hora_es: { Args: { p_time: string }; Returns: string }
+      email_layout: {
+        Args: { p_contenido: string; p_titulo: string }
+        Returns: string
+      }
+      email_seccion: { Args: { p_texto: string }; Returns: string }
+      email_titulo: { Args: { p_texto: string }; Returns: string }
       enqueue_notification_email: {
         Args: {
           p_body_html: string
@@ -3215,6 +3233,7 @@ export type Database = {
           p_recipient_email: string
           p_related_id?: string
           p_related_table?: string
+          p_reply_to?: string
           p_subject: string
         }
         Returns: string
@@ -3560,6 +3579,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      notify_client_order_confirmed: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
       notify_order_confirmed: {
         Args: { p_order_id: string }
         Returns: undefined
@@ -3568,7 +3591,7 @@ export type Database = {
         Args: { p_by: string; p_line_id: string }
         Returns: undefined
       }
-      notify_partner_camp_evento_blocked: {
+      notify_partner_order_confirmed: {
         Args: { p_order_id: string }
         Returns: undefined
       }

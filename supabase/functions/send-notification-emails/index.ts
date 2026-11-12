@@ -18,6 +18,9 @@ interface NotificationEmailRow {
   recipient_email: string;
   subject: string;
   body_html: string;
+  // Migration 20261112120000 : adresse de réponse (le client, pour l'e-mail de réservation au
+  // prestataire). NULL = pas de Reply-To.
+  reply_to: string | null;
 }
 
 // Refus GLOBAUX de Resend (clé refusée, domaine ou compte non autorisé, quota) : ils vaudraient pour
@@ -107,7 +110,13 @@ serveJob("send-notification-emails", async (ctx): Promise<JobOutcome> => {
           // envoi Resend déjà réussi mais AVANT mark_notification_email_sent.
           "Idempotency-Key": row.id,
         },
-        body: JSON.stringify({ from, to: row.recipient_email, subject: row.subject, html: row.body_html }),
+        body: JSON.stringify({
+          from,
+          to: row.recipient_email,
+          subject: row.subject,
+          html: row.body_html,
+          ...(row.reply_to ? { reply_to: row.reply_to } : {}),
+        }),
         signal: AbortSignal.timeout(timeoutMs),
       });
       waitMs = delayBeforeNextCall(res.headers, MIN_SPACING_MS, MAX_RATE_WAIT_MS);

@@ -125,7 +125,8 @@ insert into payments (id, order_id, status, amount_cop) values
 
 create or replace function enqueue_notification_email(
   p_event_type text, p_recipient_email text, p_recipient_account_id uuid,
-  p_subject text, p_body_html text, p_related_table text default null, p_related_id uuid default null
+  p_subject text, p_body_html text, p_related_table text default null, p_related_id uuid default null,
+  p_reply_to text default null
 ) returns uuid language plpgsql as $$
 begin
   raise exception 'fault injection : enqueue_notification_email toujours en échec (test apply_payment_webhook)';
@@ -199,7 +200,8 @@ insert into partner_capabilities (partner_id, role, source, status) values
 -- l'ordre des cas suivants si le fichier est un jour réorganisé.
 create or replace function enqueue_notification_email(
   p_event_type text, p_recipient_email text, p_recipient_account_id uuid,
-  p_subject text, p_body_html text, p_related_table text default null, p_related_id uuid default null
+  p_subject text, p_body_html text, p_related_table text default null, p_related_id uuid default null,
+  p_reply_to text default null
 ) returns uuid language plpgsql security definer set search_path = '' as $$
 declare
   v_id uuid;
@@ -248,12 +250,15 @@ select is(
 -- peut-être jamais payée. Le blocage, lui, reste posé à la création ; l'e-mail part à la
 -- confirmation (notify_order_confirmed), sauf commande sans rien à payer en ligne
 -- (lobby_apres_acompte_paiement.test.sql).
+-- ADAPTÉ (20261112120000) : l'e-mail 8 est fondu dans l'e-mail de réservation au prestataire
+-- (partner_payment_confirmed), qui porte la mention « Recurso bloqueado ».
 select is(
   (select count(*)::int from notification_emails
-    where event_type = 'partner_camp_evento_blocked' and related_table = 'order_lines'
+    where event_type = 'partner_payment_confirmed'
+      and related_id = ((:'v_create_order_result')::jsonb ->> 'order_id')::uuid
       and recipient_email = 'notif-camp-owner@test.local'),
   0,
-  'cas 9 : blocage camp → AUCUN e-mail « recurso bloqueado » à la création, avant tout paiement'
+  'cas 9 : blocage camp → AUCUN e-mail au prestataire à la création, avant tout paiement'
 );
 insert into payments (id, order_id, status, amount_cop)
 values ('99992000-0000-4000-8000-000000000053', ((:'v_create_order_result')::jsonb ->> 'order_id')::uuid, 'pending', 1);
@@ -265,10 +270,12 @@ select apply_payment_webhook(
 reset role;
 select is(
   (select count(*)::int from notification_emails
-    where event_type = 'partner_camp_evento_blocked' and related_table = 'order_lines'
-      and recipient_email = 'notif-camp-owner@test.local'),
+    where event_type = 'partner_payment_confirmed'
+      and related_id = ((:'v_create_order_result')::jsonb ->> 'order_id')::uuid
+      and recipient_email = 'notif-camp-owner@test.local'
+      and body_html like '%Recurso bloqueado%'),
   1,
-  'cas 10 : paiement approuvé → l''e-mail « recurso bloqueado » part, au compte du partenaire propriétaire'
+  'cas 10 : paiement approuvé → l''e-mail au prestataire part, avec la mention du blocage, au compte du partenaire propriétaire'
 );
 
 select * from finish();

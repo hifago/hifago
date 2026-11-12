@@ -71,6 +71,8 @@ const callTimes = []; // instant (ms) de chaque appel reçu par la fixture
 const OK_EMAIL = "notification-integration-ok@test.local";
 const FAIL_EMAIL = "notification-integration-fail@test.local";
 const receivedIdempotencyKeys = [];
+// Corps reçus par la fixture (migration 20261112120000 : reply_to).
+const receivedPayloads = [];
 
 function startFixtureServer() {
   const server = createServer((req, res) => {
@@ -83,6 +85,7 @@ function startFixtureServer() {
         resendCalls++;
         callTimes.push(performance.now());
         receivedIdempotencyKeys.push(req.headers["idempotency-key"]);
+        receivedPayloads.push(payload);
         if (resendRefusal !== null) {
           res.writeHead(resendRefusal, { "Content-Type": "application/json" });
           // Une panne (5xx) dont la page RECOPIE la requête reçue, en-tête Authorization compris.
@@ -156,9 +159,9 @@ async function main() {
     authChecks.push([resendCalls === 0, `aucun refus n'a appelé Resend (${resendCalls})`]);
 
     const { rows: inserted } = await client.query(
-      `insert into notification_emails (event_type, recipient_email, subject, body_html)
-       values ('partner_invitation', $1, 'Integration OK', '<p>ok</p>'),
-              ('partner_invitation', $2, 'Integration FAIL', '<p>fail</p>')
+      `insert into notification_emails (event_type, recipient_email, subject, body_html, reply_to)
+       values ('partner_invitation', $1, 'Integration OK', '<p>ok</p>', 'client-reply@test.local'),
+              ('partner_invitation', $2, 'Integration FAIL', '<p>fail</p>', null)
        returning id, recipient_email`,
       [OK_EMAIL, FAIL_EMAIL]
     );
@@ -194,6 +197,14 @@ async function main() {
       [fail?.status === "pending" && fail?.attempts === 1, `ligne FAIL → reste 'pending' pour retry après 1 tentative (obtenu: ${fail?.status}/${fail?.attempts})`],
       [!!fail?.last_error, "ligne FAIL → last_error renseigné"],
       [receivedIdempotencyKeys.includes(okId), "en-tête Idempotency-Key transmis à Resend (spec 23 §8.4)"],
+      [
+        receivedPayloads.find((p) => p.to === OK_EMAIL)?.reply_to === "client-reply@test.local",
+        "reply_to transmis à Resend quand la ligne en porte un (20261112120000)",
+      ],
+      [
+        !("reply_to" in (receivedPayloads.find((p) => p.to === FAIL_EMAIL) ?? { reply_to: "absent" })),
+        "aucun reply_to envoyé quand la ligne n'en porte pas",
+      ],
       [summary.ok === true, `un refus propre à UNE ligne (422) ne rend pas le passage ok=false (${summary.ok})`]
     );
 

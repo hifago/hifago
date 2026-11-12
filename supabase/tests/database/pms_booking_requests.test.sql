@@ -176,9 +176,9 @@ select ok(
 select ok(
   not has_function_privilege('service_role', 'public.notify_order_confirmed(uuid)', 'execute')
   and not has_function_privilege('authenticated', 'public.notify_order_confirmed(uuid)', 'execute')
-  and not has_function_privilege('service_role', 'public.notify_partner_camp_evento_blocked(uuid)', 'execute')
-  and not has_function_privilege('anon', 'public.notify_partner_camp_evento_blocked(uuid)', 'execute'),
-  'G2 : notify_order_confirmed et notify_partner_camp_evento_blocked : internes, exécutables par personne');
+  and not has_function_privilege('service_role', 'public.notify_partner_order_confirmed(uuid)', 'execute')
+  and not has_function_privilege('anon', 'public.notify_partner_order_confirmed(uuid)', 'execute'),
+  'G2 : notify_order_confirmed et notify_partner_order_confirmed : internes, exécutables par personne');
 
 set local role service_role;
 -- ── resolve_pms_booking_request ─────────────────────────────────────────────────────────────
@@ -197,13 +197,14 @@ select is(
     'commission', (select count(*)::int from notification_emails where event_type = 'partner_commission_earned' and related_id = t_id('1001') and recipient_account_id = t_id('22')),
     'paiement', (select count(*)::int from notification_emails where event_type = 'partner_payment_confirmed' and related_id = t_id('1001') and recipient_account_id = t_id('21')),
     'client', (select count(*)::int from notification_emails where event_type = 'client_order_confirmed' and related_id = t_id('1001') and recipient_email = 'bookq-client-1001@test.local'),
-    'recurso', (select count(*)::int from notification_emails where event_type = 'partner_camp_evento_blocked' and related_table = 'order_lines' and related_id = t_id('2002') and recipient_account_id = t_id('21'))),
+    -- 20261112120000 : l'ex-e-mail 8 (camp) est fondu dans l'e-mail de réservation au prestataire (6).
+    'recurso', (select count(*)::int from notification_emails where event_type = 'partner_payment_confirmed' and related_id = t_id('1001') and recipient_account_id = t_id('21') and body_html like '%Recurso bloqueado%')),
   jsonb_build_object('commission', 1, 'paiement', 1, 'client', 1, 'recurso', 1),
-  'R3c : done → les e-mails différés partent : 5 (référent), 6 (propriétaire), 7 (client) et 8 (camp)');
+  'R3c : done → les e-mails différés partent : 5 (référent), 6 (propriétaire, avec le blocage du camp) et 7 (client)');
 select ok(
-  strpos((select body_html from notification_emails where event_type = 'partner_camp_evento_blocked' and related_id = t_id('2002')),
-         '<p>Período bloqueado: 2029-05-01 a 2029-05-02.</p>') > 0,
-  'R3d : l''e-mail 8 garde son corps (période du camp de 2 jours)');
+  strpos((select body_html from notification_emails where event_type = 'partner_payment_confirmed' and related_id = t_id('1001') and recipient_account_id = t_id('21')),
+         'del martes 1 may. 2029 al miércoles 2 may. 2029') > 0,
+  'R3d : l''e-mail au prestataire porte la période du camp de 2 jours');
 set local role service_role;
 select is(resolve_pms_booking_request(t_id('3001'), 'done'),
   jsonb_build_object('ok', false, 'reason', 'not_pending', 'status', 'done'), 'R4 : rejoué → no-op typé (not_pending)');
