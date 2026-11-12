@@ -44,6 +44,9 @@ docs/ai-index.json` — jamais parcourir `docs/` en entier ni lire un gros fichi
 4. `docs/04-architecture-cible.md` § « Points volontairement non tranchés ici » liste ce qui est
    renvoyé au chiffrage — ne jamais trancher ces points dans du code ou une migration ; signaler à
    Jérôme et attendre son arbitrage.
+5. **Tout document marketing ou commercial** (proposition partenaire, dossier, plaquette, campagne)
+   va dans `docs/marketing/<piece>/`, cité dans `docs/marketing/README.md` — jamais ailleurs
+   (décision Jérôme, 2026-11-12 ; détail : `.claude/rules/marketing.md`).
 
 ## 2. Stack non négociable
 1. Monorepo npm workspaces, deux apps Next.js (App Router) — `apps/web` (vitrine, next-intl) et

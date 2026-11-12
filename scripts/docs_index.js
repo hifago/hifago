@@ -53,10 +53,11 @@ const RACCOURCIS = [
   ['SEO : sitemap, robots.txt, hreflang, JSON-LD', ['docs/specs/26-referencement-seo-et-moteurs-ia.md']],
   ['pièges empiriques numérotés (`CLAUDE.md §11.N`)', ['docs/pieges-empiriques.md']],
   ['écrire une spec : les questions à poser, puis le gabarit', ['docs/specs/avant-la-spec.md', 'docs/specs/_modele.md']],
+  ['document marketing ou commercial (proposition partenaire, dossier, plaquette) : où le ranger, ceux qui existent', ['docs/marketing/README.md']],
 ];
 
 /** Thèmes valides d'un en-tête `---` — et rubriques de la carte. */
-const THEMES = ['cadrage', 'specs', 'journal'];
+const THEMES = ['cadrage', 'specs', 'journal', 'marketing'];
 
 /** Les seules valeurs valides de `statut` pour un document de thème `specs`. */
 const STATUTS = ['brouillon', 'partiel', 'implemente', 'supprimee'];
@@ -433,7 +434,25 @@ function collect() {
       if (!chemins.includes(cible)) problemes.push(`raccourci « ${sujet} » → ${cible} : document introuvable`);
     }
   }
+  problemes.push(...verifierMarketing());
   return { docs, problemes };
+}
+
+/**
+ * Chaque pièce de `docs/marketing/<piece>/` est citée dans le tableau de `docs/marketing/README.md`
+ * (`.claude/rules/marketing.md` règle 2, décision Jérôme du 2026-11-12). POURQUOI ici : une pièce
+ * non citée est une pièce que personne ne retrouve — c'est la seule partie de la règle qu'une
+ * machine peut constater (CLAUDE.md §11.20). Lit le disque, pas l'index git : une pièce pas encore
+ * commitée doit déjà être citée.
+ */
+function verifierMarketing() {
+  const dir = path.join(DOCS, 'marketing');
+  if (!fs.existsSync(dir)) return [];
+  const readme = path.join(dir, 'README.md');
+  const texte = fs.existsSync(readme) ? fs.readFileSync(readme, 'utf8') : '';
+  return fs.readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !texte.includes(`](${e.name}/)`))
+    .map((e) => `docs/marketing/${e.name}/ — pièce absente du tableau de docs/marketing/README.md (lien « ](${e.name}/) » attendu)`);
 }
 
 function build(docs) {
@@ -508,6 +527,9 @@ ${rubrique('specs', (d) => !estSpecFeature(d))}
 
 ## Suivi — backlog, dette, pièges, journal
 ${rubrique('journal')}
+
+## Marketing — documents commerciaux et de communication
+${rubrique('marketing')}
 `;
 }
 

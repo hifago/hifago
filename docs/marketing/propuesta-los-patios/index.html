@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hifago × Los Patios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Charte Hifago 2026 — mêmes valeurs que packages/ui (or, bleu poudre, bleu ciel, bleu moyen, marine). */
+  :root {
+    --or: #ddae09;
+    --or-pale: #fbf3d6;
+    --poudre: #b6cde8;
+    --ciel: #619ccc;
+    --moyen: #2a618e;
+    --marine: #132f61;
+    --pale: #eef4fb;
+    --gris: #4f6182;
+  }
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: #dde3ec; }
+  body {
+    font-family: "Poppins", system-ui, sans-serif;
+    color: var(--marine);
+    font-size: 9.3pt;
+    line-height: 1.45;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page {
+    width: 210mm; height: 297mm;
+    margin: 10mm auto;
+    background: #fff;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 3px 14px rgba(19, 47, 97, .18);
+    padding: 15mm 17mm 20mm;
+  }
+  @media print {
+    html { background: #fff; }
+    .page { margin: 0; box-shadow: none; break-after: page; }
+  }
+  .topbar { position: absolute; inset: 0 0 auto 0; height: 3.2mm; background: var(--or); }
+
+  /* Typo */
+  .eyebrow { font-size: 7.2pt; letter-spacing: .17em; text-transform: uppercase; font-weight: 600; color: var(--moyen); }
+  .eyebrow b { color: var(--marine); }
+  h2 {
+    font-family: "Anton", sans-serif; font-weight: 400;
+    font-size: 25pt; line-height: 1.04; letter-spacing: .005em;
+    margin: 1.8mm 0 3.2mm;
+  }
+  h2 .dot, h1 .dot { color: var(--or); }
+  h3 { font-size: 10.2pt; font-weight: 700; line-height: 1.25; margin-bottom: 1mm; }
+  .lead { font-size: 10.6pt; line-height: 1.5; max-width: 168mm; }
+  .muted { color: var(--gris); }
+  .small { font-size: 7.6pt; line-height: 1.4; }
+  sup { font-size: 6pt; color: var(--moyen); font-weight: 600; }
+  .rule { border: 0; border-top: 1px solid var(--poudre); margin: 4.5mm 0; }
+  strong { font-weight: 700; }
+
+  footer.pf {
+    position: absolute; left: 17mm; right: 17mm; bottom: 8.5mm;
+    border-top: 1px solid var(--poudre); padding-top: 2.4mm;
+    display: flex; justify-content: space-between;
+    font-size: 7pt; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  }
+  footer.pf span:last-child { color: var(--moyen); }
+  .logo-int { position: absolute; top: 9mm; right: 17mm; height: 9.5mm; }
+
+  /* Cartes et blocs */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3.5mm; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3.5mm; }
+  .card { background: var(--pale); border-radius: 3.2mm; padding: 4mm 4.5mm; }
+  .card.poudre { background: var(--poudre); }
+  .card.or { background: var(--or-pale); border: 1px solid #efd88a; }
+  .card.marine { background: var(--marine); color: #fff; }
+  .card.marine .eyebrow { color: var(--poudre); }
+  .card p + p { margin-top: 1.5mm; }
+
+  /* Couverture */
+  .cover { padding: 0; }
+  .cover .band {
+    background: var(--or); height: 124mm; position: relative; overflow: hidden; isolation: isolate;
+    padding: 13mm 17mm 0;
+  }
+  /* Même cadrage que le héros de hifago.co (PortadaInicio.tsx, ≥ md) : en haut à droite, 61,3 % de
+     la largeur, décalée de 13 % de sa largeur hors du bord droit et de 16,6 % de sa hauteur vers le
+     bas, dans ses bleus d'origine sans opacité, fondu sur les 14 % du haut. */
+  .cover .band .ill {
+    position: absolute; right: 0; top: 0; z-index: -1;
+    width: 61.3%; height: auto;
+    transform: translate(13%, 16.6%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14%);
+    mask-image: linear-gradient(to bottom, transparent, #000 14%);
+  }
+  .cover .logo { height: 21mm; display: block; margin-bottom: 9mm; }
+  .cover .eyebrow { color: var(--marine); max-width: 82mm; }
+  .cover h1 {
+    font-family: "Poppins", sans-serif; font-weight: 800;
+    font-size: 29pt; line-height: 1.04; letter-spacing: -.025em;
+    margin: 3.5mm 0 3.5mm; max-width: 90mm;
+  }
+  .cover .sub { font-size: 10.8pt; line-height: 1.45; max-width: 84mm; font-weight: 500; }
+  .cover .x { font-family: "Anton", sans-serif; font-size: 17pt; margin-top: 1mm; }
+  .cover .body { padding: 15mm 17mm 0; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 3.5mm 0 13mm; }
+  .kpi { border-top: 1.2mm solid var(--or); padding-top: 2.6mm; }
+  .kpi .n { font-family: "Anton", sans-serif; font-size: 23pt; line-height: 1; }
+  .kpi .n small { font-size: 13pt; }
+  .kpi p { font-size: 8.2pt; line-height: 1.38; margin-top: 1.6mm; }
+
+  /* Statistiques */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3.5mm; margin: 4mm 0 2mm; }
+  .stat { background: var(--marine); color: #fff; border-radius: 3.2mm; padding: 4.5mm 4.5mm 4mm; }
+  .stat .n { font-family: "Anton", sans-serif; font-size: 32pt; line-height: 1; color: var(--or); }
+  .stat p { margin-top: 1.8mm; font-size: 8.8pt; line-height: 1.35; }
+  .stat sup { color: var(--poudre); }
+  .barre { display: flex; height: 11mm; border-radius: 2.4mm; overflow: hidden; margin-top: 4mm; font-size: 8.4pt; font-weight: 600; }
+  .barre .seg { display: flex; align-items: center; padding: 0 3.5mm; white-space: nowrap; }
+  .barre .un-dia { background: var(--poudre); color: var(--marine); }
+  .barre .noche { background: var(--or); color: var(--marine); }
+  .bigq { font-family: "Anton", sans-serif; font-size: 17pt; line-height: 1.15; }
+  ul.clean { list-style: none; }
+  ul.clean li { position: relative; padding-left: 4.2mm; margin-top: 1.4mm; }
+  ul.clean li::before { content: ""; position: absolute; left: 0; top: 1.9mm; width: 1.8mm; height: 1.8mm; border-radius: 50%; background: var(--or); }
+  .pct { font-family: "Anton", sans-serif; font-size: 15pt; color: var(--moyen); margin-right: 1.5mm; }
+
+  /* Tableaux */
+  table { width: 100%; border-collapse: collapse; font-size: 8.4pt; }
+  th, td { text-align: left; padding: 1.55mm 0; border-bottom: 1px solid var(--poudre); vertical-align: top; }
+  td.num, th.num { text-align: right; white-space: nowrap; padding-left: 3mm; }
+  th { font-size: 7pt; letter-spacing: .1em; text-transform: uppercase; color: var(--moyen); font-weight: 600; }
+  tr.total td { font-weight: 700; border-bottom: 0; padding-top: 2mm; }
+  tr.comision td { background: var(--marine); color: #fff; font-weight: 700; padding: 2mm 2.5mm; }
+  tr.comision td:first-child { border-radius: 2mm 0 0 2mm; }
+  tr.comision td:last-child { border-radius: 0 2mm 2mm 0; color: var(--or); font-size: 10.5pt; }
+  td .prov { color: var(--gris); font-size: 7.4pt; display: block; }
+
+  /* Étapes numérotées */
+  .steps { margin-top: 2mm; }
+  .step { display: grid; grid-template-columns: 11mm 1fr; gap: 2mm; padding: 2.7mm 0; border-bottom: 1px solid var(--poudre); }
+  .step:last-child { border-bottom: 0; }
+  .steps.airy .step { padding: 3.9mm 0; }
+  .step .k { font-family: "Anton", sans-serif; font-size: 15pt; color: var(--or); line-height: 1.1; }
+  .step h3 { margin-bottom: .6mm; }
+
+  .tag { display: inline-block; font-size: 6.8pt; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; padding: .8mm 2.2mm; border-radius: 10mm; }
+  .tag.ok { background: #d9ecd9; color: #1d5b2a; }
+  .tag.prep { background: var(--or-pale); color: #7a5d00; border: 1px solid #efd88a; }
+  .tag.next { background: var(--poudre); color: var(--marine); }
+
+  .phone { width: 44mm; border-radius: 6mm; border: 1.6mm solid var(--marine); overflow: hidden; background: #fff; }
+  .phone img { display: block; width: 100%; height: 96mm; object-fit: cover; object-position: top; }
+  .qr { width: 27mm; height: 27mm; }
+  .qr img { width: 100%; height: 100%; display: block; }
+  code { font-family: "Poppins", sans-serif; font-weight: 700; background: var(--pale); padding: .2mm 1.4mm; border-radius: 1mm; font-size: 8.2pt; }
+</style>
+</head>
+<body>
+
+<!-- ============ 01 · PORTADA ============ -->
+<section class="page cover">
+  <div class="band">
+    <img class="ill" src="../../../apps/web/public/brand/calle-zocalos.webp" alt="">
+    <img class="logo" src="../../../apps/web/public/brand/logo-header-sur-or.webp" alt="Hifago Guatapé">
+    <p class="eyebrow">Propuesta de alianza · Equipo comercial de Los Patios</p>
+    <h1>Guatapé merece más de un día<span class="dot">.</span></h1>
+    <p class="sub">Una alianza para que Los Patios gane el 8&nbsp;% de cada estadía que recomienda en Guatapé, sin costo, sin inventario y sin cambiar el precio para el huésped.</p>
+    <p class="x">Hifago × Los Patios</p>
+  </div>
+
+  <div class="body">
+    <p class="eyebrow">La propuesta en 30 segundos</p>
+    <div class="kpis">
+      <div class="kpi"><div class="n">8&nbsp;<small>%</small></div><p>de comisión sobre el valor total de cada servicio realizado: alojamiento, transporte, actividades y tours.</p></div>
+      <div class="kpi"><div class="n">0&nbsp;<small>COP</small></div><p>de inversión. Sin inventario ni posventa: Hifago gestiona la reserva, el anticipo y a los prestadores.</p></div>
+      <div class="kpi"><div class="n">=</div><p>mismo precio para el huésped, con o sin el QR de Los Patios: la comisión sale de la parte de Hifago.</p></div>
+      <div class="kpi"><div class="n">8&nbsp;<small>sem.</small></div><p>de piloto en Los Patios Medellín, con metas acordadas antes de empezar.</p></div>
+    </div>
+
+    <div class="grid2" style="grid-template-columns: 1.25fr 1fr;">
+      <div class="card">
+        <p class="eyebrow">De hostal a hostal</p>
+        <h3 style="margin-top:1.5mm">Hifago nace en Guatapé, en Casa Kayam</h3>
+        <p>Casa Kayam es un hostal a orillas del embalse. Conocemos la recepción desde adentro: el huésped que pregunta «¿y después qué hago?», el tour que se vende por defecto, la estadía que se queda corta.</p>
+        <p>Hifago es nuestra respuesta: una plataforma colombiana donde el viajero arma su viaje con prestadores locales, dónde dormir, cómo llegar y qué hacer, en un solo carrito y con disponibilidad en tiempo real.</p>
+      </div>
+      <div class="card marine">
+        <p class="eyebrow">Lo que proponemos</p>
+        <ul class="clean" style="margin-top:1mm">
+          <li>Los Patios recomienda Guatapé con su propio QR.</li>
+          <li>El huésped arma y reserva su viaje en hifago.co.</li>
+          <li>Los Patios gana el 8&nbsp;% de cada servicio prestado.</li>
+          <li>Empezamos con un piloto medible en Medellín.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer class="pf"><span>Jérôme Filippi · Hifago · hifago.co · 9 de noviembre de 2026</span><span>01 / 07</span></footer>
+</section>
+
+<!-- ============ 02 · LA OPORTUNIDAD ============ -->
+<section class="page">
+  <div class="topbar"></div>
+  <img class="logo-int" src="../../../apps/web/public/brand/logo-header-clair.webp" alt="Hifago">
+  <p class="eyebrow"><b>01</b> / La oportunidad</p>
+  <h2>Sus huéspedes ya van a Guatapé.<br>Casi siete de cada diez vuelven el mismo día<span class="dot">.</span></h2>
+  <p class="lead">Guatapé es la excursión más conocida desde Medellín. Pero el formato de ida y vuelta deja poco tiempo al viajero y poco dinero al pueblo.</p>
+
+  <div class="stats">
+    <div class="stat"><div class="n">2,5 M</div><p>visitantes en Guatapé en 2025, unos 200.000 al mes.<sup>1</sup></p></div>
+    <div class="stat"><div class="n">68,4 %</div><p>de los visitantes se queda un solo día en el municipio.<sup>1</sup></p></div>
+    <div class="stat"><div class="n">+50 %</div><p>son turistas internacionales, y el 81,3&nbsp;% llega por primera vez.<sup>1</sup></p></div>
+  </div>
+  <div class="barre">
+    <div class="seg un-dia" style="width:68.4%">68,4 % · un solo día</div>
+    <div class="seg noche" style="width:31.6%">31,6 % · más de un día</div>
+  </div>
+  <p style="margin-top:2mm">Cada visitante que pasa de la primera franja a la segunda deja más en el pueblo. Con Hifago, el 8&nbsp;% de lo que gasta queda además para quien se lo recomendó.</p>
+  <p class="small muted" style="margin-top:1.5mm">Alcaldía de Guatapé, Sistema de Información Turística (sondeos de marzo y abril de 2026).</p>
+
+  <hr class="rule" style="margin:6mm 0">
+
+  <div class="grid2">
+    <div>
+      <p class="eyebrow">Lo que pide el destino</p>
+      <h3 style="margin-top:1.5mm">Estadías más largas y más gasto local</h3>
+      <p>Según la Alcaldía, las visitas cortas promovidas por operadores externos reducen el gasto en alojamiento, comida y comercio local.<sup>1</sup> Desde 2025, el municipio cobra un aporte a las empresas externas que operan tours en Guatapé y les recomienda trabajar con guías y servicios del pueblo.<sup>2</sup></p>
+      <p style="margin-top:1.5mm">En Guatapé, el <strong>92&nbsp;% de la población vive del turismo</strong>.<sup>2</sup></p>
+    </div>
+    <div>
+      <p class="eyebrow">Lo que buscan los viajeros</p>
+      <h3 style="margin-top:1.5mm">Que su viaje deje algo en el lugar</h3>
+      <p class="small muted">Booking.com, encuesta 2025 a 32.000 viajeros de 34 países.<sup>3</sup></p>
+      <ul class="clean">
+        <li><span class="pct">73 %</span>quiere que su gasto beneficie a la comunidad local.</li>
+        <li><span class="pct">77 %</span>busca experiencias representativas de la cultura local.</li>
+        <li><span class="pct">69 %</span>quiere dejar el destino mejor de como lo encontró.</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="rule" style="margin:6mm 0">
+
+  <div class="grid2" style="align-items:center">
+    <div>
+      <p class="eyebrow">Y el flujo crece</p>
+      <p style="margin-top:1.5mm">Medellín recibió cerca de <strong>1,2 millones de turistas extranjeros en 2025</strong><sup>4</sup> y fue la ciudad colombiana más buscada por viajeros extranjeros en Booking.com para ese año.<sup>5</sup> Para muchos de ellos, Guatapé es la excursión obligada desde la ciudad.</p>
+    </div>
+    <div class="card marine">
+      <p class="bigq">La pregunta ya no es si sus huéspedes van a Guatapé, sino si se quedan, y quién se lo propone.</p>
+      <p style="margin-top:2mm; color: var(--poudre)">Esa recomendación vale el 8&nbsp;% de toda la estadía.</p>
+    </div>
+  </div>
+
+  <footer class="pf"><span>Hifago × Los Patios</span><span>02 / 07</span></footer>
+</section>
+
+<!-- ============ 03 · INGRESOS ============ -->
+<section class="page">
+  <div class="topbar"></div>
+  <img class="logo-int" src="../../../apps/web/public/brand/logo-header-clair.webp" alt="Hifago">
+  <p class="eyebrow"><b>02</b> / Lo que gana Los Patios · Ingresos</p>
+  <h2>Una comisión sobre toda la estadía,<br>no solo sobre el transporte<span class="dot">.</span></h2>
+
+  <div class="grid3" style="margin-top:3mm">
+    <div class="card"><h3>Toda la estadía cuenta</h3><p>8&nbsp;% sobre alojamiento, transporte, actividades, tours y eventos de pago reservados con un código de Los Patios.</p></div>
+    <div class="card"><h3>Cero costo, cero riesgo</h3><p>Sin inventario, sin cobros, sin posventa. Hifago gestiona la reserva, el anticipo en línea y la relación con cada prestador.</p></div>
+    <div class="card"><h3>El mismo precio</h3><p>El precio y el anticipo no cambian con el QR: la comisión de Los Patios sale de la parte de Hifago, nunca del bolsillo del huésped.</p></div>
+    <div class="card"><h3>Un huésped, varios viajes</h3><p>Si el huésped tiene cuenta Hifago, sus reservas siguientes también quedan atribuidas a Los Patios, mientras no llegue con el enlace de otro aliado.</p></div>
+    <div class="card"><h3>Ingreso donde hoy no hay</h3><p>El huésped que sigue su ruta o no quiere un tour de un día hoy no deja nada en recepción. Con Hifago deja el 8&nbsp;% de su estadía.</p></div>
+    <div class="card"><h3>Todo a la vista</h3><p>Un panel de aliado muestra cada reserva atribuida y su comisión: <em>Estimada</em>, <em>Ganada, por pagar</em> o <em>Pagada</em>.</p></div>
+  </div>
+
+  <p class="eyebrow" style="margin-top:6mm">Dos viajes armados con precios publicados en hifago.co el 9 de noviembre de 2026</p>
+  <div class="grid2" style="margin-top:2.5mm; gap: 7mm">
+    <div>
+      <h3>Mochilero · 1 persona · 2 noches</h3>
+      <table>
+        <tr><th>Servicio</th><th class="num">COP</th></tr>
+        <tr><td>Bus compartido El Poblado ↔ Guatapé, ida y vuelta<span class="prov">AeroTurex</span></td><td class="num">80.000</td></tr>
+        <tr><td>2 noches en dormitorio compartido<span class="prov">Lakeview Hostel · 51.000 por noche</span></td><td class="num">102.000</td></tr>
+        <tr><td>Canyoning en el río Guatapé<span class="prov">Koora Trip</span></td><td class="num">250.000</td></tr>
+        <tr class="total"><td>Total del viaje</td><td class="num">432.000</td></tr>
+        <tr class="comision"><td>Comisión Los Patios (8&nbsp;%)</td><td class="num">34.560</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>Pareja · 2 personas · 2 noches</h3>
+      <table>
+        <tr><th>Servicio</th><th class="num">COP</th></tr>
+        <tr><td>Transporte privado Medellín ↔ Guatapé, ida y regreso<span class="prov">Gotravel · 326.000 por trayecto</span></td><td class="num">652.000</td></tr>
+        <tr><td>2 noches en habitación doble<span class="prov">Lakeview Hostel · 140.000 por noche</span></td><td class="num">280.000</td></tr>
+        <tr><td>Tour en lancha rápida × 2<span class="prov">Gotravel</span></td><td class="num">492.000</td></tr>
+        <tr><td>Taller de chocolate × 2<span class="prov">Coscun</span></td><td class="num">180.000</td></tr>
+        <tr class="total"><td>Total del viaje</td><td class="num">1.604.000</td></tr>
+        <tr class="comision"><td>Comisión Los Patios (8&nbsp;%)</td><td class="num">128.320</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card or" style="margin-top:6mm">
+    <div class="grid2" style="grid-template-columns: 1fr 1.35fr; gap: 6mm; align-items:center">
+      <div>
+        <p class="eyebrow">Escenarios por mes</p>
+        <h3 style="margin-top:1.2mm">Con un viaje promedio conservador de 500.000 COP</h3>
+        <p class="small muted" style="margin-top:1mm">Ilustrativo: la meta real se fija juntos antes del piloto. La comisión se gana sobre servicios realizados.</p>
+      </div>
+      <table>
+        <tr><th style="white-space:nowrap">Viajes / mes</th><th class="num">Ventas en Guatapé</th><th class="num">Comisión / mes</th><th class="num">Comisión / año</th></tr>
+        <tr><td>10</td><td class="num">5.000.000</td><td class="num">400.000</td><td class="num">4.800.000</td></tr>
+        <tr><td>25</td><td class="num">12.500.000</td><td class="num">1.000.000</td><td class="num">12.000.000</td></tr>
+        <tr><td style="border-bottom:0">50</td><td class="num" style="border-bottom:0">25.000.000</td><td class="num" style="border-bottom:0"><strong>2.000.000</strong></td><td class="num" style="border-bottom:0"><strong>24.000.000</strong></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <footer class="pf"><span>Hifago × Los Patios</span><span>03 / 07</span></footer>
+</section>
+
+<!-- ============ 04 · MARCA ============ -->
+<section class="page">
+  <div class="topbar"></div>
+  <img class="logo-int" src="../../../apps/web/public/brand/logo-header-clair.webp" alt="Hifago">
+  <p class="eyebrow"><b>03</b> / Lo que gana Los Patios · Marca</p>
+  <h2>Ser el hostal que invita<br>a sus huéspedes a quedarse<span class="dot">.</span></h2>
+  <p class="lead">Los Patios se presenta como una marca colombiana hecha por colombianos (#WeAreColombia), que promueve un estilo de vida sostenible y piensa global para actuar local.<sup>6</sup> Esta alianza lo vuelve concreto en el viaje de cada huésped.</p>
+
+  <div class="steps airy" style="margin-top:4mm">
+    <div class="step"><div class="k">01</div><div><h3>Del lado del destino</h3><p>Guatapé pide estadías más largas y más gasto local. Recomendar quedarse, con prestadores del pueblo, pone a Los Patios del lado de la solución, no del turismo de paso.</p></div></div>
+    <div class="step"><div class="k">02</div><div><h3>Del lado de sus huéspedes</h3><p>Tres de cada cuatro viajeros quieren que su gasto beneficie a la comunidad local.<sup>3</sup> Una recomendación con nombres propios, un hostal a orillas del embalse, un maestro del zócalo, una chocolatería del pueblo, se siente auténtica, no como un tour más.</p></div></div>
+    <div class="step"><div class="k">03</div><div><h3>Una recepción que resuelve</h3><p>«¿Y después de Medellín?» tiene por fin una respuesta concreta: disponibilidad real, precios claros, en español y en inglés, sin que el equipo tenga que coordinar nada.</p></div></div>
+    <div class="step"><div class="k">04</div><div><h3>Historias propias para contar</h3><p>Anfitriones, guías y artesanos de Guatapé: contenido para Instagram que encaja con #WeAreColombia, con un enlace medible en cada pieza.</p></div></div>
+    <div class="step"><div class="k">05</div><div><h3>Cifras de impacto, no promesas</h3><p>Al cierre del piloto: noches reservadas en Guatapé y ventas generadas para negocios locales. Datos reales para su comunicación de sostenibilidad.</p></div></div>
+  </div>
+
+  <div class="card poudre" style="margin-top:5mm">
+    <p class="eyebrow" style="color:var(--marine)">¿Y el tour de un día de Los Patios?</p>
+    <h3 style="margin-top:1.2mm">No lo reemplazamos: lo completamos</h3>
+    <p>El tour sigue siendo la opción para quien tiene un solo día. Hifago es para el huésped que quiere más tiempo, y abre dos fórmulas que suman en vez de restar:</p>
+    <div class="grid2" style="margin-top:3mm">
+      <div class="card" style="background:#fff"><h3>Ida a Guatapé, regreso a Los Patios</h3><p>Una escapada de 1 o 2 noches con el equipaje guardado en Los Patios y la vuelta reservada allí. Los Patios no pierde al huésped: lo recupera con una estadía más larga en la región.</p></div>
+      <div class="card" style="background:#fff"><h3>Tour + noche, a explorar juntos</h3><p>El tour de un día con la opción de quedarse en Guatapé y regresar al día siguiente. Hifago aporta el alojamiento y las actividades locales; Los Patios gana sobre ambos.</p></div>
+    </div>
+  </div>
+
+  <footer class="pf"><span>Hifago × Los Patios</span><span>04 / 07</span></footer>
+</section>
+
+<!-- ============ 05 · CÓMO FUNCIONA ============ -->
+<section class="page">
+  <div class="topbar"></div>
+  <img class="logo-int" src="../../../apps/web/public/brand/logo-header-clair.webp" alt="Hifago">
+  <p class="eyebrow"><b>04</b> / Cómo funciona</p>
+  <h2>Un QR, una recomendación,<br>una comisión atribuida<span class="dot">.</span></h2>
+
+  <div class="grid2" style="grid-template-columns: 1fr 50mm; gap: 7mm; align-items:start">
+    <div class="steps">
+      <div class="step"><div class="k">01</div><div><h3>Hifago crea los códigos de Los Patios</h3><p>Uno por canal o por persona del equipo, por ejemplo <code>LOSPATIOS-RECEPCION</code> <code>LOSPATIOS-WA</code> <code>LOSPATIOS-IG</code>. Cada código tiene su enlace y su QR, descargable en SVG para imprimir. Todos suman a la cuenta de Los Patios.</p></div></div>
+      <div class="step"><div class="k">02</div><div><h3>El equipo recomienda</h3><p>En el check-in o el check-out, y por WhatsApp: «¿Cuál es tu siguiente parada?». Si el huésped quiere más que un día, le comparte el QR, en español o en inglés.</p></div></div>
+      <div class="step"><div class="k">03</div><div><h3>El huésped arma su viaje</h3><p>Elige alojamiento, transporte y actividades en <em>Mi viaje</em>, con disponibilidad real, y paga en línea un anticipo. El saldo lo paga directamente a cada prestador.</p></div></div>
+      <div class="step"><div class="k">04</div><div><h3>La reserva queda atribuida</h3><p>El código se guarda en cuanto el huésped añade su primer servicio a <em>Mi viaje</em>. El mejor momento es ahí mismo, en recepción o en el rooftop.</p></div></div>
+      <div class="step"><div class="k">05</div><div><h3>Los Patios cobra</h3><p>Cuando el servicio se presta, la comisión pasa de <em>Estimada</em> a <em>Ganada, por pagar</em>, y Hifago la paga por Mercado Pago.</p></div></div>
+    </div>
+    <div>
+      <div class="card" style="text-align:center; padding:4.5mm 3.5mm">
+        <p class="eyebrow">Ejemplo de QR</p>
+        <div class="qr" style="margin:3mm auto 2.5mm; width:32mm; height:32mm"><img src="img/qr-lospatios.svg" alt="QR hifago.co/es/r/LOSPATIOS"></div>
+        <p class="small"><strong>hifago.co/es/r/LOSPATIOS</strong></p>
+        <p class="small muted" style="margin-top:1.5mm">El QR apunta a un enlace corto: un material ya impreso sigue funcionando aunque cambie la web.</p>
+      </div>
+      <div class="card marine" style="margin-top:3.5mm; padding:4mm">
+        <p class="eyebrow">Frase para recepción</p>
+        <p style="margin-top:1.5mm; font-size:8.5pt">«¿Cuál es tu siguiente parada? Guatapé merece más de un día: con este QR eliges dónde dormir, cómo llegar y qué hacer.»</p>
+        <p style="margin-top:1.8mm; font-size:8.5pt; color:var(--poudre)">“What’s your next stop? Guatapé deserves more than a day: scan this to choose where to stay, how to get there and what to do.”</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="eyebrow" style="margin-top:5mm">Reglas de la comisión</p>
+  <table style="margin-top:1.5mm">
+    <tr><td style="width:47mm"><strong>Base</strong></td><td>8&nbsp;% del valor total de cada servicio reservado con un código de Los Patios.</td></tr>
+    <tr><td><strong>Cuándo se gana</strong></td><td>Cuando el servicio se presta.</td></tr>
+    <tr><td><strong>Si el prestador cancela</strong></td><td>El huésped recupera su anticipo y no hay comisión.</td></tr>
+    <tr><td><strong>Si el huésped cancela o no llega</strong></td><td>No hay comisión: esa parte compensa al prestador por el cupo bloqueado.</td></tr>
+    <tr><td><strong>Eventos gratuitos o pagados en sitio</strong></td><td>Sin comisión: no pasa dinero por Hifago.</td></tr>
+    <tr><td><strong>Pago</strong></td><td>Por Mercado Pago, a la cuenta que Los Patios designe, con el detalle visible en el panel. Frecuencia a acordar: proponemos mensual.</td></tr>
+    <tr><td style="border-bottom:0"><strong>Equipo</strong></td><td style="border-bottom:0">El panel muestra las ventas de cada código: Los Patios decide cómo reconocer a su equipo. Si lo prefiere, una persona puede tener su propia cuenta de aliado y cobrar directamente.</td></tr>
+  </table>
+
+  <footer class="pf"><span>Hifago × Los Patios</span><span>05 / 07</span></footer>
+</section>
+
+<!-- ============ 06 · LA PLATAFORMA ============ -->
+<section class="page">
+  <div class="topbar"></div>
+  <img class="logo-int" src="../../../apps/web/public/brand/logo-header-clair.webp" alt="Hifago">
+  <p class="eyebrow"><b>05</b> / La plataforma</p>
+  <h2>Lo que ya funciona en hifago.co,<br>y lo que viene<span class="dot">.</span></h2>
+
+  <div class="grid2" style="grid-template-columns: 1fr 96mm; gap: 7mm; margin-top:3mm">
+    <div>
+      <span class="tag ok">En línea hoy</span>
+      <ul class="clean" style="margin-top:1.5mm">
+        <li><strong>12 prestadores y 56 servicios y eventos publicados para Guatapé.</strong></li>
+        <li><strong>Alojamiento</strong>: Casa Kayam, Lakeview Hostel, Bania Travel (casa completa).</li>
+        <li><strong>Transporte</strong>: bus compartido desde El Poblado o Laureles; privados desde Medellín y el aeropuerto.</li>
+        <li><strong>Actividades</strong>: lancha, wakeboard, canyoning, escalada en la Piedra, caballo, bicicleta, taller de zócalos, chocolate, quesos locales, yoga, música.</li>
+        <li><strong>Eventos del pueblo</strong>: Fiestas de Zócalos y Flores, Festival Guatabandeja, Media Maratón de Guatapé.</li>
+        <li><strong>Mi viaje</strong>: un solo carrito para combinarlo todo, con disponibilidad en tiempo real, conectada al sistema de reservas del hotel cuando lo tiene.</li>
+        <li>Interfaz en <strong>español e inglés</strong>.</li>
+        <li><strong>Códigos, enlaces y QR</strong> por canal, con atribución automática al reservar.</li>
+        <li><strong>Portal de aliados</strong>: los prestadores gestionan su oferta, su agenda y sus reservas; los referentes ven su QR, sus reservas atribuidas y sus comisiones.</li>
+      </ul>
+    </div>
+    <div style="display:flex; gap:4mm; justify-content:flex-end">
+      <figure><div class="phone"><img src="img/hifago-inicio-movil.png" alt="Inicio de hifago.co en móvil"></div><figcaption class="small muted" style="margin-top:1.5mm; text-align:center">Inicio</figcaption></figure>
+      <figure><div class="phone"><img src="img/hifago-ficha-movil.png" alt="Ficha de actividad en hifago.co"></div><figcaption class="small muted" style="margin-top:1.5mm; text-align:center">Ficha de actividad</figcaption></figure>
+    </div>
+  </div>
+  <p class="small muted" style="text-align:right; margin-top:1mm">Capturas de hifago.co en móvil, 9 de noviembre de 2026.</p>
+
+  <div class="grid2" style="margin-top:6mm">
+    <div class="card or">
+      <span class="tag prep">Antes del piloto</span>
+      <ul class="clean" style="margin-top:1.5mm">
+        <li>Activación final del pago con tarjeta en producción. Mercado Pago ya está integrado: tarjetas, PSE y otros medios.</li>
+        <li>Cuenta de aliado de Los Patios, códigos y QR listos para imprimir.</li>
+        <li>Prueba de una reserva real de punta a punta con el equipo.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="tag next">Lo que viene</span>
+      <ul class="clean" style="margin-top:1.5mm">
+        <li><strong>Pago automático de comisiones</strong> por Mercado Pago, apenas se presta el servicio.</li>
+        <li><strong>Nuevos destinos</strong>, empezando por Medellín: Hifago está construido para varios destinos, no solo para Guatapé.</li>
+        <li><strong>Referidos en ambos sentidos</strong>: con Medellín en Hifago, los aliados de Guatapé podrán recomendar a Los Patios a los viajeros que bajan a la ciudad.</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer class="pf"><span>Hifago × Los Patios</span><span>06 / 07</span></footer>
+</section>
+
+<!-- ============ 07 · PILOTO ============ -->
+<section class="page">
+  <div class="topbar"></div>
+  <img class="logo-int" src="../../../apps/web/public/brand/logo-header-clair.webp" alt="Hifago">
+  <p class="eyebrow"><b>06</b> / Piloto y próximos pasos</p>
+  <h2>Ocho semanas en Los Patios Medellín<span class="dot">.</span></h2>
+
+  <div class="grid2" style="grid-template-columns: 1.2fr 1fr; gap: 7mm">
+    <div class="steps" style="margin-top:0">
+      <div class="step"><div class="k">S0</div><div><h3>Preparar</h3><p>Los Patios designa a un responsable y la cuenta Mercado Pago que recibe la comisión. Hifago crea los códigos, entrega los QR y los mensajes en español e inglés, y capacita al equipo en 20 minutos.</p></div></div>
+      <div class="step"><div class="k">S1–4</div><div><h3>Recomendar</h3><p>En check-in, check-out y WhatsApp. Un seguimiento semanal de 15 minutos.</p></div></div>
+      <div class="step"><div class="k">S4</div><div><h3>Ajustar</h3><p>Comparar canales, momentos y mensajes; quedarse con lo que funciona.</p></div></div>
+      <div class="step"><div class="k">S5–8</div><div><h3>Medir y contar</h3><p>Primera pieza co-firmada en Instagram. Cierre con cifras y decisión sobre la continuidad.</p></div></div>
+    </div>
+    <div>
+      <div class="card">
+        <p class="eyebrow">Metas, fijadas antes de empezar</p>
+        <ul class="clean" style="margin-top:1mm">
+          <li>Viajes reservados y pagados</li>
+          <li>Noches reservadas en Guatapé</li>
+          <li>Ventas generadas para prestadores locales</li>
+          <li>Comisión ganada por Los Patios</li>
+        </ul>
+        <p class="small muted" style="margin-top:2mm">Hifago mide cada resultado por código. La recepción anota a cuántos huéspedes presentó el QR, para calcular la conversión.</p>
+      </div>
+      <div class="card poudre" style="margin-top:3.5mm">
+        <p class="eyebrow" style="color:var(--marine)">Si funciona</p>
+        <p style="margin-top:1.2mm"><strong>Cool Living, Laureles</strong>: huéspedes en habitación privada, viajes de mayor valor; el bus compartido también sale de Laureles.</p>
+        <p style="margin-top:1.2mm"><strong>Los Patios Cartagena</strong>: proponer Guatapé antes de que el viajero llegue a Medellín.</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="eyebrow" style="margin-top:5mm">Marca compartida · tres piezas para lanzar juntos</p>
+  <div class="grid3" style="margin-top:2.5mm">
+    <div class="card"><h3>«Guatapé merece más de un día»</h3><p>Reels y Stories co-firmados con anfitriones de Guatapé. Cada pieza lleva su propio enlace medible, con el código LOSPATIOS-IG.</p></div>
+    <div class="card"><h3>Guía «Guatapé a tu ritmo»</h3><p>Cómo llegar desde El Poblado, dónde dormir, qué hacer, y cómo cuidar el embalse y el descanso del pueblo. Con QR, en recepción y por WhatsApp.</p></div>
+    <div class="card"><h3>Historias de anfitriones</h3><p>Cápsulas con guías, artesanos y alojamientos locales y, al cierre del piloto, las cifras: noches y ventas generadas en el pueblo.</p></div>
+  </div>
+
+  <div class="card marine" style="margin-top:4.5mm">
+    <div class="grid2" style="grid-template-columns: 1fr 1fr; gap:7mm">
+      <div>
+        <p class="eyebrow">Reunión con el equipo de Los Patios · 25 minutos</p>
+        <ul class="clean" style="margin-top:1.5mm">
+          <li>El modelo y las reglas de la comisión (5 min).</li>
+          <li>Demostración en hifago.co: una reserva, el panel de aliado y el QR (10 min).</li>
+          <li>Acordar el piloto (10 min).</li>
+        </ul>
+      </div>
+      <div>
+        <p class="eyebrow">Decisiones para salir de la reunión</p>
+        <ul class="clean" style="margin-top:1.5mm">
+          <li>Responsable del piloto en Medellín.</li>
+          <li>Cuenta que recibe la comisión.</li>
+          <li>Códigos a crear: canales y personas.</li>
+          <li>Fecha de inicio y metas del piloto.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <p style="margin-top:4mm; font-weight:700; font-size:10.5pt">Jérôme Filippi · Hifago · <span style="color:var(--moyen)">hifago.co</span></p>
+
+  <div style="margin-top:2.5mm; font-size:7pt" class="small muted">
+    <p class="eyebrow" style="font-size:6.6pt">Fuentes</p>
+    <p style="margin-top:1mm">1. La Prensa Oriente, «Guatapé debatió retos del turismo y avanza en gobernanza del sector», 1 de junio de 2026, con datos de la Alcaldía de Guatapé.
+    2. Infobae, «Se desbordó el turismo en Guatapé…», 18 de febrero de 2025.
+    3. Booking.com, Sustainable Travel Research 2025 (32.000 viajeros, 34 países), reseñada por TTG Asia, 7 de mayo de 2025.
+    4. Blu Radio, «Más allá de la Comuna 13: por qué Medellín se consolidó como el destino de moda en Latinoamérica», 9 de octubre de 2026.
+    5. El Colombiano, «Las claves de empresarios para consolidar a Medellín como la ciudad más turística del país», 8 de marzo de 2025.
+    6. lospatioshb.com y Hostelworld, consultados el 9 de noviembre de 2026. Precios y prestadores: hifago.co, 9 de noviembre de 2026.</p>
+  </div>
+
+  <footer class="pf"><span>Hifago × Los Patios</span><span>07 / 07</span></footer>
+</section>
+
+</body>
+</html>
