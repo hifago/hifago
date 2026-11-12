@@ -3711,6 +3711,7 @@ export type Database = {
       partner_reservation_detail: {
         Args: { p_order_line_id: string }
         Returns: {
+          client_note: string
           created_at: string
           date: string
           end_date: string
@@ -3743,6 +3744,7 @@ export type Database = {
         Returns: {
           date: string
           establishment_name: Json
+          has_client_note: boolean
           holder_email: string
           holder_name: string
           holder_phone: string

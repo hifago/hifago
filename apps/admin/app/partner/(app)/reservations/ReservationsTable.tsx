@@ -17,6 +17,9 @@ export type ReservationRow = {
   qty: number;
   totalCop: number;
   status: string;
+  // Le client a laissé une note au paiement (migration 20261112170000) — un repère, le texte est sur
+  // la fiche.
+  hasClientNote: boolean;
 };
 
 export type ReservationsTableProps = {
@@ -61,6 +64,11 @@ export function ReservationsTable({
         <div className="flex flex-col">
           <span>{row.holderName}</span>
           <span className="text-xs text-muted">{row.holderPhone ?? "—"}</span>
+          {row.hasClientNote ? (
+            <span className="text-xs font-medium text-accent" data-testid={`reservation-note-${row.id}`}>
+              Nota del cliente
+            </span>
+          ) : null}
         </div>
       ),
     },

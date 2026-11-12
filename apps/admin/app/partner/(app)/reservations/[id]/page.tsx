@@ -91,6 +91,11 @@ export default async function PartnerReservationDetailPage({
         </Card.Content>
       </Card>
 
+      {/* Migration 20261112170000 : la note laissée par le client au paiement — la même que l'e-mail
+          « Reserva confirmada » au prestataire. Rien pour une ligne jamais payée (masquée comme les
+          coordonnées). */}
+      {line.client_note ? <ClientNoteCard note={line.client_note} /> : null}
+
       <ContactClientButton
         holderName={line.holder_name}
         holderPhone={line.holder_phone}
@@ -115,6 +120,17 @@ function Field({ label, value }: { label: string; value: string }) {
       <span className="text-sm text-muted">{label}</span>
       <span className="text-sm font-medium">{value}</span>
     </div>
+  );
+}
+
+function ClientNoteCard({ note }: { note: string }) {
+  return (
+    <Card data-testid="reservation-client-note">
+      <Card.Content className="flex flex-col gap-2">
+        <span className="text-sm text-muted">Nota del cliente</span>
+        <p className="whitespace-pre-line break-words text-sm">{note}</p>
+      </Card.Content>
+    </Card>
   );
 }
 
