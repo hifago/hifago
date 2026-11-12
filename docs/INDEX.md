@@ -79,17 +79,18 @@
 - [Charte Hifago sur toute la vitrine : analyse de l'accueil, règles du…](specs/41-charte-hifago-toute-la-vitrine.md) 199K ○ · §0 offset 69 limit 112
 - [Mi viaje — ajouter un evento non réservable, sans réservation](specs/42-mi-viaje-eventos-sin-reserva.md) 10K ✓ · §0 offset 40 limit 74
 - [Activité : prix par personne, par heure ou par activité complète —…](specs/43-activite-prix-par-heure-ou-par-activite.md) 10K ✓ · §0 offset 39 limit 70
+- [Activité vendue sans date ni horaire — quota optionnel par jour ou…](specs/44-activite-vente-sans-date.md) 10K ○ · §0 offset 44 limit 63
 - [Specs — fonctionnalités prêtes à coder, une par une](specs/README.md) 3K
 - [Gabarit de spec de feature (à copier, ne décrit aucune feature réelle)](specs/_modele.md) 7K
 - [Avant d'écrire une spec — poser les bonnes questions](specs/avant-la-spec.md) 8K
 
 ## Suivi — backlog, dette, pièges, journal
-- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 19K
+- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 20K
 - [Dette technique et QA/UI connue — hifago](dette-technique.md) 39K
 - [Journal hifago — août 2026](journal/2026-08.md) 660K · jamais en entier (voir 5.)
 - [Journal hifago — septembre 2026](journal/2026-09.md) 678K · jamais en entier (voir 5.)
 - [Journal hifago — octobre 2026](journal/2026-10.md) 297K · jamais en entier (voir 5.)
-- [Journal hifago — novembre 2026](journal/2026-11.md) 11K · jamais en entier (voir 5.)
+- [Journal hifago — novembre 2026](journal/2026-11.md) 20K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K
 
 ## Marketing — documents commerciaux et de communication
