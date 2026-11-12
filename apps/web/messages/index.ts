@@ -29,6 +29,7 @@ import esAccountOrdersPage from "./es/AccountOrdersPage.json";
 import esAccountProfilePage from "./es/AccountProfilePage.json";
 import esCartPage from "./es/CartPage.json";
 import esOrderResultPage from "./es/OrderResultPage.json";
+import esLegal from "./es/Legal.json";
 import enChrome from "./en/Chrome.json";
 import enLocaleLayout from "./en/LocaleLayout.json";
 import enHomePage from "./en/HomePage.json";
@@ -47,6 +48,7 @@ import enAccountOrdersPage from "./en/AccountOrdersPage.json";
 import enAccountProfilePage from "./en/AccountProfilePage.json";
 import enCartPage from "./en/CartPage.json";
 import enOrderResultPage from "./en/OrderResultPage.json";
+import enLegal from "./en/Legal.json";
 
 import type { routing } from "@/i18n/routing";
 
@@ -74,6 +76,8 @@ const MESSAGES = {
     AccountProfilePage: esAccountProfilePage,
     CartPage: esCartPage,
     OrderResultPage: esOrderResultPage,
+    // Pages institutionnelles (aviso legal, condiciones, privacidad, ayuda, contacto) — 2026-11-05.
+    Legal: esLegal,
   },
   en: {
     Chrome: enChrome,
@@ -94,6 +98,7 @@ const MESSAGES = {
     AccountProfilePage: enAccountProfilePage,
     CartPage: enCartPage,
     OrderResultPage: enOrderResultPage,
+    Legal: enLegal,
   },
 } as const;
 

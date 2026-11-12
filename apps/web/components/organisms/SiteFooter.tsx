@@ -9,6 +9,8 @@ import { LogoHifago } from "@/components/atoms/LogoHifago";
 import { COLUMNA_PORTADA } from "@/components/atoms/PageShell";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { URL_WHATSAPP_HIFAGO } from "@/lib/contacto/whatsapp";
+import { IDENTIDAD_LEGAL } from "@/lib/legal/identidad";
+import { PAGINAS_INSTITUCIONALES } from "@/lib/legal/paginas";
 
 // Le footer de la vitrine (2026-09-02, vague 5). Avec le header livré la veille, l'app a enfin ses
 // landmarks : `<header>`, `<main>` (PageShell), `<footer>`.
@@ -18,27 +20,14 @@ import { URL_WHATSAPP_HIFAGO } from "@/lib/contacto/whatsapp";
 // Server Component (CLAUDE.md §11.16).
 //
 // ─────────────────────────────────────────────────────────────────────────────────────────────
-// ⚠️ LES CINQ LIENS INSTITUTIONNELS POINTENT AUJOURD'HUI VERS DU VIDE
+// LES CINQ LIENS INSTITUTIONNELS (pages livrées le 2026-11-05)
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 //
-// Aucune de ces pages n'existe (vérifié le 2026-09-02 : `app/[locale]/` ne contient ni `legal`, ni
-// `privacy`, ni `contact`, ni `help`, ni `terms`). Ce lot n'en crée aucune — il livre le footer,
-// pas le contenu légal, qui reste à rédiger (docs/01-cahier-des-charges-client.md, règle du
-// 2026-08-11).
-//
-// La liste elle-même n'est pas inventée : elle vient de cette règle — mentions légales, politique
-// de confidentialité (cadre Habeas Data colombien), contact, aide/FAQ, et conditions générales.
-//
-// D'où UNE SEULE constante : le jour où les routes existent, c'est le seul endroit à changer. Et
-// tant qu'elles n'existent pas, ce footer mène à cinq 404 — c'est dit dans le rapport de lot,
-// parce qu'un footer qui a l'air fini est pire qu'un footer visiblement en chantier.
-// ⚠️ VIDE DEPUIS LE 2026-09-07, et c'est délibéré. Les cinq liens institutionnels (mentions
-// légales, confidentialité, contact, aide, conditions) pointaient vers des routes qui n'existent
-// pas : ce footer menait à cinq 404. Jérôme a repoussé ces pages à la fin du chantier (cahier §1 :
-// « seule leur présence est actée », leur contenu reste à rédiger). Un footer amputé pendant le
-// chantier vaut mieux que cinq liens morts en production — et le jour où les pages existent, il
-// suffit de remplir ce tableau, rien d'autre ne bouge.
-const LIENS_INSTITUTIONNELS: readonly { href: string; cle: string }[] = [];
+// Du 2026-09-07 au 2026-11-05 ce tableau était VIDE, délibérément : les pages n'existaient pas et
+// un footer menant à cinq 404 valait moins qu'un footer amputé. Elles existent désormais sous
+// `app/[locale]/(vitrine)/(institucional)/` ; la liste vit dans `lib/legal/paginas.ts`, lue aussi
+// par le sitemap — une seule source pour les deux.
+const LIENS_INSTITUTIONNELS = PAGINAS_INSTITUCIONALES;
 
 // ⚠️ Le numéro de WhatsApp est DÉJÀ dans le dépôt : `apps/admin/lib/whatsapp.ts` porte le même
 // (`SUPPORT_WHATSAPP_NUMBER`), lui-même repris du portail legacy (`public/reservar.js:15`), qui
@@ -118,6 +107,14 @@ export function SiteFooter({ testId }: SiteFooterProps) {
             <p className="text-sm text-muted" data-testid={testId ? `${testId}-identity` : undefined}>
               {t("footerIdentity")}
             </p>
+            {/* Le numéro RNT sur toutes les pages (2026-11-12) : un prestataire touristique le
+                porte dans sa communication (Ley 2068 de 2020), pas seulement sur l'aviso legal.
+                Lu dans `lib/legal/identidad.ts`, la seule source — jamais recopié. */}
+            {IDENTIDAD_LEGAL.rnt ? (
+              <p className="text-sm text-muted" data-testid={testId ? `${testId}-rnt` : undefined}>
+                {t("footerRnt", { rnt: IDENTIDAD_LEGAL.rnt })}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
@@ -146,7 +143,7 @@ export function SiteFooter({ testId }: SiteFooterProps) {
           </div>
         </div>
 
-        {/* La navigation institutionnelle, VIDE tant que les pages n'existent pas (voir plus haut).
+        {/* La navigation institutionnelle (voir plus haut).
             `has-[ul:empty]:hidden` : une liste vide ne laisse ni landmark muet ni l'écart de 24 px
             d'un enfant sans hauteur — sans rien masquer selon la largeur. Le jour où le tableau se
             remplit, elle réapparaît d'elle-même. */}

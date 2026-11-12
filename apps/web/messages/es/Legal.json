@@ -1,0 +1,439 @@
+{
+  "pendiente": "[por completar]",
+  "actualizado": "Última actualización: {fecha}",
+  "enlaceExterno": "(se abre en una pestaña nueva)",
+  "legal": {
+    "metaTitle": "Aviso legal",
+    "metaDescription": "Quién opera Hifago, su Registro Nacional de Turismo y las reglas de uso del sitio.",
+    "titulo": "Aviso legal",
+    "chapo": "Quién está detrás de Hifago y las reglas que rigen el uso de este sitio.",
+    "secciones": [
+      {
+        "titulo": "Responsable del sitio",
+        "parrafos": [
+          "El sitio hifago.co y la plataforma de reservas Hifago son operados por {titular}, persona natural, bajo la marca Hifago."
+        ],
+        "lista": [
+          "Titular: {titular}",
+          "NIT: {nit}",
+          "Registro Nacional de Turismo (RNT): {rnt}",
+          "Domicilio y dirección de notificación judicial: {domicilio}",
+          "Correo electrónico: {correo}",
+          "WhatsApp: {telefono}"
+        ]
+      },
+      {
+        "titulo": "Qué es Hifago",
+        "parrafos": [
+          "Hifago es una plataforma de turismo local de Guatapé (Antioquia, Colombia). Reúne en un mismo lugar alojamientos, actividades, transportes, camps y eventos ofrecidos por establecimientos independientes de la región.",
+          "En Hifago reservas y pagas en línea un anticipo; el resto del precio lo pagas directamente al establecimiento. Cada servicio lo presta el establecimiento que lo ofrece, cuyo nombre aparece en la ficha del servicio y en tu confirmación de reserva.",
+          "Las fichas se publican después de una revisión de Hifago. Su contenido (descripciones, fotos, horarios, precios) lo proporciona cada establecimiento, que responde por su exactitud."
+        ]
+      },
+      {
+        "titulo": "Registro Nacional de Turismo",
+        "parrafos": [
+          "La Ley 300 de 1996 y la Ley 2068 de 2020 exigen que los prestadores de servicios turísticos, incluidas las plataformas digitales que los comercializan, estén inscritos en el Registro Nacional de Turismo. Hifago está inscrito en el Registro Nacional de Turismo con el número {rnt}, en la categoría de operador de plataformas electrónicas o digitales de servicios turísticos. Hifago solicita su RNT a los establecimientos que publican servicios turísticos en la plataforma."
+        ]
+      },
+      {
+        "titulo": "Protección de niñas, niños y adolescentes",
+        "parrafos": [
+          "Hifago rechaza la explotación, la pornografía, el turismo sexual y cualquier forma de abuso sexual de menores de edad, y se adhiere al código de conducta previsto por la Ley 1336 de 2009.",
+          "Advertencia: en Colombia, la explotación y el abuso sexual de menores de edad son delitos sancionados penal y civilmente, de acuerdo con la Ley 679 de 2001 y la Ley 1336 de 2009.",
+          "Si conoces un caso, denúncialo: Línea 141 del ICBF (gratuita) o Línea 123 de la Policía Nacional."
+        ],
+        "enlaces": [{ "texto": "Instituto Colombiano de Bienestar Familiar (ICBF)", "href": "https://www.icbf.gov.co" }]
+      },
+      {
+        "titulo": "Uso del sitio",
+        "parrafos": [
+          "Al usar hifago.co te comprometes a hacerlo de buena fe y conforme a la ley: no suplantar a otra persona, no dar datos falsos al reservar, no intentar acceder a cuentas o sistemas ajenos y no extraer de forma masiva el contenido del sitio.",
+          "Las reservas se rigen por las condiciones generales de Hifago, y tus datos personales por la política de tratamiento de datos personales; ambas están enlazadas al pie de cada página."
+        ]
+      },
+      {
+        "titulo": "Propiedad intelectual",
+        "parrafos": [
+          "La marca Hifago, su logotipo, el diseño del sitio y sus textos propios pertenecen a {titular} o se usan con autorización. Las fotos y descripciones de las fichas pertenecen a los establecimientos o a sus autores, que autorizaron su publicación en Hifago.",
+          "No se permite reproducir, distribuir ni modificar este contenido sin autorización previa y por escrito de su titular."
+        ]
+      },
+      {
+        "titulo": "Enlaces a otros sitios",
+        "parrafos": [
+          "Hifago enlaza servicios de terceros, como Mercado Pago para el pago, WhatsApp para la comunicación o Google Maps para las ubicaciones. Esos servicios se rigen por sus propias condiciones y políticas de privacidad."
+        ]
+      },
+      {
+        "titulo": "Protección al consumidor",
+        "parrafos": [
+          "Tus derechos como consumidor están protegidos por la Ley 1480 de 2011 (Estatuto del Consumidor). Si consideras que no fueron respetados, preséntanos tu petición, queja o reclamo desde la página de contacto. Si la respuesta no te satisface, puedes acudir a la Superintendencia de Industria y Comercio, autoridad de protección al consumidor en Colombia."
+        ],
+        "enlaces": [{ "texto": "Superintendencia de Industria y Comercio (SIC)", "href": "https://www.sic.gov.co" }]
+      },
+      {
+        "titulo": "Ley aplicable",
+        "parrafos": [
+          "Este sitio y las relaciones que nacen de su uso se rigen por la ley colombiana. Cualquier controversia se resolverá ante las autoridades competentes de Colombia, sin perjuicio de los derechos que la ley reconoce al consumidor."
+        ]
+      }
+    ]
+  },
+  "terminos": {
+    "metaTitle": "Condiciones generales y política de cancelación",
+    "metaDescription": "Cómo reservar y pagar en Hifago, el derecho de retracto y la política de cancelación, según la ley colombiana.",
+    "titulo": "Condiciones generales",
+    "chapo": "Las condiciones que aceptas al reservar en Hifago, incluida la política de cancelación.",
+    "secciones": [
+      {
+        "titulo": "1. Objeto y aceptación",
+        "parrafos": [
+          "Estas condiciones regulan las reservas hechas en hifago.co entre tú (el cliente), {titular}, operador de la plataforma Hifago (en adelante, Hifago), y el establecimiento que presta cada servicio.",
+          "Al confirmar una reserva declaras que eres mayor de edad, que los datos que das son verdaderos y que leíste y aceptas estas condiciones. Se aplica la versión vigente el día de tu reserva: la guardamos junto con ella."
+        ]
+      },
+      {
+        "titulo": "2. Quién presta cada servicio",
+        "parrafos": [
+          "Hifago comercializa los servicios de establecimientos independientes de Guatapé y su región: gestiona la reserva, cobra el anticipo y te acompaña antes, durante y después de tu viaje.",
+          "El establecimiento indicado en la ficha y en tu confirmación es quien presta el servicio y responde por su ejecución, su calidad y su seguridad. Nada de lo anterior limita los derechos que te reconoce la Ley 1480 de 2011: puedes dirigir cualquier reclamo a Hifago, que lo tramitará con el establecimiento."
+        ]
+      },
+      {
+        "titulo": "3. Precios",
+        "parrafos": [
+          "Los precios están en pesos colombianos (COP). Antes de pagar ves el precio total de cada servicio, el anticipo que pagas hoy y el saldo que pagarás al establecimiento.",
+          "El precio de algunos alojamientos lo confirma en tiempo real el sistema del alojamiento: si cambia antes de pagar, te lo mostramos de nuevo y nada se cobra sin tu confirmación."
+        ]
+      },
+      {
+        "titulo": "4. Reserva y pago",
+        "parrafos": [
+          "Eliges tus servicios, los reúnes en Mi viaje, das tus datos y pagas el anticipo en línea con Mercado Pago, con los medios que este ofrezca en el momento del pago (tarjetas, PSE y otros). Hifago nunca ve ni guarda los datos de tu tarjeta.",
+          "Tu reserva queda confirmada cuando Mercado Pago aprueba el pago. Te enviamos un correo con tu número de reserva (de la forma HFG-000042) y el detalle de cada servicio. Una reserva que no se paga se anula sola a los 30 minutos —o a las 2 horas si el pago queda pendiente, como puede pasar con PSE— y las plazas se liberan.",
+          "El saldo se paga directamente al establecimiento, con los medios que este acepte, en el momento que indique la ficha o tu confirmación."
+        ]
+      },
+      {
+        "titulo": "5. Derecho de retracto",
+        "parrafos": [
+          "Como reservas a distancia, la ley colombiana te da un derecho de retracto (artículo 47 de la Ley 1480 de 2011): puedes deshacer tu reserva sin dar razones y recuperar todo el anticipo.",
+          "Aplica si el primer servicio de tu reserva empieza más de cinco (5) días calendario después del día en que la hiciste. Debes ejercerlo dentro de los cinco (5) días hábiles siguientes a la confirmación de tu reserva (días hábiles: de lunes a viernes, sin festivos de Colombia), y siempre antes de que empiece el servicio.",
+          "No aplica a los servicios que empiezan dentro de los cinco días siguientes a tu reserva, ni a un servicio que ya empezó con tu acuerdo: en esos casos rige la política de cancelación de la sección 6.",
+          "Para ejercerlo, escríbenos por WhatsApp o por correo con tu número de reserva. Si ya anulaste el servicio desde Mi cuenta dentro de este plazo, escríbenos igual: el reembolso no se hace solo. Te devolvemos la totalidad del anticipo, sin descuentos ni retenciones, en un plazo máximo de treinta (30) días calendario."
+        ]
+      },
+      {
+        "titulo": "6. Política de cancelación",
+        "parrafos": [
+          "Fuera del derecho de retracto, se aplican estas reglas, iguales para todos los servicios y todos los establecimientos:"
+        ],
+        "lista": [
+          "Si anulas tú, en cualquier momento: el anticipo no se devuelve y no debes nada más, porque el saldo no se cobra. El anticipo compensa al establecimiento por la fecha que te reservó y a Hifago por la gestión de la reserva. Puedes anular un servicio desde Mi cuenta, en Mis reservas, o escribiéndonos.",
+          "Si no te presentas: se aplica la misma regla que a una anulación de tu parte.",
+          "Si anula el establecimiento o Hifago por una causa que depende de ellos (por ejemplo, un cierre o un error de disponibilidad): te devolvemos la totalidad del anticipo de ese servicio. Si quieres, te ayudamos a encontrar otra fecha u otra opción, pero el reembolso es tu derecho.",
+          "Si el servicio no puede prestarse por una causa ajena a Hifago y al establecimiento (clima, seguridad, orden de una autoridad u otro caso de fuerza mayor): el establecimiento te propone otra fecha para el mismo servicio, sin costo adicional, y tu anticipo se aplica a esa nueva fecha; no se reembolsa. Solo si el establecimiento no puede proponerte ninguna nueva fecha, te devolvemos el anticipo.",
+          "Si tu pago llega cuando la reserva ya había expirado o había sido anulada: te contactamos para reembolsarte o volver a reservar, como prefieras."
+        ]
+      },
+      {
+        "titulo": "7. Cambios de fecha o de servicio",
+        "parrafos": [
+          "Un cambio de fecha o de servicio depende de la disponibilidad y de la aceptación del establecimiento: escríbele (sus datos están en tu confirmación) o escríbenos. Si el cambio no es posible y prefieres anular, se aplican las secciones 5 y 6."
+        ]
+      },
+      {
+        "titulo": "8. Reembolsos",
+        "parrafos": [
+          "Todo reembolso se hace por el mismo medio con el que pagaste, a través de Mercado Pago, en un plazo máximo de treinta (30) días calendario. El tiempo en que aparece en tu cuenta depende de tu banco o del emisor de tu tarjeta."
+        ]
+      },
+      {
+        "titulo": "9. Reversión del pago",
+        "parrafos": [
+          "Si pagaste con tarjeta u otro medio electrónico, puedes pedir la reversión del pago (artículo 51 de la Ley 1480 de 2011) si fuiste víctima de fraude, si la operación no la hiciste tú, si el servicio no se prestó o si no corresponde a lo que reservaste.",
+          "Debes presentar tu queja a Hifago dentro de los cinco (5) días hábiles siguientes a la fecha en que conociste el hecho, y avisar en el mismo plazo al emisor de tu medio de pago."
+        ]
+      },
+      {
+        "titulo": "10. Tus compromisos",
+        "lista": [
+          "Dar datos exactos, en particular un correo y un WhatsApp donde podamos contactarte.",
+          "Llegar a la hora indicada y respetar las reglas del establecimiento y las instrucciones de seguridad, en especial en las actividades deportivas o acuáticas.",
+          "Presentar un documento de identidad al llegar a un alojamiento, como lo exige la ley colombiana.",
+          "Viajar con menores de edad solo acompañados de sus padres o de un adulto autorizado: los establecimientos pueden pedir documentos que lo acrediten."
+        ]
+      },
+      {
+        "titulo": "11. Peticiones, quejas y reclamos",
+        "parrafos": [
+          "Puedes presentar una petición, queja o reclamo por los canales indicados en la página de contacto. Te confirmamos su recepción con la fecha y la hora, y te respondemos dentro de los quince (15) días hábiles siguientes.",
+          "Si la respuesta no te satisface, puedes acudir a la Superintendencia de Industria y Comercio (www.sic.gov.co)."
+        ]
+      },
+      {
+        "titulo": "12. Datos personales",
+        "parrafos": [
+          "Tratamos tus datos según la política de tratamiento de datos personales de Hifago (Ley 1581 de 2012), enlazada al pie de cada página."
+        ]
+      },
+      {
+        "titulo": "13. Cambios de estas condiciones y ley aplicable",
+        "parrafos": [
+          "Podemos actualizar estas condiciones; la fecha de la última actualización figura arriba. Una reserva ya hecha sigue regida por la versión que aceptaste.",
+          "Estas condiciones se rigen por la ley colombiana. Ninguna cláusula limita los derechos que te reconoce la ley; si alguna fuera contraria a ella, se tendrá por no escrita y el resto seguirá vigente."
+        ]
+      }
+    ]
+  },
+  "privacidad": {
+    "metaTitle": "Política de tratamiento de datos personales",
+    "metaDescription": "Cómo Hifago recoge, usa y protege tus datos personales y cómo ejercer tus derechos de Habeas Data (Ley 1581 de 2012).",
+    "titulo": "Política de privacidad",
+    "chapo": "Cómo recogemos, usamos y protegemos tus datos personales, y cómo ejercer tus derechos (Ley 1581 de 2012).",
+    "secciones": [
+      {
+        "titulo": "1. Responsable del tratamiento",
+        "parrafos": [
+          "El responsable del tratamiento de tus datos personales es {titular}, NIT {nit}, con domicilio en {domicilio}. Para cualquier asunto relacionado con tus datos escríbenos a {correo} o por WhatsApp al {telefono}."
+        ]
+      },
+      {
+        "titulo": "2. Datos que tratamos",
+        "lista": [
+          "Identificación y contacto: tu nombre, tu correo y tu número de WhatsApp.",
+          "Tu cuenta, si creas una: correo y contraseña (guardada cifrada, nunca en claro) o los datos que te pide Google si eliges entrar con Google (nombre y correo).",
+          "Tus reservas: servicios, fechas, horarios, cantidades, número de personas, importes y su estado.",
+          "Tus pagos: el estado y la referencia del pago que nos comunica Mercado Pago. Nunca recibimos el número completo de tu tarjeta.",
+          "El código de quien te recomendó Hifago, si llegaste por su enlace o su código QR.",
+          "Tus mensajes y reclamos cuando nos escribes.",
+          "Datos técnicos necesarios para la seguridad del sitio: dirección IP, navegador y registros de conexión."
+        ],
+        "parrafos2": [
+          "No te pedimos datos sensibles. Si una reserva incluye a menores de edad, solo tratamos lo estrictamente necesario para prestar el servicio, respetando su interés superior."
+        ]
+      },
+      {
+        "titulo": "3. Para qué los usamos",
+        "lista": [
+          "Crear, confirmar, modificar y anular tus reservas, incluida su transmisión al establecimiento y, cuando el alojamiento lo usa, a su sistema de gestión de reservas.",
+          "Cobrar el anticipo y hacer los reembolsos que correspondan.",
+          "Enviarte la confirmación de tu reserva y los mensajes sobre ella (cambios, anulaciones, recordatorios) por correo o WhatsApp.",
+          "Atender tus preguntas, peticiones, quejas y reclamos.",
+          "Gestionar tu cuenta y mostrarte tus reservas.",
+          "Reconocer a quien te recomendó Hifago, sin que eso cambie el precio que pagas.",
+          "Prevenir el fraude y proteger la seguridad del sitio.",
+          "Cumplir nuestras obligaciones legales, contables y tributarias.",
+          "Enviarte promociones y novedades, solo si lo aceptaste marcando la casilla correspondiente."
+        ]
+      },
+      {
+        "titulo": "4. Tu autorización",
+        "parrafos": [
+          "Al darnos tus datos y confirmar una reserva o crear una cuenta, nos autorizas a tratarlos para las finalidades anteriores. La autorización para recibir promociones es aparte y opcional: no marcarla no te impide reservar, y puedes retirarla cuando quieras.",
+          "Respetamos la Ley 2300 de 2023: solo te enviamos mensajes comerciales de lunes a viernes de 7:00 a. m. a 7:00 p. m. y los sábados de 8:00 a. m. a 3:00 p. m., nunca los domingos ni los festivos, y no más de una vez por semana por el mismo canal."
+        ]
+      },
+      {
+        "titulo": "5. Con quién los compartimos",
+        "parrafos": [
+          "Compartimos tus datos con el establecimiento que va a prestar el servicio que reservaste: los necesita para atenderte. También con los proveedores que nos ayudan a operar Hifago, que solo pueden usarlos por nuestra cuenta y siguiendo nuestras instrucciones:"
+        ],
+        "lista": [
+          "Supabase: base de datos y cuentas de usuario.",
+          "Vercel: alojamiento del sitio.",
+          "Mercado Pago: procesamiento de pagos y reembolsos.",
+          "Resend: envío de correos.",
+          "Google: inicio de sesión con Google, si lo eliges.",
+          "WhatsApp: mensajes sobre tu reserva.",
+          "LobbyPMS: sistema de reservas de algunos alojamientos."
+        ],
+        "parrafos2": [
+          "Solo entregamos datos a una autoridad cuando la ley lo exige. Nunca vendemos tus datos."
+        ]
+      },
+      {
+        "titulo": "6. Datos fuera de Colombia",
+        "parrafos": [
+          "Algunos de estos proveedores guardan los datos en servidores fuera de Colombia, en particular en Estados Unidos. Esta transmisión se hace bajo contratos que los obligan a protegerlos conforme a la Ley 1581 de 2012 y a usarlos solo para prestarnos su servicio. Al aceptar esta política, la autorizas."
+        ]
+      },
+      {
+        "titulo": "7. Tus derechos",
+        "lista": [
+          "Conocer, actualizar y rectificar tus datos.",
+          "Pedir la prueba de la autorización que nos diste.",
+          "Saber qué uso hemos dado a tus datos.",
+          "Revocar tu autorización o pedir que borremos tus datos, salvo los que la ley nos obliga a conservar.",
+          "Consultar tus datos gratuitamente.",
+          "Presentar una queja ante la Superintendencia de Industria y Comercio, una vez agotado el trámite con nosotros."
+        ]
+      },
+      {
+        "titulo": "8. Cómo ejercerlos",
+        "parrafos": [
+          "Escríbenos a {correo} o por WhatsApp al {telefono} indicando tu nombre, el correo asociado a tus reservas y lo que pides. Podemos pedirte que confirmes tu identidad antes de responder.",
+          "Respondemos una consulta en un máximo de diez (10) días hábiles y un reclamo en un máximo de quince (15) días hábiles. Si necesitamos más tiempo, te lo decimos antes del vencimiento, con el motivo y la nueva fecha (como máximo cinco días hábiles más para una consulta y ocho para un reclamo).",
+          "Desde Mi cuenta también puedes corregir tu nombre y tu WhatsApp y eliminar tu cuenta."
+        ]
+      },
+      {
+        "titulo": "9. Seguridad y conservación",
+        "parrafos": [
+          "Protegemos tus datos con conexiones cifradas, accesos restringidos al personal que los necesita y verificación en dos pasos para los administradores. Los pagos los procesa Mercado Pago, sin que los datos de tu tarjeta pasen por Hifago.",
+          "Conservamos tus datos mientras los necesitemos para las finalidades anteriores. Lo que la ley nos obliga a guardar —en particular los soportes contables de tus reservas y pagos, durante diez años— se conserva por ese plazo aunque elimines tu cuenta; el resto se borra o se anonimiza."
+        ]
+      },
+      {
+        "titulo": "10. Cookies y almacenamiento en tu navegador",
+        "parrafos": [
+          "Solo usamos cookies necesarias para que el sitio funcione. No usamos cookies de publicidad ni de medición de audiencia; si algún día las usamos, te pediremos tu consentimiento antes."
+        ],
+        "lista": [
+          "Cookies de sesión: te mantienen conectado y conservan Mi viaje mientras reservas, aunque no tengas cuenta.",
+          "Cookie de idioma: recuerda si prefieres el sitio en español o en inglés.",
+          "Cookie de recomendación (hifago_ref): recuerda, mientras dure tu visita, quién te recomendó Hifago.",
+          "Almacenamiento local: recuerda tu última búsqueda (fechas y personas) en este dispositivo."
+        ]
+      },
+      {
+        "titulo": "11. Vigencia y cambios",
+        "parrafos": [
+          "Esta política rige desde la fecha indicada arriba. Tus datos se conservan mientras duren las finalidades descritas. Si hacemos un cambio sustancial, te lo comunicaremos antes de aplicarlo."
+        ]
+      }
+    ]
+  },
+  "ayuda": {
+    "metaTitle": "Ayuda y preguntas frecuentes",
+    "metaDescription": "Reservar, pagar el anticipo, anular, el derecho de retracto y los reembolsos en Hifago: respuestas rápidas.",
+    "titulo": "Ayuda",
+    "chapo": "Respuestas rápidas a las preguntas más comunes. ¿No encuentras la tuya? Escríbenos por WhatsApp.",
+    "secciones": [
+      {
+        "titulo": "¿Cómo reservo?",
+        "parrafos": [
+          "Elige un servicio, su fecha y el número de personas, y añádelo a Mi viaje. Puedes reunir allí varios servicios (alojamiento, actividades, transporte). Luego das tus datos y pagas el anticipo en línea."
+        ]
+      },
+      {
+        "titulo": "¿Necesito una cuenta?",
+        "parrafos": [
+          "No. Puedes reservar como invitado: recibes por correo un enlace para ver tu reserva. Con una cuenta encuentras todas tus reservas en un mismo lugar y puedes anular un servicio tú mismo."
+        ]
+      },
+      {
+        "titulo": "¿Qué pago en línea y qué pago al llegar?",
+        "parrafos": [
+          "En línea solo pagas el anticipo que ves antes de confirmar. El resto lo pagas directamente al establecimiento, con los medios que este acepte."
+        ]
+      },
+      {
+        "titulo": "¿Qué medios de pago aceptan?",
+        "parrafos": [
+          "El anticipo se paga con Mercado Pago, con los medios que ofrezca en el momento del pago: tarjetas de crédito y débito, PSE y otros. Hifago nunca ve los datos de tu tarjeta."
+        ]
+      },
+      {
+        "titulo": "¿Cuándo queda confirmada mi reserva?",
+        "parrafos": [
+          "Cuando Mercado Pago aprueba el pago. Te enviamos un correo con tu número de reserva (HFG-…). Con algunos alojamientos, la confirmación tarda un par de minutos más, el tiempo de que su sistema acepte la reserva. Un pago por PSE puede quedar pendiente hasta dos horas."
+        ]
+      },
+      {
+        "titulo": "No recibí el correo de confirmación",
+        "parrafos": [
+          "Revisa tu carpeta de correo no deseado. Si no está, escríbenos por WhatsApp con el correo que usaste: te reenviamos el enlace de tu reserva."
+        ]
+      },
+      {
+        "titulo": "¿Puedo anular mi reserva?",
+        "parrafos": [
+          "Sí, en cualquier momento, desde Mi cuenta o escribiéndonos. Si lo haces dentro del plazo de retracto, recuperas todo el anticipo: escríbenos con tu número de reserva. Fuera de ese plazo, el anticipo no se devuelve y no debes nada más. El detalle está en las condiciones generales."
+        ]
+      },
+      {
+        "titulo": "¿Qué es el derecho de retracto?",
+        "parrafos": [
+          "Es el derecho que te da la ley colombiana a deshacer una compra hecha a distancia. Si tu primer servicio empieza más de cinco días después del día de tu reserva, tienes cinco días hábiles desde la confirmación para anular y recuperar todo el anticipo, siempre antes de que empiece el servicio."
+        ]
+      },
+      {
+        "titulo": "¿Puedo cambiar la fecha?",
+        "parrafos": [
+          "Depende de la disponibilidad y del establecimiento. Escríbele (sus datos están en tu confirmación) o escríbenos, y lo vemos juntos."
+        ]
+      },
+      {
+        "titulo": "¿Y si el establecimiento anula?",
+        "parrafos": [
+          "Si anula por una causa que depende de él, te devolvemos todo el anticipo de ese servicio. Si el servicio no puede hacerse por el clima, por seguridad o por otra causa ajena a él, te propone otra fecha y tu anticipo pasa a esa fecha; solo se reembolsa si no hay ninguna fecha posible."
+        ]
+      },
+      {
+        "titulo": "¿Cuánto tarda un reembolso?",
+        "parrafos": [
+          "Lo enviamos en un máximo de treinta días calendario, por el mismo medio con el que pagaste. Después, el tiempo en que aparece en tu cuenta depende de tu banco."
+        ]
+      },
+      {
+        "titulo": "Llegué por el enlace de alguien que me recomendó Hifago",
+        "parrafos": [
+          "Su recomendación queda registrada con tu reserva y no cambia en nada el precio que pagas."
+        ]
+      },
+      {
+        "titulo": "¿Cómo elimino mi cuenta o mis datos?",
+        "parrafos": [
+          "Desde Mi cuenta, en tu perfil, puedes eliminar tu cuenta. Para cualquier otra solicitud sobre tus datos, sigue la política de privacidad."
+        ]
+      },
+      {
+        "titulo": "¿Cómo presento una queja?",
+        "parrafos": [
+          "Escríbenos por los canales de la página de contacto con tu número de reserva. Te respondemos en un máximo de quince días hábiles."
+        ]
+      }
+    ]
+  },
+  "contacto": {
+    "metaTitle": "Contacto",
+    "metaDescription": "Escribe a Hifago por correo para reservar, cambiar o anular, o para presentar una petición, queja o reclamo.",
+    "titulo": "Contacto",
+    "chapo": "Escríbenos para reservar, cambiar o anular, o para cualquier duda o reclamo.",
+    "secciones": [
+      {
+        "titulo": "Correo",
+        "parrafos": [
+          "Escríbenos a {correo}.",
+          "Para una reserva en curso, indícanos tu número de reserva (HFG-…): lo encuentras en tu correo de confirmación."
+        ]
+      },
+      {
+        "titulo": "Peticiones, quejas y reclamos",
+        "parrafos": [
+          "Para presentar una petición, una queja o un reclamo, escríbenos indicando:"
+        ],
+        "lista": [
+          "Tu nombre completo y un correo o un WhatsApp de contacto.",
+          "Tu número de reserva, si tu solicitud se refiere a una.",
+          "Lo que pasó y lo que pides."
+        ],
+        "parrafos2": [
+          "Te confirmamos su recepción con la fecha y la hora, y te respondemos dentro de los quince (15) días hábiles siguientes. Si la respuesta no te satisface, puedes acudir a la Superintendencia de Industria y Comercio."
+        ],
+        "enlaces": [{ "texto": "Superintendencia de Industria y Comercio (SIC)", "href": "https://www.sic.gov.co" }]
+      },
+      {
+        "titulo": "Datos del operador",
+        "lista": [
+          "Titular: {titular}",
+          "NIT: {nit}",
+          "Registro Nacional de Turismo (RNT): {rnt}",
+          "Domicilio: {domicilio}"
+        ]
+      }
+    ]
+  }
+}

@@ -18,7 +18,7 @@
   "lineTotal": "Total price",
   "cancelLine": "Cancel",
   "cancelConfirmTitle": "Cancel \"{product}\" on {date}?",
-  "cancelConfirmNoRefund": "The deposit already paid is not refunded.",
+  "cancelConfirmNoRefund": "The deposit already paid is not refunded, unless you are within the withdrawal period: in that case, message us to request the refund.",
   "cancelConfirmLastLine": "After this, no pending service will remain in this booking.",
   "cancelConfirmYes": "Yes, cancel",
   "cancelConfirmNo": "No",
