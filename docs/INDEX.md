@@ -23,7 +23,6 @@
 - SEO : sitemap, robots.txt, hreflang, JSON-LD → [specs/26-referencement-seo-et-moteurs-ia.md](specs/26-referencement-seo-et-moteurs-ia.md)
 - pièges empiriques numérotés (`CLAUDE.md §11.N`) → [pieges-empiriques.md](pieges-empiriques.md)
 - écrire une spec : les questions à poser, puis le gabarit → [specs/avant-la-spec.md](specs/avant-la-spec.md), [specs/_modele.md](specs/_modele.md)
-- document marketing ou commercial (proposition partenaire, dossier, plaquette) : où le ranger, ceux qui existent → [marketing/README.md](marketing/README.md)
 
 ## Cadrage — la cible de la refonte
 - [Audit du modèle de données cible — entités partagées](00-modele-de-donnees.md) 57K
@@ -93,5 +92,3 @@
 - [Journal hifago — novembre 2026](journal/2026-11.md) 35K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K
 
-## Marketing — documents commerciaux et de communication
-- [Marketing — documents commerciaux et de communication de Hifago](marketing/README.md) 2K

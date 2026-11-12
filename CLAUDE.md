@@ -45,8 +45,8 @@ docs/ai-index.json` — jamais parcourir `docs/` en entier ni lire un gros fichi
    renvoyé au chiffrage — ne jamais trancher ces points dans du code ou une migration ; signaler à
    Jérôme et attendre son arbitrage.
 5. **Tout document marketing ou commercial** (proposition partenaire, dossier, plaquette, campagne)
-   va dans `docs/marketing/<piece>/`, cité dans `docs/marketing/README.md` — jamais ailleurs
-   (décision Jérôme, 2026-11-12 ; détail : `.claude/rules/marketing.md`).
+   va HORS du dépôt, dans `C:\Users\Administrator\Documents\01Hifago\Marketing\<piece>\` — lire
+   d'abord son `README.md` (règles, index des pièces) ; jamais dans le dépôt (Jérôme, 2026-11-12).
 
 ## 2. Stack non négociable
 1. Monorepo npm workspaces, deux apps Next.js (App Router) — `apps/web` (vitrine, next-intl) et
