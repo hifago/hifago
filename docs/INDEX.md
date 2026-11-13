@@ -89,6 +89,6 @@
 - [Journal hifago — août 2026](journal/2026-08.md) 660K · jamais en entier (voir 5.)
 - [Journal hifago — septembre 2026](journal/2026-09.md) 678K · jamais en entier (voir 5.)
 - [Journal hifago — octobre 2026](journal/2026-10.md) 297K · jamais en entier (voir 5.)
-- [Journal hifago — novembre 2026](journal/2026-11.md) 60K · jamais en entier (voir 5.)
+- [Journal hifago — novembre 2026](journal/2026-11.md) 62K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K
 

@@ -45,6 +45,7 @@
 //   eval "$(npx supabase status -o env | grep -E '^[A-Z0-9_]+=' | sed 's/^/export /')"
 //   SUPABASE_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
 //     SUPABASE_ADMIN_EMAIL="admin@hifago.test" SUPABASE_ADMIN_PASSWORD="Seed1234!" \
+//     SUPABASE_ADMIN_TOTP_SECRET="MUFUB2W7HB62XKO323JGYVPWPE7OJHI7" \
 //     node supabase/scripts/seed-mock-data.mjs
 //
 // Préprod (jamais sans /hifago-verify-compte au préalable, cf. hifago/CLAUDE.md §8.1) :
@@ -58,12 +59,17 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, extname } from "node:path";
 import { slugGammePrix } from "../../scripts/lib/tag-slug.mjs";
+import { generateTotp } from "../../scripts/lib/totp.mjs";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ADMIN_EMAIL = process.env.SUPABASE_ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.SUPABASE_ADMIN_PASSWORD;
+// Facultatif : secret base32 du facteur TOTP du compte admin, exigé seulement si ce compte en a un
+// vérifié (lu à la connexion, jamais deviné). En local, celui de `admin@hifago.test` posé par
+// `seed.sql` (valeur de test publique, aussi dans packages/e2e-support/src/mfa.ts).
+const ADMIN_TOTP_SECRET = process.env.SUPABASE_ADMIN_TOTP_SECRET;
 
 const VARIABLES_REQUISES = {
   SUPABASE_URL,
@@ -81,6 +87,26 @@ if (manquantes.length) {
       `hifago/CLAUDE.md §8.2) : ${manquantes.join(", ")}`
   );
   process.exit(1);
+}
+
+// `is_admin()` n'accorde rien à une session AAL1 dès que le compte a un facteur TOTP vérifié
+// (spec 07 §8) : sans cette montée, `create_partner_direct` refusait « réservé au rôle admin » au
+// premier partenaire (constaté le 2026-11-13 — `admin@hifago.test` a un facteur depuis la feature 31).
+// Compte sans facteur : rien à faire. Facteur sans secret fourni : échec explicite, jamais une
+// suite d'appels qui échoueraient un par un.
+async function monterEnAal2(client) {
+  const { data: facteurs, error: erreurFacteurs } = await client.auth.mfa.listFactors();
+  if (erreurFacteurs) throw new Error(`facteurs MFA de ${ADMIN_EMAIL} : ${erreurFacteurs.message}`);
+  const facteur = facteurs?.totp?.[0];
+  if (!facteur) return;
+  if (!ADMIN_TOTP_SECRET) {
+    throw new Error(
+      `${ADMIN_EMAIL} a un facteur TOTP vérifié : poser SUPABASE_ADMIN_TOTP_SECRET (son secret base32), ` +
+        `sinon is_admin() refuse toutes les écritures.`
+    );
+  }
+  const { error } = await client.auth.mfa.challengeAndVerify({ factorId: facteur.id, code: generateTotp(ADMIN_TOTP_SECRET) });
+  if (error) throw new Error(`vérification TOTP de ${ADMIN_EMAIL} : ${error.message}`);
 }
 
 const BUCKET = "catalog-media";
@@ -172,6 +198,13 @@ function validerReferences({ partners, tags, establishments, activities, rooms, 
       erreurs.push(`${p._fichier} : "code" requis dès que "person" est présent (create_partner_direct l'exige pour envoyer une invitation).`);
     }
     if (p.person && !p.person.email) erreurs.push(`${p._fichier} : "person.email" requis.`);
+    // Depuis 20261014031203, l'invitation que create_partner_direct envoie à `email` ne se consomme
+    // que par un compte de CETTE adresse (sinon `email_mismatch`) — comme dans le vrai parcours.
+    // Les 21 personnes du catalogue v1 avaient une adresse `cuenta.*` distincte : chargement cassé
+    // jusqu'au 2026-11-13, sans que rien ne le dise avant le premier partenaire.
+    else if (p.person && p.email && p.person.email.trim().toLowerCase() !== p.email.trim().toLowerCase()) {
+      erreurs.push(`${p._fichier} : "person.email" (${p.person.email}) doit être "email" (${p.email}) — l'invitation est liée à cette adresse.`);
+    }
   }
 
   const plateforme = partners.get("hifago");
@@ -464,8 +497,10 @@ async function creerEtablissements(admin, svc, establishments, idPartenaireParCl
     }
 
     // Le WhatsApp du prestataire est exigé par create_establishment depuis 20261019170000. Jamais
-    // inventé ici : un numéro fictif finirait envoyé aux clients après leur réservation. Un item
-    // déjà en base est ignoré plus haut, avant ce contrôle — seule une NOUVELLE création l'exige.
+    // inventé ICI : un numéro fictif finirait envoyé aux clients après leur réservation. Il vient du
+    // JSON — les 15 du catalogue v1 portent `+573000000000`, le numéro fictif de seed.sql (Jérôme,
+    // 2026-11-13 : mockData/ ne part jamais en préprod). Un item déjà en base est ignoré plus haut,
+    // avant ce contrôle — seule une NOUVELLE création l'exige.
     if (!e.contact_phone) {
       throw new Error(`${e._fichier} : "contact_phone" requis pour créer l'établissement (+57 et 10 chiffres, migration 20261019170000).`);
     }
@@ -543,6 +578,10 @@ async function creerEtablissements(admin, svc, establishments, idPartenaireParCl
 // (capacity/unit/lodging_kind/slot_rules/occurrence_*/tag_ids/photos...) — pas de RPC séparée par
 // type. Les champs qui ne s'appliquent pas à un type donné restent simplement `null` en base.
 async function creerProduits(admin, svc, produits, { dossier, type }, idPartenaireParCle, idEtablissementParCle, idTagParCle, idAmenityParSlug) {
+  // Auteur des propositions déposées ci-dessous (`submitted_by`, NOT NULL) : l'admin connecté.
+  const { data: session, error: erreurSession } = await admin.auth.getUser();
+  if (erreurSession || !session?.user) throw new Error(`session admin illisible : ${erreurSession?.message ?? "aucun utilisateur"}`);
+  const idAdmin = session.user.id;
   let crees = 0;
   let ignores = 0;
   let photosTeleversees = 0;
@@ -634,13 +673,35 @@ async function creerProduits(admin, svc, produits, { dossier, type }, idPartenai
       tag_ids: (item.tags ?? []).map((cleTag) => idTagParCle.get(cleTag)),
     };
 
-    const { data: idProduit, error: erreurCreation } = await admin.rpc("create_product_from_proposal", {
-      p_partner_id: idPartenaireParCle.get(item.partner),
-      p_establishment_id: idEtablissementParCle.get(item.establishment),
-      p_type: type,
-      p_payload: payload,
+    // create_product_from_proposal n'est plus exécutable par `authenticated` (service_role_only,
+    // appelée par moderate_product_proposal seule) : le script suit donc le vrai chemin — une
+    // proposition de création déposée (par `svc`, comme le formulaire socio l'écrirait), puis
+    // APPROUVÉE par l'admin. L'approbation applique les mêmes contrôles qu'à l'écran (horaires
+    // obligatoires d'une activité, 20261104120000…) au lieu de les contourner (2026-11-13).
+    const { data: proposition, error: erreurProposition } = await svc
+      .from("product_proposals")
+      .insert({
+        kind: "create",
+        partner_id: idPartenaireParCle.get(item.partner),
+        establishment_id: idEtablissementParCle.get(item.establishment),
+        type,
+        payload,
+        submitted_by: idAdmin,
+      })
+      .select("id, version")
+      .single();
+    if (erreurProposition) throw new Error(`${item._fichier} : insert product_proposals : ${erreurProposition.message}`);
+
+    const { data: moderation, error: erreurModeration } = await admin.rpc("moderate_product_proposal", {
+      p_proposal_id: proposition.id,
+      p_decision: "approve",
+      p_expected_version: proposition.version,
     });
-    if (erreurCreation) throw new Error(`${item._fichier} : create_product_from_proposal : ${erreurCreation.message}`);
+    if (erreurModeration) throw new Error(`${item._fichier} : moderate_product_proposal : ${erreurModeration.message}`);
+    if (!moderation?.ok) {
+      throw new Error(`${item._fichier} : moderate_product_proposal a renvoyé ok=false (${moderation?.reason ?? "raison inconnue"})`);
+    }
+    const idProduit = moderation.product_id;
 
     if (item._extra_columns) {
       const { error } = await svc.from("products").update(item._extra_columns).eq("id", idProduit);
@@ -736,6 +797,7 @@ async function main() {
   const admin = createClient(SUPABASE_URL, ANON_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
   const { error: erreurConnexionAdmin } = await admin.auth.signInWithPassword({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
   if (erreurConnexionAdmin) throw new Error(`connexion admin (${ADMIN_EMAIL}) : ${erreurConnexionAdmin.message}`);
+  await monterEnAal2(admin);
 
   console.log("==> mock data (partenaires, tags, établissements, activités, photos)");
 

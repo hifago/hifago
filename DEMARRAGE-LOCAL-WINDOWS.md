@@ -193,6 +193,7 @@ et 10 partenaires avec leurs photos.
 eval "$(npx supabase status -o env | grep -E '^[A-Z0-9_]+=' | sed 's/^/export /')"
 SUPABASE_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
   SUPABASE_ADMIN_EMAIL='admin@hifago.test' SUPABASE_ADMIN_PASSWORD='Seed1234!' \
+  SUPABASE_ADMIN_TOTP_SECRET='MUFUB2W7HB62XKO323JGYVPWPE7OJHI7' MOCK_PERSONNE_MDP='Seed1234!' \
   npm run db:mock-data
 ```
 
