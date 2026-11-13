@@ -14,6 +14,9 @@ test("admin ouvre une commande depuis la liste, voit la ventilation par ligne et
 }) => {
   await loginAs(page.context(), SEEDED_ACCOUNTS.admin, SEEDED_PASSWORD);
   await page.goto("/admin/orders");
+  // Liste client-heavy : sans ça, le clic sur « Ver pedido » arrive avant l'hydratation et le
+  // <Link> reste inerte, sans erreur (constaté le 2026-11-13, 2 runs sur 2 — .claude/rules/tests.md).
+  await page.waitForLoadState("networkidle");
 
   const seedRow = page.locator("tr", { hasText: "Cliente Ledger Seed" }).first();
   await expect(seedRow).toBeVisible();
