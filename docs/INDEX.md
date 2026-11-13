@@ -79,6 +79,7 @@
 - [Mi viaje — ajouter un evento non réservable, sans réservation](specs/42-mi-viaje-eventos-sin-reserva.md) 10K ✓ · §0 offset 40 limit 74
 - [Activité : prix par personne, par heure ou par activité complète —…](specs/43-activite-prix-par-heure-ou-par-activite.md) 10K ✓ · §0 offset 39 limit 70
 - [Activité vendue sans date ni horaire — quota optionnel par jour ou…](specs/44-activite-vente-sans-date.md) 10K ○ · §0 offset 44 limit 63
+- [Synchronisation de l'agenda partenaire avec Google Agenda et Apple…](specs/45-synchro-agenda-google-apple.md) 18K ○ · §0 offset 44 limit 94
 - [Specs — fonctionnalités prêtes à coder, une par une](specs/README.md) 3K
 - [Gabarit de spec de feature (à copier, ne décrit aucune feature réelle)](specs/_modele.md) 7K
 - [Avant d'écrire une spec — poser les bonnes questions](specs/avant-la-spec.md) 8K
