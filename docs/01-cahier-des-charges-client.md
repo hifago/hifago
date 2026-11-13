@@ -613,7 +613,22 @@ est toujours prix unitaire × quantité, sans palier, hors maison entière) :
 
 ### 3b. Moteur de commission (17/8/9) — priorité n°1
 
-**Statut : ✅ validé par Jérôme le 2026-08-11 ; barème révisé par Jérôme le 2026-10-19.**
+**Statut : ✅ validé par Jérôme le 2026-08-11 ; barème révisé par Jérôme le 2026-10-19, puis le
+2026-11-12 pour l'auto-référence.**
+
+**Révision du 2026-11-12** : l'acompte en ligne est **toujours 17 %**, auto-référence comprise
+(9 % n'engageaient pas assez le client). En auto-référence, le prestataire touche la part référent
+comme un référent externe (**8 %**, Hifago 9 %) ; une option posée par l'admin sur la fiche
+partenaire (« Devolverle el 17 % completo », table `partner_self_referral_rebates`) lui reverse
+l'acompte entier (**17 %**, Hifago 0 %) — pensée pour un groupe comme Soy Local. Un partenaire peut
+porter plusieurs codes (un QR par hôtel) : tant que codes et établissements sont rattachés au même
+partenaire, chaque réservation chez lui reste une auto-référence. L'e-mail « Nueva comisión
+asignada » part aussi en auto-référence et sépare ses propres services des services d'autres aliados.
+Migration `20261112180000_acompte_17_auto_reference.sql` ; les lignes créées avant gardent leur
+barème figé. Le tableau ci-dessous est à jour. **Avec l'option 17 %, les frais Mercado Pago de la
+ligne sont déduits de ce que Hifago reverse** (Jérôme, 2026-11-12, `20261112200000`) : sinon
+Hifago perdait les frais sur chaque réservation ; le pourcentage figé reste 17 %, le montant versé
+est 17 % moins la part des frais (spec 19 §10 point 10).
 
 **Révision du 2026-10-19** : l'acompte global reste le même (17 %), seule la répartition change —
 le référent externe touche **8 %** (au lieu de 10 %) et la part app passe à **9 %** (au lieu de
@@ -631,13 +646,14 @@ calcul est figé/snapshoté sur la ligne, pas recalculé dynamiquement à la lec
 | Cas | Qui a référé | Acompte (part app à l'arrivée) | Commission référent | Part app |
 |---|---|---|---|---|
 | **Référent externe** | un partenaire différent du prestataire qui encaisse | 17 % (= 8+9) | 8 % | 9 % |
-| **Auto-référence** | le prestataire s'est référé lui-même (même identité des deux côtés) | 9 % (= 0+9) | 0 % | 9 % |
+| **Auto-référence** | le prestataire s'est référé lui-même (même partenaire des deux côtés) | 17 % (= 8+9) | 8 % au prestataire | 9 % |
+| **Auto-référence, option 17 %** | idem, option « Devolverle el 17 % completo » active | 17 % (= 17+0) | 17 % au prestataire | 0 % |
 | **Direct** | aucun référent attribué | 17 % (= 0+17) | 0 % | 17 % |
 
-**Composition** : l'acompte est toujours la somme de deux briques — la part référent (**8 %**,
-seulement s'il y a un référent externe) et la part app (**9 %** dès qu'il y a un référent
-quelconque, référent externe ou auto-référence ; **17 %** s'il n'y a aucun référent, l'app
-absorbant alors la part qui serait allée au référent). Il n'y a **aucun plancher** d'acompte —
+**Composition** : l'acompte est toujours la somme de deux briques et vaut toujours 17 % — la part
+référent (**8 %** dès qu'il y a un référent, externe ou auto-référence ; **17 %** en auto-référence
+avec l'option) et la part app (**9 %** dès qu'il y a un référent ; **0 %** avec l'option ; **17 %**
+s'il n'y a aucun référent, l'app absorbant alors la part qui serait allée au référent). Il n'y a **aucun plancher** d'acompte —
 ces pourcentages s'appliquent tels quels, sans minimum.
 - Toute remise commerciale active en amont — dans le périmètre actuel, uniquement la remise
   optionnelle par quantité/personnes sur les **produits hors nuits** (§3a) — est incluse dans

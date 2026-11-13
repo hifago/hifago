@@ -19,6 +19,9 @@ const SANS_PERMISSION = "No tienes permiso para esta acción.";
 export const REFUS_PAR_CODE: Readonly<Record<string, string>> = {
   // close_order_line_locked : une commande payée n'expire pas.
   HF001: "Una reserva pagada no puede marcarse como expirada. Elige otro estado.",
+  // mark_partner_ledger_entries_paid (« Pagar todo ») : une entrée réglée ailleurs entre-temps, ou un
+  // total qui a changé depuis l'ouverture du dialogue — rien n'a été marqué.
+  HF003: "Algo cambió desde que abriste esta ventana: una entrada ya se pagó o el total cambió. No se marcó nada. Ciérrala y vuelve a abrirla.",
 };
 
 export function rpcErrorMessage(error: RpcError, fallback: string): string {

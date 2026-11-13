@@ -11,7 +11,7 @@
 -- recommandée par le challenge adversarial du 2026-08-24, appliquée ici sur la RPC pour laquelle
 -- elle compte le plus).
 begin;
-select plan(10);
+select plan(12);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -63,9 +63,16 @@ insert into order_lines (
    '99992000-0000-4000-8000-000000000025',
    '99992000-0000-4000-8000-000000000012', '2028-12-11', 1, 'reserved', 'Notif Payment Holder',
    100000, 100000, 'external_referrer', '99992000-0000-4000-8000-000000000002', 0.17, 0.1, 0.07,
-   17000, 10000, 7000);
+   17000, 10000, 7000),
+  -- 20261112180000 : une ligne d'auto-référence (le propriétaire 001 s'est recommandé lui-même,
+  -- 17/8/9) — sa commission lui est désormais notifiée, détaillée à part de celle des autres.
+  ('99992000-0000-4000-8000-000000000044', '99992000-0000-4000-8000-000000000031',
+   '99992000-0000-4000-8000-000000000025',
+   '99992000-0000-4000-8000-000000000012', '2028-12-13', 1, 'reserved', 'Notif Payment Holder',
+   100000, 100000, 'self_referral', '99992000-0000-4000-8000-000000000001', 0.17, 0.08, 0.09,
+   17000, 8000, 9000);
 insert into payments (id, order_id, status, amount_cop) values
-  ('99992000-0000-4000-8000-000000000051', '99992000-0000-4000-8000-000000000031', 'pending', 34000);
+  ('99992000-0000-4000-8000-000000000051', '99992000-0000-4000-8000-000000000031', 'pending', 51000);
 
 ------------------------------------------------------------------------------------------------
 -- apply_payment_webhook — les 3 notifications (spec 23 §0/§4)
@@ -88,6 +95,26 @@ select is(
       and recipient_email = 'notif-payment-referrer@test.local'),
   1,
   'cas 2 : commission attribuée → notifie le compte du référent externe'
+);
+-- 20261112180000 : le référent externe ne voit que la section « otros aliados », son montant
+-- (10 % de 100 000), jamais une section d'auto-recomendación qui ne le concerne pas.
+select ok(
+  (select body_html like '%Servicios de otros aliados%' and body_html like '%$10.000 COP%'
+          and body_html not like '%Tus propios servicios%'
+     from notification_emails
+    where event_type = 'partner_commission_earned' and related_id = '99992000-0000-4000-8000-000000000031'
+      and recipient_email = 'notif-payment-referrer@test.local'),
+  'cas 2b : e-mail du référent externe → section « otros aliados » seule, montant de la ligne'
+);
+select ok(
+  (select count(*) = 1
+          and bool_and(body_html like '%Tus propios servicios%' and body_html like '%Auto-recomendación%'
+                       and body_html like '%$8.000 COP%' and body_html like '%8 \% de%'
+                       and body_html not like '%Servicios de otros aliados%')
+     from notification_emails
+    where event_type = 'partner_commission_earned' and related_id = '99992000-0000-4000-8000-000000000031'
+      and recipient_email = 'notif-payment-owner@test.local'),
+  'cas 2c : auto-référence → le prestataire reçoit l''e-mail de commission, section « propios servicios » à 8 %'
 );
 select is(
   (select count(*)::int from notification_emails

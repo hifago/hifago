@@ -26,9 +26,9 @@
 
 ## Cadrage — la cible de la refonte
 - [Audit du modèle de données cible — entités partagées](00-modele-de-donnees.md) 57K
-- [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 100K
-- [Cahier des charges — portail socio (aujourd'hui /partner)](02-cahier-des-charges-socio.md) 59K
-- [Cahier des charges — back-office admin (aujourd'hui /admin)](03-cahier-des-charges-admin.md) 52K
+- [Cahier des charges — portail client (marketplace global, Guatapé =…](01-cahier-des-charges-client.md) 102K
+- [Cahier des charges — portail socio (aujourd'hui /partner)](02-cahier-des-charges-socio.md) 60K
+- [Cahier des charges — back-office admin (aujourd'hui /admin)](03-cahier-des-charges-admin.md) 54K
 - [Choix de stack et architecture cible](04-architecture-cible.md) 78K
 - [Référence technique — patterns validés et extensions requises](05-reference-technique.md) 9K
 - [Emails transactionnels — les 13 envois possibles, leur déclencheur…](06-emails-transactionnels.md) 21K
@@ -53,7 +53,7 @@
 - [Notifications toast succès/échec sur toute…](specs/16-notifications-toast.md) 18K ✓ · §0 offset 44 limit 113
 - [Calendrier/disponibilité — audit complet + refonte phasée (Tranches…](specs/17-calendrier-disponibilite-refonte.md) 57K ◐ · §0 offset 75 limit 241 · reste : Tranche 1 (crash price_cop null, Mis Reservas) et Tranche 2 (SVAR, moteur unifié…
 - [Créneaux horaires réellement réservables (product_slot_rules)](specs/18-creneaux-horaires-reservables.md) 36K ✓ · §0 offset 59 limit 53
-- [Paiement en ligne Mercado Pago — acompte obligatoire, ledger de…](specs/19-paiement-mercadopago-acompte-ledger.md) 56K ◐ · §0 offset 78 limit 400 · reste : Tranche 1 (capture d'acompte, CheckoutForm branché, ledger) livrée et vérifiée en…
+- [Paiement en ligne Mercado Pago — acompte obligatoire, ledger de…](specs/19-paiement-mercadopago-acompte-ledger.md) 58K ◐ · §0 offset 78 limit 419 · reste : Tranche 1 (capture d'acompte, CheckoutForm branché, ledger) livrée et vérifiée en…
 - [Agenda de réservations socio (vue jour/semaine/mois)](specs/20-agenda-reservations-socio.md) 26K ✓ · §0 offset 42 limit 55
 - [Connecteur LobbyPMS — contrat générique multi-prestataire](specs/21-connecteur-lobbypms.md) 51K ◐ · §0 offset 60 limit 59 · reste : Tranche 1 implémentée le 2026-08-19, disponibilité live côté client comblée le…
 - [Vue référent restreinte — pas d'établissement/mis reservas, liste…](specs/22-vue-referent-restreinte.md) 13K ✓ · §0 offset 43 limit 77
@@ -84,11 +84,11 @@
 - [Avant d'écrire une spec — poser les bonnes questions](specs/avant-la-spec.md) 8K
 
 ## Suivi — backlog, dette, pièges, journal
-- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 22K
+- [Backlog hifago — points ouverts et arbitrages en attente](backlog.md) 24K
 - [Dette technique et QA/UI connue — hifago](dette-technique.md) 39K
 - [Journal hifago — août 2026](journal/2026-08.md) 660K · jamais en entier (voir 5.)
 - [Journal hifago — septembre 2026](journal/2026-09.md) 678K · jamais en entier (voir 5.)
 - [Journal hifago — octobre 2026](journal/2026-10.md) 297K · jamais en entier (voir 5.)
-- [Journal hifago — novembre 2026](journal/2026-11.md) 39K · jamais en entier (voir 5.)
+- [Journal hifago — novembre 2026](journal/2026-11.md) 58K · jamais en entier (voir 5.)
 - [Pièges empiriques hifago — index numéroté](pieges-empiriques.md) 5K
 

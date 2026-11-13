@@ -65,7 +65,7 @@ export function ReservationsTable({
           <span>{row.holderName}</span>
           <span className="text-xs text-muted">{row.holderPhone ?? "—"}</span>
           {row.hasClientNote ? (
-            <span className="text-xs font-medium text-accent" data-testid={`reservation-note-${row.id}`}>
+            <span className="text-xs font-medium text-foreground" data-testid={`reservation-note-${row.id}`}>
               Nota del cliente
             </span>
           ) : null}

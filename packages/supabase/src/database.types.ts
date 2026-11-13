@@ -857,6 +857,7 @@ export type Database = {
           holder_name: string
           holder_phone: string | null
           id: string
+          mp_fee_cop: number | null
           order_id: string
           pms_attempt_started_at: string | null
           pms_booked_at: string | null
@@ -891,6 +892,7 @@ export type Database = {
           holder_name: string
           holder_phone?: string | null
           id?: string
+          mp_fee_cop?: number | null
           order_id: string
           pms_attempt_started_at?: string | null
           pms_booked_at?: string | null
@@ -925,6 +927,7 @@ export type Database = {
           holder_name?: string
           holder_phone?: string | null
           id?: string
+          mp_fee_cop?: number | null
           order_id?: string
           pms_attempt_started_at?: string | null
           pms_booked_at?: string | null
@@ -1445,6 +1448,32 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "partner_payout_accounts_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: true
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_self_referral_rebates: {
+        Row: {
+          created_at: string
+          created_by: string
+          partner_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          partner_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          partner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_self_referral_rebates_partner_id_fkey"
             columns: ["partner_id"]
             isOneToOne: true
             referencedRelation: "partners"
@@ -2749,6 +2778,10 @@ export type Database = {
         }
         Returns: string
       }
+      add_partner_code: {
+        Args: { p_code: string; p_note?: string; p_partner_id: string }
+        Returns: Json
+      }
       admin_campaign_target_counts: {
         Args: { p_campaign_ids: string[] }
         Returns: {
@@ -2827,6 +2860,7 @@ export type Database = {
       }
       admin_ledger_entries_list: {
         Args: {
+          p_beneficiary_partner_id?: string
           p_date_from?: string
           p_date_to?: string
           p_establishment_id?: string
@@ -2840,13 +2874,34 @@ export type Database = {
         }
         Returns: {
           amount_cop: number
+          beneficiary_name: string
+          beneficiary_partner_id: string
+          commission_case: string
           date: string
+          entry_type: string
           establishment_name: Json
           id: string
+          line_total_cop: number
+          mp_fee_cop: number
+          order_id: string
+          order_reference: string
+          paid_at: string
           product_type: string
           referrer_display_name: string
+          referrer_pct: number
           status: string
           total_count: number
+        }[]
+      }
+      admin_ledger_payables: {
+        Args: never
+        Returns: {
+          beneficiary_name: string
+          beneficiary_partner_id: string
+          due_cop: number
+          due_count: number
+          estimated_cop: number
+          mercadopago_account: string
         }[]
       }
       admin_order_line_ledger: {
@@ -2855,8 +2910,13 @@ export type Database = {
           acompte_cop: number
           app_commission_cop: number
           commission_case: string
+          commission_entry_amount_cop: number
+          commission_entry_status: string
+          compensation_entry_amount_cop: number
+          compensation_entry_status: string
           date: string
           id: string
+          mp_fee_cop: number
           product_name: Json
           qty: number
           referrer_commission_cop: number
@@ -2942,6 +3002,10 @@ export type Database = {
       admin_update_product_inline: {
         Args: { p_changes: Json; p_note?: string; p_product_id: string }
         Returns: Json
+      }
+      apply_mp_fee_to_full_rebate_lines: {
+        Args: { p_payment_id: string }
+        Returns: undefined
       }
       apply_order_line_ledger_transition: {
         Args: { p_new_status: string; p_order_line_ids: string[] }
@@ -3511,6 +3575,16 @@ export type Database = {
         Args: { p_id: string; p_provider_message_id: string }
         Returns: undefined
       }
+      mark_partner_ledger_entries_paid: {
+        Args: {
+          p_beneficiary_partner_id: string
+          p_comprobante_path: string
+          p_expected_total_cop: number
+          p_ledger_entry_ids: string[]
+          p_note: string
+        }
+        Returns: Json
+      }
       mark_pms_booking_attempt: {
         Args: {
           p_claimed_at: string
@@ -3685,6 +3759,7 @@ export type Database = {
           establishment_name: Json
           holder_name: string
           id: string
+          mp_fee_cop: number
           product_name: Json
           referrer_pct: number
           status: string
@@ -4041,6 +4116,10 @@ export type Database = {
           p_lon?: number
           p_partner_id: string
         }
+        Returns: Json
+      }
+      set_partner_self_referral_full_rebate: {
+        Args: { p_enabled: boolean; p_note?: string; p_partner_id: string }
         Returns: Json
       }
       set_product_availability: {

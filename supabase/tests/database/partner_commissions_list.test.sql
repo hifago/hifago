@@ -162,8 +162,10 @@ select is(
   (select string_agg(a.n, ', ' order by a.n)
      from pg_proc p, unnest(p.proargnames, p.proargmodes) as a(n, m)
     where p.oid = 'public.partner_commissions_list'::regproc and a.m = 't'),
-  'amount_cop, date, establishment_name, holder_name, id, product_name, referrer_pct, status, '
-  'total_cop, total_count',
+  -- mp_fee_cop (20261112200000) : les frais Mercado Pago retenus sur SA commission (option 17 %),
+  -- relu et voulu — sans lui, « 17 % » qui ne font pas 17 % de la ligne passeraient pour une erreur.
+  'amount_cop, date, establishment_name, holder_name, id, mp_fee_cop, product_name, referrer_pct, '
+  'status, total_cop, total_count',
   'partner_commissions_list rend exactement les colonnes affichées — aucune colonne de commission '
   '(app_commission_cop, acompte_cop, commission_case, app_pct)'
 );

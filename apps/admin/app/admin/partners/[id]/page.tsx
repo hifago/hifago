@@ -8,6 +8,7 @@ import { buttonVariants } from "@hifago/ui";
 import { CapabilitiesSection } from "./CapabilitiesSection";
 import { EstablishmentsSection } from "./EstablishmentsSection";
 import { CodesSection } from "./CodesSection";
+import { SelfReferralRebateSection } from "./SelfReferralRebateSection";
 import { DeletePartnerButton } from "./DeletePartnerButton";
 import { PartnerLocationBlock } from "./PartnerLocationBlock";
 import { PartnerIdentitySection } from "./PartnerIdentitySection";
@@ -50,6 +51,7 @@ export default async function AdminPartnerDetailPage({
     codesResult,
     crmProfileResult,
     deletionCheckResult,
+    selfReferralRebateResult,
   ] = await Promise.all([
     supabase
       .from("partner_capabilities")
@@ -87,6 +89,13 @@ export default async function AdminPartnerDetailPage({
     // « Eliminar definitivamente » n'apparaît que si la base l'autorise : aucune commande, pas le
     // partenaire plateforme (20261019150000, même fonction que la suppression elle-même).
     supabase.rpc("admin_partner_deletion_check", { p_partner_id: id }),
+    // Option « reverser les 17 % » (20261112180000) : une ligne = active. Lecture admin seulement
+    // (policy partner_self_referral_rebates_select_admin), écriture par RPC.
+    supabase
+      .from("partner_self_referral_rebates")
+      .select("partner_id")
+      .eq("partner_id", id)
+      .maybeSingle(),
   ]);
   const { data: capabilities } = checkedRead(capabilitiesResult, "partner_capabilities");
   const { data: agreements } = checkedRead(agreementsResult, "role_agreements");
@@ -97,6 +106,10 @@ export default async function AdminPartnerDetailPage({
   const { data: crmProfile } = checkedRead(crmProfileResult, "partner_crm_profile");
   const { data: deletionCheck } = checkedRead(deletionCheckResult, "admin_partner_deletion_check");
   const deletable = (deletionCheck as { deletable?: boolean } | null)?.deletable === true;
+  const { data: selfReferralRebate } = checkedRead(
+    selfReferralRebateResult,
+    "partner_self_referral_rebates",
+  );
 
   // Dernier accord par rôle (accepted_at desc ci-dessus, donc le premier trouvé par rôle est le
   // plus récent) — un partenaire peut avoir plusieurs accords au fil des versions de document.
@@ -187,7 +200,9 @@ export default async function AdminPartnerDetailPage({
         }))}
       />
 
-      <CodesSection codes={codes ?? []} />
+      <CodesSection partnerId={partner.id} codes={codes ?? []} />
+
+      <SelfReferralRebateSection partnerId={partner.id} enabled={selfReferralRebate !== null} />
     </div>
   );
 }

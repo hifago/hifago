@@ -130,6 +130,8 @@ insert into tmp_grant_only (name) values
   -- Helpers INTERNES des e-mails de confirmation (appelés en propriétaire par apply_payment_webhook,
   -- resolve_pms_booking_request et create_order) : fermés à tous, service_role compris.
   ('notify_order_confirmed'),
+  -- Frais Mercado Pago de l'option 17 % (20261112200000) : appelée uniquement par apply_payment_webhook.
+  ('apply_mp_fee_to_full_rebate_lines'),
   -- Visibilité prestataire (20261024120000) : helpers internes des RPC prestataire et de l'e-mail d'annulation.
   ('order_awaits_payment'),
   ('line_never_paid'),

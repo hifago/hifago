@@ -403,10 +403,9 @@ insert into payments (order_id, mp_payment_id, status, amount_cop, payer_email) 
 -- Referido Seed" — e2e/admin-orders-list.spec.ts scope ses locators par nom de titulaire et
 -- s'attend à ce que "Cliente Referido Seed" reste ABSENT du filtre "Realizada", une ligne fulfilled
 -- de plus sur cette même commande casserait cette assertion). Même référent externe
--- (b0000000-...-0003) sur 2 lignes, statuts différents, pour exercer visuellement earned et
--- redistributed dès le premier chargement de /admin/orders/[id] — sans elles, la différence entre
--- les deux ne serait jamais visible (le ledger ne modifie jamais ces colonnes, il les DÉRIVE à la
--- lecture, cf. deriveLedgerEntry).
+-- (b0000000-...-0003) sur 3 lignes, statuts différents, pour exercer visuellement « A pagar »,
+-- la compensation d'annulation et « Pagada » dès le premier chargement de /admin/orders/[id] —
+-- l'écran lit les ledger_entries ci-dessous (admin_order_line_ledger, révisé en 20261112200000).
 insert into orders (
   id, account_id, holder_name, holder_phone, holder_email, referrer_partner_id, attribution_code, attribution_source
 )

@@ -12,11 +12,14 @@ import { rpcErrorMessage } from "@/lib/errors/rpcErrorMessage";
 // n'est requise (cf. spec 19 §0, même simplicité déjà acceptée pour resolve_reconciliation_entry).
 export function MarkPaidDialog({
   entryId,
+  summary,
   open,
   onOpenChange,
   onSuccess,
 }: {
   entryId: string;
+  /** Ce qui est payé, à qui, pourquoi (20261112190000) — relu avant de confirmer un virement. */
+  summary: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
@@ -79,6 +82,9 @@ export function MarkPaidDialog({
             </Modal.Header>
             <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
               <Modal.Body className="flex flex-col gap-4">
+                <p className="text-sm" data-testid="mark-paid-summary">
+                  {summary}
+                </p>
                 <TextField fullWidth name="comprobante-path" value={comprobantePath} onChange={setComprobantePath}>
                   <Label>Comprobante (URL o ruta, opcional)</Label>
                   <Input data-testid="mark-paid-comprobante-input" />

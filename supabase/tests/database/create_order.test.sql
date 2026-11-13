@@ -59,7 +59,7 @@
 -- (plafond par ligne d'un logement, plage obligatoire, ressource partagée sommée sur le panier,
 -- e-mail camp échappé).
 begin;
-select plan(139);
+select plan(142);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -286,6 +286,7 @@ insert into product_availability (product_id, date, capacity, booked) values
   ('88880000-0000-4000-8000-000000000043', '2028-11-03', 10, 0),  -- cas 16c, auto-référence
   ('88880000-0000-4000-8000-000000000043', '2028-11-04', 10, 0),  -- cas 16d, total non rond (qty=3)
   ('88880000-0000-4000-8000-000000000043', '2028-11-05', 10, 0),  -- cas 16e, ligne 1 (self, produit 043)
+  ('88880000-0000-4000-8000-000000000043', '2028-11-06', 10, 0),  -- cas 16g, auto-référence à 17 %
   ('88880000-0000-4000-8000-000000000038', '2028-11-05', 10, 0);  -- cas 16e, ligne 2 (external, produit 038)
 
 -- Cas 17 (feature 20 — camp multi-jours) : 2 produits type='camp', duration_days=3, établissement A
@@ -1016,7 +1017,7 @@ select create_order(
    );
 
 -- Cas 16c : auto-référence (ORDER-TEST-SELF → partenaire 001, PROPRIÉTAIRE du produit 043) →
--- self_referral, 9/0/9 (barème du 2026-10-19).
+-- self_referral, 17/8/9 (20261112180000 : acompte toujours 17 %, part référent au prestataire).
 select test_set_attribution('ORDER-TEST-SELF', 'link');
 select test_set_cart(jsonb_build_array(jsonb_build_object(
   'product_id', '88880000-0000-4000-8000-000000000043', 'date', '2028-11-03', 'qty', 1
@@ -1116,18 +1117,26 @@ select is(
    ) from order_lines where product_id = '88880000-0000-4000-8000-000000000043' and date = '2028-11-03'),
   jsonb_build_object(
     'commission_case', 'self_referral', 'price_cop', 33333, 'total_cop', 33333,
-    'acompte_pct', '0.0900', 'referrer_pct', '0.0000', 'app_pct', '0.0900',
-    'acompte_cop', 3000, 'referrer_commission_cop', 0, 'app_commission_cop', 3000
+    'acompte_pct', '0.1700', 'referrer_pct', '0.0800', 'app_pct', '0.0900',
+    'acompte_cop', 5667, 'referrer_commission_cop', 2667, 'app_commission_cop', 3000
   ),
-  'cas 16c : auto-référence (référent = propriétaire du produit) → commission_case=self_referral, 9/0/9'
+  'cas 16c : auto-référence (référent = propriétaire du produit) → commission_case=self_referral, 17/8/9'
 );
+-- 20261112180000 : l'auto-référence a une part référent, due au prestataire lui-même — même
+-- écriture que le cas 16b (avant : aucune ledger_entries, l'app gardait tout).
 select is(
-  (select count(*)::int from ledger_entries where order_line_id = (
+  (select jsonb_build_object(
+     'beneficiary_type', beneficiary_type, 'referrer_partner_id', referrer_partner_id,
+     'entry_type', entry_type, 'amount_cop', amount_cop, 'status', status
+   ) from ledger_entries where order_line_id = (
      select id from order_lines
       where product_id = '88880000-0000-4000-8000-000000000043' and date = '2028-11-03'
    )),
-  0,
-  'cas 16c (spec 19) : self_referral → aucune ledger_entries (rien dû à personne)'
+  jsonb_build_object(
+    'beneficiary_type', 'referrer', 'referrer_partner_id', '88880000-0000-4000-8000-000000000001',
+    'entry_type', 'referral_earned', 'amount_cop', 2667, 'status', 'estimated'
+  ),
+  'cas 16c : self_referral → ledger_entries referral_earned au prestataire lui-même, 8 %'
 );
 select is(
   (select jsonb_build_object(
@@ -1167,6 +1176,54 @@ select is(
     where product_id = '88880000-0000-4000-8000-000000000043' and date = '2028-11-01'),
   33333::bigint,
   'cas 16f : price_cop de la ligne 16a reste 33333 malgré products.price_cop modifié après coup à 999999'
+);
+
+-- Cas 16g (20261112180000) : option « reverser les 17 % » posée sur le partenaire 001 → son
+-- auto-référence passe à 17/17/0, ledger_entries pour l'acompte entier. Option posée en direct
+-- (rôle privilégié, après le reset role de 16f) puis retirée : la RPC admin qui la pose a son propre
+-- test. Produit 043 désormais à 999999 (16f) : 999999 × 0,17 = 169999,83 → 170000.
+insert into partner_self_referral_rebates (partner_id, created_by)
+values ('88880000-0000-4000-8000-000000000001', '88880000-0000-4000-8000-000000000021');
+set local role authenticated;
+select test_login_anonymous('88880000-0000-4000-8000-000000000099');
+select test_set_attribution('ORDER-TEST-SELF', 'link');
+select test_set_cart(jsonb_build_array(jsonb_build_object(
+  'product_id', '88880000-0000-4000-8000-000000000043', 'date', '2028-11-06', 'qty', 1
+)));
+create temp table tmp_self_full as
+  select create_order(
+    'Holder Commission Self Full', 'buyer-fixture@hifago.test', null, false
+   ) as result;
+reset role;
+delete from partner_self_referral_rebates where partner_id = '88880000-0000-4000-8000-000000000001';
+
+select is(
+  (select result - 'order_id' from tmp_self_full),
+  '{"ok": true}'::jsonb,
+  'cas 16g : la commande passe'
+);
+drop table tmp_self_full;
+
+select is(
+  (select jsonb_build_object(
+     'commission_case', commission_case, 'acompte_pct', acompte_pct::text,
+     'referrer_pct', referrer_pct::text, 'app_pct', app_pct::text, 'acompte_cop', acompte_cop,
+     'referrer_commission_cop', referrer_commission_cop, 'app_commission_cop', app_commission_cop
+   ) from order_lines where product_id = '88880000-0000-4000-8000-000000000043' and date = '2028-11-06'),
+  jsonb_build_object(
+    'commission_case', 'self_referral', 'acompte_pct', '0.1700',
+    'referrer_pct', '0.1700', 'app_pct', '0.0000', 'acompte_cop', 170000,
+    'referrer_commission_cop', 170000, 'app_commission_cop', 0
+  ),
+  'cas 16g : option « reverser les 17 % » → self_referral 17/17/0, acompte toujours 17 %'
+);
+select is(
+  (select amount_cop from ledger_entries where order_line_id = (
+     select id from order_lines
+      where product_id = '88880000-0000-4000-8000-000000000043' and date = '2028-11-06'
+   ) and beneficiary_type = 'referrer'),
+  170000::bigint,
+  'cas 16g : ledger_entries du prestataire = l''acompte entier'
 );
 
 -- Cas 17 (feature 20 — camp multi-jours). Rôle réinitialisé par le cas 16f ci-dessus (privilégié,

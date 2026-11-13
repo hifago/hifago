@@ -34,6 +34,7 @@ function derniereDefinition(fonction: string): string {
 
 const PORTEURS: Record<string, string> = {
   HF001: "close_order_line_locked",
+  HF003: "mark_partner_ledger_entries_paid",
 };
 
 describe("REFUS_PAR_CODE — code verrouillé sur la migration qui le lève", () => {

@@ -16,6 +16,14 @@ export interface MercadoPagoPaymentFields {
   date_approved?: string | null;
   external_reference?: string | null;
   collector_id?: number | string | null;
+  /** Les frais retenus par Mercado Pago (20261112200000) — seule source du montant déduit. */
+  fee_details?: ReadonlyArray<MercadoPagoFeeDetail> | null;
+}
+
+export interface MercadoPagoFeeDetail {
+  type?: string | null;
+  amount?: number | null;
+  fee_payer?: string | null;
 }
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -28,6 +36,31 @@ type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string
 export function exploitableAmount(payment: MercadoPagoPaymentFields): number | null {
   const amount = payment.transaction_amount;
   return payment.currency_id === "COP" && typeof amount === "number" && Number.isFinite(amount) ? amount : null;
+}
+
+// Ce que Mercado Pago COÛTE à Hifago sur un paiement : sa commission, et le coût des cuotas quand
+// c'est le vendeur qui l'absorbe. Jamais `coupon_fee`/`discount_fee` (une remise, pas un frais),
+// jamais `application_fee` (part d'une marketplace : Hifago encaisse seul), jamais une retenue
+// fiscale (elles ne sont pas dans `fee_details`).
+const MERCADO_PAGO_COST_TYPES = new Set(["mercadopago_fee", "financing_fee"]);
+
+/**
+ * Les frais Mercado Pago d'un paiement, en pesos entiers (décision Jérôme du 2026-11-12 : ils sont
+ * déduits de ce que Hifago reverse au prestataire avec l'option « reverser les 17 % »,
+ * migration 20261112200000). Seulement s'ils sont lisibles : en COP, `fee_details` présent et
+ * chaque montant retenu numérique fini. Un frais payé par le client (`fee_payer: "payer"`, cuotas
+ * à sa charge) ne coûte rien à Hifago. Sinon null : la base ne déduit rien plutôt qu'un montant
+ * inventé.
+ */
+export function mercadoPagoFeeCop(payment: MercadoPagoPaymentFields): number | null {
+  if (payment.currency_id !== "COP" || !Array.isArray(payment.fee_details)) return null;
+  let total = 0;
+  for (const fee of payment.fee_details) {
+    if (fee == null || !MERCADO_PAGO_COST_TYPES.has(fee.type ?? "") || fee.fee_payer === "payer") continue;
+    if (typeof fee.amount !== "number" || !Number.isFinite(fee.amount) || fee.amount < 0) return null;
+    total += fee.amount;
+  }
+  return Math.round(total);
 }
 
 /**
@@ -54,6 +87,8 @@ export function toPaymentEvent(
     date_approved: payment.date_approved ?? null,
     external_reference: payment.external_reference ?? null,
     collector_id: payment.collector_id == null ? null : String(payment.collector_id),
+    // Lu par apply_mp_fee_to_full_rebate_lines (20261112200000) à l'approbation.
+    mp_fee_cop: mercadoPagoFeeCop(payment),
     webhook_body: webhookBody,
   };
 }

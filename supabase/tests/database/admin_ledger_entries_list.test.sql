@@ -6,7 +6,7 @@
 -- assertion est donc bornée par un filtre qui ne peut viser QUE les fixtures de ce fichier (le
 -- référent A, ou les établissements 011/012 créés ici) — c'est aussi ce qui prouve les filtres.
 begin;
-select plan(13);
+select plan(18);
 
 create function test_login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -169,6 +169,52 @@ select is(
      p_sort_key => 'amount_cop', p_sort_desc => true, p_limit => 1)),
   '88a10000-0000-4000-8000-000000000063'::uuid,
   'tri par montant décroissant : 4000 en tête'
+);
+
+-- ── Bénéficiaire, concept, commande (20261112190000) ───────────────────────────────────────────
+select is(
+  (select row(beneficiary_partner_id, beneficiary_name, entry_type)::text from admin_ledger_entries_list(
+     p_establishment_id => '88a10000-0000-4000-8000-000000000011', p_limit => 100)
+    where id = '88a10000-0000-4000-8000-000000000063'),
+  row('88a10000-0000-4000-8000-000000000001'::uuid, 'Ledger List Owner'::text,
+      'establishment_compensation'::text)::text,
+  'une compensation a pour bénéficiaire le partenaire de l''établissement (avant : « — »)'
+);
+select is(
+  (select row(beneficiary_name, entry_type, commission_case, referrer_pct, line_total_cop, order_id)::text
+     from admin_ledger_entries_list(p_limit => 100)
+    where id = '88a10000-0000-4000-8000-000000000061'),
+  row('Ledger List Referrer A'::text, 'referral_earned'::text, 'external_referrer'::text, 0.1000::numeric,
+      50000::bigint, '88a10000-0000-4000-8000-000000000041'::uuid)::text,
+  'une commission porte son bénéficiaire, son cas, le pourcentage figé, le total de la ligne et la commande'
+);
+select is(
+  (select array_agg(id order by id) from admin_ledger_entries_list(
+     p_beneficiary_partner_id => '88a10000-0000-4000-8000-000000000001', p_limit => 100)),
+  array['88a10000-0000-4000-8000-000000000063']::uuid[],
+  'filtre bénéficiaire : la compensation du propriétaire, jamais les commissions de ses référents'
+);
+
+-- ── admin_ledger_payables ───────────────────────────────────────────────────────────────────────
+select is(
+  (select array_agg(row(beneficiary_name, due_count, due_cop, estimated_cop)::text order by beneficiary_name)
+     from admin_ledger_payables()
+    where beneficiary_partner_id in ('88a10000-0000-4000-8000-000000000001',
+                                     '88a10000-0000-4000-8000-000000000002',
+                                     '88a10000-0000-4000-8000-000000000003')),
+  array[
+    row('Ledger List Owner'::text, 1::bigint, 4000::bigint, 0::bigint)::text,
+    row('Ledger List Referrer A'::text, 1::bigint, 3000::bigint, 0::bigint)::text
+  ],
+  'à payer : une ligne par bénéficiaire avec du « due » (payé exclu, référent B seulement estimé absent)'
+);
+
+select test_login('88a10000-0000-4000-8000-000000000032');
+select throws_ok(
+  $$ select * from admin_ledger_payables() $$,
+  '42501',
+  null,
+  'admin_ledger_payables : un compte non admin est refusé'
 );
 
 select * from finish();

@@ -21,6 +21,8 @@ export type CommissionRow = {
   referrerPct: number;
   totalCop: number;
   referrerCommissionCop: number;
+  /** Frais Mercado Pago retenus (option 17 %), ou null. */
+  feeNote: string | null;
   state: "estimated" | "due" | "paid" | "reversed" | "void";
 };
 
@@ -89,7 +91,14 @@ export function CommissionsTable({
       header: "Comisión referente",
       align: "right",
       cell: (row) => (
-        <span data-testid={`referrer-commission-${row.id}`}>{formatCop(row.referrerCommissionCop)}</span>
+        <span className="flex flex-col items-end">
+          <span data-testid={`referrer-commission-${row.id}`}>{formatCop(row.referrerCommissionCop)}</span>
+          {row.feeNote ? (
+            <span className="text-xs text-muted" data-testid={`referrer-commission-fee-${row.id}`}>
+              {row.feeNote}
+            </span>
+          ) : null}
+        </span>
       ),
     },
     {

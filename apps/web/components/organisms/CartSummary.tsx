@@ -111,9 +111,10 @@ export function CartSummary({
   // travail à chaque rendu, donc à chaque retrait de ligne.
   const totalesPorLinea = lines.map(computeCartLineTotal);
   const total = totalesPorLinea.reduce((sum, montant) => sum + montant, 0);
-  // Estimation FIXE à 17 %, jamais le pourcentage exact selon commission_case (create_order, qui
-  // peut descendre à 9 % sur un cas rare d'auto-parrainage) — même principe « panier = estimation
-  // affichée » que le reste de ce composant, cf. cartLineTotal.ts.
+  // 17 % : l'acompte de create_order dans tous les cas où il y a un acompte (direct, référent,
+  // auto-référence — 20261112180000) ; reste une estimation pour les lignes sans acompte (evento
+  // gratuit ou payable sur place) — même principe « panier = estimation affichée » que le reste de
+  // ce composant, cf. cartLineTotal.ts.
   const totalNow = Math.round(total * 0.17);
 
   if (lines.length === 0 && eventos.length === 0) {
