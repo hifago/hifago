@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { NextIntlClientProvider } from "next-intl";
 import { loadMessages, type Locale } from "@/messages";
 import { SiteFooter } from "./SiteFooter";
@@ -45,27 +47,21 @@ describe("SiteFooter", () => {
     expect(nav.getAttribute("aria-label")).toBe(messages.Chrome.footerNavLabel);
   });
 
-  // ⚠️ RÉÉCRIT LE 2026-09-07, et c'est une décision, pas une régression. Ce test exigeait les cinq
-  // liens institutionnels (mentions légales, confidentialité, contact, aide, conditions). Ils
-  // pointaient vers des routes qui n'existent pas : le footer menait à cinq 404. Jérôme a repoussé
-  // ces pages à la fin du chantier (cahier §1 : « seule leur présence est actée », le contenu reste
-  // à rédiger). Le test garde donc la trace de ce qui est attendu À TERME, et vérifie en attendant
-  // qu'aucun lien mort n'est servi.
-  it("ne sert AUCUN lien institutionnel tant que les pages n'existent pas", () => {
+  // Les cinq liens institutionnels, livrés le 2026-11-05 (du 2026-09-07 à cette date le footer n'en
+  // servait aucun, faute de pages). Chacun passe par le `Link` de @/i18n/navigation — seul à
+  // conserver le préfixe de locale — et mène à une route qui EXISTE sur le disque : un lien mort
+  // est exactement ce que la version vide évitait.
+  it("sert les cinq liens institutionnels, localisés, vers des routes existantes", () => {
     const { container } = rendu();
-    for (const cle of CLES) {
-      expect(container.querySelector(`[data-testid="footer-${cle}"]`)).toBeNull();
-    }
-  });
-
-  it("gardera ses liens localisés le jour où les pages arriveront", () => {
-    // Ce test ne vérifie pas le footer : il verrouille la CONVENTION que le lot des pages
-    // institutionnelles devra respecter — cinq clés, et des liens qui passent par le `Link` de
-    // @/i18n/navigation, seul à conserver le préfixe de locale. Un `<a href="/legal">` renverrait
-    // un hispanophone sur une page sans langue.
     expect(CLES).toHaveLength(5);
     for (const cle of CLES) {
-      expect(messages.Chrome[cle]).toBeTruthy();
+      const lien = container.querySelector(`[data-testid="footer-${cle}"]`) as HTMLAnchorElement;
+      expect(lien, cle).not.toBeNull();
+      expect(lien.dataset.localized).toBe("true");
+      expect(lien.textContent).toBe(messages.Chrome[cle]);
+      const segment = lien.getAttribute("href")!.replace(/^\//, "");
+      const page = join(__dirname, "../../app/[locale]/(vitrine)/(institucional)", segment, "page.tsx");
+      expect(existsSync(page), page).toBe(true);
     }
   });
 
@@ -113,6 +109,15 @@ describe("SiteFooter", () => {
     const { container } = rendu();
     expect((container.querySelector('[data-testid="footer-identity"]') as HTMLElement).textContent).toBe(
       "Hifago · Guatapé, Colombia"
+    );
+  });
+
+  it("affiche le numéro RNT sur toutes les pages, traduit", () => {
+    expect((rendu().container.querySelector('[data-testid="footer-rnt"]') as HTMLElement).textContent).toBe(
+      "Registro Nacional de Turismo: RNT 306057"
+    );
+    expect((rendu("en").container.querySelector('[data-testid="footer-rnt"]') as HTMLElement).textContent).toBe(
+      "National Tourism Registry: RNT 306057"
     );
   });
 
@@ -192,10 +197,10 @@ describe("SiteFooter", () => {
     );
     // ⚠️ La raison d'être de ce test n'est pas la liste des href, c'est le rendu SERVEUR : Google
     // indexe le HTML servi, et c'est le sélecteur de langue du footer qui fait découvrir la version
-    // anglaise par le maillage interne. Les cinq liens institutionnels ont été retirés le
-    // 2026-09-07 (pages inexistantes) ; ce qui reste doit toujours être SERVI, pas hydraté.
-    for (const href of ["/legal", "/privacy", "/contact", "/help", "/terms"]) {
-      expect(html).not.toContain(`href="${href}"`);
+    // anglaise par le maillage interne — et les cinq pages institutionnelles (2026-11-05) par le
+    // même maillage : elles aussi doivent être SERVIES, pas hydratées.
+    for (const href of ["/legal", "/terminos", "/privacidad", "/ayuda", "/contacto"]) {
+      expect(html).toContain(`href="${href}"`);
     }
     expect(html).toContain("https://wa.me/573215764841");
     expect(html).toContain('href="/en/productos/kayak"');

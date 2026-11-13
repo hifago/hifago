@@ -789,6 +789,7 @@ export type Database = {
           recipient_email: string
           related_id: string | null
           related_table: string | null
+          reply_to: string | null
           sent_at: string | null
           status: string
           subject: string
@@ -807,6 +808,7 @@ export type Database = {
           recipient_email: string
           related_id?: string | null
           related_table?: string | null
+          reply_to?: string | null
           sent_at?: string | null
           status?: string
           subject: string
@@ -825,6 +827,7 @@ export type Database = {
           recipient_email?: string
           related_id?: string | null
           related_table?: string | null
+          reply_to?: string | null
           sent_at?: string | null
           status?: string
           subject?: string
@@ -854,6 +857,7 @@ export type Database = {
           holder_name: string
           holder_phone: string | null
           id: string
+          mp_fee_cop: number | null
           order_id: string
           pms_attempt_started_at: string | null
           pms_booked_at: string | null
@@ -888,6 +892,7 @@ export type Database = {
           holder_name: string
           holder_phone?: string | null
           id?: string
+          mp_fee_cop?: number | null
           order_id: string
           pms_attempt_started_at?: string | null
           pms_booked_at?: string | null
@@ -922,6 +927,7 @@ export type Database = {
           holder_name?: string
           holder_phone?: string | null
           id?: string
+          mp_fee_cop?: number | null
           order_id?: string
           pms_attempt_started_at?: string | null
           pms_booked_at?: string | null
@@ -986,6 +992,7 @@ export type Database = {
           account_id: string
           attribution_code: string | null
           attribution_source: string | null
+          client_note: string | null
           created_at: string
           holder_email: string
           holder_name: string
@@ -1006,6 +1013,7 @@ export type Database = {
           account_id: string
           attribution_code?: string | null
           attribution_source?: string | null
+          client_note?: string | null
           created_at?: string
           holder_email: string
           holder_name: string
@@ -1026,6 +1034,7 @@ export type Database = {
           account_id?: string
           attribution_code?: string | null
           attribution_source?: string | null
+          client_note?: string | null
           created_at?: string
           holder_email?: string
           holder_name?: string
@@ -1439,6 +1448,32 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "partner_payout_accounts_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: true
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_self_referral_rebates: {
+        Row: {
+          created_at: string
+          created_by: string
+          partner_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          partner_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          partner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_self_referral_rebates_partner_id_fkey"
             columns: ["partner_id"]
             isOneToOne: true
             referencedRelation: "partners"
@@ -2743,6 +2778,10 @@ export type Database = {
         }
         Returns: string
       }
+      add_partner_code: {
+        Args: { p_code: string; p_note?: string; p_partner_id: string }
+        Returns: Json
+      }
       admin_campaign_target_counts: {
         Args: { p_campaign_ids: string[] }
         Returns: {
@@ -2821,6 +2860,7 @@ export type Database = {
       }
       admin_ledger_entries_list: {
         Args: {
+          p_beneficiary_partner_id?: string
           p_date_from?: string
           p_date_to?: string
           p_establishment_id?: string
@@ -2834,13 +2874,34 @@ export type Database = {
         }
         Returns: {
           amount_cop: number
+          beneficiary_name: string
+          beneficiary_partner_id: string
+          commission_case: string
           date: string
+          entry_type: string
           establishment_name: Json
           id: string
+          line_total_cop: number
+          mp_fee_cop: number
+          order_id: string
+          order_reference: string
+          paid_at: string
           product_type: string
           referrer_display_name: string
+          referrer_pct: number
           status: string
           total_count: number
+        }[]
+      }
+      admin_ledger_payables: {
+        Args: never
+        Returns: {
+          beneficiary_name: string
+          beneficiary_partner_id: string
+          due_cop: number
+          due_count: number
+          estimated_cop: number
+          mercadopago_account: string
         }[]
       }
       admin_order_line_ledger: {
@@ -2849,8 +2910,13 @@ export type Database = {
           acompte_cop: number
           app_commission_cop: number
           commission_case: string
+          commission_entry_amount_cop: number
+          commission_entry_status: string
+          compensation_entry_amount_cop: number
+          compensation_entry_status: string
           date: string
           id: string
+          mp_fee_cop: number
           product_name: Json
           qty: number
           referrer_commission_cop: number
@@ -2937,6 +3003,10 @@ export type Database = {
         Args: { p_changes: Json; p_note?: string; p_product_id: string }
         Returns: Json
       }
+      apply_mp_fee_to_full_rebate_lines: {
+        Args: { p_payment_id: string }
+        Returns: undefined
+      }
       apply_order_line_ledger_transition: {
         Args: { p_new_status: string; p_order_line_ids: string[] }
         Returns: undefined
@@ -3001,6 +3071,7 @@ export type Database = {
           recipient_email: string
           related_id: string | null
           related_table: string | null
+          reply_to: string | null
           sent_at: string | null
           status: string
           subject: string
@@ -3156,6 +3227,7 @@ export type Database = {
       }
       create_order: {
         Args: {
+          p_client_note?: string
           p_holder_email?: string
           p_holder_name: string
           p_holder_phone?: string
@@ -3207,6 +3279,16 @@ export type Database = {
         Args: { p_note?: string; p_product_id: string }
         Returns: undefined
       }
+      email_boton: { Args: { p_texto: string; p_url: string }; Returns: string }
+      email_cop: { Args: { p_amount: number }; Returns: string }
+      email_fecha_es: { Args: { p_date: string }; Returns: string }
+      email_hora_es: { Args: { p_time: string }; Returns: string }
+      email_layout: {
+        Args: { p_contenido: string; p_titulo: string }
+        Returns: string
+      }
+      email_seccion: { Args: { p_texto: string }; Returns: string }
+      email_titulo: { Args: { p_texto: string }; Returns: string }
       enqueue_notification_email: {
         Args: {
           p_body_html: string
@@ -3215,6 +3297,7 @@ export type Database = {
           p_recipient_email: string
           p_related_id?: string
           p_related_table?: string
+          p_reply_to?: string
           p_subject: string
         }
         Returns: string
@@ -3492,6 +3575,16 @@ export type Database = {
         Args: { p_id: string; p_provider_message_id: string }
         Returns: undefined
       }
+      mark_partner_ledger_entries_paid: {
+        Args: {
+          p_beneficiary_partner_id: string
+          p_comprobante_path: string
+          p_expected_total_cop: number
+          p_ledger_entry_ids: string[]
+          p_note: string
+        }
+        Returns: Json
+      }
       mark_pms_booking_attempt: {
         Args: {
           p_claimed_at: string
@@ -3560,6 +3653,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      notify_client_order_confirmed: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
       notify_order_confirmed: {
         Args: { p_order_id: string }
         Returns: undefined
@@ -3568,7 +3665,7 @@ export type Database = {
         Args: { p_by: string; p_line_id: string }
         Returns: undefined
       }
-      notify_partner_camp_evento_blocked: {
+      notify_partner_order_confirmed: {
         Args: { p_order_id: string }
         Returns: undefined
       }
@@ -3662,6 +3759,7 @@ export type Database = {
           establishment_name: Json
           holder_name: string
           id: string
+          mp_fee_cop: number
           product_name: Json
           referrer_pct: number
           status: string
@@ -3688,6 +3786,7 @@ export type Database = {
       partner_reservation_detail: {
         Args: { p_order_line_id: string }
         Returns: {
+          client_note: string
           created_at: string
           date: string
           end_date: string
@@ -3720,6 +3819,7 @@ export type Database = {
         Returns: {
           date: string
           establishment_name: Json
+          has_client_note: boolean
           holder_email: string
           holder_name: string
           holder_phone: string
@@ -4016,6 +4116,10 @@ export type Database = {
           p_lon?: number
           p_partner_id: string
         }
+        Returns: Json
+      }
+      set_partner_self_referral_full_rebate: {
+        Args: { p_enabled: boolean; p_note?: string; p_partner_id: string }
         Returns: Json
       }
       set_product_availability: {

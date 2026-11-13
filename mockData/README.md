@@ -66,7 +66,8 @@ l'ordre d'affichage (`sort`) — ce n'est pas l'ordre alphabétique des fichiers
   "crm_profile": null,
   "capability_status": "active", // "active" | "suspended"
   "person": {                    // optionnel — omis = organisation sans compte de connexion
-    "email": "maria@mock.hifago.test",  // requis si "person" présent
+    "email": "hostal-centro-owner@mock.hifago.test",  // requis — ÉGAL à "email" ci-dessus : l'invitation
+                                                       // est liée à cette adresse (20261014031203), le script refuse sinon
     "password": "MockTest1234!",        // optionnel — absent : MOCK_PERSONNE_MDP (voir ci-dessous)
     "full_name": "María Restrepo"
   }

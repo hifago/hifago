@@ -340,7 +340,9 @@ export const LEDGER_FILTER_DEFINITIONS: FilterDefinition[] = [
   { kind: "date", name: "date_to" },
   { kind: "enum", name: "status", allowed: Object.keys(LEDGER_STATUS_LABELS) },
   { kind: "enum", name: "type", allowed: PRODUCT_TYPES },
-  { kind: "text", name: "referrer_partner_id" },
+  // 20261112190000 : le bénéficiaire (référent ou partenaire de l'établissement compensé), plus le
+  // seul référent.
+  { kind: "text", name: "beneficiary_partner_id" },
   { kind: "text", name: "establishment_id" },
 ];
 

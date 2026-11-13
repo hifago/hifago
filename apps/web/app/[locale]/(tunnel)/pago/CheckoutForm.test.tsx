@@ -29,7 +29,8 @@ let lectureJeton: { data: { access_token: string } | null; error: unknown } = {
 };
 vi.mock("@hifago/supabase/client", () => ({
   createClient: () => ({
-    rpc: (name: string) => (name === "create_order" ? createOrderMock() : Promise.reject(new Error(name))),
+    rpc: (name: string, args?: unknown) =>
+      name === "create_order" ? createOrderMock(args) : Promise.reject(new Error(name)),
     from: () => ({
       select: () => ({
         eq: () => ({ maybeSingle: async () => lectureJeton }),
@@ -144,6 +145,31 @@ describe("CheckoutForm — le bouton reste tenu jusqu'à la fin de check-nights"
     });
     expect(pushMock).toHaveBeenCalledWith("/reserva/jeton-1");
     expect(bouton.disabled).toBe(true); // la page part : rien à rendre
+  });
+
+  // Migration 20261112120000 : la note du client part dans create_order, qui la met sur la commande
+  // (l'e-mail de réservation au prestataire la reprend).
+  it("la note pour l'établissement part dans create_order, rognée", async () => {
+    const { container, form } = rendre();
+    const note = container.querySelector('[data-testid="client-note-input"]') as HTMLTextAreaElement;
+    expect(note.maxLength).toBe(1000);
+    await act(async () => {
+      fireEvent.change(note, { target: { value: "  Llego a las 9 p. m.\nSin gluten  " } });
+    });
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+    expect(createOrderMock).toHaveBeenCalledWith(
+      expect.objectContaining({ p_client_note: "Llego a las 9 p. m.\nSin gluten" })
+    );
+  });
+
+  it("sans note, create_order reçoit une chaîne vide (enregistrée NULL)", async () => {
+    const { form } = rendre();
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+    expect(createOrderMock).toHaveBeenCalledWith(expect.objectContaining({ p_client_note: "" }));
   });
 
   // Commande défaite par un refus de Lobby : release_order_after_pms_refusal a remis ses lignes

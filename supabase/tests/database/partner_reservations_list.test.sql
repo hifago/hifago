@@ -94,7 +94,8 @@ select is(
   (select string_agg(a.n, ', ' order by a.n)
      from pg_proc p, unnest(p.proargnames, p.proargmodes) as a(n, m)
     where p.oid = 'public.partner_reservations_list'::regproc and a.m = 't'),
-  'date, establishment_name, holder_email, holder_name, holder_phone, id, product_name, qty, '
+  -- has_client_note : 20261112170000, un repère « le client a laissé une note », pas le texte.
+  'date, establishment_name, has_client_note, holder_email, holder_name, holder_phone, id, product_name, qty, '
   'status, total_cop, total_count',
   'partner_reservations_list rend exactement ses colonnes d''affichage — aucune colonne de commission'
 );

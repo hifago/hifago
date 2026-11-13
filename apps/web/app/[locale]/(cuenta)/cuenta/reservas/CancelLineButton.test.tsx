@@ -176,7 +176,9 @@ describe("CancelLineButton", () => {
   it("commande encaissée : la confirmation dit que l'acompte n'est pas rendu", async () => {
     const container = rendre(false, { depositRetained: true });
     await ouvrirLaConfirmation(container);
-    expect(texte(container, "cancel-line-x-no-refund")).toBe("El anticipo pagado no se devuelve.");
+    expect(texte(container, "cancel-line-x-no-refund")).toBe(
+      "El anticipo pagado no se devuelve, salvo si estás dentro del plazo de retracto: en ese caso, escríbenos para pedir el reembolso."
+    );
   });
 
   it("commande impayée : la confirmation ne parle d'aucun acompte", async () => {

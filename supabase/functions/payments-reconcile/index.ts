@@ -76,6 +76,8 @@ interface MpItem {
   date_approved: string | null;
   external_reference: string | null;
   collector_id: string | null;
+  /** Frais Mercado Pago lisibles, ou null (20261112200000) — lus à l'approbation. */
+  mp_fee_cop: number | null;
   webhook_body: null;
 }
 interface Decision {

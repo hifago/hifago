@@ -7,13 +7,13 @@ import { SearchableCombobox } from "@/components/searchable-combobox";
 import { PRODUCT_TYPES, PRODUCT_TYPE_LABELS } from "@/lib/lists/filters";
 import { LEDGER_STATUS_LABELS } from "./ledgerStatusLabels";
 
-export type ReferrerOption = { id: string; name: string };
+export type BeneficiaryOption = { id: string; name: string };
 export type EstablishmentOption = { id: string; name: string };
 
 export type LedgerFilterBarProps = {
   values: Record<string, string>;
   hiddenParams?: Record<string, string>;
-  referrers: ReferrerOption[];
+  beneficiaries: BeneficiaryOption[];
   establishments: EstablishmentOption[];
 };
 
@@ -21,13 +21,16 @@ export type LedgerFilterBarProps = {
 // et "Establecimiento" ont besoin d'un combobox avec recherche (SearchableCombobox, même patron que
 // "Actividad" sur ReservationsFilterBar.tsx), pas juste un texte libre ou un <select> plafonné —
 // ServerFilters ne connaît que text/select/date. Soumission interceptée en JS (router.push) plutôt
-// qu'un <form method="GET"> natif, pour injecter referrer_partner_id/establishment_id (état React
+// qu'un <form method="GET"> natif, pour injecter beneficiary_partner_id/establishment_id (état React
 // des combobox, jamais des inputs natifs nommés) aux côtés des champs classiques lus depuis
 // FormData.
-export function LedgerFilterBar({ values, hiddenParams, referrers, establishments }: LedgerFilterBarProps) {
+// Révision 20261112190000 : « Referente » devient « Beneficiario » (beneficiary_partner_id) — le
+// partenaire à payer, référent ou partenaire de l'établissement compensé : un filtre référent ne
+// retrouvait jamais une compensation d'annulation.
+export function LedgerFilterBar({ values, hiddenParams, beneficiaries, establishments }: LedgerFilterBarProps) {
   const router = useRouter();
-  const [referrerPartnerId, setReferrerPartnerId] = useState<string | null>(
-    values.referrer_partner_id ?? null
+  const [beneficiaryPartnerId, setBeneficiaryPartnerId] = useState<string | null>(
+    values.beneficiary_partner_id ?? null
   );
   const [establishmentId, setEstablishmentId] = useState<string | null>(values.establishment_id ?? null);
 
@@ -45,7 +48,7 @@ export function LedgerFilterBar({ values, hiddenParams, referrers, establishment
     if (status) params.set("status", status);
     const type = String(formData.get("type") ?? "").trim();
     if (type) params.set("type", type);
-    if (referrerPartnerId) params.set("referrer_partner_id", referrerPartnerId);
+    if (beneficiaryPartnerId) params.set("beneficiary_partner_id", beneficiaryPartnerId);
     if (establishmentId) params.set("establishment_id", establishmentId);
 
     for (const [name, value] of Object.entries(hiddenParams ?? {})) {
@@ -128,14 +131,14 @@ export function LedgerFilterBar({ values, hiddenParams, referrers, establishment
 
       <div className="w-56">
         <SearchableCombobox
-          items={referrers}
-          getKey={(referrer) => referrer.id}
-          getLabel={(referrer) => referrer.name}
-          value={referrerPartnerId}
-          onChange={setReferrerPartnerId}
-          label="Referente"
-          placeholder="Buscar referente…"
-          testId="filter-referrer_partner_id"
+          items={beneficiaries}
+          getKey={(beneficiary) => beneficiary.id}
+          getLabel={(beneficiary) => beneficiary.name}
+          value={beneficiaryPartnerId}
+          onChange={setBeneficiaryPartnerId}
+          label="Beneficiario"
+          placeholder="Buscar beneficiario…"
+          testId="filter-beneficiary_partner_id"
         />
       </div>
 

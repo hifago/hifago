@@ -16,6 +16,7 @@ repond_a:
 
 ## Écarts connus (alimenté par les specs qui révisent ce cahier — voir leur champ `revise:`)
 
+- **2026-11-05 — §7/A3 « jamais de remboursement côté client » cède devant le droit de rétractation** (Jérôme : « base-toi sur la politique d'annulation colombienne » ; pages `/terminos` §5-6, `apps/web/messages/*/Legal.json`). Ley 1480 de 2011 art. 47 : toute vente à distance dont le service commence plus de 5 jours calendaires après l'achat ouvre 5 jours ouvrables de rétractation, acompte rendu en totalité sous 30 jours, sans retenue — une clause contraire serait inopposable. Hors de cette fenêtre, A3 tient tel quel. Remboursement MANUEL (le client écrit, l'admin rembourse) : rien n'est automatisé, les flux de remboursement restent suspendus (backlog). Les §1 « pages légales » et §2d sont aussi servis par ces pages. Sections ci-dessous non réécrites — cette ligne en tient lieu.
 - **2026-10-23 — le prix d'une nuit Lobby est le prix Lobby, comme le dit le §5** (spec 24 §0 révisée, qui disait le contraire depuis le 2026-08-26) : sans marge, au nombre exact de personnes du produit, relu à chaud au paiement — `/pago` affiche le nouveau prix s'il a changé — ; la commission reste une part du total. La quantité d'un dortoir Lobby est bornée par les lits réellement libres aux dates choisies. Sections ci-dessous non réécrites — cette ligne en tient lieu.
 - **2026-10-23 — Lobby se réserve APRÈS l'acompte** (spec 21 §8.2) : l'« échec fermé avant confirmation » du §4/§5 devient « lecture de Lobby + place tenue avant paiement, booking après l'acompte » ; un paiement refusé ne laisse plus de booking vivant ni d'e-mail « réservé » (§2b.9 : deux états d'écran de plus pour une commande payée, `confirming` et `paid_unconfirmed`, spec 33). Risque accepté : un refus (422) de Lobby APRÈS paiement va en file « à traiter », sans remboursement automatique. Sections ci-dessous non réécrites — cette ligne en tient lieu.
 - **2026-10-23 — spec 19 retouchée, sans changement de périmètre** : la préférence Mercado Pago envoie désormais l'acheteur (prénom, nom, téléphone) et le détail des lignes pour le contrôle anti-fraude (§0 Tranche 1 « Contenu de la préférence ») ; le montant facturé et le parcours client ne changent pas, rien ne change pour ce cahier.
@@ -612,7 +613,22 @@ est toujours prix unitaire × quantité, sans palier, hors maison entière) :
 
 ### 3b. Moteur de commission (17/8/9) — priorité n°1
 
-**Statut : ✅ validé par Jérôme le 2026-08-11 ; barème révisé par Jérôme le 2026-10-19.**
+**Statut : ✅ validé par Jérôme le 2026-08-11 ; barème révisé par Jérôme le 2026-10-19, puis le
+2026-11-12 pour l'auto-référence.**
+
+**Révision du 2026-11-12** : l'acompte en ligne est **toujours 17 %**, auto-référence comprise
+(9 % n'engageaient pas assez le client). En auto-référence, le prestataire touche la part référent
+comme un référent externe (**8 %**, Hifago 9 %) ; une option posée par l'admin sur la fiche
+partenaire (« Devolverle el 17 % completo », table `partner_self_referral_rebates`) lui reverse
+l'acompte entier (**17 %**, Hifago 0 %) — pensée pour un groupe comme Soy Local. Un partenaire peut
+porter plusieurs codes (un QR par hôtel) : tant que codes et établissements sont rattachés au même
+partenaire, chaque réservation chez lui reste une auto-référence. L'e-mail « Nueva comisión
+asignada » part aussi en auto-référence et sépare ses propres services des services d'autres aliados.
+Migration `20261112180000_acompte_17_auto_reference.sql` ; les lignes créées avant gardent leur
+barème figé. Le tableau ci-dessous est à jour. **Avec l'option 17 %, les frais Mercado Pago de la
+ligne sont déduits de ce que Hifago reverse** (Jérôme, 2026-11-12, `20261112200000`) : sinon
+Hifago perdait les frais sur chaque réservation ; le pourcentage figé reste 17 %, le montant versé
+est 17 % moins la part des frais (spec 19 §10 point 10).
 
 **Révision du 2026-10-19** : l'acompte global reste le même (17 %), seule la répartition change —
 le référent externe touche **8 %** (au lieu de 10 %) et la part app passe à **9 %** (au lieu de
@@ -630,13 +646,14 @@ calcul est figé/snapshoté sur la ligne, pas recalculé dynamiquement à la lec
 | Cas | Qui a référé | Acompte (part app à l'arrivée) | Commission référent | Part app |
 |---|---|---|---|---|
 | **Référent externe** | un partenaire différent du prestataire qui encaisse | 17 % (= 8+9) | 8 % | 9 % |
-| **Auto-référence** | le prestataire s'est référé lui-même (même identité des deux côtés) | 9 % (= 0+9) | 0 % | 9 % |
+| **Auto-référence** | le prestataire s'est référé lui-même (même partenaire des deux côtés) | 17 % (= 8+9) | 8 % au prestataire | 9 % |
+| **Auto-référence, option 17 %** | idem, option « Devolverle el 17 % completo » active | 17 % (= 17+0) | 17 % au prestataire | 0 % |
 | **Direct** | aucun référent attribué | 17 % (= 0+17) | 0 % | 17 % |
 
-**Composition** : l'acompte est toujours la somme de deux briques — la part référent (**8 %**,
-seulement s'il y a un référent externe) et la part app (**9 %** dès qu'il y a un référent
-quelconque, référent externe ou auto-référence ; **17 %** s'il n'y a aucun référent, l'app
-absorbant alors la part qui serait allée au référent). Il n'y a **aucun plancher** d'acompte —
+**Composition** : l'acompte est toujours la somme de deux briques et vaut toujours 17 % — la part
+référent (**8 %** dès qu'il y a un référent, externe ou auto-référence ; **17 %** en auto-référence
+avec l'option) et la part app (**9 %** dès qu'il y a un référent ; **0 %** avec l'option ; **17 %**
+s'il n'y a aucun référent, l'app absorbant alors la part qui serait allée au référent). Il n'y a **aucun plancher** d'acompte —
 ces pourcentages s'appliquent tels quels, sans minimum.
 - Toute remise commerciale active en amont — dans le périmètre actuel, uniquement la remise
   optionnelle par quantité/personnes sur les **produits hors nuits** (§3a) — est incluse dans

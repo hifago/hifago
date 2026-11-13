@@ -16,7 +16,7 @@ revise:
   - "docs/01-cahier-des-charges-client.md"
   - "docs/02-cahier-des-charges-socio.md#3g"
   - "docs/03-cahier-des-charges-admin.md#3g"
-maj: 2026-09-20
+maj: 2026-11-12
 resume: >
   Rouvre explicitement le « hors périmètre v1 » du paiement en ligne (décidé 2026-08-11/12) :
   Mercado Pago remplace Wompi comme gateway cible. Le client paie l'acompte (moteur 17/10/7 déjà
@@ -136,7 +136,8 @@ Modifications par rapport à la version actuelle :
      amount_cop=<même montant que referrer_commission_cop>, status='due')`.
    - `cancelled_by_provider` → passe `estimated`/`due` → `reversed` (déclenche la Tranche 2).
    - `expired` → passe `estimated` → `void`.
-   - Pas d'écriture ledger pour `self_referral`/`direct` (`referrer_pct=0` — rien à créer).
+   - Pas d'écriture ledger pour `direct` (`referrer_pct=0` — rien à créer). `self_referral` en a
+     une depuis `20261112180000` (part référent de 8 % ou 17 %, due au prestataire lui-même).
 
 **`create_order` — étendue** (`20260814180000_order_lines_commission_snapshot.sql`) : pour toute
 ligne `commission_case = 'external_referrer'`, insère la `ledger_entries` initiale
@@ -148,6 +149,19 @@ mark_ledger_entry_paid(p_ledger_entry_id uuid, p_comprobante_path text, p_note t
 ```
 `security definer`, `set search_path=''`, `select ... for update` sur la ligne, refuse si
 `status <> 'due'`.
+
+**RPC `mark_partner_ledger_entries_paid`** (« Pagar todo », `20261112200000`, Jérôme 2026-11-12) :
+```
+mark_partner_ledger_entries_paid(p_beneficiary_partner_id uuid, p_ledger_entry_ids uuid[],
+  p_expected_total_cop bigint, p_comprobante_path text, p_note text) returns jsonb
+```
+Admin-only, motif obligatoire. Règle en une fois, après UN virement Mercado Pago, les entrées « A
+pagar » d'un bénéficiaire (référent, ou partenaire de l'établissement compensé) : l'écran envoie la
+liste EXACTE des entrées affichées et leur total ; sous verrou (ordre `id`), toutes doivent être
+encore `due`, appartenir à ce bénéficiaire et totaliser ce montant — sinon rien n'est marqué
+(`HF003`, « algo cambió… »). Une entrée arrivée entre-temps reste « A pagar » pour la fois suivante.
+Journal admin par entrée (`ledger_entry.mark_paid`, lot dans `after`). `admin_ledger_payables` rend
+le compte Mercado Pago du bénéficiaire (`partner_payout_accounts`) : où virer.
 
 **Policy RLS `ledger_entries_select_referrer`** (nouvelle) : même patron que
 `order_lines_select_referrer` (`20260814200000_order_lines_referrer_visibility.sql`) — un référent
@@ -166,7 +180,9 @@ voit ses propres `ledger_entries` (`beneficiary_type='referrer' and beneficiary_
   ligne d'un autre prestataire.
 
 **Cas limites (Tranche 0)**
-- Ligne `self_referral`/`direct` : aucune `ledger_entries` créée, rien à régler (l'app garde tout).
+- Ligne `direct` : aucune `ledger_entries` créée, rien à régler (l'app garde tout). Ligne
+  `self_referral` : depuis `20261112180000`, une `referral_earned` au prestataire lui-même, comme un
+  référent externe.
 - Établissement sans `establishment_payout_accounts` renseigné quand une compensation lui est due :
   la `ledger_entries` reste `due` sans bloquer le flux de vente — le versement attend juste la
   saisie des coordonnées (repli admin).
@@ -344,7 +360,10 @@ appelé par `POST /api/payments/create`, envoyé par `createCheckoutPreference` 
   Hifago, confirmé §10 point 15).
 - **Les frais Mercado Pago sont absorbés par la part app** (§10 point 10) — jamais déduits de
   `referrer_commission_cop` ni de `establishment_compensation` : le référent/l'établissement reçoit
-  toujours le montant plein enregistré dans `ledger_entries.amount_cop`.
+  toujours le montant plein enregistré dans `ledger_entries.amount_cop`. **Exception (2026-11-12,
+  `20261112200000`)** : sur une ligne où Hifago ne garde rien (auto-référence avec l'option 17 %,
+  `app_pct = 0`), la part des frais de la ligne est déduite de la part référent à l'approbation du
+  paiement — voir §10 point 10.
 - Traitement webhook idempotent par construction : `select ... for update` sur `payments` +
   vérification `status` avant toute écriture — un webhook dupliqué ou reçu hors-ordre ne produit
   jamais un double crédit. Depuis le 2026-09-20 : jamais non plus une commande `paid` sur des
@@ -495,7 +514,7 @@ anciennes gardent leur barème figé) :
 | Cas | Qui a référé | Acompte total | Part référent | Part app (Hifago) |
 |---|---|---|---|---|
 | Référent externe | un partenaire différent du prestataire encaissant | 17 % | 8 % | 9 % |
-| Auto-référence | le prestataire s'est référé lui-même | 9 % | 0 % | 9 % |
+| Auto-référence | le prestataire s'est référé lui-même | 17 % | 8 % (17 % avec l'option du partenaire) | 9 % (0 % avec l'option) |
 | Direct | aucun référent attribué | 17 % | 0 % | 17 % |
 
 Trois faits, vérifiés directement dans les documents déjà validés, cadrent tout le reste de cette
@@ -674,7 +693,19 @@ sans fait nouveau) :
    défaut ; un prorata reste un ajustement manuel hors RPC si le cas se présente.
 10. **Frais Mercado Pago** — absorbés par la **part app**, jamais déduits de la part référent
     (`referrer_commission_cop` toujours versé intégralement) ni de la part établissement
-    (`establishment_compensation`). Invariant ajouté en §0 Tranche 1.
+    (`establishment_compensation`). Invariant ajouté en §0 Tranche 1. **Révisé par Jérôme le
+    2026-11-12** (« on déduit les frais ») pour la seule option 17 % de l'auto-référence, où Hifago
+    reversait tout l'acompte en payant les frais dessus — perte nette par ligne. Migration
+    `20261112200000` : à l'approbation, `apply_mp_fee_to_full_rebate_lines` (appelée par
+    `apply_payment_webhook`) lit les frais que Mercado Pago déclare (`fee_details`, commission et
+    cuotas à la charge du vendeur — jamais une retenue fiscale), aplatis en `mp_fee_cop` par
+    `toPaymentEvent` (webhook et job `payments-reconcile`) ; la part d'une ligne = frais × acompte de
+    la ligne / montant du paiement, plafonnée à la part référent ; elle passe de
+    `referrer_commission_cop` à `app_commission_cop` (17/17/0 → 17/(17−f)/f) et
+    `order_lines.mp_fee_cop` la garde. Tout suit : entrée `referral_earned` au net, compensation A3
+    au net, « Mis comisiones », e-mail « Nueva comisión asignada » (« − comisión Mercado Pago »),
+    modification de ligne (les frais suivent la nouvelle ligne). Frais illisibles ou absents (mode
+    mock compris) : rien n'est déduit. Les lignes 8/9 ne changent pas.
 11. **Cahiers de cadrage corrigés directement** (`04-architecture-cible.md`, `00-modele-de-donnees.md`,
     `README.md`, `02-cahier-des-charges-socio.md` §3g) — pas seulement un renvoi depuis cette spec :
     Jérôme veut pousser Mercado Pago comme cible active, pas la documenter en creux. Fait dans

@@ -4,6 +4,8 @@ import { buscarCategorias } from "@/lib/catalog/buscar";
 import { leerCriterios } from "@/lib/catalog/criterios";
 import { segmentoDeTipo } from "@/lib/catalog/segmentos";
 import { ORDEN_SECCIONES } from "@/lib/catalog/tipos";
+import { identidadCompleta } from "@/lib/legal/identidad";
+import { PAGINAS_INSTITUCIONALES } from "@/lib/legal/paginas";
 import { hasNativeContent } from "@/lib/seo/nativeContent";
 import { getSiteUrl } from "@/lib/seo/siteUrl";
 import { createPublicClient } from "@/lib/supabase/publicClient";
@@ -140,9 +142,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     )
   );
 
+  // Les pages institutionnelles (2026-11-05) : interface next-intl, servies dans les deux locales.
+  // Absentes tant que l'identité légale est incomplète — elles sont alors `noindex`
+  // (`metadataInstitucional`), et le sitemap ne liste jamais une URL `noindex`.
+  const institucionales = identidadCompleta()
+    ? PAGINAS_INSTITUCIONALES.flatMap(({ href }) =>
+        entriesFor(routing.locales, (locale) => `/${locale}${href}`, siteUrl)
+      )
+    : [];
+
   return [
     ...home,
     ...listings,
+    ...institucionales,
     ...localizedEntries(
       (products.data ?? []) as PublishableRow[],
       (locale, slug) => `/${locale}/productos/${slug}`,

@@ -18,7 +18,7 @@
   "lineTotal": "Precio total",
   "cancelLine": "Anular",
   "cancelConfirmTitle": "¿Anular « {product} » del {date}?",
-  "cancelConfirmNoRefund": "El anticipo pagado no se devuelve.",
+  "cancelConfirmNoRefund": "El anticipo pagado no se devuelve, salvo si estás dentro del plazo de retracto: en ese caso, escríbenos para pedir el reembolso.",
   "cancelConfirmLastLine": "Después de esto, no quedará ninguna prestación pendiente en esta reserva.",
   "cancelConfirmYes": "Sí, anular",
   "cancelConfirmNo": "No",

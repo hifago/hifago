@@ -1,0 +1,439 @@
+{
+  "pendiente": "[to be completed]",
+  "actualizado": "Last updated: {fecha}",
+  "enlaceExterno": "(opens in a new tab)",
+  "legal": {
+    "metaTitle": "Legal notice",
+    "metaDescription": "Who operates Hifago, its National Tourism Registry number and the rules for using this site.",
+    "titulo": "Legal notice",
+    "chapo": "Who is behind Hifago and the rules that govern the use of this site.",
+    "secciones": [
+      {
+        "titulo": "Site operator",
+        "parrafos": [
+          "The hifago.co website and the Hifago booking platform are operated by {titular}, an individual registered in Colombia, under the Hifago brand."
+        ],
+        "lista": [
+          "Operator: {titular}",
+          "Tax ID (NIT): {nit}",
+          "National Tourism Registry (RNT): {rnt}",
+          "Registered address for legal notices: {domicilio}",
+          "Email: {correo}",
+          "WhatsApp: {telefono}"
+        ]
+      },
+      {
+        "titulo": "What Hifago is",
+        "parrafos": [
+          "Hifago is a local tourism platform for Guatapé (Antioquia, Colombia). It brings together in one place the stays, activities, transport, camps and events offered by independent businesses in the region.",
+          "On Hifago you book and pay a deposit online; you pay the rest of the price directly to the business. Each service is provided by the business that offers it, whose name appears on the service page and in your booking confirmation.",
+          "Listings are published after a review by Hifago. Their content (descriptions, photos, schedules, prices) is supplied by each business, which is responsible for its accuracy."
+        ]
+      },
+      {
+        "titulo": "National Tourism Registry",
+        "parrafos": [
+          "Colombian Law 300 of 1996 and Law 2068 of 2020 require tourism service providers, including the digital platforms that sell their services, to be listed in the National Tourism Registry (RNT). Hifago is listed in the National Tourism Registry under number {rnt}, in the category of operator of electronic or digital platforms for tourism services. Hifago asks the businesses that publish tourism services on the platform for their RNT."
+        ]
+      },
+      {
+        "titulo": "Protection of children and adolescents",
+        "parrafos": [
+          "Hifago rejects the exploitation, pornography, sex tourism and any form of sexual abuse of minors, and adheres to the code of conduct set out in Colombian Law 1336 of 2009.",
+          "Warning: in Colombia, the sexual exploitation and abuse of minors are crimes punished under criminal and civil law, in accordance with Law 679 of 2001 and Law 1336 of 2009.",
+          "If you know of a case, report it: ICBF Line 141 (free of charge) or National Police Line 123."
+        ],
+        "enlaces": [{ "texto": "Colombian Family Welfare Institute (ICBF)", "href": "https://www.icbf.gov.co" }]
+      },
+      {
+        "titulo": "Use of the site",
+        "parrafos": [
+          "By using hifago.co you agree to do so in good faith and in accordance with the law: do not impersonate anyone, do not give false details when booking, do not try to access other people's accounts or systems, and do not scrape the site's content in bulk.",
+          "Bookings are governed by Hifago's terms and conditions, and your personal data by the privacy policy; both are linked at the bottom of every page."
+        ]
+      },
+      {
+        "titulo": "Intellectual property",
+        "parrafos": [
+          "The Hifago brand, its logo, the site design and its own texts belong to {titular} or are used with permission. The photos and descriptions in the listings belong to the businesses or their authors, who authorised their publication on Hifago.",
+          "This content may not be reproduced, distributed or modified without the prior written permission of its owner."
+        ]
+      },
+      {
+        "titulo": "Links to other sites",
+        "parrafos": [
+          "Hifago links to third-party services, such as Mercado Pago for payment, WhatsApp for messaging or Google Maps for locations. Those services are governed by their own terms and privacy policies."
+        ]
+      },
+      {
+        "titulo": "Consumer protection",
+        "parrafos": [
+          "Your rights as a consumer are protected by Colombian Law 1480 of 2011 (Consumer Statute). If you believe they were not respected, send us your request, complaint or claim from the contact page. If our answer does not satisfy you, you can turn to the Superintendence of Industry and Commerce, Colombia's consumer protection authority."
+        ],
+        "enlaces": [{ "texto": "Superintendence of Industry and Commerce (SIC)", "href": "https://www.sic.gov.co" }]
+      },
+      {
+        "titulo": "Governing law",
+        "parrafos": [
+          "This site and the relationships arising from its use are governed by Colombian law. Any dispute will be settled before the competent Colombian authorities, without prejudice to the rights the law grants consumers."
+        ]
+      }
+    ]
+  },
+  "terminos": {
+    "metaTitle": "Terms and conditions and cancellation policy",
+    "metaDescription": "How to book and pay on Hifago, the right of withdrawal and the cancellation policy, under Colombian law.",
+    "titulo": "Terms and conditions",
+    "chapo": "The terms you accept when you book on Hifago, including the cancellation policy.",
+    "secciones": [
+      {
+        "titulo": "1. Purpose and acceptance",
+        "parrafos": [
+          "These terms govern bookings made on hifago.co between you (the customer), {titular}, operator of the Hifago platform (hereinafter, Hifago), and the business that provides each service.",
+          "By confirming a booking you declare that you are of legal age, that the details you give are true, and that you have read and accept these terms. The version in force on the day of your booking applies: we keep it with your booking."
+        ]
+      },
+      {
+        "titulo": "2. Who provides each service",
+        "parrafos": [
+          "Hifago sells the services of independent businesses in Guatapé and its region: it handles the booking, collects the deposit and supports you before, during and after your trip.",
+          "The business named on the listing and in your confirmation provides the service and is responsible for how it is delivered, its quality and its safety. None of this limits your rights under Colombian Law 1480 of 2011: you can send any claim to Hifago, which will handle it with the business."
+        ]
+      },
+      {
+        "titulo": "3. Prices",
+        "parrafos": [
+          "Prices are in Colombian pesos (COP). Before paying you see the total price of each service, the deposit you pay today and the balance you will pay to the business.",
+          "The price of some stays is confirmed in real time by the property's own system: if it changes before you pay, we show it to you again and nothing is charged without your confirmation."
+        ]
+      },
+      {
+        "titulo": "4. Booking and payment",
+        "parrafos": [
+          "You choose your services, gather them in My trip, enter your details and pay the deposit online with Mercado Pago, using the payment methods it offers at the time (cards, PSE and others). Hifago never sees or stores your card details.",
+          "Your booking is confirmed when Mercado Pago approves the payment. We email you your booking number (in the form HFG-000042) and the details of each service. An unpaid booking is cancelled automatically after 30 minutes—or after 2 hours if the payment is pending, as can happen with PSE—and the places are released.",
+          "The balance is paid directly to the business, by the means it accepts, at the time stated on the listing or in your confirmation."
+        ]
+      },
+      {
+        "titulo": "5. Right of withdrawal",
+        "parrafos": [
+          "Because you book at a distance, Colombian law gives you a right of withdrawal (article 47 of Law 1480 of 2011): you can undo your booking without giving a reason and get your whole deposit back.",
+          "It applies if the first service in your booking starts more than five (5) calendar days after the day you made it. You must exercise it within five (5) business days of your booking confirmation (business days: Monday to Friday, excluding Colombian public holidays), and always before the service starts.",
+          "It does not apply to services that start within five days of your booking, nor to a service that has already started with your agreement: in those cases the cancellation policy in section 6 applies.",
+          "To exercise it, message us on WhatsApp or by email with your booking number. If you already cancelled the service from My account within this period, message us anyway: the refund is not automatic. We refund the whole deposit, with no deductions or withholdings, within thirty (30) calendar days at the latest."
+        ]
+      },
+      {
+        "titulo": "6. Cancellation policy",
+        "parrafos": [
+          "Outside the right of withdrawal, these rules apply, the same for every service and every business:"
+        ],
+        "lista": [
+          "If you cancel, at any time: the deposit is not refunded and you owe nothing more, because the balance is not charged. The deposit compensates the business for the date it held for you and Hifago for handling the booking. You can cancel a service from My account, under My bookings, or by messaging us.",
+          "If you do not show up: the same rule applies as for a cancellation on your part.",
+          "If the business or Hifago cancels for a reason within their control (for example, a closure or an availability error): we refund the whole deposit for that service. If you wish, we will help you find another date or option, but the refund is your right.",
+          "If the service cannot take place for a reason beyond the control of Hifago and the business (weather, safety, an order from an authority or another case of force majeure): the business offers you another date for the same service, at no extra cost, and your deposit is carried over to that new date; it is not refunded. Only if the business cannot offer you any new date do we refund the deposit.",
+          "If your payment arrives after the booking had expired or been cancelled: we contact you to refund you or rebook, as you prefer."
+        ]
+      },
+      {
+        "titulo": "7. Changing a date or a service",
+        "parrafos": [
+          "A change of date or service depends on availability and on the business agreeing to it: message the business (its details are in your confirmation) or message us. If the change is not possible and you prefer to cancel, sections 5 and 6 apply."
+        ]
+      },
+      {
+        "titulo": "8. Refunds",
+        "parrafos": [
+          "Every refund is made to the payment method you used, through Mercado Pago, within thirty (30) calendar days at the latest. How long it takes to appear in your account depends on your bank or card issuer."
+        ]
+      },
+      {
+        "titulo": "9. Payment reversal",
+        "parrafos": [
+          "If you paid by card or another electronic method, you can request a payment reversal (article 51 of Law 1480 of 2011) if you were a victim of fraud, if you did not make the transaction, if the service was not provided or if it does not match what you booked.",
+          "You must submit your complaint to Hifago within five (5) business days of becoming aware of the problem, and notify the issuer of your payment method within the same period."
+        ]
+      },
+      {
+        "titulo": "10. Your commitments",
+        "lista": [
+          "Give accurate details, in particular an email and a WhatsApp number where we can reach you.",
+          "Arrive on time and follow the business's rules and safety instructions, especially for sports or water activities.",
+          "Show an identity document when you arrive at a stay, as Colombian law requires.",
+          "Travel with minors only when they are accompanied by their parents or an authorised adult: businesses may ask for documents proving it."
+        ]
+      },
+      {
+        "titulo": "11. Requests, complaints and claims",
+        "parrafos": [
+          "You can submit a request, complaint or claim through the channels on the contact page. We acknowledge receipt with the date and time, and answer within fifteen (15) business days.",
+          "If our answer does not satisfy you, you can turn to the Superintendence of Industry and Commerce (www.sic.gov.co)."
+        ]
+      },
+      {
+        "titulo": "12. Personal data",
+        "parrafos": [
+          "We process your data under Hifago's privacy policy (Colombian Law 1581 of 2012), linked at the bottom of every page."
+        ]
+      },
+      {
+        "titulo": "13. Changes to these terms and governing law",
+        "parrafos": [
+          "We may update these terms; the date of the last update is shown above. A booking already made remains governed by the version you accepted.",
+          "These terms are governed by Colombian law. No clause limits the rights the law grants you; if any clause were contrary to the law, it will be deemed not written and the rest will remain in force."
+        ]
+      }
+    ]
+  },
+  "privacidad": {
+    "metaTitle": "Personal data processing policy",
+    "metaDescription": "How Hifago collects, uses and protects your personal data and how to exercise your data protection rights (Colombian Law 1581 of 2012).",
+    "titulo": "Privacy policy",
+    "chapo": "How we collect, use and protect your personal data, and how to exercise your rights (Colombian Law 1581 of 2012).",
+    "secciones": [
+      {
+        "titulo": "1. Data controller",
+        "parrafos": [
+          "The controller of your personal data is {titular}, tax ID (NIT) {nit}, with address for legal notices at {domicilio}. For anything related to your data, write to {correo} or on WhatsApp at {telefono}."
+        ]
+      },
+      {
+        "titulo": "2. Data we process",
+        "lista": [
+          "Identification and contact: your name, email and WhatsApp number.",
+          "Your account, if you create one: email and password (stored encrypted, never in plain text), or the details Google asks for if you choose to sign in with Google (name and email).",
+          "Your bookings: services, dates, times, quantities, number of people, amounts and their status.",
+          "Your payments: the payment status and reference that Mercado Pago sends us. We never receive your full card number.",
+          "The code of whoever recommended Hifago to you, if you arrived through their link or QR code.",
+          "Your messages and claims when you write to us.",
+          "Technical data needed to keep the site secure: IP address, browser and connection logs."
+        ],
+        "parrafos2": [
+          "We do not ask for sensitive data. If a booking includes minors, we only process what is strictly necessary to provide the service, respecting their best interests."
+        ]
+      },
+      {
+        "titulo": "3. What we use it for",
+        "lista": [
+          "Creating, confirming, changing and cancelling your bookings, including passing them on to the business and, when the property uses one, to its booking management system.",
+          "Collecting the deposit and making any refunds that are due.",
+          "Sending you your booking confirmation and messages about it (changes, cancellations, reminders) by email or WhatsApp.",
+          "Answering your questions, requests, complaints and claims.",
+          "Managing your account and showing you your bookings.",
+          "Crediting whoever recommended Hifago to you, without changing the price you pay.",
+          "Preventing fraud and keeping the site secure.",
+          "Meeting our legal, accounting and tax obligations.",
+          "Sending you offers and news, only if you agreed by ticking the corresponding box."
+        ]
+      },
+      {
+        "titulo": "4. Your authorisation",
+        "parrafos": [
+          "By giving us your details and confirming a booking or creating an account, you authorise us to process them for the purposes above. The authorisation to receive offers is separate and optional: not ticking it does not stop you from booking, and you can withdraw it at any time.",
+          "We comply with Colombian Law 2300 of 2023: we only send you marketing messages Monday to Friday from 7:00 a.m. to 7:00 p.m. and on Saturdays from 8:00 a.m. to 3:00 p.m., never on Sundays or public holidays, and no more than once a week through the same channel."
+        ]
+      },
+      {
+        "titulo": "5. Who we share it with",
+        "parrafos": [
+          "We share your data with the business that will provide the service you booked: it needs it to serve you. We also share it with the providers that help us run Hifago, which may only use it on our behalf and following our instructions:"
+        ],
+        "lista": [
+          "Supabase: database and user accounts.",
+          "Vercel: website hosting.",
+          "Mercado Pago: payment and refund processing.",
+          "Resend: email delivery.",
+          "Google: sign-in with Google, if you choose it.",
+          "WhatsApp: messages about your booking.",
+          "LobbyPMS: booking system used by some properties."
+        ],
+        "parrafos2": [
+          "We only hand data to an authority when the law requires it. We never sell your data."
+        ]
+      },
+      {
+        "titulo": "6. Data outside Colombia",
+        "parrafos": [
+          "Some of these providers store data on servers outside Colombia, in particular in the United States. This transfer is made under contracts that require them to protect the data in line with Colombian Law 1581 of 2012 and to use it only to provide their service to us. By accepting this policy, you authorise it."
+        ]
+      },
+      {
+        "titulo": "7. Your rights",
+        "lista": [
+          "Know, update and correct your data.",
+          "Ask for proof of the authorisation you gave us.",
+          "Find out how we have used your data.",
+          "Withdraw your authorisation or ask us to delete your data, except what the law requires us to keep.",
+          "Consult your data free of charge.",
+          "File a complaint with the Superintendence of Industry and Commerce, once you have gone through the process with us."
+        ]
+      },
+      {
+        "titulo": "8. How to exercise them",
+        "parrafos": [
+          "Write to {correo} or on WhatsApp at {telefono}, giving your name, the email linked to your bookings and what you are asking for. We may ask you to confirm your identity before answering.",
+          "We answer an enquiry within ten (10) business days at most and a claim within fifteen (15) business days at most. If we need more time, we tell you before the deadline, with the reason and the new date (at most five more business days for an enquiry and eight for a claim).",
+          "From My account you can also correct your name and WhatsApp number and delete your account."
+        ]
+      },
+      {
+        "titulo": "9. Security and retention",
+        "parrafos": [
+          "We protect your data with encrypted connections, access restricted to the staff who need it and two-step verification for administrators. Payments are processed by Mercado Pago, and your card details never pass through Hifago.",
+          "We keep your data for as long as we need it for the purposes above. What the law requires us to keep—in particular the accounting records of your bookings and payments, for ten years—is kept for that period even if you delete your account; the rest is deleted or anonymised."
+        ]
+      },
+      {
+        "titulo": "10. Cookies and storage in your browser",
+        "parrafos": [
+          "We only use cookies that the site needs to work. We do not use advertising or audience measurement cookies; if we ever do, we will ask for your consent first."
+        ],
+        "lista": [
+          "Session cookies: keep you signed in and keep My trip while you book, even without an account.",
+          "Language cookie: remembers whether you prefer the site in Spanish or English.",
+          "Referral cookie (hifago_ref): remembers, for the length of your visit, who recommended Hifago to you.",
+          "Local storage: remembers your last search (dates and people) on this device."
+        ]
+      },
+      {
+        "titulo": "11. Validity and changes",
+        "parrafos": [
+          "This policy applies from the date shown above. Your data is kept for as long as the purposes described last. If we make a substantial change, we will tell you before applying it."
+        ]
+      }
+    ]
+  },
+  "ayuda": {
+    "metaTitle": "Help and frequently asked questions",
+    "metaDescription": "Booking, paying the deposit, cancelling, the right of withdrawal and refunds on Hifago: quick answers.",
+    "titulo": "Help",
+    "chapo": "Quick answers to the most common questions. Can't find yours? Message us on WhatsApp.",
+    "secciones": [
+      {
+        "titulo": "How do I book?",
+        "parrafos": [
+          "Choose a service, its date and the number of people, and add it to My trip. You can gather several services there (stay, activities, transport). Then you enter your details and pay the deposit online."
+        ]
+      },
+      {
+        "titulo": "Do I need an account?",
+        "parrafos": [
+          "No. You can book as a guest: we email you a link to view your booking. With an account you find all your bookings in one place and can cancel a service yourself."
+        ]
+      },
+      {
+        "titulo": "What do I pay online and what do I pay on arrival?",
+        "parrafos": [
+          "Online you only pay the deposit shown before you confirm. You pay the rest directly to the business, by the means it accepts."
+        ]
+      },
+      {
+        "titulo": "Which payment methods do you accept?",
+        "parrafos": [
+          "The deposit is paid with Mercado Pago, using the methods it offers at the time: credit and debit cards, PSE and others. Hifago never sees your card details."
+        ]
+      },
+      {
+        "titulo": "When is my booking confirmed?",
+        "parrafos": [
+          "When Mercado Pago approves the payment. We email you your booking number (HFG-…). With some stays, confirmation takes a couple of minutes longer, while the property's system accepts the booking. A PSE payment can stay pending for up to two hours."
+        ]
+      },
+      {
+        "titulo": "I didn't receive the confirmation email",
+        "parrafos": [
+          "Check your spam folder. If it isn't there, message us on WhatsApp with the email you used: we will resend the link to your booking."
+        ]
+      },
+      {
+        "titulo": "Can I cancel my booking?",
+        "parrafos": [
+          "Yes, at any time, from My account or by messaging us. If you do it within the withdrawal period, you get the whole deposit back: message us with your booking number. Outside that period, the deposit is not refunded and you owe nothing more. The details are in the terms and conditions."
+        ]
+      },
+      {
+        "titulo": "What is the right of withdrawal?",
+        "parrafos": [
+          "It is the right Colombian law gives you to undo a purchase made at a distance. If your first service starts more than five days after the day of your booking, you have five business days from the confirmation to cancel and get the whole deposit back, always before the service starts."
+        ]
+      },
+      {
+        "titulo": "Can I change the date?",
+        "parrafos": [
+          "It depends on availability and on the business. Message the business (its details are in your confirmation) or message us, and we will sort it out together."
+        ]
+      },
+      {
+        "titulo": "What if the business cancels?",
+        "parrafos": [
+          "If it cancels for a reason within its control, we refund the whole deposit for that service. If the service cannot take place because of the weather, for safety or for another reason beyond its control, it offers you another date and your deposit moves to that date; it is only refunded if no date is possible."
+        ]
+      },
+      {
+        "titulo": "How long does a refund take?",
+        "parrafos": [
+          "We send it within thirty calendar days at the latest, to the payment method you used. After that, how long it takes to appear in your account depends on your bank."
+        ]
+      },
+      {
+        "titulo": "I came through the link of someone who recommended Hifago",
+        "parrafos": [
+          "Their recommendation is recorded with your booking and does not change the price you pay in any way."
+        ]
+      },
+      {
+        "titulo": "How do I delete my account or my data?",
+        "parrafos": [
+          "From My account, in your profile, you can delete your account. For any other request about your data, follow the privacy policy."
+        ]
+      },
+      {
+        "titulo": "How do I make a complaint?",
+        "parrafos": [
+          "Message us through the channels on the contact page with your booking number. We answer within fifteen business days at most."
+        ]
+      }
+    ]
+  },
+  "contacto": {
+    "metaTitle": "Contact",
+    "metaDescription": "Contact Hifago by email to book, change or cancel, or to submit a request, complaint or claim.",
+    "titulo": "Contact",
+    "chapo": "Message us to book, change or cancel, or with any question or complaint.",
+    "secciones": [
+      {
+        "titulo": "Email",
+        "parrafos": [
+          "Write to us at {correo}.",
+          "For an existing booking, give us your booking number (HFG-…): you will find it in your confirmation email."
+        ]
+      },
+      {
+        "titulo": "Requests, complaints and claims",
+        "parrafos": [
+          "To submit a request, complaint or claim, write to us with:"
+        ],
+        "lista": [
+          "Your full name and an email or WhatsApp number to reach you.",
+          "Your booking number, if your request is about one.",
+          "What happened and what you are asking for."
+        ],
+        "parrafos2": [
+          "We acknowledge receipt with the date and time, and answer within fifteen (15) business days. If our answer does not satisfy you, you can turn to the Superintendence of Industry and Commerce."
+        ],
+        "enlaces": [{ "texto": "Superintendence of Industry and Commerce (SIC)", "href": "https://www.sic.gov.co" }]
+      },
+      {
+        "titulo": "Operator details",
+        "lista": [
+          "Operator: {titular}",
+          "Tax ID (NIT): {nit}",
+          "National Tourism Registry (RNT): {rnt}",
+          "Address: {domicilio}"
+        ]
+      }
+    ]
+  }
+}

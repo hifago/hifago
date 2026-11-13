@@ -5,6 +5,7 @@ import {
   ecartsConfigLocale,
   EXIGENCES_TOML,
   lireConfigToml,
+  payloadEmailsAuth,
 } from "./auth-policy.mjs";
 
 // Lancé par `npm run verify` (étape « Politique Auth »), donc en CI.
@@ -142,5 +143,28 @@ describe("clesDePolitique — aucun secret dans la politique", () => {
   it("laisse passer les réglages de mot de passe (« password » n'est pas un secret)", () => {
     expect(clesDePolitique(POLITIQUE)).not.toContain("$commentaire");
     expect(clesDePolitique(POLITIQUE)).toContain("password_min_length");
+  });
+});
+
+describe("payloadEmailsAuth — ce que le script pousse sur un projet cloud", () => {
+  it("ne porte QUE les sujets et gabarits d'e-mail, gabarit lu et rogné", () => {
+    expect(payloadEmailsAuth(POLITIQUE, lireFichier)).toEqual({
+      mailer_subjects_reauthentication: "Tu código # de Hifago",
+      mailer_templates_reauthentication_content: GABARIT.trim(),
+    });
+  });
+
+  it("le corps poussé est exactement ce que ecartsCloud attend ensuite (aucun écart d'e-mail)", () => {
+    const pousse = payloadEmailsAuth(POLITIQUE, lireFichier);
+    const ecarts = ecartsCloud({ ...REPONSE_CONFORME, ...pousse }, POLITIQUE, lireFichier);
+    expect(ecarts).toEqual([]);
+  });
+
+  it("refuse un gabarit vide plutôt que d'effacer celui du projet", () => {
+    expect(() => payloadEmailsAuth(POLITIQUE, () => "  \n")).toThrow(/gabarit vide/);
+  });
+
+  it("refuse une politique sans aucun e-mail", () => {
+    expect(() => payloadEmailsAuth({ password_min_length: 8 }, lireFichier)).toThrow(/aucun e-mail/);
   });
 });

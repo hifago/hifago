@@ -182,7 +182,7 @@ select is(
   'cas 17 : claim_notification_email_batch exécutable par service_role'
 );
 select is(
-  has_function_privilege('authenticated', 'enqueue_notification_email(text,text,uuid,text,text,text,uuid)', 'execute'),
+  has_function_privilege('authenticated', 'enqueue_notification_email(text,text,uuid,text,text,text,uuid,text)', 'execute'),
   false,
   'cas 18 : enqueue_notification_email inexécutable par authenticated (nested-call only, spec 23 §8.3)'
 );
@@ -215,7 +215,8 @@ select is(
 -- piège rencontré en écrivant ce test, corrigé ici.
 create or replace function enqueue_notification_email(
   p_event_type text, p_recipient_email text, p_recipient_account_id uuid,
-  p_subject text, p_body_html text, p_related_table text default null, p_related_id uuid default null
+  p_subject text, p_body_html text, p_related_table text default null, p_related_id uuid default null,
+  p_reply_to text default null
 ) returns uuid language plpgsql security definer set search_path = '' as $$
 declare
   v_id uuid;
@@ -250,7 +251,8 @@ select is(
 -- challenge adversarial du 2026-08-24).
 create or replace function enqueue_notification_email(
   p_event_type text, p_recipient_email text, p_recipient_account_id uuid,
-  p_subject text, p_body_html text, p_related_table text default null, p_related_id uuid default null
+  p_subject text, p_body_html text, p_related_table text default null, p_related_id uuid default null,
+  p_reply_to text default null
 ) returns uuid language plpgsql as $$
 begin
   raise exception 'fault injection : enqueue_notification_email toujours en échec';

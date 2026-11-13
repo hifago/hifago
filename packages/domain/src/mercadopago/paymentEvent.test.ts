@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exploitableAmount, toPaymentEvent } from "./paymentEvent";
+import { exploitableAmount, mercadoPagoFeeCop, toPaymentEvent } from "./paymentEvent";
 
 // Forme d'une réponse GET /v1/payments/{id} — avec ce que l'événement conservé ne doit JAMAIS
 // porter (coordonnées du payeur).
@@ -31,6 +31,47 @@ describe("exploitableAmount", () => {
   });
 });
 
+describe("mercadoPagoFeeCop", () => {
+  it("somme la commission et les cuotas absorbées par Hifago, arrondie au peso", () => {
+    expect(
+      mercadoPagoFeeCop({
+        ...PAYMENT,
+        fee_details: [
+          { type: "mercadopago_fee", amount: 1200.6, fee_payer: "collector" },
+          { type: "financing_fee", amount: 300, fee_payer: "collector" },
+        ],
+      })
+    ).toBe(1501);
+  });
+
+  it("ignore un frais payé par le client, une remise et une part de marketplace", () => {
+    expect(
+      mercadoPagoFeeCop({
+        ...PAYMENT,
+        fee_details: [
+          { type: "mercadopago_fee", amount: 1000, fee_payer: "collector" },
+          { type: "financing_fee", amount: 900, fee_payer: "payer" },
+          { type: "coupon_fee", amount: 500, fee_payer: "collector" },
+          { type: "application_fee", amount: 700, fee_payer: "collector" },
+        ],
+      })
+    ).toBe(1000);
+  });
+
+  it("0 quand Mercado Pago ne retient rien (liste vide)", () => {
+    expect(mercadoPagoFeeCop({ ...PAYMENT, fee_details: [] })).toBe(0);
+  });
+
+  it.each([
+    ["sans fee_details", { ...PAYMENT }],
+    ["une autre devise", { ...PAYMENT, currency_id: "USD", fee_details: [] }],
+    ["un montant illisible", { ...PAYMENT, fee_details: [{ type: "mercadopago_fee", amount: Number.NaN }] }],
+    ["un montant négatif", { ...PAYMENT, fee_details: [{ type: "mercadopago_fee", amount: -5 }] }],
+  ])("null %s : rien n'est déduit plutôt qu'un montant inventé", (_cas, payment) => {
+    expect(mercadoPagoFeeCop(payment)).toBeNull();
+  });
+});
+
 describe("toPaymentEvent", () => {
   it("aplatit : jamais le payeur, montant exploitable et montant brut séparés", () => {
     const event = toPaymentEvent({ ...PAYMENT, currency_id: "USD" }, null, null);
@@ -45,9 +86,19 @@ describe("toPaymentEvent", () => {
       date_approved: PAYMENT.date_approved,
       external_reference: PAYMENT.external_reference,
       collector_id: "987654",
+      mp_fee_cop: null,
       webhook_body: null,
     });
     expect(JSON.stringify(event)).not.toContain("payeur@example.com");
+  });
+
+  it("porte les frais Mercado Pago quand ils sont lisibles", () => {
+    const event = toPaymentEvent(
+      { ...PAYMENT, fee_details: [{ type: "mercadopago_fee", amount: 1520.4, fee_payer: "collector" }] },
+      34000,
+      null
+    );
+    expect(event.mp_fee_cop).toBe(1520);
   });
 
   it("garde le corps du webhook quand il y en a un", () => {

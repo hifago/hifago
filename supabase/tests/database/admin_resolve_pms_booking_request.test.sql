@@ -105,8 +105,8 @@ create function t_emails(p_order text) returns jsonb language sql as $$
     'commission', (select count(*)::int from notification_emails where event_type = 'partner_commission_earned' and related_id = t_id(p_order)),
     'paiement', (select count(*)::int from notification_emails where event_type = 'partner_payment_confirmed' and related_id = t_id(p_order)),
     'client', (select count(*)::int from notification_emails where event_type = 'client_order_confirmed' and related_id = t_id(p_order)),
-    'recurso', (select count(*)::int from notification_emails n join order_lines ol on ol.id = n.related_id
-                 where n.event_type = 'partner_camp_evento_blocked' and n.related_table = 'order_lines' and ol.order_id = t_id(p_order)));
+    -- 20261112120000 : l'ex-e-mail 8 (camp) est fondu dans l'e-mail de réservation au prestataire.
+    'recurso', (select count(*)::int from notification_emails where event_type = 'partner_payment_confirmed' and related_id = t_id(p_order) and body_html like '%Recurso bloqueado%'));
 $$;
 create function t_confirmation(p_order text) returns text language sql as $$
   select order_for_client_jsonb(o) ->> 'pms_confirmation' from orders o where o.id = t_id(p_order);

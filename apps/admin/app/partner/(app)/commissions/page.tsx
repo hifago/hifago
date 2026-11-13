@@ -4,6 +4,7 @@ import { asLocalizedField, resolveLocalizedField, resolveListParams } from "@hif
 import { COMMISSIONS_FILTER_DEFINITIONS } from "@/lib/lists/filters";
 import { COMMISSIONS_DEFAULT_SORT, COMMISSIONS_SORT_WHITELIST } from "@/lib/lists/sortable-columns";
 import { CommissionsTable, type CommissionRow, type CommissionTotals } from "./CommissionsTable";
+import { mercadoPagoFeeNote } from "@/lib/commission/mercadoPagoFeeNote";
 
 // Spec 19 §0 Tranche 0 — lit désormais le vrai ledger_entries (RLS ledger_entries_select_referrer,
 // 20260818120000) au lieu de dériver un état depuis order_lines.status (deriveLedgerEntry,
@@ -77,9 +78,11 @@ export default async function PartnerCommissionsPage({
   const entries = listResult.data;
   const count = entries.length === 0 ? 0 : entries[0].total_count;
 
-  // amount_cop = referrer_commission_cop snapshoté à la création (create_order), jamais recalculé
-  // par les transitions ultérieures (seul status change) — la table montre donc toujours le
-  // montant d'origine, y compris sur une ligne void/reversed (« ce qui aurait été dû »), pas 0.
+  // amount_cop = referrer_commission_cop posé à la création (create_order) ; les transitions de
+  // statut ne le touchent pas — la table montre donc le montant même sur une ligne void/reversed
+  // (« ce qui aurait été dû »), pas 0. Il change seulement quand la ligne est modifiée (nouveau
+  // total, 20261112190000) et, pour l'option 17 %, quand les frais Mercado Pago sont retenus au
+  // paiement (20261112200000, mp_fee_cop).
   const rows: CommissionRow[] = entries.map((entry) => ({
     id: entry.id,
     date: entry.date,
@@ -89,6 +92,7 @@ export default async function PartnerCommissionsPage({
     referrerPct: entry.referrer_pct,
     totalCop: entry.total_cop,
     referrerCommissionCop: entry.amount_cop,
+    feeNote: mercadoPagoFeeNote(entry.mp_fee_cop),
     state: entry.status as CommissionRow["state"],
   }));
 

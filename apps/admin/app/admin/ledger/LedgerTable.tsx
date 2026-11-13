@@ -1,20 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Chip, DataList, type DataListAction, type DataListColumn, type DataListSort } from "@hifago/ui";
 import { formatCop } from "@hifago/domain";
 import { statusChip } from "@/components/status-chip";
-import { PRODUCT_TYPE_LABELS } from "@/lib/lists/filters";
 import { LEDGER_STATUS_CHIP_STYLE, LEDGER_STATUS_LABELS } from "./ledgerStatusLabels";
-import { LedgerFilterBar, type EstablishmentOption, type ReferrerOption } from "./LedgerFilterBar";
+import { LedgerFilterBar, type BeneficiaryOption, type EstablishmentOption } from "./LedgerFilterBar";
 import { MarkPaidDialog } from "./MarkPaidDialog";
 
 export type LedgerRow = {
   id: string;
-  referrerName: string;
+  // Le partenaire à qui l'argent part : le référent (commission, auto-recomendación comprise) ou
+  // le partenaire de l'établissement (compensation d'annulation) — 20261112190000.
+  beneficiaryName: string;
+  concept: string;
+  /** Frais Mercado Pago retenus (option 17 %, 20261112200000), ou null. */
+  feeNote: string | null;
+  orderId: string;
+  orderReference: string;
   establishmentName: string;
-  productType: string;
   date: string;
   status: string;
   amountCop: number;
@@ -28,7 +34,7 @@ export type LedgerTableProps = {
   sort: DataListSort;
   filterValues: Record<string, string>;
   extraParams: Record<string, string>;
-  referrers: ReferrerOption[];
+  beneficiaries: BeneficiaryOption[];
   establishments: EstablishmentOption[];
 };
 
@@ -38,7 +44,9 @@ export type LedgerTableProps = {
 // lieu de la prestation (order_line.product.establishment), jamais l'ancien "beneficiaryName" qui ne
 // montrait l'établissement que lorsqu'il était le bénéficiaire d'une compensation — changement de
 // sens demandé explicitement. Pas de rowHref : aucune fiche détail pour une entrée de ledger, même
-// exception assumée que /partner/commissions.
+// exception assumée que /partner/commissions. Révision 20261112190000 : « Referente » devient
+// « Beneficiario » (une compensation affichait « — »), et chaque entrée dit ce qu'elle paie
+// (« Concepto ») et de quelle commande elle vient (« Pedido », lien vers la fiche).
 export function LedgerTable({
   rows,
   page,
@@ -47,22 +55,49 @@ export function LedgerTable({
   sort,
   filterValues,
   extraParams,
-  referrers,
+  beneficiaries,
   establishments,
 }: LedgerTableProps) {
   const router = useRouter();
   const [dialogRowId, setDialogRowId] = useState<string | null>(null);
+  const dialogRow = rows.find((row) => row.id === dialogRowId) ?? null;
 
   const columns: DataListColumn<LedgerRow>[] = [
-    { id: "referrerName", header: "Referente" },
-    { id: "establishmentName", header: "Establecimiento" },
+    // Qui, puis pourquoi, dans la même cellule : une colonne « Concepto » à part faisait déborder la
+    // table de 38 px à 1280 px (mesuré au rendu réel, 2026-11-12).
     {
-      id: "productType",
-      header: "Tipo",
-      // Même libellé que la colonne « Tipo » du catálogo (PRODUCT_TYPE_LABELS) — une valeur
-      // inconnue s'affiche telle quelle plutôt que de disparaître.
-      cell: (row) => (PRODUCT_TYPE_LABELS as Record<string, string>)[row.productType] ?? row.productType,
+      id: "beneficiaryName",
+      header: "Beneficiario",
+      cell: (row) => (
+        <span className="flex flex-col items-end text-right md:items-start md:text-left">
+          <span>{row.beneficiaryName}</span>
+          <span className="text-xs text-muted" data-testid={`ledger-concept-${row.id}`}>
+            {row.concept}
+          </span>
+          {row.feeNote ? (
+            <span className="text-xs text-muted" data-testid={`ledger-fee-${row.id}`}>
+              {row.feeNote}
+            </span>
+          ) : null}
+        </span>
+      ),
     },
+    {
+      id: "orderReference",
+      header: "Pedido",
+      cell: (row) => (
+        <Link
+          href={`/admin/orders/${row.orderId}`}
+          className="underline"
+          data-testid={`ledger-order-${row.id}`}
+        >
+          {row.orderReference}
+        </Link>
+      ),
+    },
+    // « Tipo » retiré le 2026-11-12 (20261112190000) : avec le concept et Pedido, la table débordait
+    // de sa zone à 1280 px et rognait « Marcar pagado ». Le filtre « Tipo » reste.
+    { id: "establishmentName", header: "Establecimiento" },
     { id: "date", header: "Fecha" },
     {
       id: "status",
@@ -123,7 +158,7 @@ export function LedgerTable({
           <LedgerFilterBar
             values={filterValues}
             hiddenParams={{ sort: sort.key, dir: sort.direction }}
-            referrers={referrers}
+            beneficiaries={beneficiaries}
             establishments={establishments}
           />
         }
@@ -134,10 +169,11 @@ export function LedgerTable({
         emptyTestId="no-ledger-entries"
       />
 
-      {dialogRowId ? (
+      {dialogRow ? (
         <MarkPaidDialog
-          entryId={dialogRowId}
-          open={dialogRowId !== null}
+          entryId={dialogRow.id}
+          summary={`${formatCop(dialogRow.amountCop)} a ${dialogRow.beneficiaryName} — ${dialogRow.concept}${dialogRow.feeNote ? ` (${dialogRow.feeNote})` : ""}, pedido ${dialogRow.orderReference}.`}
+          open={dialogRow !== null}
           onOpenChange={(open) => {
             if (!open) setDialogRowId(null);
           }}

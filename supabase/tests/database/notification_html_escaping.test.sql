@@ -86,12 +86,14 @@ select ok(strpos((select body_html from notification_emails where event_type = '
   'W2 : confirmation client — nom du titulaire échappé');
 select ok(strpos((select body_html from notification_emails where event_type = 'client_order_confirmed'
                    and related_id = '9a5c0000-0000-4000-8000-000000000021'),
-                 '<strong>&lt;em&gt;REF-1&lt;/em&gt;</strong>') > 0,
+                 '<strong style="color:#132f61">&lt;em&gt;REF-1&lt;/em&gt;</strong>') > 0,
   'W3 : confirmation client — référence échappée');
--- 20261019170000 : le WhatsApp du prestataire part dans la confirmation, nom d'établissement échappé.
+-- 20261019170000 : le WhatsApp du prestataire part dans la confirmation, nom d'établissement échappé
+-- (20261112140000 : une ligne de tableau « établissement | numéro » au lieu d'une puce).
 select ok(strpos((select body_html from notification_emails where event_type = 'client_order_confirmed'
                    and related_id = '9a5c0000-0000-4000-8000-000000000021'),
-                 '<li>&lt;q&gt;Sitio&lt;/q&gt; &amp; co — <a href="https://wa.me/573001234567">+573001234567</a></li>') > 0,
+                 '&lt;q&gt;Sitio&lt;/q&gt; &amp; co</td><td style="padding:4px 0;color:#132f61;vertical-align:top">'
+                 || '<a href="https://wa.me/573001234567" style="color:#2a618e;text-decoration:underline">+573001234567</a>') > 0,
   'W3b : confirmation client — WhatsApp du prestataire, nom d''établissement échappé');
 select is((select subject from notification_emails where event_type = 'client_order_confirmed'
             and related_id = '9a5c0000-0000-4000-8000-000000000021'),
@@ -224,9 +226,12 @@ select ok(strpos((select body_html from notification_emails where event_type = '
 --   - create_partner_invitation : URL du secret Vault et jeton généré (encode(gen_random_bytes)) ;
 --     depuis 20261019130000, le corps vient de partner_invitation_email_html, qui échappe le nom
 --     du socio par html_text (et passe donc X1 par elle-même) ;
---   - create_partner_direct : même corps, mêmes deux valeurs (20261014024303, 20261019130000).
+--   - create_partner_direct : même corps, mêmes deux valeurs (20261014024303, 20261019130000) ;
+--   - notify_order_confirmed : depuis 20261112140000, son seul corps propre est celui de la commission
+--     (texte fixe, aucune valeur) ; la confirmation client est dans notify_client_order_confirmed, qui
+--     échappe (et passe X1 par elle-même).
 create temp table liste_blanche_html (proname text primary key);
-insert into liste_blanche_html values ('create_partner_invitation'), ('create_partner_direct');
+insert into liste_blanche_html values ('create_partner_invitation'), ('create_partner_direct'), ('notify_order_confirmed');
 
 create temp view emetteurs_html as
   select p.proname::text as proname, p.prosecdef, d.def

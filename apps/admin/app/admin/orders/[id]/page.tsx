@@ -6,6 +6,7 @@ import { requireUuidParam } from "@/lib/routing/requireUuidParam";
 import { LedgerLinesTable } from "./LedgerLinesTable";
 import { acompteDue, formatDateInBogota, orderPaymentState } from "@hifago/domain";
 import { StatusChip } from "@/components/status-chip";
+import { Card } from "@hifago/ui";
 import { PAYMENT_STATE_CHIP_STYLE, PAYMENT_STATE_LABELS } from "@/lib/orders/paymentDisplayLabels";
 
 export default async function AdminOrderDetailPage({
@@ -21,7 +22,7 @@ export default async function AdminOrderDetailPage({
     supabase
       .from("orders")
       .select(
-        "id, holder_name, holder_email, holder_phone, created_at, payment_status, referrer:partners(display_name)"
+        "id, holder_name, holder_email, holder_phone, created_at, payment_status, client_note, referrer:partners(display_name)"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -86,6 +87,17 @@ export default async function AdminOrderDetailPage({
           </Link>
         ) : null}
       </div>
+
+      {/* La note laissée par le client au paiement (migration 20261112120000), la même que les
+          prestataires reçoivent. L'admin la voit toujours, payée ou non. */}
+      {order.client_note ? (
+        <Card data-testid="order-client-note">
+          <Card.Content className="flex flex-col gap-2">
+            <span className="text-sm text-muted">Nota del cliente</span>
+            <p className="whitespace-pre-line break-words text-sm">{order.client_note}</p>
+          </Card.Content>
+        </Card>
+      ) : null}
 
       <LedgerLinesTable lines={lines ?? []} paymentState={paymentState} />
     </div>

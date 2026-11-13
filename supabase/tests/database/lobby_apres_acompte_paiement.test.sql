@@ -12,13 +12,14 @@
 --   - order_for_client_jsonb.pms_confirmation : 'pending' (payée, nuit PMS vivante sans booking,
 --     demande absente ou en cours), 'failed' (demande failed / needs_human), null sinon — et le
 --     WhatsApp du prestataire masqué sur TOUTE la commande tant qu'il vaut 'pending' ou 'failed' ;
---   - create_order : l'e-mail 8 part à la création d'une commande sans rien à payer en ligne
+--   - create_order : l'e-mail au prestataire (ex-e-mail 8) ET la confirmation au client partent à la
+--     création d'une commande sans rien à payer en ligne
 --     (evento gratuit), jamais quand un acompte est dû ;
 --   - resolve_pms_cancellation_restricted : l'annulation refusée (booking payé) est close ET part en
 --     réconciliation « annuler à la main dans Lobby », une fois par booking ; sans ligne qui porte le
 --     booking, jamais close en silence : en échec, avec un motif explicite (migration 20261023150000).
 begin;
-select plan(30);
+select plan(32);
 
 create function t_id(p text) returns uuid language sql as $$
   select ('7e140000-0000-4000-8000-' || lpad(p, 12, '0'))::uuid;
@@ -75,8 +76,8 @@ create function t_emails(p_order text) returns jsonb language sql as $$
   select jsonb_build_object(
     'paiement', (select count(*)::int from notification_emails where event_type = 'partner_payment_confirmed' and related_id = t_id(p_order)),
     'client', (select count(*)::int from notification_emails where event_type = 'client_order_confirmed' and related_id = t_id(p_order)),
-    'recurso', (select count(*)::int from notification_emails n join order_lines ol on ol.id = n.related_id
-                 where n.event_type = 'partner_camp_evento_blocked' and ol.order_id = t_id(p_order)));
+    -- 20261112120000 : l'ex-e-mail 8 (camp) est fondu dans l'e-mail de réservation au prestataire.
+    'recurso', (select count(*)::int from notification_emails where event_type = 'partner_payment_confirmed' and related_id = t_id(p_order) and body_html like '%Recurso bloqueado%'));
 $$;
 
 -- ── Webhook : fixtures (une commande `pending`, un paiement `pending` de 17000 chacune) ────────
@@ -235,18 +236,28 @@ select is(
   t_id('2308')::text,
   'O9 : l''ordre des lignes est inchangé (`lines,0`)');
 
--- ── create_order : l'e-mail 8 sans rien à payer ─────────────────────────────────────────────
+-- ── create_order : l'e-mail au prestataire (ex-e-mail 8) sans rien à payer ─────────────────────────────────────────────
 insert into cart_items (account_id, product_id, date, qty) values (t_id('22'), t_id('35'), '2029-11-20', 2);
 set local role authenticated;
 select test_login(t_id('22'));
 create temp table t_co1 as select create_order('LA Holder Gratis', 'la-gratis@test.local') as r;
 reset role;
 select is(
-  (select count(*)::int from notification_emails n join order_lines ol on ol.id = n.related_id
-    where n.event_type = 'partner_camp_evento_blocked' and ol.order_id = ((select r ->> 'order_id' from t_co1))::uuid
-      and n.recipient_account_id = t_id('21')),
+  (select count(*)::int from notification_emails
+    where event_type = 'partner_payment_confirmed' and related_id = ((select r ->> 'order_id' from t_co1))::uuid
+      and recipient_account_id = t_id('21') and body_html like '%Recurso bloqueado%' and body_html like '%Gratis%'
+      and body_html like '%reservó en Hifago.%'),
   1,
-  'C1 : un evento gratuit qui occupe la ressource → l''e-mail 8 part dès la création (rien à payer en ligne)');
+  'C1 : un evento gratuit qui occupe la ressource → l''e-mail au prestataire part dès la création (rien à payer en ligne), « Gratis », sans « pagó »');
+-- 20261112160000 : le client aussi, dès la création, sans « Recibimos tu pago » ni phrase sur le solde.
+select is(
+  (select count(*)::int from notification_emails
+    where event_type = 'client_order_confirmed' and related_id = ((select r ->> 'order_id' from t_co1))::uuid
+      and recipient_email = 'la-gratis@test.local'
+      and body_html like '%no tienes ningún pago pendiente en línea%' and body_html like '%Gratis%'
+      and body_html not like '%Recibimos tu pago%' and body_html not like '%El saldo se paga%'),
+  1,
+  'C1b : evento gratuit → l''e-mail de confirmation au client part dès la création, « sin pago pendiente »');
 insert into cart_items (account_id, product_id, date, qty) values
   (t_id('22'), t_id('35'), '2029-11-20', 1),
   (t_id('22'), t_id('33'), '2029-11-20', 1);
@@ -256,11 +267,16 @@ create temp table t_co2 as select create_order('LA Holder Mixta', 'la-mixta@test
 reset role;
 select is(
   jsonb_build_object('ok', (select r ->> 'ok' from t_co2),
-                     'recurso', (select count(*)::int from notification_emails n join order_lines ol on ol.id = n.related_id
-                                  where n.event_type = 'partner_camp_evento_blocked'
-                                    and ol.order_id = ((select r ->> 'order_id' from t_co2))::uuid)),
+                     'recurso', (select count(*)::int from notification_emails
+                                  where event_type = 'partner_payment_confirmed'
+                                    and related_id = ((select r ->> 'order_id' from t_co2))::uuid)),
   jsonb_build_object('ok', 'true', 'recurso', 0),
-  'C2 : evento gratuit + activité payante → un acompte est dû, l''e-mail 8 attend la confirmation');
+  'C2 : evento gratuit + activité payante → un acompte est dû, l''e-mail au prestataire attend la confirmation');
+select is(
+  (select count(*)::int from notification_emails
+    where event_type = 'client_order_confirmed' and related_id = ((select r ->> 'order_id' from t_co2))::uuid),
+  0,
+  'C2b : un acompte est dû → aucun e-mail au client avant le paiement');
 
 -- ── resolve_pms_cancellation_restricted ─────────────────────────────────────────────────────
 select t_order('1401', 'paid');

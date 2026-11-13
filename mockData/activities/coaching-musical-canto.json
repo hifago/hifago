@@ -36,7 +36,6 @@
     "acompte_pct": 0.15,
     "referral_pct": 0.1,
     "schedule": "slot",
-    "qty_unit": "hours",
     "calendar_default_open": true,
     "max_units": null
   },

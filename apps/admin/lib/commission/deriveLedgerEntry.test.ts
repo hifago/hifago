@@ -1,99 +1,111 @@
 import { describe, expect, it } from "vitest";
-import { deriveLedgerEntry } from "./deriveLedgerEntry";
+import { deriveLedgerEntry, type LedgerLineInput } from "./deriveLedgerEntry";
 
-// Snapshot externe réaliste (feature 11) : total=100000, acompte=17%(17000), référent=10%(10000),
-// app=7%(7000) — providerShareCop structurel = 100000-17000 = 83000.
-const SNAPSHOT = {
-  commissionCase: "external_referrer",
+// Recommandation externe : total 100 000, acompte 17 000, référent 8 000, app 9 000 — part
+// structurelle du prestataire 100 000 − 17 000 = 83 000.
+const LINE: Omit<LedgerLineInput, "lineStatus" | "commissionEntry" | "compensationEntry"> = {
   totalCop: 100000,
   acompteCop: 17000,
-  referrerCommissionCop: 10000,
-  appCommissionCop: 7000,
+  referrerCommissionCop: 8000,
+  appCommissionCop: 9000,
 };
 
-describe("deriveLedgerEntry", () => {
-  it("reserved → estimated, montants structurels identiques à fulfilled", () => {
-    expect(deriveLedgerEntry({ ...SNAPSHOT, lineStatus: "reserved" })).toEqual({
-      appDueCop: 7000,
-      referrerDueCop: 10000,
+describe("deriveLedgerEntry — lu dans le vrai ledger", () => {
+  it.each([
+    ["estimated", "reserved"],
+    ["due", "fulfilled"],
+    ["paid", "fulfilled"],
+  ])("commission %s : son statut réel, sa part référent", (status, lineStatus) => {
+    expect(
+      deriveLedgerEntry({
+        ...LINE,
+        lineStatus,
+        commissionEntry: { status, amountCop: 8000 },
+        compensationEntry: null,
+      })
+    ).toEqual({
+      appDueCop: 9000,
+      referrerDueCop: 8000,
       providerDueCop: 83000,
-      state: "estimated",
+      display: { kind: "commission", status },
     });
   });
 
-  it("fulfilled → earned, providerDueCop = totalCop - acompteCop", () => {
-    expect(deriveLedgerEntry({ ...SNAPSHOT, lineStatus: "fulfilled" })).toEqual({
-      appDueCop: 7000,
-      referrerDueCop: 10000,
-      providerDueCop: 83000,
-      state: "earned",
+  it("« Pagada » s'affiche — l'ancienne dérivation ne pouvait jamais la produire", () => {
+    const view = deriveLedgerEntry({
+      ...LINE,
+      lineStatus: "fulfilled",
+      commissionEntry: { status: "paid", amountCop: 8000 },
+      compensationEntry: null,
     });
+    expect(view.display).toEqual({ kind: "commission", status: "paid" });
   });
 
-  it("cancelled_by_client → redistributed, referrerDueCop tombe à 0, se retrouve intégralement dans providerDueCop", () => {
-    const entry = deriveLedgerEntry({ ...SNAPSHOT, lineStatus: "cancelled_by_client" });
-    expect(entry).toEqual({
-      appDueCop: 7000,
+  it("annulation client PAYÉE : la compensation réelle part au prestataire", () => {
+    expect(
+      deriveLedgerEntry({
+        ...LINE,
+        lineStatus: "cancelled_by_client",
+        commissionEntry: { status: "void", amountCop: 8000 },
+        compensationEntry: { status: "due", amountCop: 8000 },
+      })
+    ).toEqual({
+      appDueCop: 9000,
       referrerDueCop: 0,
-      providerDueCop: 93000, // 83000 (part structurelle) + 10000 (commission référent redirigée)
-      state: "redistributed",
-    });
-    // Conservation explicite : rien perdu, rien dupliqué — la somme des 3 parts reste égale à la
-    // somme du snapshot d'origine (providerShareCop + referrerCommissionCop + appCommissionCop).
-    expect(entry.referrerDueCop + entry.providerDueCop).toBe(83000 + 10000);
-  });
-
-  it("no_show → redistributed, même traitement que cancelled_by_client", () => {
-    expect(deriveLedgerEntry({ ...SNAPSHOT, lineStatus: "no_show" })).toEqual({
-      appDueCop: 7000,
-      referrerDueCop: 0,
-      providerDueCop: 93000,
-      state: "redistributed",
+      providerDueCop: 91000,
+      display: { kind: "compensation", status: "due" },
     });
   });
 
-  it("expired → redistributed par analogie directe avec un no-show (extrapolation assumée)", () => {
-    expect(deriveLedgerEntry({ ...SNAPSHOT, lineStatus: "expired" })).toEqual({
-      appDueCop: 7000,
-      referrerDueCop: 0,
-      providerDueCop: 93000,
-      state: "redistributed",
-    });
+  it.each(["expired", "cancelled_by_client"])(
+    "%s sans acompte payé : aucune compensation, donc rien de « redistribué »",
+    (lineStatus) => {
+      expect(
+        deriveLedgerEntry({
+          ...LINE,
+          lineStatus,
+          commissionEntry: { status: "void", amountCop: 8000 },
+          compensationEntry: null,
+        })
+      ).toEqual({ appDueCop: 0, referrerDueCop: 0, providerDueCop: 0, display: { kind: "commission", status: "void" } });
+    }
+  );
+
+  it("annulation prestataire : commission reprise, rien n'est dû", () => {
+    expect(
+      deriveLedgerEntry({
+        ...LINE,
+        lineStatus: "cancelled_by_provider",
+        commissionEntry: { status: "reversed", amountCop: 8000 },
+        compensationEntry: null,
+      })
+    ).toEqual({ appDueCop: 0, referrerDueCop: 0, providerDueCop: 0, display: { kind: "commission", status: "reversed" } });
   });
 
-  it("cancelled_by_provider → voided, tous les montants à 0 (aucune commission due)", () => {
-    expect(deriveLedgerEntry({ ...SNAPSHOT, lineStatus: "cancelled_by_provider" })).toEqual({
-      appDueCop: 0,
-      referrerDueCop: 0,
-      providerDueCop: 0,
-      state: "voided",
+  it("option 17 % : la part référent est le montant NET du ledger, les frais sont dans la part app", () => {
+    const view = deriveLedgerEntry({
+      totalCop: 100000,
+      acompteCop: 17000,
+      referrerCommissionCop: 16150,
+      appCommissionCop: 850,
+      lineStatus: "fulfilled",
+      commissionEntry: { status: "due", amountCop: 16150 },
+      compensationEntry: null,
     });
+    expect([view.appDueCop, view.referrerDueCop, view.providerDueCop]).toEqual([850, 16150, 83000]);
   });
 
-  it("conservation : appDueCop+referrerDueCop+providerDueCop égale toujours totalCop-0 pour earned/redistributed (rien n'est jamais créé ni perdu)", () => {
-    const earned = deriveLedgerEntry({ ...SNAPSHOT, lineStatus: "fulfilled" });
-    const redistributed = deriveLedgerEntry({ ...SNAPSHOT, lineStatus: "cancelled_by_client" });
-    const expectedTotal =
-      SNAPSHOT.appCommissionCop + SNAPSHOT.referrerCommissionCop + (SNAPSHOT.totalCop - SNAPSHOT.acompteCop);
-    expect(earned.appDueCop + earned.referrerDueCop + earned.providerDueCop).toBe(expectedTotal);
-    expect(redistributed.appDueCop + redistributed.referrerDueCop + redistributed.providerDueCop).toBe(
-      expectedTotal
-    );
-  });
-
-  it("direct (referrerCommissionCop=0) : redistributed n'invente aucune part référent", () => {
-    const directSnapshot = {
-      commissionCase: "direct",
-      totalCop: 50000,
-      acompteCop: 8500,
-      referrerCommissionCop: 0,
-      appCommissionCop: 8500,
-    };
-    expect(deriveLedgerEntry({ ...directSnapshot, lineStatus: "cancelled_by_client" })).toEqual({
-      appDueCop: 8500,
-      referrerDueCop: 0,
-      providerDueCop: 41500, // (50000-8500) + 0 : rien à rediriger, la part référent était déjà nulle
-      state: "redistributed",
-    });
+  it("ligne directe : aucune entrée, « sin comisión »", () => {
+    expect(
+      deriveLedgerEntry({
+        totalCop: 50000,
+        acompteCop: 8500,
+        referrerCommissionCop: 0,
+        appCommissionCop: 8500,
+        lineStatus: "reserved",
+        commissionEntry: null,
+        compensationEntry: null,
+      })
+    ).toEqual({ appDueCop: 8500, referrerDueCop: 0, providerDueCop: 41500, display: { kind: "none" } });
   });
 });

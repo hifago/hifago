@@ -2,8 +2,21 @@
      appelant signUp() (apps/admin ou apps/web) DOIT passer options.emailRedirectTo construit via
      `new URL(...).searchParams.set("next", ...)` (jamais une URL nue) — {{ .RedirectTo }} retombe
      sinon sur site_url SANS query string, ce qui casserait le "&token_hash=..." qui suit. Contrat
-     vérifié empiriquement (smoke-test Inbucket) avant de bâtir le reste de l'inscription client. -->
-<h2>Confirma tu cuenta en Hifago</h2>
+     vérifié empiriquement (smoke-test Inbucket) avant de bâtir le reste de l'inscription client.
+     Charte (2026-11-12) : même habillage que les e-mails de la file (email_layout, migration
+     20261112150000), en HTML statique — un gabarit Auth ne lit pas le Vault : l'image d'en-tête et
+     le lien du pied visent la vitrine de PRODUCTION (https://hifago.co), où l'image est publiée. -->
+<div style="background:#f0f6fc;padding:24px 12px;font-family:Poppins,Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#132f61">
+<div style="max-width:600px;margin:0 auto">
+<a href="https://hifago.co" style="display:block;text-decoration:none"><img src="https://hifago.co/brand/email-cabecera.jpg" width="600" alt="Hifago · Guatapé merece más de un día." style="display:block;width:100%;max-width:600px;height:auto;border:0;border-radius:16px 16px 0 0"></a>
+<div style="background:#ffffff;padding:24px">
+<h2 style="font-family:Anton,Impact,sans-serif;font-weight:400;font-size:30px;line-height:1.15;color:#132f61;margin:0 0 6px">Confirma tu cuenta en Hifago<span style="color:#ddae09">.</span></h2>
 <p>Sigue este enlace para confirmar tu cuenta y empezar a usar Hifago:</p>
-<p><a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=signup">Confirmar mi cuenta</a></p>
-<p>Si no creaste esta cuenta, puedes ignorar este correo.</p>
+<p style="margin:28px 0 8px"><a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=signup" style="display:inline-block;background:#ddae09;color:#132f61;text-decoration:none;font-weight:700;font-size:16px;line-height:20px;padding:14px 24px;border-radius:8px">Confirmar mi cuenta</a></p>
+<p style="margin:24px 0 0;color:#2a618e;font-size:13px">Si no creaste esta cuenta, puedes ignorar este correo.</p>
+</div>
+<div style="background:#132f61;color:#ffffff;padding:18px 24px;border-radius:0 0 16px 16px;font-size:13px">
+<p style="margin:0;color:#b6cde8">Hifago · Guatapé, Antioquia · <a href="https://hifago.co" style="color:#ddae09;text-decoration:underline">hifago.co</a></p>
+</div>
+</div>
+</div>

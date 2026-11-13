@@ -26,10 +26,13 @@ schéma JSON exacts : `mockData/README.md`.
    eval "$(npx supabase status -o env | grep -E '^[A-Z0-9_]+=' | sed 's/^/export /')"
    SUPABASE_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
      SUPABASE_ADMIN_EMAIL="admin@hifago.test" SUPABASE_ADMIN_PASSWORD="Seed1234!" \
+     SUPABASE_ADMIN_TOTP_SECRET="MUFUB2W7HB62XKO323JGYVPWPE7OJHI7" \
      MOCK_PERSONNE_MDP="Seed1234!" \
      node supabase/scripts/seed-mock-data.mjs
    ```
-   Ou `npm run db:mock-data` avec les mêmes variables déjà exportées. `MOCK_PERSONNE_MDP` donne
+   Ou `npm run db:mock-data` avec les mêmes variables déjà exportées. `SUPABASE_ADMIN_TOTP_SECRET`
+   est le secret de test du facteur TOTP de `admin@hifago.test` (posé par `seed.sql`) : sans lui,
+   `is_admin()` reste fermé à la session (AAL1) et le script s'arrête avant toute écriture. `MOCK_PERSONNE_MDP` donne
    leur mot de passe aux personnes SANS `password` dans leur JSON (les 21 comptes fictifs du
    catalogue v1 — dépôt public, aucun mot de passe écrit) ; sans elle, ces partenaires sont créés
    sans compte de connexion. En préprod, jamais `Seed1234!` : un mot de passe fort, en variable de

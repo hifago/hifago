@@ -117,6 +117,7 @@ export default async function PartnerReservationsPage({
     qty: line.qty,
     totalCop: line.total_cop,
     status: line.status,
+    hasClientNote: line.has_client_note,
   }));
 
   return (

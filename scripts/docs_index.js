@@ -433,7 +433,21 @@ function collect() {
       if (!chemins.includes(cible)) problemes.push(`raccourci « ${sujet} » → ${cible} : document introuvable`);
     }
   }
+  problemes.push(...verifierMarketing());
   return { docs, problemes };
+}
+
+/**
+ * Aucun document marketing dans le dépôt : ils vivent hors dépôt, dans
+ * `C:\Users\Administrator\Documents\01Hifago\Marketing\` (décision Jérôme du 2026-11-12, qui
+ * remplace le dossier `docs/marketing/` créé le même jour — CLAUDE.md §1.5). POURQUOI ici : c'est la
+ * seule partie de la règle qu'une machine peut constater (CLAUDE.md §11.20) ; un document marketing
+ * posé ailleurs dans le dépôt reste un contrôle humain. Lit le disque, pas l'index git.
+ */
+function verifierMarketing() {
+  return fs.existsSync(path.join(DOCS, 'marketing'))
+    ? ['docs/marketing/ — les documents marketing vivent hors dépôt, dans Documents/01Hifago/Marketing/ (CLAUDE.md §1.5)']
+    : [];
 }
 
 function build(docs) {
@@ -508,6 +522,7 @@ ${rubrique('specs', (d) => !estSpecFeature(d))}
 
 ## Suivi — backlog, dette, pièges, journal
 ${rubrique('journal')}
+
 `;
 }
 
