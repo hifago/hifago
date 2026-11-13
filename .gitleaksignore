@@ -36,3 +36,12 @@ d8159cdcd443dfbe61298a40b043147df068424c:tests/payments-integration/payments_rec
 4d0ce89c6f57060e515a8becbcbace88e5f80cbe:packages/domain/src/jobs/jobError.test.ts:generic-api-key:7
 4d0ce89c6f57060e515a8becbcbace88e5f80cbe:packages/domain/src/jobs/jobError.test.ts:generic-api-key:8
 4d0ce89c6f57060e515a8becbcbace88e5f80cbe:packages/domain/src/jobs/jobError.test.ts:generic-api-key:42
+
+# Même secret TOTP du compte seedé admin@hifago.test (identique à seed.sql et e2e-support/mfa.ts),
+# recopié dans la commande de rechargement de mockData/ (doc, script, skill) ; et vecteur de test
+# PUBLIC de la RFC 6238 annexe B (« 12345678901234567890 » en base32). Vérifié le 2026-11-13,
+# exceptions autorisées par Jérôme.
+6067841c14f4a061ec343429e75c91c378954452:DEMARRAGE-LOCAL-WINDOWS.md:generic-api-key:196
+6067841c14f4a061ec343429e75c91c378954452:scripts/lib/totp.test.mjs:generic-api-key:7
+6067841c14f4a061ec343429e75c91c378954452:supabase/scripts/seed-mock-data.mjs:generic-api-key:48
+6067841c14f4a061ec343429e75c91c378954452:.claude/skills/hifago-mock-data/SKILL.md:generic-api-key:29
